@@ -1,0 +1,603 @@
+# Verification Profiles & Oracle Suites — SR-DIRECTIVE Instance-1
+# This file is embedded in SR-DIRECTIVE and defines the binding verification policy.
+# SR-DIRECTIVE configures verification profiles and oracle suites, but MUST NOT redefine binding semantics.
+# See SR-CONTRACT for invariant boundaries and SR-SPEC for mechanics.
+
+version: "1.0.0-draft.1"
+created: "2026-01-11"
+updated: "2026-01-11"
+
+# -------------------------------------------------------------------
+# A) Oracle Suites
+#
+# OracleSuite is a durable, pinned definition of which checks run, under what constraints.
+# SR-SPEC expects the active OracleSuite to be a depends_on ref in IterationStarted.refs[].
+# -------------------------------------------------------------------
+oracle_suites:
+  # ===================================================================
+  # SR-SUITE-STRICT-CORE
+  # Core deterministic checks for standard code deliverables
+  # ===================================================================
+  - suite_id: "SR-SUITE-STRICT-CORE"
+    suite_version: "1.0.0-draft.1"
+    description: "Core deterministic checks (build, unit, schema, lint, format) for standard code deliverables."
+    determinism_required: true
+    environment_constraints:
+      runner: "podman+gvisor"
+      network: "disabled"
+      oci_image_digest: "sha256:TBD_AT_BOOTSTRAP"
+      cpu_arch: "amd64"
+      os: "linux"
+      additional_constraints:
+        - "no_privileged_mode"
+        - "read_only_rootfs"
+        - "no_new_privileges"
+    oracles:
+      - oracle_id: "oracle:build"
+        classification: "required"
+        purpose: "Verify code compiles without errors."
+        command: "cargo build --release --locked"
+        timeout_seconds: 300
+        retries: 0
+        expected_outputs:
+          - path: "target/release/"
+            media_type: "application/octet-stream"
+            role: "artifact"
+          - path: "build.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:unit-test"
+        classification: "required"
+        purpose: "Verify unit test suite passes."
+        command: "cargo test --lib --locked -- --test-threads=1"
+        timeout_seconds: 600
+        retries: 0
+        expected_outputs:
+          - path: "test-results.json"
+            media_type: "application/json"
+            role: "report"
+          - path: "test.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:lint"
+        classification: "required"
+        purpose: "Verify code passes clippy linting."
+        command: "cargo clippy --locked -- -D warnings"
+        timeout_seconds: 120
+        retries: 0
+        expected_outputs:
+          - path: "clippy.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:format"
+        classification: "required"
+        purpose: "Verify code formatting is consistent."
+        command: "cargo fmt --check"
+        timeout_seconds: 60
+        retries: 0
+        expected_outputs:
+          - path: "fmt.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:schema-validate"
+        classification: "required"
+        purpose: "Verify schemas conform to SR-TYPES definitions."
+        command: "./scripts/validate-schemas.sh"
+        timeout_seconds: 60
+        retries: 0
+        expected_outputs:
+          - path: "schema-validation.json"
+            media_type: "application/json"
+            role: "report"
+      - oracle_id: "oracle:hex-boundary"
+        classification: "advisory"
+        purpose: "Verify hexagonal architecture boundary compliance."
+        command: "./scripts/check-hex-boundary.sh"
+        timeout_seconds: 120
+        retries: 0
+        expected_outputs:
+          - path: "hex-boundary.json"
+            media_type: "application/json"
+            role: "report"
+    flake_policy:
+      on_required_flake: "stop_the_line"   # ORACLE_FLAKE
+      on_advisory_flake: "warn_only"
+    evidence_capture_policy:
+      include_stdout: true
+      include_stderr: true
+      include_environment_fingerprint: true
+      include_artifact_hashes: true
+
+  # ===================================================================
+  # SR-SUITE-STRICT-FULL
+  # Full verification including integration/e2e and determinism checks
+  # ===================================================================
+  - suite_id: "SR-SUITE-STRICT-FULL"
+    suite_version: "1.0.0-draft.1"
+    description: "Full verification suite including integration, e2e, and determinism/replay checks for critical path deliverables."
+    determinism_required: true
+    environment_constraints:
+      runner: "podman+gvisor"
+      network: "restricted"  # Allow internal network for integration tests
+      oci_image_digest: "sha256:TBD_AT_BOOTSTRAP"
+      cpu_arch: "amd64"
+      os: "linux"
+      additional_constraints:
+        - "no_privileged_mode"
+        - "read_only_rootfs"
+        - "no_new_privileges"
+        - "internal_network_only"
+    oracles:
+      # Include all STRICT-CORE oracles
+      - oracle_id: "oracle:build"
+        classification: "required"
+        purpose: "Verify code compiles without errors."
+        command: "cargo build --release --locked"
+        timeout_seconds: 300
+        retries: 0
+        expected_outputs:
+          - path: "target/release/"
+            media_type: "application/octet-stream"
+            role: "artifact"
+          - path: "build.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:unit-test"
+        classification: "required"
+        purpose: "Verify unit test suite passes."
+        command: "cargo test --lib --locked -- --test-threads=1"
+        timeout_seconds: 600
+        retries: 0
+        expected_outputs:
+          - path: "test-results.json"
+            media_type: "application/json"
+            role: "report"
+          - path: "test.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:lint"
+        classification: "required"
+        purpose: "Verify code passes clippy linting."
+        command: "cargo clippy --locked -- -D warnings"
+        timeout_seconds: 120
+        retries: 0
+        expected_outputs:
+          - path: "clippy.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:format"
+        classification: "required"
+        purpose: "Verify code formatting is consistent."
+        command: "cargo fmt --check"
+        timeout_seconds: 60
+        retries: 0
+        expected_outputs:
+          - path: "fmt.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:schema-validate"
+        classification: "required"
+        purpose: "Verify schemas conform to SR-TYPES definitions."
+        command: "./scripts/validate-schemas.sh"
+        timeout_seconds: 60
+        retries: 0
+        expected_outputs:
+          - path: "schema-validation.json"
+            media_type: "application/json"
+            role: "report"
+      # Additional STRICT-FULL oracles
+      - oracle_id: "oracle:integration-test"
+        classification: "required"
+        purpose: "Verify integration with external systems (DB, MinIO, NATS)."
+        command: "cargo test --test '*' --locked -- --test-threads=1"
+        timeout_seconds: 900
+        retries: 0
+        expected_outputs:
+          - path: "integration-results.json"
+            media_type: "application/json"
+            role: "report"
+          - path: "integration.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:e2e-test"
+        classification: "required"
+        purpose: "Verify end-to-end scenarios complete successfully."
+        command: "./scripts/run-e2e-tests.sh"
+        timeout_seconds: 1800
+        retries: 0
+        expected_outputs:
+          - path: "e2e-results.json"
+            media_type: "application/json"
+            role: "report"
+          - path: "e2e.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:determinism-check"
+        classification: "required"
+        purpose: "Verify operations produce identical outputs for identical inputs."
+        command: "./scripts/check-determinism.sh"
+        timeout_seconds: 600
+        retries: 0
+        expected_outputs:
+          - path: "determinism-proof.json"
+            media_type: "application/json"
+            role: "report"
+      - oracle_id: "oracle:replay-determinism"
+        classification: "required"
+        purpose: "Verify event replay produces identical state."
+        command: "./scripts/check-replay-determinism.sh"
+        timeout_seconds: 900
+        retries: 0
+        expected_outputs:
+          - path: "replay-proof.json"
+            media_type: "application/json"
+            role: "report"
+      - oracle_id: "oracle:security-scan"
+        classification: "advisory"
+        purpose: "Scan for security vulnerabilities."
+        command: "cargo audit && cargo deny check"
+        timeout_seconds: 300
+        retries: 0
+        expected_outputs:
+          - path: "security-report.json"
+            media_type: "application/json"
+            role: "report"
+    flake_policy:
+      on_required_flake: "stop_the_line"   # ORACLE_FLAKE
+      on_advisory_flake: "warn_only"
+    evidence_capture_policy:
+      include_stdout: true
+      include_stderr: true
+      include_environment_fingerprint: true
+      include_artifact_hashes: true
+
+  # ===================================================================
+  # SR-SUITE-DOCS
+  # Documentation and governance artifact verification
+  # ===================================================================
+  - suite_id: "SR-SUITE-DOCS"
+    suite_version: "1.0.0-draft.1"
+    description: "Documentation and governance artifact verification (schema, links, coherence)."
+    determinism_required: true
+    environment_constraints:
+      runner: "podman+gvisor"
+      network: "disabled"
+      oci_image_digest: "sha256:TBD_AT_BOOTSTRAP"
+      cpu_arch: "amd64"
+      os: "linux"
+      additional_constraints:
+        - "no_privileged_mode"
+        - "read_only_rootfs"
+    oracles:
+      - oracle_id: "oracle:schema-validate"
+        classification: "required"
+        purpose: "Verify governance artifact metadata conforms to SR-TYPES."
+        command: "./scripts/validate-governance-schemas.sh"
+        timeout_seconds: 60
+        retries: 0
+        expected_outputs:
+          - path: "schema-validation.json"
+            media_type: "application/json"
+            role: "report"
+      - oracle_id: "oracle:link-check"
+        classification: "required"
+        purpose: "Verify internal document links are valid."
+        command: "./scripts/check-doc-links.sh"
+        timeout_seconds: 120
+        retries: 0
+        expected_outputs:
+          - path: "link-check.json"
+            media_type: "application/json"
+            role: "report"
+      - oracle_id: "oracle:coherence-check"
+        classification: "required"
+        purpose: "Verify cross-artifact coherence (S11 audit)."
+        command: "./scripts/check-coherence.sh"
+        timeout_seconds: 300
+        retries: 0
+        expected_outputs:
+          - path: "coherence-audit.json"
+            media_type: "application/json"
+            role: "report"
+      - oracle_id: "oracle:spell-check"
+        classification: "advisory"
+        purpose: "Check spelling in documentation."
+        command: "./scripts/spell-check.sh"
+        timeout_seconds: 60
+        retries: 0
+        expected_outputs:
+          - path: "spell-check.log"
+            media_type: "text/plain"
+            role: "log"
+    flake_policy:
+      on_required_flake: "stop_the_line"
+      on_advisory_flake: "warn_only"
+    evidence_capture_policy:
+      include_stdout: true
+      include_stderr: true
+      include_environment_fingerprint: true
+      include_artifact_hashes: true
+
+  # ===================================================================
+  # SR-SUITE-OPS
+  # Operations and deployment verification
+  # ===================================================================
+  - suite_id: "SR-SUITE-OPS"
+    suite_version: "1.0.0-draft.1"
+    description: "Operations and deployment verification (deploy, health, idempotency)."
+    determinism_required: true
+    environment_constraints:
+      runner: "podman+gvisor"
+      network: "restricted"  # Allow internal network for deployment tests
+      oci_image_digest: "sha256:TBD_AT_BOOTSTRAP"
+      cpu_arch: "amd64"
+      os: "linux"
+      additional_constraints:
+        - "no_privileged_mode"
+        - "internal_network_only"
+    oracles:
+      - oracle_id: "oracle:build"
+        classification: "required"
+        purpose: "Verify deployment artifacts build."
+        command: "./scripts/build-deployment.sh"
+        timeout_seconds: 300
+        retries: 0
+        expected_outputs:
+          - path: "build.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:deploy-test"
+        classification: "required"
+        purpose: "Verify deployment stack deploys successfully."
+        command: "./scripts/test-deployment.sh"
+        timeout_seconds: 600
+        retries: 0
+        expected_outputs:
+          - path: "deploy.log"
+            media_type: "text/plain"
+            role: "log"
+          - path: "deploy-report.json"
+            media_type: "application/json"
+            role: "report"
+      - oracle_id: "oracle:health-check"
+        classification: "required"
+        purpose: "Verify all services report healthy."
+        command: "./scripts/health-check.sh"
+        timeout_seconds: 120
+        retries: 0
+        expected_outputs:
+          - path: "health-report.json"
+            media_type: "application/json"
+            role: "report"
+      - oracle_id: "oracle:idempotency-test"
+        classification: "required"
+        purpose: "Verify deployment is idempotent."
+        command: "./scripts/test-idempotency.sh"
+        timeout_seconds: 900
+        retries: 0
+        expected_outputs:
+          - path: "idempotency-proof.json"
+            media_type: "application/json"
+            role: "report"
+      - oracle_id: "oracle:init-test"
+        classification: "required"
+        purpose: "Verify bootstrap/init scripts complete."
+        command: "./scripts/test-init.sh"
+        timeout_seconds: 300
+        retries: 0
+        expected_outputs:
+          - path: "init.log"
+            media_type: "text/plain"
+            role: "log"
+      - oracle_id: "oracle:performance-baseline"
+        classification: "advisory"
+        purpose: "Capture performance baseline metrics."
+        command: "./scripts/performance-baseline.sh"
+        timeout_seconds: 600
+        retries: 0
+        expected_outputs:
+          - path: "performance-report.json"
+            media_type: "application/json"
+            role: "report"
+    flake_policy:
+      on_required_flake: "stop_the_line"
+      on_advisory_flake: "warn_only"
+    evidence_capture_policy:
+      include_stdout: true
+      include_stderr: true
+      include_environment_fingerprint: true
+      include_artifact_hashes: true
+
+# -------------------------------------------------------------------
+# B) Verification Profiles
+#
+# A profile is a policy-level bundle that selects suites (and sometimes additional rules).
+# SR-DIRECTIVE uses profiles to map work-unit types / deliverable classes to suites.
+# -------------------------------------------------------------------
+verification_profiles:
+  # ===================================================================
+  # STRICT-CORE Profile
+  # ===================================================================
+  - profile_id: "STRICT-CORE"
+    profile_version: "1.0.0-draft.1"
+    description: "Default profile for standard implementation deliverables. Core checks only."
+    required_suites:
+      - "SR-SUITE-STRICT-CORE"
+    advisory_suites: []
+    verification_mode_default: "STRICT"
+    waiver_policy:
+      allow_with_exceptions: false
+      waiver_eligible_failures: []
+      non_waivable_integrity_conditions:
+        - "ORACLE_TAMPER"
+        - "ORACLE_GAP"
+        - "ORACLE_ENV_MISMATCH"
+        - "ORACLE_FLAKE"
+        - "EVIDENCE_MISSING"
+
+  # ===================================================================
+  # STRICT-FULL Profile
+  # ===================================================================
+  - profile_id: "STRICT-FULL"
+    profile_version: "1.0.0-draft.1"
+    description: "High-stakes profile for critical path deliverables. Includes integration, e2e, and determinism checks."
+    required_suites:
+      - "SR-SUITE-STRICT-FULL"
+    advisory_suites: []
+    verification_mode_default: "STRICT"
+    waiver_policy:
+      allow_with_exceptions: true
+      waiver_eligible_failures:
+        - "oracle:e2e-test"  # May be waived with explicit justification
+        - "oracle:security-scan"  # Advisory, may be waived
+      non_waivable_integrity_conditions:
+        - "ORACLE_TAMPER"
+        - "ORACLE_GAP"
+        - "ORACLE_ENV_MISMATCH"
+        - "ORACLE_FLAKE"
+        - "EVIDENCE_MISSING"
+
+  # ===================================================================
+  # STRICT-DOCS Profile
+  # ===================================================================
+  - profile_id: "STRICT-DOCS"
+    profile_version: "1.0.0-draft.1"
+    description: "Profile for governance documents and artifacts. Schema, link, and coherence checks."
+    required_suites:
+      - "SR-SUITE-DOCS"
+    advisory_suites: []
+    verification_mode_default: "STRICT"
+    waiver_policy:
+      allow_with_exceptions: false
+      waiver_eligible_failures: []
+      non_waivable_integrity_conditions:
+        - "ORACLE_TAMPER"
+        - "ORACLE_GAP"
+        - "ORACLE_ENV_MISMATCH"
+        - "ORACLE_FLAKE"
+        - "EVIDENCE_MISSING"
+
+  # ===================================================================
+  # STRICT-OPS Profile
+  # ===================================================================
+  - profile_id: "STRICT-OPS"
+    profile_version: "1.0.0-draft.1"
+    description: "Profile for operations and deployment deliverables. Deploy, health, and idempotency checks."
+    required_suites:
+      - "SR-SUITE-OPS"
+    advisory_suites: []
+    verification_mode_default: "STRICT"
+    waiver_policy:
+      allow_with_exceptions: true
+      waiver_eligible_failures:
+        - "oracle:performance-baseline"  # Advisory
+      non_waivable_integrity_conditions:
+        - "ORACLE_TAMPER"
+        - "ORACLE_GAP"
+        - "ORACLE_ENV_MISMATCH"
+        - "ORACLE_FLAKE"
+        - "EVIDENCE_MISSING"
+
+# -------------------------------------------------------------------
+# C) Profile selection matrix (default mapping)
+# -------------------------------------------------------------------
+profile_selection_matrix:
+  # Domain code
+  - work_unit_type: "code.domain"
+    deliverable_ids: ["D-05", "D-06", "D-07", "D-08"]
+    default_profile_id: "STRICT-CORE"
+    override_rules:
+      - if: "deliverable_id in ['D-08']"
+        then_profile_id: "STRICT-FULL"
+        requires_portal: null
+        rationale: "Context compilation is critical path"
+
+  # Infrastructure code
+  - work_unit_type: "code.infra"
+    deliverable_ids: ["D-02", "D-03", "D-04"]
+    default_profile_id: "STRICT-CORE"
+    override_rules: []
+
+  # Persistence code
+  - work_unit_type: "code.persistence"
+    deliverable_ids: ["D-09", "D-10", "D-11", "D-12", "D-13"]
+    default_profile_id: "STRICT-CORE"
+    override_rules:
+      - if: "deliverable_id in ['D-10', 'D-11', 'D-12']"
+        then_profile_id: "STRICT-FULL"
+        requires_portal: null
+        rationale: "Event store, projections, and staleness are critical path"
+
+  # Evidence code
+  - work_unit_type: "code.evidence"
+    deliverable_ids: ["D-14", "D-15", "D-16"]
+    default_profile_id: "STRICT-CORE"
+    override_rules:
+      - if: "deliverable_id in ['D-16']"
+        then_profile_id: "STRICT-FULL"
+        requires_portal: null
+        rationale: "Secrets handling is security-critical"
+
+  # API code
+  - work_unit_type: "code.api"
+    deliverable_ids: ["D-17", "D-18", "D-19", "D-20"]
+    default_profile_id: "STRICT-CORE"
+    override_rules:
+      - if: "deliverable_id in ['D-18', 'D-19', 'D-20']"
+        then_profile_id: "STRICT-FULL"
+        requires_portal: null
+        rationale: "Core API endpoints are critical path"
+
+  # Orchestration code
+  - work_unit_type: "code.orchestration"
+    deliverable_ids: ["D-21", "D-22", "D-23"]
+    default_profile_id: "STRICT-CORE"
+    override_rules:
+      - if: "deliverable_id in ['D-22', 'D-23']"
+        then_profile_id: "STRICT-FULL"
+        requires_portal: null
+        rationale: "Loop governor and worker bridge are critical path"
+
+  # Oracle code
+  - work_unit_type: "code.oracle"
+    deliverable_ids: ["D-24", "D-25", "D-26", "D-27"]
+    default_profile_id: "STRICT-CORE"
+    override_rules:
+      - if: "deliverable_id in ['D-24', 'D-26', 'D-27']"
+        then_profile_id: "STRICT-FULL"
+        requires_portal: null
+        rationale: "Oracle runner, integration suite, and integrity checks are critical"
+
+  # UI code
+  - work_unit_type: "code.ui"
+    deliverable_ids: ["D-28", "D-29", "D-30"]
+    default_profile_id: "STRICT-CORE"
+    override_rules:
+      - if: "deliverable_id in ['D-30']"
+        then_profile_id: "STRICT-FULL"
+        requires_portal: null
+        rationale: "Portal workflows UI is authority-critical"
+
+  # Ops/deploy
+  - work_unit_type: "ops.deploy"
+    deliverable_ids: ["D-31", "D-32"]
+    default_profile_id: "STRICT-OPS"
+    override_rules: []
+
+  # Ops/observe
+  - work_unit_type: "ops.observe"
+    deliverable_ids: ["D-33"]
+    default_profile_id: "STRICT-CORE"
+    override_rules: []
+
+  # E2E tests
+  - work_unit_type: "test.e2e"
+    deliverable_ids: ["D-34", "D-35", "D-36"]
+    default_profile_id: "STRICT-FULL"
+    override_rules: []
+
+  # Governance
+  - work_unit_type: "governance.revision"
+    deliverable_ids: ["D-01"]
+    default_profile_id: "STRICT-DOCS"
+    override_rules: []

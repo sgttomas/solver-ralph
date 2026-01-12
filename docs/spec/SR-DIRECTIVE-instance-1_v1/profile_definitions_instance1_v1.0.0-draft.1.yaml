@@ -1,0 +1,954 @@
+document:
+  title: SR-DIRECTIVE Profile Definitions (Instance-1)
+  version: 1.0.0-draft.1
+  status: draft
+  scope: SOLVER-Ralph instance-1
+  created: '2026-01-11'
+  updated: '2026-01-11'
+  notes:
+  - This file defines the verification profiles and oracle suites referenced by the SR-DIRECTIVE Gate Registry for
+    instance-1.
+  - Suite/profile IDs are referenced as <kind>:<name>@<version>, matching SR-SPEC oracle suite pinning requirements.
+  - Replace sha256:__PIN_ME__ with actual OCI image digests before treating these as operationally binding.
+oracle_suites:
+- suite_id: suite:STRICT-CORE
+  suite_version: v1
+  description: 'Core deterministic checks intended to be REQUIRED for most candidate deliverables: build, unit tests,
+    formatting/lint, and schema validation.'
+  determinism_required: true
+  environment_constraints: &id001
+    runner: oracle_runner:podman+gvisor
+    network: disabled
+    oci_image_digest: sha256:__PIN_ME__
+    cpu_arch: amd64
+    os: linux
+    additional_constraints:
+    - Toolchains/dependencies must be pre-fetched or vendored; no network fetch during required oracles.
+    - Workspace inputs must be fully specified via content-addressed refs; no ambient state.
+    - Clock/timezone must be pinned; nondeterministic timestamps must be stripped from summaries.
+  oracles:
+  - oracle_id: oracle:rust-build
+    classification: required
+    purpose: Build all Rust workspace targets under a pinned toolchain and lockfile.
+    command: cargo build --workspace --locked --all-targets
+    timeout_seconds: 900
+    expected_outputs:
+    - exit_code=0
+    - build_log.txt
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - build_log.txt
+  - oracle_id: oracle:rust-unit-tests
+    classification: required
+    purpose: Run Rust unit tests deterministically for the workspace.
+    command: cargo test --workspace --locked --lib
+    timeout_seconds: 1200
+    expected_outputs:
+    - junit.xml
+    - test_summary.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - junit.xml
+    - test_summary.json
+  - oracle_id: oracle:rust-fmt
+    classification: required
+    purpose: Enforce Rust formatting (no diffs).
+    command: cargo fmt --all --check
+    timeout_seconds: 300
+    expected_outputs:
+    - exit_code=0
+    - fmt_report.txt
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - fmt_report.txt
+  - oracle_id: oracle:rust-clippy
+    classification: required
+    purpose: Enforce Rust linting (deny warnings).
+    command: cargo clippy --workspace --all-targets --locked -- -D warnings
+    timeout_seconds: 900
+    expected_outputs:
+    - exit_code=0
+    - clippy_report.txt
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - clippy_report.txt
+  - oracle_id: oracle:schema-validate
+    classification: required
+    purpose: Validate governed schemas (events/records) and local JSON schemas against SR-TYPES/SR-SPEC expectations.
+    command: make schema-validate
+    timeout_seconds: 600
+    expected_outputs:
+    - schema_validation_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - schema_validation_report.json
+  - oracle_id: oracle:ui-build
+    classification: required
+    purpose: Build the Portal/UI workspace (React) with pinned lockfile to ensure UI compile integrity.
+    command: cd ui && pnpm install --frozen-lockfile --offline && pnpm build
+    timeout_seconds: 1200
+    expected_outputs:
+    - ui_build_log.txt
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - ui_build_log.txt
+  - oracle_id: oracle:ui-unit-tests
+    classification: advisory
+    purpose: Run UI unit tests (advisory by default; reclassify only via governance).
+    command: cd ui && pnpm test -- --ci
+    timeout_seconds: 1200
+    expected_outputs:
+    - ui_test_report.xml
+    - exit_code=0
+    flake_handling: ADVISORY_ONLY
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - ui_test_report.xml
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - ORACLE_TAMPER
+    - ORACLE_GAP
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_FLAKE
+    - EVIDENCE_MISSING
+  notes:
+  - If pnpm offline install is not feasible, replace with an OCI image that already contains the pnpm store populated
+    from the lockfile; keep network disabled for required oracles.
+  - Any change that weakens required oracles or changes required/advisory classification is a governance change
+    (C-OR-6).
+- suite_id: suite:STRICT-FULL
+  suite_version: v1
+  description: Extended verification for high-stakes deliverables (integration, e2e, self-host boot, and replayability).
+  determinism_required: true
+  environment_constraints: &id002
+    runner: oracle_runner:podman+gvisor
+    network: restricted
+    oci_image_digest: sha256:__PIN_ME__
+    cpu_arch: amd64
+    os: linux
+    additional_constraints:
+    - Network egress to the public Internet must be blocked; only loopback/internal compose network allowed.
+    - Service versions must be pinned (image digests or exact versions) and recorded in evidence.
+    - DB/object-store/message-bus state must be initialized deterministically (idempotent bootstrap).
+  oracles:
+  - oracle_id: oracle:strict-core-suite
+    classification: required
+    purpose: Run the STRICT-CORE suite as a prerequisite.
+    command: make oracle-strict-core
+    timeout_seconds: 1800
+    expected_outputs:
+    - strict_core_summary.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - strict_core_summary.json
+  - oracle_id: oracle:selfhost-smoke
+    classification: required
+    purpose: Bring up the full stack and verify health checks and pinned versions.
+    command: make selfhost-smoke
+    timeout_seconds: 1800
+    expected_outputs:
+    - selfhost_health_report.json
+    - versions_pinned.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - selfhost_health_report.json
+    - versions_pinned.json
+  - oracle_id: oracle:integration-suite
+    classification: required
+    purpose: Run integration suite across DB/MinIO/NATS/API (and UI if applicable).
+    command: make integration-test
+    timeout_seconds: 2400
+    expected_outputs:
+    - integration_junit.xml
+    - integration_summary.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - integration_junit.xml
+    - integration_summary.json
+  - oracle_id: oracle:e2e-suite
+    classification: required
+    purpose: "Run end-to-end suite exercising loop\u2192iteration\u2192candidate\u2192oracles\u2192approval\u2192\
+      freeze (or representative subset)."
+    command: make e2e-test
+    timeout_seconds: 3600
+    expected_outputs:
+    - e2e_transcript.jsonl
+    - e2e_summary.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - e2e_transcript.jsonl
+    - e2e_summary.json
+  - oracle_id: oracle:replayability-check
+    classification: required
+    purpose: Replay a recorded event stream and assert deterministic reconstructed state checksum.
+    command: make replayability-check
+    timeout_seconds: 1800
+    expected_outputs:
+    - replay_checksum.txt
+    - replay_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - replay_checksum.txt
+    - replay_report.json
+  - oracle_id: oracle:security-scan
+    classification: advisory
+    purpose: Run security scanning (advisory by default; treat HIGH/CRITICAL findings as stop triggers via SR-DIRECTIVE).
+    command: make security-scan
+    timeout_seconds: 1800
+    expected_outputs:
+    - security_report.sarif
+    flake_handling: ADVISORY_ONLY
+    evidence_artifacts:
+    - stdout.log
+    - stderr.log
+    - security_report.sarif
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: true
+    waiver_eligible_failures:
+    - oracle:integration-suite
+    - oracle:e2e-suite
+    non_waivable_conditions:
+    - ORACLE_TAMPER
+    - ORACLE_GAP
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_FLAKE
+    - EVIDENCE_MISSING
+  notes:
+  - "Waivers apply only to explicit required-oracle FAIL outcomes and require human approval; they MUST NOT be used\
+    \ for integrity conditions (SR-SPEC \xA71.14)."
+  - If integration/e2e tests are not deterministic, they MUST NOT remain required (C-OR-1); reclassify only via
+    governance (C-OR-6).
+- suite_id: suite:CTX-REFSET-VALIDATION
+  suite_version: v1
+  description: Context admissibility and reference-set validation for IterationStarted refs and deterministic context
+    compilation.
+  determinism_required: true
+  environment_constraints: *id001
+  oracles:
+  - oracle_id: oracle:refs-required-present
+    classification: required
+    purpose: Verify required refs are present (SAPS, SR-CONTRACT, SR-SPEC, SR-PLAN instance, SR-DIRECTIVE, SR-ETT)
+      and properly typed.
+    command: srctl context validate-refs --require standard
+    timeout_seconds: 120
+    expected_outputs:
+    - refs_validation.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - refs_validation.json
+  - oracle_id: oracle:refs-dereferenceable
+    classification: required
+    purpose: Dereference each depends_on ref and verify meta.content_hash matches fetched content.
+    command: srctl context deref --verify-hash
+    timeout_seconds: 300
+    expected_outputs:
+    - deref_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - deref_report.json
+  - oracle_id: oracle:context-compiler-determinism
+    classification: required
+    purpose: Run ContextCompiler twice from the same refs/payload and ensure identical ContextBundle content hash.
+    command: srctl context compile --twice --compare-hash
+    timeout_seconds: 600
+    expected_outputs:
+    - context_bundle_hashes.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - context_bundle_hashes.json
+    - context_bundle.manifest.json
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - EVIDENCE_MISSING
+  notes:
+  - Operationalizes SR-ETT accountability/ontological membranes at the iteration boundary (no ghost inputs).
+- suite_id: suite:RUNTIME-SUBSTRATE
+  suite_version: v1
+  description: 'Runtime substrate verification for persistence primitives: event store invariants, projection rebuild
+    determinism, and outbox publish semantics.'
+  determinism_required: true
+  environment_constraints: *id002
+  oracles:
+  - oracle_id: oracle:strict-core-suite
+    classification: required
+    purpose: Baseline STRICT-CORE checks prior to runtime substrate tests.
+    command: make oracle-strict-core
+    timeout_seconds: 1800
+    expected_outputs:
+    - strict_core_summary.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - strict_core_summary.json
+  - oracle_id: oracle:eventstore-invariants
+    classification: required
+    purpose: Verify event store is append-only, enforces optimistic concurrency, and preserves ordering per stream.
+    command: make test-eventstore-invariants
+    timeout_seconds: 1200
+    expected_outputs:
+    - eventstore_invariants_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - eventstore_invariants_report.json
+    - stdout.log
+    - stderr.log
+  - oracle_id: oracle:projection-rebuild-determinism
+    classification: required
+    purpose: Rebuild projections from the same event stream and assert identical projection checksums.
+    command: make test-projection-rebuild
+    timeout_seconds: 1200
+    expected_outputs:
+    - projection_rebuild_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - projection_rebuild_report.json
+  - oracle_id: oracle:outbox-publish-sim
+    classification: advisory
+    purpose: Simulate outbox publication to NATS/JetStream and verify at-least-once semantics and idempotent consumer
+      behavior.
+    command: make test-outbox-publish
+    timeout_seconds: 1200
+    expected_outputs:
+    - outbox_publish_report.json
+    flake_handling: ADVISORY_ONLY
+    evidence_artifacts:
+    - outbox_publish_report.json
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - ORACLE_TAMPER
+    - ORACLE_GAP
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_FLAKE
+    - EVIDENCE_MISSING
+  notes:
+  - Typically used to ACCEPT deliverables that affect event store/projections (D-10, D-11, D-13).
+- suite_id: suite:STALENESS-GRAPH
+  suite_version: v1
+  description: Dependency graph + staleness traversal verification. Ensures staleness propagation is correct and
+    Shippable blocks on unresolved staleness.
+  determinism_required: true
+  environment_constraints: *id002
+  oracles:
+  - oracle_id: oracle:dependency-graph-tests
+    classification: required
+    purpose: Build dependency graph projection and validate edge semantics for depends_on vs supported_by.
+    command: make test-dependency-graph
+    timeout_seconds: 900
+    expected_outputs:
+    - dependency_graph_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - dependency_graph_report.json
+  - oracle_id: oracle:staleness-propagation-tests
+    classification: required
+    purpose: Validate staleness propagation rules on governed artifact changes and dependency updates.
+    command: make test-staleness-propagation
+    timeout_seconds: 900
+    expected_outputs:
+    - staleness_propagation_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - staleness_propagation_report.json
+  - oracle_id: oracle:shippable-blocks-on-stale
+    classification: required
+    purpose: Assert candidates with unresolved staleness cannot be Shippable=true.
+    command: make test-shippable-staleness
+    timeout_seconds: 600
+    expected_outputs:
+    - shippable_staleness_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - shippable_staleness_report.json
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - EVIDENCE_MISSING
+  notes:
+  - Used to ACCEPT D-12 and to support freeze/shippable gating later.
+- suite_id: suite:EVIDENCE-INTEGRITY
+  suite_version: v1
+  description: Evidence ingestion, manifest validation, content-address verification, and retrievability checks
+    for evidence bundles.
+  determinism_required: true
+  environment_constraints: *id002
+  oracles:
+  - oracle_id: oracle:evidence-manifest-validate
+    classification: required
+    purpose: Validate evidence bundle manifest schema and required fields.
+    command: make oracle-evidence-manifest-validate
+    timeout_seconds: 600
+    expected_outputs:
+    - evidence_manifest_validation.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - evidence_manifest_validation.json
+  - oracle_id: oracle:evidence-content-hash-verify
+    classification: required
+    purpose: Verify each artifact listed is retrievable and matches its content hash.
+    command: make oracle-evidence-hash-verify
+    timeout_seconds: 900
+    expected_outputs:
+    - evidence_hash_verify.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - evidence_hash_verify.json
+  - oracle_id: oracle:evidence-retrievability-walk
+    classification: required
+    purpose: Walk a referenced evidence bundle and ensure all artifacts can be fetched under declared access policy.
+    command: make oracle-evidence-retrievability
+    timeout_seconds: 900
+    expected_outputs:
+    - evidence_retrievability.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - evidence_retrievability.json
+  - oracle_id: oracle:evidence-missing-negative-test
+    classification: advisory
+    purpose: 'Negative-path: simulate missing evidence and confirm EVIDENCE_MISSING stop trigger.'
+    command: make test-evidence-missing-negative
+    timeout_seconds: 600
+    expected_outputs:
+    - evidence_missing_negative_report.json
+    flake_handling: ADVISORY_ONLY
+    evidence_artifacts:
+    - evidence_missing_negative_report.json
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - EVIDENCE_MISSING
+    - ORACLE_TAMPER
+  notes:
+  - Used to ACCEPT D-14..D-16 and D-20 and as a prerequisite for portal approvals/freeze.
+- suite_id: suite:STOP-TRIGGERS
+  suite_version: v1
+  description: Oracle integrity and stop-trigger verification (TAMPER/GAP/FLAKE/ENV_MISMATCH) plus correct routing
+    to portals without silent override.
+  determinism_required: true
+  environment_constraints: *id002
+  oracles:
+  - oracle_id: oracle:tamper-detection-test
+    classification: required
+    purpose: Simulate evidence hash mismatch and confirm ORACLE_TAMPER is emitted and blocks progression.
+    command: make test-oracle-tamper
+    timeout_seconds: 600
+    expected_outputs:
+    - tamper_test_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - tamper_test_report.json
+  - oracle_id: oracle:gap-detection-test
+    classification: required
+    purpose: Simulate missing required oracle result and confirm ORACLE_GAP is emitted and blocks progression.
+    command: make test-oracle-gap
+    timeout_seconds: 600
+    expected_outputs:
+    - gap_test_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - gap_test_report.json
+  - oracle_id: oracle:flake-detection-test
+    classification: required
+    purpose: Run a purposely non-deterministic oracle twice and confirm ORACLE_FLAKE is emitted.
+    command: make test-oracle-flake
+    timeout_seconds: 600
+    expected_outputs:
+    - flake_test_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - flake_test_report.json
+  - oracle_id: oracle:env-mismatch-detection-test
+    classification: required
+    purpose: Simulate environment constraint mismatch and confirm ORACLE_ENV_MISMATCH is emitted.
+    command: make test-oracle-env-mismatch
+    timeout_seconds: 600
+    expected_outputs:
+    - env_mismatch_test_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - env_mismatch_test_report.json
+  - oracle_id: oracle:trigger-routing-test
+    classification: required
+    purpose: Verify stop triggers route to the correct portal touchpoints and that no silent override occurs.
+    command: make test-stop-trigger-routing
+    timeout_seconds: 900
+    expected_outputs:
+    - trigger_routing_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - trigger_routing_report.json
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - ORACLE_TAMPER
+    - ORACLE_GAP
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_FLAKE
+  notes:
+  - Used to ACCEPT D-22 and D-27.
+- suite_id: suite:PORTAL-WORKFLOWS
+  suite_version: v1
+  description: Portal/gov API and UI workflow verification for approvals, exceptions, oracle suite changes, and
+    freeze submission semantics.
+  determinism_required: true
+  environment_constraints: *id002
+  oracles:
+  - oracle_id: oracle:portal-api-contract-tests
+    classification: required
+    purpose: Verify portal/gov API endpoints implement SR-SPEC semantics for approvals/exceptions/freezes/shippable
+      computation.
+    command: make test-portal-api
+    timeout_seconds: 1800
+    expected_outputs:
+    - portal_api_contract_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - portal_api_contract_report.json
+  - oracle_id: oracle:exception-acknowledgement-check
+    classification: required
+    purpose: Ensure approvals and freezes explicitly acknowledge active exceptions (even if empty).
+    command: make test-portal-exception-ack
+    timeout_seconds: 900
+    expected_outputs:
+    - exception_ack_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - exception_ack_report.json
+  - oracle_id: oracle:portal-ui-workflow-tests
+    classification: advisory
+    purpose: UI workflow tests for portal submissions (advisory if UI flakiness is observed).
+    command: make test-portal-ui
+    timeout_seconds: 1800
+    expected_outputs:
+    - portal_ui_report.json
+    flake_handling: ADVISORY_ONLY
+    evidence_artifacts:
+    - portal_ui_report.json
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - EVIDENCE_MISSING
+  notes:
+  - Used to ACCEPT D-19 and D-30.
+- suite_id: suite:SELFHOST-SMOKE
+  suite_version: v1
+  description: 'Self-host smoke suite: boot stack, health checks, idempotent init, and version pinning evidence.'
+  determinism_required: true
+  environment_constraints: *id002
+  oracles:
+  - oracle_id: oracle:selfhost-boot
+    classification: required
+    purpose: Start self-host stack and wait for readiness.
+    command: make selfhost-up-and-wait
+    timeout_seconds: 1800
+    expected_outputs:
+    - startup_logs.txt
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - startup_logs.txt
+  - oracle_id: oracle:selfhost-health
+    classification: required
+    purpose: Run health checks for core services (API, DB, MinIO, NATS, Zitadel).
+    command: make selfhost-health
+    timeout_seconds: 600
+    expected_outputs:
+    - health_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - health_report.json
+  - oracle_id: oracle:versions-pinned-report
+    classification: required
+    purpose: Emit a machine-readable report of pinned service versions/digests.
+    command: make selfhost-versions-report
+    timeout_seconds: 300
+    expected_outputs:
+    - versions_pinned.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - versions_pinned.json
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_TAMPER
+    - EVIDENCE_MISSING
+  notes:
+  - Used to ACCEPT D-31..D-33 and as a prerequisite for integration/e2e suites.
+- suite_id: suite:E2E-HAPPY
+  suite_version: v1
+  description: "End-to-end 'happy path' harness execution: loop\u2192iteration\u2192candidate\u2192oracles\u2192\
+    approval\u2192freeze."
+  determinism_required: true
+  environment_constraints: *id002
+  oracles:
+  - oracle_id: oracle:e2e-happy-harness
+    classification: required
+    purpose: Run the happy-path harness and record a full transcript with object IDs.
+    command: make harness-e2e-happy
+    timeout_seconds: 3600
+    expected_outputs:
+    - harness_transcript.jsonl
+    - harness_outputs.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - harness_transcript.jsonl
+    - harness_outputs.json
+  - oracle_id: oracle:freeze-validated-post-harness
+    classification: required
+    purpose: Validate the produced freeze record and approval linkage from the harness run.
+    command: make harness-validate-freeze
+    timeout_seconds: 900
+    expected_outputs:
+    - freeze_validation_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - freeze_validation_report.json
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - EVIDENCE_MISSING
+  notes:
+  - Used to ACCEPT D-34 (happy-path proof).
+- suite_id: suite:E2E-FAILURE
+  suite_version: v1
+  description: 'End-to-end ''failure path'' harness execution: inject integrity failures, exercise waiver/exception
+    flows, and prove stop-the-line behavior.'
+  determinism_required: true
+  environment_constraints: *id002
+  oracles:
+  - oracle_id: oracle:e2e-failure-harness
+    classification: required
+    purpose: Run failure-mode harness with deterministic fault injection and record transcripts + portal submissions.
+    command: make harness-e2e-failure
+    timeout_seconds: 3600
+    expected_outputs:
+    - failure_transcript.jsonl
+    - failure_outputs.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - failure_transcript.jsonl
+    - failure_outputs.json
+  - oracle_id: oracle:nonwaivable-integrity-enforced
+    classification: required
+    purpose: Prove integrity conditions cannot be waived and always stop the line.
+    command: make harness-verify-nonwaivable
+    timeout_seconds: 900
+    expected_outputs:
+    - nonwaivable_report.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - nonwaivable_report.json
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - ORACLE_TAMPER
+    - ORACLE_GAP
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_FLAKE
+  notes:
+  - Used to ACCEPT D-35 (failure-mode proof).
+- suite_id: suite:REPLAYABILITY
+  suite_version: v1
+  description: 'Replayability and determinism proof: replay event stream and verify reconstructed state/projections
+    match checksum and invariants.'
+  determinism_required: true
+  environment_constraints: *id001
+  oracles:
+  - oracle_id: oracle:replay-event-stream
+    classification: required
+    purpose: Replay recorded event stream into empty store and rebuild all projections.
+    command: make replay-run
+    timeout_seconds: 1800
+    expected_outputs:
+    - replay_logs.txt
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - replay_logs.txt
+  - oracle_id: oracle:replay-checksum-compare
+    classification: required
+    purpose: Compare reconstructed projection checksums against baseline and assert equality.
+    command: make replay-compare-checksums
+    timeout_seconds: 600
+    expected_outputs:
+    - replay_checksum.txt
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - replay_checksum.txt
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - EVIDENCE_MISSING
+  notes:
+  - Used to ACCEPT D-36.
+- suite_id: suite:FREEZE-VALIDATION
+  suite_version: v1
+  description: 'Freeze gating validation: freeze record completeness, explicit exception acknowledgement, no unresolved
+    staleness, and Shippable computation correctness.'
+  determinism_required: true
+  environment_constraints: *id001
+  oracles:
+  - oracle_id: oracle:freeze-record-completeness
+    classification: required
+    purpose: Validate FreezeRecordCreated contains required fields and enumerates governed artifacts + evidence
+      pointers.
+    command: srctl freeze validate --completeness
+    timeout_seconds: 600
+    expected_outputs:
+    - freeze_completeness.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - freeze_completeness.json
+  - oracle_id: oracle:approval-acknowledges-exceptions
+    classification: required
+    purpose: Ensure ReleaseApprovalPortal approval explicitly acknowledges active exceptions (including empty list).
+    command: srctl approval validate --exceptions-ack
+    timeout_seconds: 300
+    expected_outputs:
+    - exceptions_ack_check.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - exceptions_ack_check.json
+  - oracle_id: oracle:staleness-none-check
+    classification: required
+    purpose: Ensure no unresolved staleness markers affect the candidate, its dependencies, the oracle suite, or
+      governed artifacts.
+    command: srctl staleness assert-none --candidate
+    timeout_seconds: 300
+    expected_outputs:
+    - staleness_none_check.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - staleness_none_check.json
+  - oracle_id: oracle:shippable-computation-check
+    classification: required
+    purpose: Compute Shippable per SR-SPEC and assert Shippable=true only when all preconditions hold.
+    command: srctl candidate compute-shippable --assert
+    timeout_seconds: 300
+    expected_outputs:
+    - shippable_check.json
+    - exit_code=0
+    flake_handling: STOP
+    evidence_artifacts:
+    - shippable_check.json
+  evidence_bundle_kinds:
+  - evidence.gate_packet
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - EVIDENCE_MISSING
+    - ORACLE_GAP
+  notes:
+  - Used at the release gate (G-90) before treating any baseline as Shippable.
+verification_profiles:
+- profile_id: STRICT-CORE
+  profile_version: v1
+  description: Default verification profile for most candidate deliverables. Requires deterministic core checks
+    (build/tests/lint/schema).
+  required_suites:
+  - suite:STRICT-CORE@v1
+  advisory_suites: []
+  verification_mode_default: STRICT
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_conditions:
+    - ORACLE_TAMPER
+    - ORACLE_GAP
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_FLAKE
+    - EVIDENCE_MISSING
+  notes:
+  - This profile is intended to remain small and deterministic; add oracles conservatively.
+  - Advisory oracles may be added without changing the Verified meaning, but changing required/advisory classification
+    is governance-controlled (C-OR-6).
+- profile_id: STRICT-FULL
+  profile_version: v1
+  description: High-assurance verification profile for deliverables that are on the critical path to end-to-end
+    proofs or release readiness.
+  required_suites:
+  - suite:STRICT-FULL@v1
+  advisory_suites:
+  - suite:STOP-TRIGGERS@v1
+  verification_mode_default: STRICT
+  waiver_policy:
+    allow_with_exceptions: true
+    waiver_eligible_failures:
+    - oracle:integration-suite
+    - oracle:e2e-suite
+    non_waivable_conditions:
+    - ORACLE_TAMPER
+    - ORACLE_GAP
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_FLAKE
+    - EVIDENCE_MISSING
+  notes:
+  - If WITH_EXCEPTIONS is used, a Waiver record and portal decision are required; ReleaseApproval must explicitly
+    acknowledge active exceptions (SR-SPEC freeze/approval requirements).
+profile_selection_matrix:
+- work_unit_type: deliverable.record.governance
+  deliverable_ids:
+  - D-01
+  default_profile_id: null
+  override_rules: []
+  notes:
+  - D-01 is a governance record (SAPS) and is accepted via context admissibility + governance portal, not by oracle
+    suites.
+- work_unit_type: deliverable.candidate.default
+  deliverable_ids:
+  - D-02
+  - D-03
+  - D-04
+  - D-05
+  - D-06
+  - D-07
+  - D-08
+  - D-09
+  - D-10
+  - D-11
+  - D-12
+  - D-13
+  - D-14
+  - D-15
+  - D-16
+  - D-17
+  - D-18
+  - D-19
+  - D-20
+  - D-21
+  - D-22
+  - D-23
+  - D-24
+  - D-25
+  - D-27
+  - D-28
+  - D-29
+  - D-30
+  - D-33
+  default_profile_id: profile:STRICT-CORE@v1
+  override_rules:
+  - if: deliverable_modifies_governed_artifact == true
+    then:
+      require_portal: GovernanceChangePortal
+      verification_profile: profile:STRICT-CORE@v1
+  - if: risk_level == HIGH
+    then:
+      verification_profile: profile:STRICT-FULL@v1
+  notes:
+  - Applies to the majority of code deliverables. Upgrade to STRICT-FULL via risk escalation or when the deliverable
+    becomes release-critical.
+- work_unit_type: deliverable.candidate.release_critical
+  deliverable_ids:
+  - D-26
+  - D-31
+  - D-32
+  - D-34
+  - D-35
+  - D-36
+  default_profile_id: profile:STRICT-FULL@v1
+  override_rules:
+  - if: integrity_conditions_present == true
+    then:
+      block: true
+      route_to_portal: GovernanceChangePortal
+  notes:
+  - Deliverables on the path to self-host readiness and end-to-end proofs. These default to STRICT-FULL as recommended
+    by SR-PLAN.

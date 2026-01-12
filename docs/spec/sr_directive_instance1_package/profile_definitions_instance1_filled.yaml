@@ -1,0 +1,555 @@
+version: 1.0.0-draft.3
+created: '2026-01-11'
+updated: '2026-01-11'
+oracle_suites:
+- suite_id: suite:SR-SUITE-GOV
+  suite_version: 0.1.0-draft.1
+  description: Governance/metadata checks only (schemas, IDs, lineage).
+  determinism_required: true
+  environment_constraints:
+    runner: ci
+    network: disabled
+    oci_image_digest: sha256:REPLACE_WITH_PINNED_DIGEST
+    cpu_arch: amd64
+    os: linux
+    additional_constraints:
+    - runtime=runsc
+    - workspace_readonly=true
+  oracles:
+  - oracle_id: oracle:meta_validate
+    classification: required
+    purpose: Validate governed document metadata (frontmatter schema, stable IDs/lineage).
+    command: sr-oracles meta validate --all
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/meta_validate.json
+      media_type: application/json
+      role: report
+    - path: logs/meta_validate.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:refs_validate
+    classification: required
+    purpose: Ensure declared refs are well-formed and dereferenceable where required.
+    command: sr-oracles refs validate --all
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/refs_validate.json
+      media_type: application/json
+      role: report
+    - path: logs/refs_validate.log
+      media_type: text/plain
+      role: log
+  flake_policy:
+    on_required_flake: stop_the_line
+    on_advisory_flake: warn_only
+  evidence_capture_policy:
+    include_stdout: true
+    include_stderr: true
+    include_environment_fingerprint: true
+    include_artifact_hashes: true
+- suite_id: suite:SR-SUITE-CORE
+  suite_version: 0.1.0-draft.1
+  description: Core deterministic checks (meta/schema/build/unit/lint/format).
+  determinism_required: true
+  environment_constraints:
+    runner: ci
+    network: disabled
+    oci_image_digest: sha256:REPLACE_WITH_PINNED_DIGEST
+    cpu_arch: amd64
+    os: linux
+    additional_constraints:
+    - runtime=runsc
+    - workspace_readonly=true
+  oracles:
+  - oracle_id: oracle:meta_validate
+    classification: required
+    purpose: Validate governed document metadata (frontmatter schema, stable IDs/lineage).
+    command: sr-oracles meta validate --all
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/meta_validate.json
+      media_type: application/json
+      role: report
+    - path: logs/meta_validate.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:build
+    classification: required
+    purpose: Build all services and libraries in pinned CI environment.
+    command: sr-oracles build --all
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/build.json
+      media_type: application/json
+      role: report
+    - path: logs/build.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:unit_tests
+    classification: required
+    purpose: Run unit tests (fast, deterministic).
+    command: sr-oracles test unit
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/unit.json
+      media_type: application/json
+      role: report
+    - path: logs/unit.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:lint
+    classification: required
+    purpose: Run lint/format/type checks (no diffs allowed).
+    command: sr-oracles lint --check
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/lint.json
+      media_type: application/json
+      role: report
+    - path: logs/lint.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:schema_validate
+    classification: required
+    purpose: Validate schemas/migrations/types are consistent (no drift).
+    command: sr-oracles schema validate
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/schema.json
+      media_type: application/json
+      role: report
+    - path: logs/schema.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:integrity_smoke
+    classification: required
+    purpose: Smoke-test oracle integrity enforcement (gap/env mismatch/tamper/flake pathways).
+    command: sr-oracles integrity smoke
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/integrity_smoke.json
+      media_type: application/json
+      role: report
+    - path: logs/integrity_smoke.log
+      media_type: text/plain
+      role: log
+  flake_policy:
+    on_required_flake: stop_the_line
+    on_advisory_flake: warn_only
+  evidence_capture_policy:
+    include_stdout: true
+    include_stderr: true
+    include_environment_fingerprint: true
+    include_artifact_hashes: true
+- suite_id: suite:SR-SUITE-FULL
+  suite_version: 0.1.0-draft.1
+  description: Core + integration/e2e + replay/determinism checks for self-hosted stack.
+  determinism_required: true
+  environment_constraints:
+    runner: ci
+    network: restricted
+    oci_image_digest: sha256:REPLACE_WITH_PINNED_DIGEST
+    cpu_arch: amd64
+    os: linux
+    additional_constraints:
+    - runtime=runsc
+    - workspace_readonly=true
+    - network_egress=blocked
+    - allowed_hosts=localhost,127.0.0.1,::1
+  oracles:
+  - oracle_id: oracle:meta_validate
+    classification: required
+    purpose: Validate governed document metadata (frontmatter schema, stable IDs/lineage).
+    command: sr-oracles meta validate --all
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/meta_validate.json
+      media_type: application/json
+      role: report
+    - path: logs/meta_validate.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:build
+    classification: required
+    purpose: Build all services and libraries in pinned CI environment.
+    command: sr-oracles build --all
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/build.json
+      media_type: application/json
+      role: report
+    - path: logs/build.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:unit_tests
+    classification: required
+    purpose: Run unit tests (fast, deterministic).
+    command: sr-oracles test unit
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/unit.json
+      media_type: application/json
+      role: report
+    - path: logs/unit.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:lint
+    classification: required
+    purpose: Run lint/format/type checks (no diffs allowed).
+    command: sr-oracles lint --check
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/lint.json
+      media_type: application/json
+      role: report
+    - path: logs/lint.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:schema_validate
+    classification: required
+    purpose: Validate schemas/migrations/types are consistent (no drift).
+    command: sr-oracles schema validate
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/schema.json
+      media_type: application/json
+      role: report
+    - path: logs/schema.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:integration
+    classification: required
+    purpose: Stand up the self-host stack and run integration tests (API + stores).
+    command: sr-oracles test integration --self-host
+    timeout_seconds: 1800
+    retries: 0
+    expected_outputs:
+    - path: reports/integration.json
+      media_type: application/json
+      role: report
+    - path: logs/integration.log
+      media_type: text/plain
+      role: log
+    - path: artifacts/stack_health.json
+      media_type: application/json
+      role: artifact
+  - oracle_id: oracle:e2e
+    classification: required
+    purpose: Run deterministic end-to-end flows including portal submissions (non-binding).
+    command: sr-oracles test e2e --self-host
+    timeout_seconds: 3600
+    retries: 0
+    expected_outputs:
+    - path: reports/e2e.json
+      media_type: application/json
+      role: report
+    - path: logs/e2e.log
+      media_type: text/plain
+      role: log
+    - path: artifacts/e2e_transcript.ndjson
+      media_type: application/x-ndjson
+      role: artifact
+  - oracle_id: oracle:replay_verify
+    classification: required
+    purpose: "Replay event stream \u2192 reconstruct state \u2192 compare deterministic checksum."
+    command: sr-oracles replay verify
+    timeout_seconds: 1800
+    retries: 0
+    expected_outputs:
+    - path: reports/replay.json
+      media_type: application/json
+      role: report
+    - path: logs/replay.log
+      media_type: text/plain
+      role: log
+    - path: artifacts/state_checksum.txt
+      media_type: text/plain
+      role: artifact
+  - oracle_id: oracle:integrity_smoke
+    classification: required
+    purpose: Smoke-test oracle integrity enforcement (gap/env mismatch/tamper/flake pathways).
+    command: sr-oracles integrity smoke
+    timeout_seconds: 600
+    retries: 0
+    expected_outputs:
+    - path: reports/integrity_smoke.json
+      media_type: application/json
+      role: report
+    - path: logs/integrity_smoke.log
+      media_type: text/plain
+      role: log
+  - oracle_id: oracle:sbom
+    classification: advisory
+    purpose: Produce an SBOM for the oracle image + workspace (non-blocking).
+    command: sr-oracles sbom generate
+    timeout_seconds: 1200
+    retries: 0
+    expected_outputs:
+    - path: reports/sbom.json
+      media_type: application/json
+      role: report
+    - path: logs/sbom.log
+      media_type: text/plain
+      role: log
+  flake_policy:
+    on_required_flake: stop_the_line
+    on_advisory_flake: warn_only
+  evidence_capture_policy:
+    include_stdout: true
+    include_stderr: true
+    include_environment_fingerprint: true
+    include_artifact_hashes: true
+verification_profiles:
+- profile_id: GOV-CORE
+  profile_version: 0.1.0-draft.1
+  description: Governance-only profile (metadata/refs coherence).
+  required_suites:
+  - suite:SR-SUITE-GOV
+  advisory_suites: []
+  verification_mode_default: STRICT
+  waiver_policy:
+    allow_with_exceptions: false
+    waiver_eligible_failures: []
+    non_waivable_integrity_conditions:
+    - ORACLE_TAMPER
+    - ORACLE_GAP
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_FLAKE
+    - EVIDENCE_MISSING
+- profile_id: STRICT-CORE
+  profile_version: 0.1.0-draft.1
+  description: Default profile for most implementation deliverables.
+  required_suites:
+  - suite:SR-SUITE-CORE
+  advisory_suites: []
+  verification_mode_default: STRICT
+  waiver_policy:
+    allow_with_exceptions: true
+    waiver_eligible_failures:
+    - BUILD_FAIL
+    - UNIT_FAIL
+    - LINT_FAIL
+    - SCHEMA_FAIL
+    non_waivable_integrity_conditions:
+    - ORACLE_TAMPER
+    - ORACLE_GAP
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_FLAKE
+    - EVIDENCE_MISSING
+- profile_id: STRICT-FULL
+  profile_version: 0.1.0-draft.1
+  description: High-stakes profile (integration/e2e + replayability).
+  required_suites:
+  - suite:SR-SUITE-FULL
+  advisory_suites: []
+  verification_mode_default: STRICT
+  waiver_policy:
+    allow_with_exceptions: true
+    waiver_eligible_failures:
+    - BUILD_FAIL
+    - UNIT_FAIL
+    - LINT_FAIL
+    - SCHEMA_FAIL
+    - INTEGRATION_FAIL
+    - E2E_FAIL
+    non_waivable_integrity_conditions:
+    - ORACLE_TAMPER
+    - ORACLE_GAP
+    - ORACLE_ENV_MISMATCH
+    - ORACLE_FLAKE
+    - EVIDENCE_MISSING
+profile_selection_matrix:
+- work_unit_type: adapter_eventstore
+  deliverable_ids:
+  - D-10
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: adapter_evidence_store
+  deliverable_ids:
+  - D-14
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: api_core_endpoints
+  deliverable_ids:
+  - D-18
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: api_evidence_endpoints
+  deliverable_ids:
+  - D-20
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: api_portals_and_governance_endpoints
+  deliverable_ids:
+  - D-19
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: api_scaffold_and_auth
+  deliverable_ids:
+  - D-17
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: bootstrap_init_scripts
+  deliverable_ids:
+  - D-32
+  default_profile_id: STRICT-FULL
+  override_rules: []
+- work_unit_type: ci_substrate
+  deliverable_ids:
+  - D-03
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: context_compilation
+  deliverable_ids:
+  - D-08
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: dependency_graph_and_staleness
+  deliverable_ids:
+  - D-12
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: dev_tooling
+  deliverable_ids:
+  - D-04
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: domain_core_primitives
+  deliverable_ids:
+  - D-05
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: domain_core_state_machines
+  deliverable_ids:
+  - D-06
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: domain_ports_and_boundaries
+  deliverable_ids:
+  - D-07
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: e2e_harness_failure_modes
+  deliverable_ids:
+  - D-35
+  default_profile_id: STRICT-FULL
+  override_rules: []
+- work_unit_type: e2e_harness_happy_path
+  deliverable_ids:
+  - D-34
+  default_profile_id: STRICT-FULL
+  override_rules: []
+- work_unit_type: evidence_manifest_lib_and_oracle
+  deliverable_ids:
+  - D-15
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: governance_intervention_record
+  deliverable_ids:
+  - D-01
+  default_profile_id: GOV-CORE
+  override_rules: []
+- work_unit_type: loop_governor_service
+  deliverable_ids:
+  - D-22
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: messaging_integration
+  deliverable_ids:
+  - D-21
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: ops_logging_observability
+  deliverable_ids:
+  - D-33
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: oracle_integrity_checks
+  deliverable_ids:
+  - D-27
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: oracle_runner_service
+  deliverable_ids:
+  - D-24
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: oracle_suite_core_implementation
+  deliverable_ids:
+  - D-25
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: oracle_suite_integration_e2e
+  deliverable_ids:
+  - D-26
+  default_profile_id: STRICT-FULL
+  override_rules: []
+- work_unit_type: outbox_publisher_and_event_pub
+  deliverable_ids:
+  - D-13
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: persistence_schema
+  deliverable_ids:
+  - D-09
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: projection_builder
+  deliverable_ids:
+  - D-11
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: reference_worker_bridge
+  deliverable_ids:
+  - D-23
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: replayability_demonstration
+  deliverable_ids:
+  - D-36
+  default_profile_id: STRICT-FULL
+  override_rules: []
+- work_unit_type: repo_scaffold
+  deliverable_ids:
+  - D-02
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: restricted_evidence_handling
+  deliverable_ids:
+  - D-16
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: self_host_deployment_stack
+  deliverable_ids:
+  - D-31
+  default_profile_id: STRICT-FULL
+  override_rules: []
+- work_unit_type: ui_portal_workflows
+  deliverable_ids:
+  - D-30
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: ui_scaffold_and_login
+  deliverable_ids:
+  - D-28
+  default_profile_id: STRICT-CORE
+  override_rules: []
+- work_unit_type: ui_views_and_evidence_viewer
+  deliverable_ids:
+  - D-29
+  default_profile_id: STRICT-CORE
+  override_rules: []

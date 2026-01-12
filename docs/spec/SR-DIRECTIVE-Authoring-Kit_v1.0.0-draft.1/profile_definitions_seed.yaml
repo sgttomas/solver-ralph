@@ -1,0 +1,75 @@
+# Verification Profiles & Oracle Suites — Seed (instance-1 starter)
+# Replace placeholders, pin suite versions, and ensure each suite is a governed / dereferenceable object.
+# SR-PLAN provides non-binding profile recommendations; SR-DIRECTIVE makes them binding.
+
+version: "1.0.0-draft.1"
+created: "2026-01-11"
+updated: "2026-01-11"
+
+oracle_suites:
+  - suite_id: "SR-SUITE-STRICT-CORE"
+    suite_version: "0.1.0-draft.1"
+    description: "Core deterministic checks (build, unit, schema, lint)."
+    determinism_required: true
+    environment_constraints:
+      runner: "ci"
+      network: "disabled"
+      oci_image_digest: "sha256:..."
+      cpu_arch: "amd64"
+      os: "linux"
+      additional_constraints: []
+    oracles: []   # fill-in
+    flake_policy:
+      on_required_flake: "stop_the_line"
+      on_advisory_flake: "warn_only"
+    evidence_capture_policy:
+      include_stdout: true
+      include_stderr: true
+      include_environment_fingerprint: true
+      include_artifact_hashes: true
+
+  - suite_id: "SR-SUITE-STRICT-FULL"
+    suite_version: "0.1.0-draft.1"
+    description: "Core + integration/e2e + determinism/replay checks."
+    determinism_required: true
+    environment_constraints:
+      runner: "ci"
+      network: "disabled"
+      oci_image_digest: "sha256:..."
+      cpu_arch: "amd64"
+      os: "linux"
+      additional_constraints: []
+    oracles: []   # fill-in
+    flake_policy:
+      on_required_flake: "stop_the_line"
+      on_advisory_flake: "warn_only"
+    evidence_capture_policy:
+      include_stdout: true
+      include_stderr: true
+      include_environment_fingerprint: true
+      include_artifact_hashes: true
+
+verification_profiles:
+  - profile_id: "STRICT-CORE"
+    profile_version: "0.1.0-draft.1"
+    description: "Default profile for most implementation deliverables."
+    required_suites: ["SR-SUITE-STRICT-CORE"]
+    advisory_suites: []
+    verification_mode_default: "STRICT"
+    waiver_policy:
+      allow_with_exceptions: false
+      waiver_eligible_failures: []
+      non_waivable_integrity_conditions: ["ORACLE_TAMPER","ORACLE_GAP","ORACLE_ENV_MISMATCH","ORACLE_FLAKE","EVIDENCE_MISSING"]
+
+  - profile_id: "STRICT-FULL"
+    profile_version: "0.1.0-draft.1"
+    description: "High-stakes profile (integration/e2e + replayability)."
+    required_suites: ["SR-SUITE-STRICT-FULL"]
+    advisory_suites: []
+    verification_mode_default: "STRICT"
+    waiver_policy:
+      allow_with_exceptions: false
+      waiver_eligible_failures: []
+      non_waivable_integrity_conditions: ["ORACLE_TAMPER","ORACLE_GAP","ORACLE_ENV_MISMATCH","ORACLE_FLAKE","EVIDENCE_MISSING"]
+
+profile_selection_matrix: []
