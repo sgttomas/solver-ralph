@@ -30,39 +30,57 @@ ALWAYS refer to the project docs/*/SR-* for the authoritative coding architectur
 
 When troubleshooting, refer to the appropriate SR-* documents.
 
+## Canonical document paths
+
+| doc_id | Folder | Purpose |
+|--------|--------|---------|
+| SR-CHARTER | `charter/` | Project scope and priorities |
+| SR-CONTRACT | `platform/` | Binding invariants |
+| SR-SPEC | `platform/` | Platform mechanics |
+| SR-TYPES | `platform/` | Type registry and schemas |
+| SR-WORK-SURFACE | `platform/` | Work surface definitions |
+| SR-PROCEDURE-KIT | `platform/` | Procedure templates |
+| SR-SEMANTIC-ORACLE-SPEC | `platform/` | Semantic oracle interface |
+| SR-EVENT-MANAGER | `platform/` | Event projections spec |
+| SR-AGENT-WORKER-CONTRACT | `platform/` | Agent/worker contract |
+| SR-INTENT | `platform/` | Design rationale |
+| SR-CHANGE | `build-governance/` | Change control process |
+| SR-AGENTS | `build-governance/` | Agent actor model |
+| SR-TASKS | `build-governance/` | Task assignment |
+| SR-EXCEPTIONS | `build-governance/` | Exception ledger |
+| SR-PLAN | `program/` | Build plan instance |
+| SR-DIRECTIVE | `program/` | Execution policy |
+| SR-README | `charter/` | This index |
 
 ## Development History Summary for this Deliverable
 
 ### Session 12 (2026-01-13)
-**Completed:** D-27
+**Completed:** D-28
 
 **What was done:**
 
-D-27: Oracle integrity checks (TAMPER/GAP/FLAKE/ENV_MISMATCH)
-- IntegrityChecker service with configurable check types
-- TAMPER detection: evidence bundle/artifact hash chain verification
-- GAP detection: required oracle coverage validation vs suite definition
-- ENV_MISMATCH detection: environment constraint verification vs fingerprint
-- FLAKE detection: FlakeHistoryTracker for inconsistent oracle behavior
-- StopTrigger recommendations with portal routing
-- ProfileVerificationResult for profile-based integrity blocking
-- Standalone compute_verdict() helper in evidence module
-- Full unit test coverage for all integrity check types
+D-28: UI scaffold (React) + OIDC login
+- AuthProvider using oidc-client-ts and react-oidc-context
+- Authorization Code flow with PKCE for secure SPA authentication
+- ProtectedRoute component for route guarding
+- Layout with header, navigation, and auth controls
+- User identity display with login/logout functionality
+- Environment configuration (VITE_OIDC_ISSUER, VITE_OIDC_CLIENT_ID)
+- Pages: Home, Callback, Loops, Evidence, Approvals (scaffolds)
 
-**PKG-08 (Oracle substrate) progress: D-24, D-25, D-27 done (D-26 pending)**
+**PKG-09 (UI portals) progress: D-28 done**
 
 **Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24, D-25, D-31, D-18, D-28 (blocked on D-28)
-- D-28: UI scaffold + OIDC login (PKG-09) - depends on D-02, D-17 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17, D-22, D-24 ✓
-- D-29: Loop/iteration/candidate views (PKG-09) - depends on D-28, D-20, D-18
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+- D-29: Loop/iteration/candidate views + evidence viewer (PKG-09) - depends on D-28 ✓, D-20 ✓, D-18 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+- D-37: Work surface schemas (PKG-12) - depends on D-08 ✓, D-05 ✓
 
-**Note:** Rust not installed in this environment. CI validates builds.
 
 ---
 
 ### Session 11 (2026-01-13)
-**Completed:** D-23, D-24, D-25
+**Completed:** D-23, D-24, D-25, D-27
 
 **What was done:**
 
@@ -86,8 +104,17 @@ D-25: Core oracle suite implementation
 - Oracle report structures (BuildReport, UnitTestReport, etc.)
 - Deterministic suite hashing via compute_suite_hash()
 
+D-27: Oracle integrity checks (TAMPER/GAP/FLAKE/ENV_MISMATCH)
+- IntegrityChecker for oracle run validation
+- Tamper detection (hash mismatch, evidence hash verification)
+- Gap detection (missing required oracles in suite)
+- Flake detection (inconsistent oracle results across runs)
+- Environment mismatch detection (fingerprint drift)
+- IntegrityCondition enum (non-waivable per SR-CONTRACT)
+
 **PKG-07 (Orchestration runtime) complete (D-21, D-22, D-23)**
-**PKG-08 (Oracle substrate) progress: D-24, D-25 done**
+**PKG-08 (Oracle substrate) progress: D-24, D-25, D-27 done**
+
 
 ---
 
@@ -124,7 +151,6 @@ D-32: Build/init scripts (DB, buckets, identity realm, secrets)
 **PKG-07 (Orchestration runtime) progress: D-21, D-22 done**
 **PKG-10 (Self-host instance) progress: D-31, D-32 done**
 
-**Note:** Rust not installed in this environment. CI validates builds.
 
 ---
 
@@ -166,7 +192,6 @@ D-20: Evidence API endpoints (upload, retrieve, associate with runs/candidates)
 - D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
 - D-21: NATS/JetStream messaging integration (depends on D-13) - PKG-07
 
-**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners.
 
 ---
 
@@ -205,7 +230,6 @@ D-19: Governance and portal-related API endpoints (approvals, exceptions, decisi
 - D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
 - D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
 
-**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners.
 
 ---
 
@@ -292,8 +316,6 @@ D-31: Self-host deployment stack (compose/podman)
 - D-18: Core API endpoints (depends on D-17, D-10, D-06, D-11) - PKG-06
 - D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
 - D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
-
-**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners. Install Rust via https://rustup.rs/ to build locally.
 
 ---
 
@@ -418,24 +440,4 @@ When referencing another SR-* document:
 
 ---
 
-## Canonical document paths
 
-| doc_id | Folder | Purpose |
-|--------|--------|---------|
-| SR-CHARTER | `charter/` | Project scope and priorities |
-| SR-CONTRACT | `platform/` | Binding invariants |
-| SR-SPEC | `platform/` | Platform mechanics |
-| SR-TYPES | `platform/` | Type registry and schemas |
-| SR-WORK-SURFACE | `platform/` | Work surface definitions |
-| SR-PROCEDURE-KIT | `platform/` | Procedure templates |
-| SR-SEMANTIC-ORACLE-SPEC | `platform/` | Semantic oracle interface |
-| SR-EVENT-MANAGER | `platform/` | Event projections spec |
-| SR-AGENT-WORKER-CONTRACT | `platform/` | Agent/worker contract |
-| SR-INTENT | `platform/` | Design rationale |
-| SR-CHANGE | `build-governance/` | Change control process |
-| SR-AGENTS | `build-governance/` | Agent actor model |
-| SR-TASKS | `build-governance/` | Task assignment |
-| SR-EXCEPTIONS | `build-governance/` | Exception ledger |
-| SR-PLAN | `program/` | Build plan instance |
-| SR-DIRECTIVE | `program/` | Execution policy |
-| SR-README | `charter/` | This index |
