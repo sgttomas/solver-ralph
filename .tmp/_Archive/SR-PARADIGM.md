@@ -137,7 +137,6 @@ It is distinct from:
 | **SR-INTENT** | Why the system is designed this way (rationale) |
 | **SR-DIRECTIVE** | How to execute within published governance |
 | **SR-CHANGE** | How to evolve the governed set after publication |
-| **SR-PARADIGM** | How to author the governed set in the first place |
 
 SR-PARADIGM governs *creation*; SR-CHANGE governs *evolution*.
 
@@ -359,10 +358,10 @@ These sections are binding because they are the minimal structure needed to:
 
 - **Verification {agentic}** produces deterministic evidence.
 - **Evaluation {human}** interprets verification evidence (non-binding) so humans can decide what it means.
-- **Validation {agentic}** produces evidence about fitness-in-context (demos, scenarios, checks, trials, etc.).
+- **Validation {agentic}** produces evidence about the fitness-in-context of the deterministic evidence from validation (tests, demos, trials, etc.).
 - **Assessment {human}** interprets validation evidence (non-binding) so humans can decide acceptability.
 
-Evaluation/assessment MUST NOT be treated as approval. Approval occurs only through the portal/record mechanisms defined elsewhere.
+Evaluation/assessment MUST NOT be treated as approval. Approval occurs only through the portal/record mechanisms defined elsewhere.  Evaluation and assessment are human-in-the-loop nodes where decisions are made on how agentic Ralph-loops will unfold.
 
 ### 4.5 Verification produces evidence; approval binds responsibility
 
