@@ -1,10 +1,10 @@
-//! SOLVER-Ralph HTTP API Service (D-17, D-18)
+//! SOLVER-Ralph HTTP API Service (D-17, D-18, D-19)
 //!
 //! This is the main entry point for the SOLVER-Ralph API server.
 //! Per SR-SPEC §2, it provides HTTP endpoints for:
 //! - Loops, Iterations, Candidates, Runs (D-18)
-//! - Approvals, Exceptions, Decisions (D-19)
-//! - Evidence, Governed Artifacts, Freeze Records (D-19, D-20)
+//! - Approvals, Exceptions, Decisions, Freeze Records (D-19)
+//! - Evidence, Governed Artifacts (D-20)
 //! - Staleness management
 //!
 //! Authentication is handled via OIDC (Zitadel) with JWT validation.
@@ -21,7 +21,7 @@ use axum::{
     Json, Router,
 };
 use config::ApiConfig;
-use handlers::{candidates, iterations, loops, runs};
+use handlers::{approvals, candidates, decisions, exceptions, freeze, iterations, loops, runs};
 use serde::{Deserialize, Serialize};
 use sr_adapters::{PostgresEventStore, ProjectionBuilder};
 use sr_ports::EventStore;
@@ -174,6 +174,61 @@ fn create_router(state: AppState) -> Router {
         .route("/api/v1/runs/:run_id", get(runs::get_run))
         .route("/api/v1/runs/:run_id/complete", post(runs::complete_run));
 
+    // Approval routes (D-19) - HUMAN-only per SR-CONTRACT C-TB-3
+    let approval_routes = Router::new()
+        .route("/api/v1/approvals", post(approvals::record_approval))
+        .route("/api/v1/approvals", get(approvals::list_approvals))
+        .route(
+            "/api/v1/approvals/:approval_id",
+            get(approvals::get_approval),
+        )
+        .route(
+            "/api/v1/portals/:portal_id/approvals",
+            get(approvals::list_approvals_for_portal),
+        );
+
+    // Exception routes (D-19) - HUMAN-only per SR-SPEC §1.8
+    let exception_routes = Router::new()
+        .route("/api/v1/exceptions", post(exceptions::create_exception))
+        .route("/api/v1/exceptions", get(exceptions::list_exceptions))
+        .route(
+            "/api/v1/exceptions/:exception_id",
+            get(exceptions::get_exception),
+        )
+        .route(
+            "/api/v1/exceptions/:exception_id/activate",
+            post(exceptions::activate_exception),
+        )
+        .route(
+            "/api/v1/exceptions/:exception_id/resolve",
+            post(exceptions::resolve_exception),
+        );
+
+    // Decision routes (D-19) - HUMAN-only per SR-CONTRACT C-DEC-1
+    let decision_routes = Router::new()
+        .route("/api/v1/decisions", post(decisions::record_decision))
+        .route("/api/v1/decisions", get(decisions::list_decisions))
+        .route(
+            "/api/v1/decisions/:decision_id",
+            get(decisions::get_decision),
+        );
+
+    // Freeze record routes (D-19) - HUMAN-only per SR-CONTRACT C-SHIP-1
+    let freeze_routes = Router::new()
+        .route(
+            "/api/v1/freeze-records",
+            post(freeze::create_freeze_record),
+        )
+        .route("/api/v1/freeze-records", get(freeze::list_freeze_records))
+        .route(
+            "/api/v1/freeze-records/:freeze_id",
+            get(freeze::get_freeze_record),
+        )
+        .route(
+            "/api/v1/candidates/:candidate_id/freeze-records",
+            get(freeze::list_freeze_records_for_candidate),
+        );
+
     // Combine all routes
     Router::new()
         .merge(public_routes)
@@ -182,6 +237,10 @@ fn create_router(state: AppState) -> Router {
         .merge(iteration_routes)
         .merge(candidate_routes)
         .merge(run_routes)
+        .merge(approval_routes)
+        .merge(exception_routes)
+        .merge(decision_routes)
+        .merge(freeze_routes)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state)

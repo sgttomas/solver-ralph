@@ -33,6 +33,45 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 8 (2026-01-13)
+**Completed:** D-19
+
+**What was done:**
+
+D-19: Governance and portal-related API endpoints (approvals, exceptions, decisions, freeze records)
+
+- Approval handlers: record (HUMAN-only per SR-CONTRACT C-TB-3), get, list, list_for_portal
+- Exception handlers: create (HUMAN-only per SR-SPEC §1.8), get, list, activate, resolve
+  - Integrity conditions (ORACLE_TAMPER, ORACLE_GAP, etc.) cannot be waived
+  - Exception kinds: DEVIATION, DEFERRAL, WAIVER with proper validation
+- Decision handlers: record (HUMAN-only per SR-CONTRACT C-DEC-1), get, list
+  - Support for precedent decisions with applicability clauses
+- Freeze record handlers: create (HUMAN-only per SR-CONTRACT C-SHIP-1), get, list, list_for_candidate
+  - Verification modes: STRICT, WITH_EXCEPTIONS
+  - Artifact manifest and active exceptions captured at freeze time
+
+- Added projection types: ApprovalProjection, ExceptionProjection, DecisionProjection, FreezeRecordProjection
+- Added query methods to ProjectionBuilder for all new entities
+- Wired all D-19 routes in main.rs
+
+**Routes implemented:**
+- POST/GET /api/v1/approvals, GET approvals/:id, GET portals/:id/approvals
+- POST/GET /api/v1/exceptions, GET exceptions/:id, POST exceptions/:id/activate, POST exceptions/:id/resolve
+- POST/GET /api/v1/decisions, GET decisions/:id
+- POST/GET /api/v1/freeze-records, GET freeze-records/:id, GET candidates/:id/freeze-records
+
+**PKG-06 (API) is now fully complete (D-17, D-18, D-19 done)**
+
+**Next deliverables to work on:**
+- D-16: Restricted evidence handling (depends on D-14) - PKG-05
+- D-20: Evidence management API endpoints (depends on D-14, D-15) - PKG-06
+- D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
+- D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
+
+**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners.
+
+---
+
 ### Session 7 (2026-01-13)
 **Completed:** D-18
 
@@ -59,14 +98,6 @@ D-18: Core API endpoints for loops, iterations, candidates, runs
 - POST/GET /api/v1/runs, GET runs/:id, POST runs/:id/complete
 
 **PKG-06 (API) is now complete (D-17, D-18 done)**
-
-**Next deliverables to work on:**
-- D-16: Restricted evidence handling (depends on D-14) - PKG-05
-- D-19: Approval/exception/decision API endpoints (depends on D-18) - PKG-06
-- D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
-- D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
-
-**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners.
 
 ---
 

@@ -1161,6 +1161,75 @@ pub struct RunProjection {
     pub evidence_bundle_hash: Option<String>,
 }
 
+/// Approval projection read model
+#[derive(Debug, Clone)]
+pub struct ApprovalProjection {
+    pub approval_id: String,
+    pub portal_id: String,
+    pub decision: String,
+    pub subject_refs: serde_json::Value,
+    pub evidence_refs: Vec<String>,
+    pub exceptions_acknowledged: Vec<String>,
+    pub rationale: Option<String>,
+    pub approved_by_kind: String,
+    pub approved_by_id: String,
+    pub approved_at: DateTime<Utc>,
+}
+
+/// Exception projection read model
+#[derive(Debug, Clone)]
+pub struct ExceptionProjection {
+    pub exception_id: String,
+    pub kind: String,
+    pub status: String,
+    pub scope: serde_json::Value,
+    pub rationale: String,
+    pub target_description: String,
+    pub created_by_kind: String,
+    pub created_by_id: String,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub resolved_by_kind: Option<String>,
+    pub resolved_by_id: Option<String>,
+}
+
+/// Decision projection read model
+#[derive(Debug, Clone)]
+pub struct DecisionProjection {
+    pub decision_id: String,
+    pub trigger: String,
+    pub scope: serde_json::Value,
+    pub decision: String,
+    pub rationale: String,
+    pub is_precedent: bool,
+    pub applicability: Option<String>,
+    pub evidence_refs: Vec<String>,
+    pub exceptions_acknowledged: serde_json::Value,
+    pub decided_by_kind: String,
+    pub decided_by_id: String,
+    pub decided_at: DateTime<Utc>,
+}
+
+/// Freeze record projection read model
+#[derive(Debug, Clone)]
+pub struct FreezeRecordProjection {
+    pub freeze_id: String,
+    pub baseline_id: String,
+    pub candidate_id: String,
+    pub verification_mode: String,
+    pub oracle_suite_id: String,
+    pub oracle_suite_hash: String,
+    pub evidence_bundle_refs: Vec<String>,
+    pub waiver_refs: Vec<String>,
+    pub release_approval_id: String,
+    pub artifact_manifest: serde_json::Value,
+    pub active_exceptions: serde_json::Value,
+    pub frozen_by_kind: String,
+    pub frozen_by_id: String,
+    pub frozen_at: DateTime<Utc>,
+}
+
 impl ProjectionBuilder {
     /// Get a loop by ID
     pub async fn get_loop(&self, loop_id: &str) -> Result<Option<LoopProjection>, ProjectionError> {
@@ -1534,6 +1603,499 @@ impl ProjectionBuilder {
                 actor_kind: row.get("actor_kind"),
                 actor_id: row.get("actor_id"),
                 evidence_bundle_hash: row.get("evidence_bundle_hash"),
+            })
+            .collect())
+    }
+
+    // ========================================================================
+    // Approval Query Methods
+    // ========================================================================
+
+    /// Get an approval by ID
+    pub async fn get_approval(
+        &self,
+        approval_id: &str,
+    ) -> Result<Option<ApprovalProjection>, ProjectionError> {
+        let result = sqlx::query(
+            r#"
+            SELECT approval_id, portal_id, decision, subject_refs, evidence_refs,
+                   exceptions_acknowledged, rationale, approved_by_kind, approved_by_id,
+                   approved_at
+            FROM proj.approvals WHERE approval_id = $1
+            "#,
+        )
+        .bind(approval_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result.map(|row| ApprovalProjection {
+            approval_id: row.get("approval_id"),
+            portal_id: row.get("portal_id"),
+            decision: row.get("decision"),
+            subject_refs: row.get("subject_refs"),
+            evidence_refs: row.get("evidence_refs"),
+            exceptions_acknowledged: row.get("exceptions_acknowledged"),
+            rationale: row.get("rationale"),
+            approved_by_kind: row.get("approved_by_kind"),
+            approved_by_id: row.get("approved_by_id"),
+            approved_at: row.get("approved_at"),
+        }))
+    }
+
+    /// Get approvals for a portal
+    pub async fn get_approvals_for_portal(
+        &self,
+        portal_id: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<ApprovalProjection>, ProjectionError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT approval_id, portal_id, decision, subject_refs, evidence_refs,
+                   exceptions_acknowledged, rationale, approved_by_kind, approved_by_id,
+                   approved_at
+            FROM proj.approvals WHERE portal_id = $1
+            ORDER BY approved_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+        )
+        .bind(portal_id)
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| ApprovalProjection {
+                approval_id: row.get("approval_id"),
+                portal_id: row.get("portal_id"),
+                decision: row.get("decision"),
+                subject_refs: row.get("subject_refs"),
+                evidence_refs: row.get("evidence_refs"),
+                exceptions_acknowledged: row.get("exceptions_acknowledged"),
+                rationale: row.get("rationale"),
+                approved_by_kind: row.get("approved_by_kind"),
+                approved_by_id: row.get("approved_by_id"),
+                approved_at: row.get("approved_at"),
+            })
+            .collect())
+    }
+
+    /// List approvals
+    pub async fn list_approvals(
+        &self,
+        decision: Option<&str>,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<ApprovalProjection>, ProjectionError> {
+        let rows = if let Some(d) = decision {
+            sqlx::query(
+                r#"
+                SELECT approval_id, portal_id, decision, subject_refs, evidence_refs,
+                       exceptions_acknowledged, rationale, approved_by_kind, approved_by_id,
+                       approved_at
+                FROM proj.approvals WHERE decision = $1
+                ORDER BY approved_at DESC
+                LIMIT $2 OFFSET $3
+                "#,
+            )
+            .bind(d)
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT approval_id, portal_id, decision, subject_refs, evidence_refs,
+                       exceptions_acknowledged, rationale, approved_by_kind, approved_by_id,
+                       approved_at
+                FROM proj.approvals
+                ORDER BY approved_at DESC
+                LIMIT $1 OFFSET $2
+                "#,
+            )
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|row| ApprovalProjection {
+                approval_id: row.get("approval_id"),
+                portal_id: row.get("portal_id"),
+                decision: row.get("decision"),
+                subject_refs: row.get("subject_refs"),
+                evidence_refs: row.get("evidence_refs"),
+                exceptions_acknowledged: row.get("exceptions_acknowledged"),
+                rationale: row.get("rationale"),
+                approved_by_kind: row.get("approved_by_kind"),
+                approved_by_id: row.get("approved_by_id"),
+                approved_at: row.get("approved_at"),
+            })
+            .collect())
+    }
+
+    // ========================================================================
+    // Exception Query Methods
+    // ========================================================================
+
+    /// Get an exception by ID
+    pub async fn get_exception(
+        &self,
+        exception_id: &str,
+    ) -> Result<Option<ExceptionProjection>, ProjectionError> {
+        let result = sqlx::query(
+            r#"
+            SELECT exception_id, kind, status, scope, rationale, target_description,
+                   created_by_kind, created_by_id, created_at, expires_at,
+                   resolved_at, resolved_by_kind, resolved_by_id
+            FROM proj.exceptions WHERE exception_id = $1
+            "#,
+        )
+        .bind(exception_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result.map(|row| ExceptionProjection {
+            exception_id: row.get("exception_id"),
+            kind: row.get("kind"),
+            status: row.get("status"),
+            scope: row.get("scope"),
+            rationale: row.get("rationale"),
+            target_description: row.get("target_description"),
+            created_by_kind: row.get("created_by_kind"),
+            created_by_id: row.get("created_by_id"),
+            created_at: row.get("created_at"),
+            expires_at: row.get("expires_at"),
+            resolved_at: row.get("resolved_at"),
+            resolved_by_kind: row.get("resolved_by_kind"),
+            resolved_by_id: row.get("resolved_by_id"),
+        }))
+    }
+
+    /// List exceptions
+    pub async fn list_exceptions(
+        &self,
+        kind: Option<&str>,
+        status: Option<&str>,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<ExceptionProjection>, ProjectionError> {
+        let rows = match (kind, status) {
+            (Some(k), Some(s)) => {
+                sqlx::query(
+                    r#"
+                    SELECT exception_id, kind, status, scope, rationale, target_description,
+                           created_by_kind, created_by_id, created_at, expires_at,
+                           resolved_at, resolved_by_kind, resolved_by_id
+                    FROM proj.exceptions WHERE kind = $1 AND status = $2
+                    ORDER BY created_at DESC
+                    LIMIT $3 OFFSET $4
+                    "#,
+                )
+                .bind(k)
+                .bind(s)
+                .bind(limit as i64)
+                .bind(offset as i64)
+                .fetch_all(&self.pool)
+                .await?
+            }
+            (Some(k), None) => {
+                sqlx::query(
+                    r#"
+                    SELECT exception_id, kind, status, scope, rationale, target_description,
+                           created_by_kind, created_by_id, created_at, expires_at,
+                           resolved_at, resolved_by_kind, resolved_by_id
+                    FROM proj.exceptions WHERE kind = $1
+                    ORDER BY created_at DESC
+                    LIMIT $2 OFFSET $3
+                    "#,
+                )
+                .bind(k)
+                .bind(limit as i64)
+                .bind(offset as i64)
+                .fetch_all(&self.pool)
+                .await?
+            }
+            (None, Some(s)) => {
+                sqlx::query(
+                    r#"
+                    SELECT exception_id, kind, status, scope, rationale, target_description,
+                           created_by_kind, created_by_id, created_at, expires_at,
+                           resolved_at, resolved_by_kind, resolved_by_id
+                    FROM proj.exceptions WHERE status = $1
+                    ORDER BY created_at DESC
+                    LIMIT $2 OFFSET $3
+                    "#,
+                )
+                .bind(s)
+                .bind(limit as i64)
+                .bind(offset as i64)
+                .fetch_all(&self.pool)
+                .await?
+            }
+            (None, None) => {
+                sqlx::query(
+                    r#"
+                    SELECT exception_id, kind, status, scope, rationale, target_description,
+                           created_by_kind, created_by_id, created_at, expires_at,
+                           resolved_at, resolved_by_kind, resolved_by_id
+                    FROM proj.exceptions
+                    ORDER BY created_at DESC
+                    LIMIT $1 OFFSET $2
+                    "#,
+                )
+                .bind(limit as i64)
+                .bind(offset as i64)
+                .fetch_all(&self.pool)
+                .await?
+            }
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|row| ExceptionProjection {
+                exception_id: row.get("exception_id"),
+                kind: row.get("kind"),
+                status: row.get("status"),
+                scope: row.get("scope"),
+                rationale: row.get("rationale"),
+                target_description: row.get("target_description"),
+                created_by_kind: row.get("created_by_kind"),
+                created_by_id: row.get("created_by_id"),
+                created_at: row.get("created_at"),
+                expires_at: row.get("expires_at"),
+                resolved_at: row.get("resolved_at"),
+                resolved_by_kind: row.get("resolved_by_kind"),
+                resolved_by_id: row.get("resolved_by_id"),
+            })
+            .collect())
+    }
+
+    // ========================================================================
+    // Decision Query Methods
+    // ========================================================================
+
+    /// Get a decision by ID
+    pub async fn get_decision(
+        &self,
+        decision_id: &str,
+    ) -> Result<Option<DecisionProjection>, ProjectionError> {
+        let result = sqlx::query(
+            r#"
+            SELECT decision_id, trigger, scope, decision, rationale, is_precedent,
+                   applicability, evidence_refs, exceptions_acknowledged,
+                   decided_by_kind, decided_by_id, decided_at
+            FROM proj.decisions WHERE decision_id = $1
+            "#,
+        )
+        .bind(decision_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result.map(|row| DecisionProjection {
+            decision_id: row.get("decision_id"),
+            trigger: row.get("trigger"),
+            scope: row.get("scope"),
+            decision: row.get("decision"),
+            rationale: row.get("rationale"),
+            is_precedent: row.get("is_precedent"),
+            applicability: row.get("applicability"),
+            evidence_refs: row.get("evidence_refs"),
+            exceptions_acknowledged: row.get("exceptions_acknowledged"),
+            decided_by_kind: row.get("decided_by_kind"),
+            decided_by_id: row.get("decided_by_id"),
+            decided_at: row.get("decided_at"),
+        }))
+    }
+
+    /// List decisions
+    pub async fn list_decisions(
+        &self,
+        is_precedent: Option<bool>,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<DecisionProjection>, ProjectionError> {
+        let rows = if let Some(precedent) = is_precedent {
+            sqlx::query(
+                r#"
+                SELECT decision_id, trigger, scope, decision, rationale, is_precedent,
+                       applicability, evidence_refs, exceptions_acknowledged,
+                       decided_by_kind, decided_by_id, decided_at
+                FROM proj.decisions WHERE is_precedent = $1
+                ORDER BY decided_at DESC
+                LIMIT $2 OFFSET $3
+                "#,
+            )
+            .bind(precedent)
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT decision_id, trigger, scope, decision, rationale, is_precedent,
+                       applicability, evidence_refs, exceptions_acknowledged,
+                       decided_by_kind, decided_by_id, decided_at
+                FROM proj.decisions
+                ORDER BY decided_at DESC
+                LIMIT $1 OFFSET $2
+                "#,
+            )
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|row| DecisionProjection {
+                decision_id: row.get("decision_id"),
+                trigger: row.get("trigger"),
+                scope: row.get("scope"),
+                decision: row.get("decision"),
+                rationale: row.get("rationale"),
+                is_precedent: row.get("is_precedent"),
+                applicability: row.get("applicability"),
+                evidence_refs: row.get("evidence_refs"),
+                exceptions_acknowledged: row.get("exceptions_acknowledged"),
+                decided_by_kind: row.get("decided_by_kind"),
+                decided_by_id: row.get("decided_by_id"),
+                decided_at: row.get("decided_at"),
+            })
+            .collect())
+    }
+
+    // ========================================================================
+    // Freeze Record Query Methods
+    // ========================================================================
+
+    /// Get a freeze record by ID
+    pub async fn get_freeze_record(
+        &self,
+        freeze_id: &str,
+    ) -> Result<Option<FreezeRecordProjection>, ProjectionError> {
+        let result = sqlx::query(
+            r#"
+            SELECT freeze_id, baseline_id, candidate_id, verification_mode,
+                   oracle_suite_id, oracle_suite_hash, evidence_bundle_refs, waiver_refs,
+                   release_approval_id, artifact_manifest, active_exceptions,
+                   frozen_by_kind, frozen_by_id, frozen_at
+            FROM proj.freeze_records WHERE freeze_id = $1
+            "#,
+        )
+        .bind(freeze_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result.map(|row| FreezeRecordProjection {
+            freeze_id: row.get("freeze_id"),
+            baseline_id: row.get("baseline_id"),
+            candidate_id: row.get("candidate_id"),
+            verification_mode: row.get("verification_mode"),
+            oracle_suite_id: row.get("oracle_suite_id"),
+            oracle_suite_hash: row.get("oracle_suite_hash"),
+            evidence_bundle_refs: row.get("evidence_bundle_refs"),
+            waiver_refs: row.get("waiver_refs"),
+            release_approval_id: row.get("release_approval_id"),
+            artifact_manifest: row.get("artifact_manifest"),
+            active_exceptions: row.get("active_exceptions"),
+            frozen_by_kind: row.get("frozen_by_kind"),
+            frozen_by_id: row.get("frozen_by_id"),
+            frozen_at: row.get("frozen_at"),
+        }))
+    }
+
+    /// Get freeze records for a candidate
+    pub async fn get_freeze_records_for_candidate(
+        &self,
+        candidate_id: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<FreezeRecordProjection>, ProjectionError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT freeze_id, baseline_id, candidate_id, verification_mode,
+                   oracle_suite_id, oracle_suite_hash, evidence_bundle_refs, waiver_refs,
+                   release_approval_id, artifact_manifest, active_exceptions,
+                   frozen_by_kind, frozen_by_id, frozen_at
+            FROM proj.freeze_records WHERE candidate_id = $1
+            ORDER BY frozen_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+        )
+        .bind(candidate_id)
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| FreezeRecordProjection {
+                freeze_id: row.get("freeze_id"),
+                baseline_id: row.get("baseline_id"),
+                candidate_id: row.get("candidate_id"),
+                verification_mode: row.get("verification_mode"),
+                oracle_suite_id: row.get("oracle_suite_id"),
+                oracle_suite_hash: row.get("oracle_suite_hash"),
+                evidence_bundle_refs: row.get("evidence_bundle_refs"),
+                waiver_refs: row.get("waiver_refs"),
+                release_approval_id: row.get("release_approval_id"),
+                artifact_manifest: row.get("artifact_manifest"),
+                active_exceptions: row.get("active_exceptions"),
+                frozen_by_kind: row.get("frozen_by_kind"),
+                frozen_by_id: row.get("frozen_by_id"),
+                frozen_at: row.get("frozen_at"),
+            })
+            .collect())
+    }
+
+    /// List freeze records
+    pub async fn list_freeze_records(
+        &self,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<FreezeRecordProjection>, ProjectionError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT freeze_id, baseline_id, candidate_id, verification_mode,
+                   oracle_suite_id, oracle_suite_hash, evidence_bundle_refs, waiver_refs,
+                   release_approval_id, artifact_manifest, active_exceptions,
+                   frozen_by_kind, frozen_by_id, frozen_at
+            FROM proj.freeze_records
+            ORDER BY frozen_at DESC
+            LIMIT $1 OFFSET $2
+            "#,
+        )
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| FreezeRecordProjection {
+                freeze_id: row.get("freeze_id"),
+                baseline_id: row.get("baseline_id"),
+                candidate_id: row.get("candidate_id"),
+                verification_mode: row.get("verification_mode"),
+                oracle_suite_id: row.get("oracle_suite_id"),
+                oracle_suite_hash: row.get("oracle_suite_hash"),
+                evidence_bundle_refs: row.get("evidence_bundle_refs"),
+                waiver_refs: row.get("waiver_refs"),
+                release_approval_id: row.get("release_approval_id"),
+                artifact_manifest: row.get("artifact_manifest"),
+                active_exceptions: row.get("active_exceptions"),
+                frozen_by_kind: row.get("frozen_by_kind"),
+                frozen_by_id: row.get("frozen_by_id"),
+                frozen_at: row.get("frozen_at"),
             })
             .collect())
     }
