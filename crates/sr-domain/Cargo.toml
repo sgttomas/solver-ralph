@@ -8,6 +8,7 @@ description = "SOLVER-Ralph domain core: pure domain logic, state machines, and 
 [dependencies]
 ulid.workspace = true
 sha2.workspace = true
+hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
