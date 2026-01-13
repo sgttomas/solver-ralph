@@ -1,0 +1,19 @@
+[package]
+name = "sr-adapters"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SOLVER-Ralph adapter implementations: PostgreSQL, MinIO, NATS, Zitadel, etc."
+
+[dependencies]
+sr-domain = { path = "../sr-domain" }
+sr-ports = { path = "../sr-ports" }
+tokio.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+sqlx.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]

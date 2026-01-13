@@ -1,0 +1,16 @@
+[package]
+name = "sr-ports"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SOLVER-Ralph port traits: interfaces for adapter implementations"
+
+[dependencies]
+sr-domain = { path = "../sr-domain" }
+tokio.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]

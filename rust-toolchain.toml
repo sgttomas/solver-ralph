@@ -1,0 +1,8 @@
+# SOLVER-Ralph Rust Toolchain Configuration
+#
+# This file specifies the Rust toolchain version required for this project.
+# Install Rust via https://rustup.rs/
+
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
