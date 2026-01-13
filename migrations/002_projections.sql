@@ -251,3 +251,13 @@ CREATE INDEX idx_exceptions_kind ON proj.exceptions(kind);
 CREATE INDEX idx_exceptions_status ON proj.exceptions(status);
 
 COMMENT ON TABLE proj.exceptions IS 'Exception projection (Deviation/Deferral/Waiver) per SR-CONTRACT';
+
+-- Projection checkpoints table for tracking rebuild/incremental state
+CREATE TABLE proj.checkpoints (
+    projection_name      TEXT PRIMARY KEY,
+    last_global_seq      BIGINT NOT NULL DEFAULT 0,
+    last_event_id        TEXT NOT NULL,
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE proj.checkpoints IS 'Projection builder checkpoints for incremental processing per D-11';
