@@ -3,7 +3,7 @@
 # Per D-02/D-04, provides a single documented command to build/test the project.
 # Run `make help` to see available targets.
 
-.PHONY: help build build-rust build-ui test test-rust test-ui lint clean dev dev-api dev-ui
+.PHONY: help build build-rust build-ui test test-rust test-ui lint clean dev dev-api dev-ui deploy deploy-up deploy-down deploy-logs
 
 # Default target
 help:
@@ -25,6 +25,12 @@ help:
 	@echo "  dev         - Start development environment"
 	@echo "  dev-api     - Start API server in development mode"
 	@echo "  dev-ui      - Start UI development server"
+	@echo ""
+	@echo "Deployment targets:"
+	@echo "  deploy      - Start infrastructure services (Postgres, MinIO, NATS, Zitadel)"
+	@echo "  deploy-up   - Start full stack including SR services"
+	@echo "  deploy-down - Stop all deployment services"
+	@echo "  deploy-logs - Follow deployment service logs"
 	@echo ""
 	@echo "Other targets:"
 	@echo "  lint        - Run linters"
@@ -89,3 +95,22 @@ dev-api:
 dev-ui:
 	@echo "Starting UI development server..."
 	cd ui && npm run dev
+
+# Deploy infrastructure services (D-31)
+deploy:
+	@echo "Starting infrastructure services..."
+	./deploy/start.sh
+
+# Deploy full stack including SR services
+deploy-up:
+	@echo "Starting full deployment stack..."
+	./deploy/start.sh --full
+
+# Stop all deployment services
+deploy-down:
+	@echo "Stopping deployment services..."
+	./deploy/start.sh --down
+
+# Follow deployment logs
+deploy-logs:
+	./deploy/start.sh --logs
