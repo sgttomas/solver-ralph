@@ -37,5 +37,8 @@ futures.workspace = true
 # D-23: Reference worker bridge
 reqwest.workspace = true
 
+# D-24: Oracle runner service
+tempfile.workspace = true
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util", "rt", "macros"] }

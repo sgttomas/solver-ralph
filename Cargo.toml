@@ -65,3 +65,6 @@ glob = "0.3"
 # Messaging (D-21: NATS/JetStream)
 async-nats = "0.38"
 futures = "0.3"
+
+# Testing utilities (D-24: Oracle runner)
+tempfile = "3.15"

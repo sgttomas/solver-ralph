@@ -9,10 +9,11 @@
 //! - MinIO evidence store adapter (D-14)
 //! - Evidence manifest library (D-15)
 //! - Restricted evidence handling (D-16)
+//! - Zitadel identity provider adapter (D-17)
 //! - NATS message bus adapter (D-21)
 //! - Loop governor service (D-22)
 //! - Reference worker bridge (D-23)
-//! - Zitadel identity provider adapter (D-17)
+//! - Oracle runner service (D-24)
 
 pub mod config;
 pub mod evidence;
@@ -21,6 +22,7 @@ pub mod graph;
 pub mod infisical;
 pub mod minio;
 pub mod nats;
+pub mod oracle_runner;
 pub mod outbox;
 pub mod postgres;
 pub mod projections;
@@ -64,4 +66,9 @@ pub use governor::{
 pub use worker::{
     ContentResolver, ReferenceWorkerBridge, WorkAction, WorkResult, WorkerConfig, WorkerError,
     run_worker,
+};
+pub use oracle_runner::{
+    CapturedArtifact, EnvironmentConstraints, EnvironmentFingerprint, ExpectedOutput,
+    NetworkMode, OracleClassification, OracleDefinition, OracleExecutionResult,
+    OracleSuiteDefinition, PodmanOracleRunner, PodmanOracleRunnerConfig,
 };

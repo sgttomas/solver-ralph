@@ -131,11 +131,35 @@ pub enum OracleRunnerError {
     #[error("Oracle suite not found: {suite_id}")]
     SuiteNotFound { suite_id: String },
 
-    #[error("Execution error: {message}")]
-    ExecutionError { message: String },
+    #[error("Suite hash mismatch: expected {expected}, got {actual}")]
+    SuiteHashMismatch { expected: String, actual: String },
+
+    #[error("Container creation failed: {reason}")]
+    ContainerCreationFailed { reason: String },
+
+    #[error("Container execution failed: {reason}")]
+    ContainerExecutionFailed { reason: String },
+
+    #[error("Execution timeout for oracle {oracle_id}: exceeded {timeout_secs} seconds")]
+    ExecutionTimeout { oracle_id: String, timeout_secs: u64 },
+
+    #[error("Output capture failed for {artifact}: {reason}")]
+    OutputCaptureFailed { artifact: String, reason: String },
+
+    #[error("Manifest creation failed: {reason}")]
+    ManifestCreationFailed { reason: String },
+
+    #[error("Evidence store failed: {reason}")]
+    EvidenceStoreFailed { reason: String },
 
     #[error("Environment mismatch: {details}")]
     EnvironmentMismatch { details: String },
+
+    #[error("Restricted evidence access denied: {reason}")]
+    RestrictedEvidenceAccessDenied { reason: String },
+
+    #[error("Execution error: {message}")]
+    ExecutionError { message: String },
 }
 
 /// Message bus port per SR-SPEC §4.6
