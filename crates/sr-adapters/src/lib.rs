@@ -7,7 +7,8 @@
 //! - NATS message bus adapter (D-21)
 //! - Zitadel identity provider adapter (D-17)
 
-pub mod postgres;
 pub mod config;
+pub mod postgres;
 
 pub use config::*;
+pub use postgres::PostgresEventStore;
