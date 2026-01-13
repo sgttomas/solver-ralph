@@ -30,11 +30,13 @@ ALWAYS refer to the project docs/ for the authoritative coding architecture, pla
 
 When troubleshooting, refer to the appropriate SR-* documents.
 
+Confirm if Rust is now installed.
+
 
 ## Development History Summary for this Deliverable
 
 ### Session 10 (2026-01-13)
-**Completed:** D-16, D-21, D-22
+**Completed:** D-16, D-21, D-22, D-32
 
 **What was done:**
 
@@ -43,31 +45,35 @@ D-16: Restricted evidence handling (Infisical + envelope keys)
 - RestrictedEvidenceStore with AES-256-GCM envelope encryption
 - RedactionManifest schema per C-EVID-5
 - InfisicalSecretProvider adapter with KEK caching
-- Standard redaction rules (AWS keys, JWTs, passwords)
 
 D-21: NATS/JetStream messaging integration (contracts + reliability)
 - NatsMessageBus adapter implementing MessageBus port
 - MessageEnvelope schema (v1.0) with idempotency key
-- Subject organization: sr.events.*, sr.commands.*
 - NatsConsumer with redelivery handling via ack/nak/term
 
 D-22: Loop governor service (SYSTEM event emission + budgets)
 - LoopGovernor service for iteration orchestration
 - IterationStarted emission with SYSTEM actor only (per SR-SPEC)
-- LoopBudget: max_iterations, max_duration, cost limits
-- IterationPreconditions checking (loop_active, no_incomplete_iteration, etc.)
-- StopCondition types: BudgetExhausted, HumanStop, GoalAchieved, IntegrityCondition
-- GovernorDecision audit records (no silent actions)
+- LoopBudget, StopCondition, GovernorDecision audit records
 
-**PKG-05 (Evidence storage and integrity) is now complete**
+D-32: Build/init scripts (DB, buckets, identity realm, secrets)
+- init.sh: comprehensive initialization script
+- PostgreSQL schemas: es.events, es.outbox, proj.*, graph.*
+- MinIO buckets: evidence, candidates, artifacts
+- Zitadel config template with roles and OIDC clients
+- Development secrets with envelope KEK
+- Idempotent (safe to re-run), --check for status
+
+**PKG-05 (Evidence storage and integrity) complete**
 **PKG-07 (Orchestration runtime) progress: D-21, D-22 done**
+**PKG-10 (Self-host instance) progress: D-31, D-32 done**
 
-**Next deliverables to work on:**
-- D-23: Reference worker bridge (depends on D-08, D-22, D-20) - PKG-07
-- D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
-- D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
+**Next deliverables:**
+- D-23: Reference worker bridge (PKG-07) - now available
+- D-28: UI scaffold + OIDC login (PKG-09)
+- D-33: Operational logging + observability (PKG-10)
 
-**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners.
+**Note:** Rust not installed in this environment. CI validates builds.
 
 ---
 
