@@ -8,16 +8,19 @@
 //! - Outbox publisher (D-13)
 //! - MinIO evidence store adapter (D-14)
 //! - Evidence manifest library (D-15)
+//! - Restricted evidence handling (D-16)
 //! - NATS message bus adapter (D-21)
 //! - Zitadel identity provider adapter (D-17)
 
 pub mod config;
 pub mod evidence;
 pub mod graph;
+pub mod infisical;
 pub mod minio;
 pub mod outbox;
 pub mod postgres;
 pub mod projections;
+pub mod restricted;
 
 pub use config::*;
 pub use evidence::{
@@ -38,3 +41,9 @@ pub use projections::{
     ExceptionProjection, FreezeRecordProjection, IterationProjection, LoopProjection,
     ProjectionBuilder, ProjectionConfig, ProjectionError, RunProjection,
 };
+pub use restricted::{
+    standard_redaction_rules, EncryptionMetadata, EvidenceClassification, EvidenceRedactor,
+    InMemorySecretProvider, RedactedContentType, RedactionEntry, RedactionManifest, RedactionRule,
+    RestrictedEvidenceConfig, RestrictedEvidenceStore,
+};
+pub use infisical::{InfisicalConfig, InfisicalSecretProvider};

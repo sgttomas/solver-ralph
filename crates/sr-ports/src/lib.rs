@@ -215,3 +215,123 @@ impl Clock for SystemClock {
         Utc::now()
     }
 }
+
+// ============================================================================
+// Secret Provider Port (D-16: Restricted Evidence Handling)
+// ============================================================================
+
+/// Secret provider port for envelope key management per SR-SPEC
+///
+/// This port abstracts secret/key management for restricted evidence handling.
+/// The primary implementation is Infisical, but test implementations may use
+/// in-memory stores.
+///
+/// Envelope encryption pattern:
+/// 1. Generate a data encryption key (DEK) for the evidence bundle
+/// 2. Encrypt the DEK with a key encryption key (KEK) from the secret provider
+/// 3. Store the encrypted DEK alongside the evidence
+/// 4. Retrieve and decrypt the DEK when accessing restricted evidence
+pub trait SecretProvider: Send + Sync {
+    /// Retrieve a secret by path
+    ///
+    /// Path format: "project/environment/path/to/secret"
+    fn get_secret(
+        &self,
+        path: &str,
+    ) -> impl Future<Output = Result<SecretValue, SecretProviderError>> + Send;
+
+    /// Store a secret (for DEK envelope storage)
+    ///
+    /// Returns the secret ID for later retrieval
+    fn store_secret(
+        &self,
+        path: &str,
+        value: &[u8],
+        metadata: SecretMetadata,
+    ) -> impl Future<Output = Result<String, SecretProviderError>> + Send;
+
+    /// Delete a secret
+    fn delete_secret(
+        &self,
+        path: &str,
+    ) -> impl Future<Output = Result<(), SecretProviderError>> + Send;
+
+    /// Check if a secret exists
+    fn secret_exists(
+        &self,
+        path: &str,
+    ) -> impl Future<Output = Result<bool, SecretProviderError>> + Send;
+
+    /// Get the key encryption key (KEK) for envelope encryption
+    ///
+    /// This returns the KEK that will be used to encrypt data encryption keys.
+    /// The KEK itself should never leave the secret provider in plaintext
+    /// for production use.
+    fn get_envelope_key(
+        &self,
+        key_id: &str,
+    ) -> impl Future<Output = Result<EnvelopeKey, SecretProviderError>> + Send;
+}
+
+/// A secret value retrieved from the provider
+#[derive(Debug, Clone)]
+pub struct SecretValue {
+    /// The secret data
+    pub value: Vec<u8>,
+    /// Version of the secret
+    pub version: u64,
+    /// Creation timestamp
+    pub created_at: DateTime<Utc>,
+    /// Last update timestamp
+    pub updated_at: DateTime<Utc>,
+    /// Associated metadata
+    pub metadata: SecretMetadata,
+}
+
+/// Metadata for a stored secret
+#[derive(Debug, Clone, Default)]
+pub struct SecretMetadata {
+    /// Human-readable description
+    pub description: Option<String>,
+    /// Associated evidence bundle hash (for DEKs)
+    pub evidence_hash: Option<String>,
+    /// Key rotation policy
+    pub rotation_policy: Option<String>,
+    /// Additional tags
+    pub tags: std::collections::HashMap<String, String>,
+}
+
+/// An envelope key for encrypt/decrypt operations
+#[derive(Debug, Clone)]
+pub struct EnvelopeKey {
+    /// Key identifier
+    pub key_id: String,
+    /// Key material (32 bytes for AES-256)
+    pub key_material: Vec<u8>,
+    /// Algorithm (e.g., "AES-256-GCM")
+    pub algorithm: String,
+    /// Key version
+    pub version: u64,
+}
+
+/// Secret provider errors
+#[derive(Debug, thiserror::Error)]
+pub enum SecretProviderError {
+    #[error("Secret not found: {path}")]
+    NotFound { path: String },
+
+    #[error("Access denied: {reason}")]
+    AccessDenied { reason: String },
+
+    #[error("Connection error: {message}")]
+    ConnectionError { message: String },
+
+    #[error("Invalid secret path: {path}")]
+    InvalidPath { path: String },
+
+    #[error("Encryption error: {message}")]
+    EncryptionError { message: String },
+
+    #[error("Provider error: {message}")]
+    ProviderError { message: String },
+}
