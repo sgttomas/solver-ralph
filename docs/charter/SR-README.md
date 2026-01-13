@@ -31,6 +31,37 @@ Then /clear your context and redo the loop call that you are currently in.
 
 ## Development History Summary for this Deliverable
 
+### Session 3 (2026-01-13)
+**Completed:** D-04 (Local developer tooling), D-05 (Domain model primitives and invariants)
+
+**What was done:**
+
+D-04: Local developer tooling
+- Added scripts/check-deps.sh for dependency verification (Rust, Node, Docker, etc.)
+- Added scripts/dev-setup.sh for development environment setup
+- Added scripts/run-tests.sh for running test suites with structured output
+- Makefile already provides `make dev`, `make test`, `make build` targets
+
+D-05: Domain model primitives and invariants
+- Added missing domain entities: Iteration, Candidate, Run, EvidenceBundle, Approval, FreezeRecord, Exception, Decision
+- Added entity identifiers: RunId, ApprovalId, FreezeId, ExceptionId, DecisionId
+- Added state enums: IterationState, RunState, VerificationStatus, ApprovalDecision, VerificationMode, ExceptionKind, ExceptionStatus
+- Added state machines: IterationStateMachine, RunStateMachine, ExceptionStateMachine with transition validation
+- Added VerificationComputer for computing verification status per SR-SPEC §3.3
+- Added InvariantValidator for enforcing human actor requirements and waiver target constraints per SR-CONTRACT
+- Added comprehensive unit tests for entities and state machines
+
+Committed and pushed to solver-ralph-1 branch (commit 57d1ba8)
+
+**Next deliverables to work on (per SR-PLAN dependency graph):**
+- D-06: Deterministic state machines and transition validation (depends on D-05)
+- D-07: Ports and boundary interfaces (depends on D-05) - sr-ports already has basic traits
+- D-09: Postgres schemas and migrations (depends on D-02)
+
+**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners. Install Rust via https://rustup.rs/ to build locally.
+
+---
+
 ### Session 2 (2026-01-13)
 **Completed:** D-03 (Continuous integration baseline)
 
@@ -42,12 +73,6 @@ Then /clear your context and redo the loop call that you are currently in.
 - Fixed Rust edition 2024 -> 2021 in Cargo.toml
 - Added ESLint configuration for UI (ui/.eslintrc.cjs)
 - Committed and pushed to solver-ralph-1 branch (commit 3692c0b)
-
-**Next deliverables to work on (per SR-PLAN dependency graph):**
-- D-04: Local developer tooling (depends on D-02) - scripts/ already partially created
-- D-05: Domain model primitives and invariants (depends on D-02)
-
-**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners. Install Rust via https://rustup.rs/ to build locally.
 
 ---
 
