@@ -36,7 +36,7 @@ When troubleshooting, refer to the appropriate SR-* documents.
 ## Development History Summary for this Deliverable
 
 ### Session 11 (2026-01-13)
-**Completed:** D-23, D-24
+**Completed:** D-23, D-24, D-25
 
 **What was done:**
 
@@ -44,24 +44,28 @@ D-23: Reference worker bridge (IterationStarted → context → candidate)
 - ReferenceWorkerBridge consumes IterationStarted from NATS
 - Deterministic context compilation using D-08 ContextCompiler
 - ContentResolver for ref-to-hash resolution with classification
-- Candidate registration via HTTP API
-- Iteration completion with structured summary
 
 D-24: Oracle runner service (Podman + gVisor)
 - PodmanOracleRunner implementing OracleRunner port trait
-- Podman + gVisor (runsc) container execution
-- OracleSuiteDefinition with environment constraints
-- OracleDefinition with command, timeout, expected outputs
-- EnvironmentFingerprint for reproducibility auditing
 - Container isolation: network disabled, read-only workspace, scratch volume
-- Evidence manifest building and storage integration
-- Updated sr-ports OracleRunnerError with comprehensive variants
+- EnvironmentFingerprint for reproducibility auditing
+
+D-25: Core oracle suite implementation
+- OracleSuiteRegistry for suite definitions
+- SR-SUITE-GOV: meta_validate, refs_validate
+- SR-SUITE-CORE: build, test, lint, schema, integrity_smoke
+- SR-SUITE-FULL: + integration, e2e, replay_verify, sbom
+- VerificationProfile: GOV-CORE, STRICT-CORE, STRICT-FULL
+- WaivableCondition vs IntegrityCondition distinction
+- Oracle report structures (BuildReport, UnitTestReport, etc.)
+- Deterministic suite hashing via compute_suite_hash()
 
 **PKG-07 (Orchestration runtime) complete (D-21, D-22, D-23)**
-**PKG-08 (Oracle substrate) progress: D-24 done**
+**PKG-08 (Oracle substrate) progress: D-24, D-25 done**
 
 **Next deliverables:**
-- D-25: Core oracle suite implementation (PKG-08) - depends on D-03, D-15 ✓
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24, D-25, D-31, D-18, D-28
+- D-27: Oracle integrity checks (PKG-08) - depends on D-24, D-25 ✓
 - D-28: UI scaffold + OIDC login (PKG-09) - depends on D-02, D-17 ✓
 - D-33: Operational logging + observability (PKG-10) - depends on D-17, D-22, D-24 ✓
 
