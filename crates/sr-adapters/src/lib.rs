@@ -11,6 +11,7 @@
 //! - Restricted evidence handling (D-16)
 //! - NATS message bus adapter (D-21)
 //! - Loop governor service (D-22)
+//! - Reference worker bridge (D-23)
 //! - Zitadel identity provider adapter (D-17)
 
 pub mod config;
@@ -24,6 +25,7 @@ pub mod outbox;
 pub mod postgres;
 pub mod projections;
 pub mod restricted;
+pub mod worker;
 
 pub use config::*;
 pub use evidence::{
@@ -58,4 +60,8 @@ pub use governor::{
     GovernorDecision, GovernorDecisionType, GovernorError, GovernorOutcome,
     IterationPreconditions, LoopBudget, LoopGovernor, LoopTrackingState, PreconditionSnapshot,
     StopCondition,
+};
+pub use worker::{
+    ContentResolver, ReferenceWorkerBridge, WorkAction, WorkResult, WorkerConfig, WorkerError,
+    run_worker,
 };
