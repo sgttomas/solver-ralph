@@ -22,11 +22,17 @@ Your task is done when there are no more deliverables to be assigned, which mean
 
 You should push on to resolve any findings and consult the docs/ frequently for guidance.  They are typed documents and structured to aid in navigation.
 
-You should git merge and --squash after completing each deliverable.
+You should git add && commit && push after completing each deliverable.  You can remain on the same branch throughout this development session.
 
-Begin your task!
+If you cannot pass the tests for that deliverable then you must summarize what you did during that development session, delete the previous message where it says "Development History Summary for this Deliveralbe" and then append your new message including how to identify the task that was being worked on when the next instance of yourself begins the next iteration.
 
----
+Then /clear your context and redo the loop call that you are currently in.
+
+
+## Development History Summary for this Deliverable
+
+First iteration, no history.  Begin your task!
+
 
 ## Cross-document reference convention
 
