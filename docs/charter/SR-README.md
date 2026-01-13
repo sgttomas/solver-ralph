@@ -12,28 +12,54 @@ refs:
 
 # SR-README
 
-Canonical index for the SR-* document set. This document contains **only** path mappings and linking conventions.
+Canonical index for the SR-* document set. 
 
-For precedence rules, see SR-TYPES §2.3.
+Begin your task assignment by reading SR-CHARTER.  The project documentation constitutes a total development plan and specification with detailed instructions on types and contracts.  Always read the SR-* files that appear related to the task before going to read the code files.  Documentation leads development for this project.  Documentation is how you know your ontology, epistemology, and semantics.
 
-Begin your task assignment by reading SR-CHARTER.md and then doing whatever you think should be done first by navigating the docs/ folders and the documentation therein.
+Once you have read the appropriate project docs, then do whatever deliverables and tasks you think should be done next.
 
 Your task is done when there are no more deliverables to be assigned, which means all tests have passed and gates cleared.
 
-You should push on to resolve any findings and consult the docs/ frequently for guidance.  They are typed documents and structured to aid in navigation.
+You should push on to resolve any findings and consult the docs/ frequently for guidance and direction from the SR-* documents, several of which are normative.  They are typed documents and structured to aid in navigation.
 
 You should git add && commit && push after completing each deliverable.  You can remain on the same branch throughout this development session.
 
 If you cannot pass the tests for that deliverable then you must summarize what you did during that development session, delete the previous message where it says "Development History Summary for this Deliveralbe" and then append your new message including how to identify the task that was being worked on when the next instance of yourself begins the next iteration.
 
-ALWAYS refer to the project docs/ for the authoritative coding architecture, plan, and semantics.  Understand the full set of docs/ and refer to the applicable SR-* document instead of making assumptions.
+ALWAYS refer to the project docs/*/SR-* for the authoritative coding architecture, plan, and semantics.  Understand the full set of docs/ and refer to the applicable SR-* document instead of making assumptions.
 
 When troubleshooting, refer to the appropriate SR-* documents.
 
- Install Rust or give user deatailed instructions how.
-
 
 ## Development History Summary for this Deliverable
+
+### Session 12 (2026-01-13)
+**Completed:** D-27
+
+**What was done:**
+
+D-27: Oracle integrity checks (TAMPER/GAP/FLAKE/ENV_MISMATCH)
+- IntegrityChecker service with configurable check types
+- TAMPER detection: evidence bundle/artifact hash chain verification
+- GAP detection: required oracle coverage validation vs suite definition
+- ENV_MISMATCH detection: environment constraint verification vs fingerprint
+- FLAKE detection: FlakeHistoryTracker for inconsistent oracle behavior
+- StopTrigger recommendations with portal routing
+- ProfileVerificationResult for profile-based integrity blocking
+- Standalone compute_verdict() helper in evidence module
+- Full unit test coverage for all integrity check types
+
+**PKG-08 (Oracle substrate) progress: D-24, D-25, D-27 done (D-26 pending)**
+
+**Next deliverables:**
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24, D-25, D-31, D-18, D-28 (blocked on D-28)
+- D-28: UI scaffold + OIDC login (PKG-09) - depends on D-02, D-17 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17, D-22, D-24 ✓
+- D-29: Loop/iteration/candidate views (PKG-09) - depends on D-28, D-20, D-18
+
+**Note:** Rust not installed in this environment. CI validates builds.
+
+---
 
 ### Session 11 (2026-01-13)
 **Completed:** D-23, D-24, D-25
@@ -62,14 +88,6 @@ D-25: Core oracle suite implementation
 
 **PKG-07 (Orchestration runtime) complete (D-21, D-22, D-23)**
 **PKG-08 (Oracle substrate) progress: D-24, D-25 done**
-
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24, D-25, D-31, D-18, D-28
-- D-27: Oracle integrity checks (PKG-08) - depends on D-24, D-25 ✓
-- D-28: UI scaffold + OIDC login (PKG-09) - depends on D-02, D-17 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17, D-22, D-24 ✓
-
-**Note:** Rust not installed in this environment. CI validates builds.
 
 ---
 
