@@ -16,6 +16,16 @@ Canonical index for the SR-* document set. This document contains **only** path 
 
 For precedence rules, see SR-TYPES §2.3.
 
+Begin your task assignment by reading SR-CHARTER.md and then doing whatever you think should be done first by navigating the docs/ folders and the documentation therein.
+
+Your task is done when there are no more deliverables to be assigned, which means all tests have passed and gates cleared.
+
+You should push on to resolve any findings and consult the docs/ frequently for guidance.  They are typed documents and structured to aid in navigation.
+
+You should git merge and --squash after completing each deliverable.
+
+Begin your task!
+
 ---
 
 ## Cross-document reference convention
