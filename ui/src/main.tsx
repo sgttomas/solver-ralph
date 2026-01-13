@@ -1,9 +1,18 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
+/**
+ * SOLVER-Ralph UI Entry Point (D-28)
+ *
+ * Bootstraps the React application with OIDC authentication.
+ */
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { AuthProvider } from './auth';
+import App from './App';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>,
-)
+);
