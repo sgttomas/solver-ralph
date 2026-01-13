@@ -9,12 +9,14 @@
 //! Per SR-SPEC §4.1 (Hexagonal Architecture), this crate MUST NOT import
 //! DB clients, HTTP frameworks, container runtimes, or LLM SDKs.
 
+pub mod commands;
 pub mod entities;
+pub mod errors;
 pub mod events;
 pub mod state_machines;
-pub mod commands;
-pub mod errors;
 
+pub use commands::*;
 pub use entities::*;
-pub use events::*;
 pub use errors::*;
+pub use events::*;
+pub use state_machines::*;
