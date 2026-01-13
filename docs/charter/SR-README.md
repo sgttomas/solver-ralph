@@ -33,8 +33,67 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 6 (2026-01-13)
+**Completed:** D-14, D-15, D-17, D-31
+
+**What was done:**
+
+D-14: Evidence store adapter (MinIO, content-addressed bundles)
+- MinioEvidenceStore implementing EvidenceStore port
+- Content-addressed storage using SHA-256 hashes
+- Immutable object storage (no overwrites)
+- Blob storage and retrieval per evidence bundle
+- Integrity verification via hash recomputation
+- Unit tests for hash determinism and order independence
+
+D-15: Evidence manifest v1 library + validation oracle
+- EvidenceManifest schema (evidence.gate_packet artifact type)
+- EvidenceManifestBuilder for constructing manifests
+- OracleResult with Pass/Fail/Error/Skipped status
+- EvidenceArtifact descriptors with content hashes
+- Deterministic JSON serialization (sorted keys)
+- ManifestValidationOracle for schema validation
+- Verdict computation from oracle results
+- Unit tests for validation, serialization, roundtrip
+
+D-17: API service scaffold (Axum) + OIDC auth (Zitadel)
+- OidcProvider with JWKS fetching and JWT validation
+- AuthenticatedUser extractor with actor kind derivation
+- Role-based authorization helpers (require_role, require_human)
+- OptionalAuth extractor for unauthenticated endpoints
+- ApiConfig with environment variable loading
+- Health, info, whoami, and protected endpoints
+- Test mode for development without Zitadel
+- Unit tests for auth and endpoints
+
+D-31: Self-host deployment stack (compose/podman)
+- docker-compose.yml with all services:
+  - PostgreSQL 16.4 (event store + projections)
+  - MinIO (evidence storage)
+  - NATS with JetStream (message bus)
+  - Zitadel (OIDC identity provider)
+- Dockerfile.api (multi-stage Rust build)
+- Dockerfile.ui (React with nginx)
+- Init scripts for PostgreSQL databases
+- start.sh helper script for deployment
+- Makefile targets: deploy, deploy-up, deploy-down, deploy-logs
+
+**PKG-05 (Evidence storage) is now partially complete (D-14, D-15 done; D-16 pending)**
+**PKG-06 (API) is now partially complete (D-17 done)**
+**PKG-10 (Self-host) is now partially complete (D-31 done)**
+
+**Next deliverables to work on (per SR-PLAN dependency graph):**
+- D-16: Restricted evidence handling (depends on D-14) - PKG-05
+- D-18: Core API endpoints (depends on D-17, D-10, D-06, D-11) - PKG-06
+- D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
+- D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
+
+**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners. Install Rust via https://rustup.rs/ to build locally.
+
+---
+
 ### Session 5 (2026-01-13)
-**Completed:** D-11
+**Completed:** D-11, D-12, D-13
 
 **What was done:**
 
@@ -43,18 +102,22 @@ D-11: Projection builder for read models from event streams
 - Event handlers for Loop, Iteration, Candidate, Run, Approval, Exception, Freeze, Decision, GovernedArtifact events
 - Query helpers: LoopProjection, IterationProjection, CandidateProjection, RunProjection
 - Added proj.checkpoints table for tracking rebuild state
-- Deterministic: rebuild from scratch matches incremental results
 
-Commits: be4c3ed (D-11)
+D-12: Dependency graph projection + staleness traversal
+- GraphProjection with node/edge management
+- EdgeType enum with all SR-SPEC Appendix B types
+- Transitive dependency queries (get_dependencies, get_dependents)
+- Staleness propagation on artifact changes
 
-**Next deliverables to work on (per SR-PLAN dependency graph):**
-- D-12: Dependency graph projection (depends on D-10, D-09, D-06) - all satisfied
-- D-13: Outbox publisher (depends on D-10) - satisfied
-- D-14: Evidence store adapter (depends on D-07, D-02) - all satisfied
-- D-15: Evidence manifest library (depends on D-02) - satisfied
-- D-17: API scaffold (depends on D-02) - satisfied
+D-13: Outbox publisher and NATS event publication
+- OutboxWriter: writes events to outbox within transaction
+- OutboxPublisher: reads from outbox and publishes to NATS
+- Topic mapping per event type
+- Hash-based idempotency
 
-**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners. Install Rust via https://rustup.rs/ to build locally.
+Commits: be4c3ed (D-11), 00ea2f0 (D-12), 1a9f4a0 (D-13)
+
+**PKG-04 (Persistence, projections, graph) is now complete!**
 
 ---
 
