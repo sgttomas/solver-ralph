@@ -17,6 +17,7 @@ pub mod evidence;
 pub mod graph;
 pub mod infisical;
 pub mod minio;
+pub mod nats;
 pub mod outbox;
 pub mod postgres;
 pub mod projections;
@@ -47,3 +48,7 @@ pub use restricted::{
     RestrictedEvidenceConfig, RestrictedEvidenceStore,
 };
 pub use infisical::{InfisicalConfig, InfisicalSecretProvider};
+pub use nats::{
+    create_envelope, serialize_envelope, streams, subjects, MessageEnvelope, NatsConfig,
+    NatsConsumer, NatsMessage, NatsMessageBus, SCHEMA_VERSION,
+};

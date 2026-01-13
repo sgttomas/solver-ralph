@@ -61,3 +61,7 @@ base64 = "0.22"
 # Pattern matching
 regex = "1.11"
 glob = "0.3"
+
+# Messaging (D-21: NATS/JetStream)
+async-nats = "0.38"
+futures = "0.3"
