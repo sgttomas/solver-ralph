@@ -33,6 +33,31 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 5 (2026-01-13)
+**Completed:** D-11
+
+**What was done:**
+
+D-11: Projection builder for read models from event streams
+- ProjectionBuilder with checkpoint-based incremental processing
+- Event handlers for Loop, Iteration, Candidate, Run, Approval, Exception, Freeze, Decision, GovernedArtifact events
+- Query helpers: LoopProjection, IterationProjection, CandidateProjection, RunProjection
+- Added proj.checkpoints table for tracking rebuild state
+- Deterministic: rebuild from scratch matches incremental results
+
+Commits: be4c3ed (D-11)
+
+**Next deliverables to work on (per SR-PLAN dependency graph):**
+- D-12: Dependency graph projection (depends on D-10, D-09, D-06) - all satisfied
+- D-13: Outbox publisher (depends on D-10) - satisfied
+- D-14: Evidence store adapter (depends on D-07, D-02) - all satisfied
+- D-15: Evidence manifest library (depends on D-02) - satisfied
+- D-17: API scaffold (depends on D-02) - satisfied
+
+**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners. Install Rust via https://rustup.rs/ to build locally.
+
+---
+
 ### Session 4 (2026-01-13)
 **Completed:** D-08, D-10
 
@@ -53,14 +78,6 @@ D-10: PostgreSQL EventStore adapter
 - Unit tests for conversions and stream handling
 
 Commits: a388e5f (D-08), 5b9ca56 (D-10)
-
-**Next deliverables to work on (per SR-PLAN dependency graph):**
-- D-11: Projection builder (depends on D-10, D-06)
-- D-12: Dependency graph projection (depends on D-10, D-09, D-06)
-- D-13: Outbox publisher (depends on D-10)
-- D-14: Evidence store adapter (depends on D-07, D-02)
-
-**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners. Install Rust via https://rustup.rs/ to build locally.
 
 ---
 
