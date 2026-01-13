@@ -31,7 +31,37 @@ Then /clear your context and redo the loop call that you are currently in.
 
 ## Development History Summary for this Deliverable
 
-First iteration, no history.  Begin your task!
+### Session 2 (2026-01-13)
+**Completed:** D-03 (Continuous integration baseline)
+
+**What was done:**
+- Created GitHub Actions CI workflow (.github/workflows/ci.yml)
+- Rust job: format check, clippy lint, build, test with caching
+- UI job: npm install, type-check, eslint, build
+- Summary job: produces machine-readable JSON with pass/fail, artifact hashes
+- Fixed Rust edition 2024 -> 2021 in Cargo.toml
+- Added ESLint configuration for UI (ui/.eslintrc.cjs)
+- Committed and pushed to solver-ralph-1 branch (commit 3692c0b)
+
+**Next deliverables to work on (per SR-PLAN dependency graph):**
+- D-04: Local developer tooling (depends on D-02) - scripts/ already partially created
+- D-05: Domain model primitives and invariants (depends on D-02)
+
+**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners. Install Rust via https://rustup.rs/ to build locally.
+
+---
+
+### Session 1 (2026-01-13)
+**Completed:** D-02 (Repository scaffold and workspace layout)
+
+**What was done:**
+- Created Rust workspace with 4 crates: sr-domain, sr-ports, sr-adapters, sr-api
+- Implemented stub domain entities, events, state machines, commands, errors
+- Created port traits for EventStore, EvidenceStore, OracleRunner, MessageBus, etc.
+- Set up React/TypeScript UI scaffold with Vite (builds successfully)
+- Created shared schemas directory structure
+- Added Makefile with build/test/dev targets
+- Committed and pushed to solver-ralph-1 branch (commit 608f083)
 
 
 ## Cross-document reference convention
