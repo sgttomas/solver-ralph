@@ -34,61 +34,38 @@ When troubleshooting, refer to the appropriate SR-* documents.
 ## Development History Summary for this Deliverable
 
 ### Session 10 (2026-01-13)
-**Completed:** D-16, D-21
+**Completed:** D-16, D-21, D-22
 
 **What was done:**
 
 D-16: Restricted evidence handling (Infisical + envelope keys)
-
-- SecretProvider port trait for key management (sr-ports):
-  - get_secret, store_secret, delete_secret, secret_exists
-  - get_envelope_key for KEK retrieval
-  - SecretValue, SecretMetadata, EnvelopeKey types
-
-- RestrictedEvidenceStore wrapper (sr-adapters/restricted.rs):
-  - Envelope encryption with AES-256-GCM
-  - EvidenceClassification: Public, Internal, Restricted, Confidential
-  - DEK generation and KEK-encrypted storage
-
-- Redaction support per C-EVID-5:
-  - RedactionManifest schema with version, hashes, entries
-  - EvidenceRedactor for creating redacted copies
-  - Standard redaction rules (AWS keys, JWTs, passwords, private keys)
-
+- SecretProvider port trait (sr-ports) with envelope key management
+- RestrictedEvidenceStore with AES-256-GCM envelope encryption
+- RedactionManifest schema per C-EVID-5
 - InfisicalSecretProvider adapter with KEK caching
-- InMemorySecretProvider for testing
+- Standard redaction rules (AWS keys, JWTs, passwords)
 
 D-21: NATS/JetStream messaging integration (contracts + reliability)
+- NatsMessageBus adapter implementing MessageBus port
+- MessageEnvelope schema (v1.0) with idempotency key
+- Subject organization: sr.events.*, sr.commands.*
+- NatsConsumer with redelivery handling via ack/nak/term
 
-- NatsMessageBus adapter implementing MessageBus port:
-  - JetStream connection and stream initialization
-  - Automatic stream creation for events and commands
-  - Idempotent message processing via message hash
-  - Configurable TTL and duplicate detection window
+D-22: Loop governor service (SYSTEM event emission + budgets)
+- LoopGovernor service for iteration orchestration
+- IterationStarted emission with SYSTEM actor only (per SR-SPEC)
+- LoopBudget: max_iterations, max_duration, cost limits
+- IterationPreconditions checking (loop_active, no_incomplete_iteration, etc.)
+- StopCondition types: BudgetExhausted, HumanStop, GoalAchieved, IntegrityCondition
+- GovernorDecision audit records (no silent actions)
 
-- Message contracts:
-  - MessageEnvelope schema (v1.0) with versioning
-  - Correlation/causation IDs for tracing
-  - Actor attribution and idempotency key
-
-- Subject organization:
-  - sr.events.* for domain events
-  - sr.commands.* for orchestration commands
-  - Matches outbox topic_for_event() mapping
-
-- Consumer support:
-  - NatsConsumer with fetch/process methods
-  - Redelivery handling via ack/nak/term
-  - Batch processing with handler callback
-
-**PKG-05 (Evidence storage and integrity) is now complete (D-14, D-15, D-16 done)**
-**PKG-07 (Orchestration runtime) started (D-21 done)**
+**PKG-05 (Evidence storage and integrity) is now complete**
+**PKG-07 (Orchestration runtime) progress: D-21, D-22 done**
 
 **Next deliverables to work on:**
-- D-22: Loop governor service (depends on D-21, D-18) - PKG-07
+- D-23: Reference worker bridge (depends on D-08, D-22, D-20) - PKG-07
 - D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
 - D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
-- D-23: Reference worker bridge (depends on D-08, D-22, D-20) - PKG-07
 
 **Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners.
 
