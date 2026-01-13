@@ -6,69 +6,15 @@
 
 SOLVER-Ralph is a *platform kernel* that lets agents, humans, and verification systems (oracles) collaborate on complex work under explicit rules about **evidence**, **authority**, and **traceability**.
 
-It turns agentic work into a replayable, evidence-backed, authority-gated process.  
-
-It keeps the platform simple and pushes complexity where it belongs: into typed, structured documentation that defines what “doing the work correctly” means.
-
 It provides:
-- **Semantic Ralph Loops**: the unit of governed work (indefinite fresh-context attempts inside a loop with a declared context reference set including summary of previous attempt, and a declarable - and ideally testable - stopping condition)
-- **Candidates**: proposed outputs (documents, code, decisions, structured artifacts)
+- **Semantic Ralph Loops**: the unit of governed work.
+- **Iterations**: fresh-context attempts inside a loop with a declared context reference set.
+- **Candidates**: proposed outputs (documents, code, decisions, structured artifacts) that are *not* binding by default.
 - **Oracles + evidence bundles**: structured verification artifacts that support claims but never *become* authority.
 - **Portals (trust boundaries)**: explicit human approval boundaries where binding decisions are recorded.
 - **Freeze baselines**: immutable “what we accepted” snapshots for replay, audit, and downstream dependency tracking.
 
-## What SOLVER-Ralph requires to run effective
-
-Typed and structured documentation.  
-Refer to the repo for the archetype to follow for documentation of work and task discretization for agents.
-You need to build a workflow out of typed documentation so that the problem can easily be chunked and you need to create those rules for the semantic-ralph-loop
-
-An adjacent project SOLVER-engine will take a generic problem statement and produce typed documentation as an output, suitable for an agent to be assigned the problem statement and find a solution (if that type of problem permits such a thing to begin with - it can't wash  your dishes)
-
-## Typed documentation and why it matters
-
-SOLVER-Ralph aims to make knowledge work **typed and structured**:
-- inputs are expressed as typed problem statements,
-- procedures are expressed as typed stage-gated templates,
-- evaluation is expressed as typed oracle suites and gate criteria,
-- outputs are expressed as typed candidates and records.
-
-Typed documentation matters because it:
-- reduces ambiguity and drift in long-running work,
-- enables validation and linting of procedures,
-- makes replay and audit meaningful (you can re-run *the same* procedure),
-- and gives agents a stable substrate to operate on beyond freeform prompts.
-
-## Typed documentation as “design of agency”
-
-Typed documentation lets you design agency in a disciplined way:
-- you can specify what an agent is allowed to do at each stage,
-- what evidence it must produce,
-- what it must escalate to humans,
-- and how to detect failure modes (stalling, flaking, integrity issues).
-
-## Ralph Loops and Semantic Ralph Loops
-
-### Ralph Loops (general)
-A **Ralph Loop** is the generic governed loop pattern:
-- propose candidates,
-- gather evidence,
-- cross trust boundaries for binding decisions,
-- freeze accepted baselines,
-- repeat with fresh-context iterations and a summary of the previous loop
-
-### Semantic Ralph Loops (specialized for knowledge work)
-A **Semantic Ralph Loop** is a Ralph Loop whose primary candidates are **semantic artifacts**:
-documents, structured representations, analyses, decision records, and other “knowledge” objects where correctness is not reducible to unit tests.
-
-#### What’s invariant between them (and why that matters)
-Invariant across both:
-- evidence is mandatory for claims,
-- authority is explicit and human-gated,
-- context is pinned (no ghost inputs),
-- events provide replayability and auditability.
-
-This invariance is significant for LLM agents: it gives them a stable governance kernel regardless of domain, while keeping domain variability in typed procedures and oracles.
+SOLVER-Ralph is a governed, event-sourced platform for executing semantic-ralph-loops: work units that bind to an explicit Work Surface (intake + procedure template + stage context + oracle suites), generate candidates, run pinned oracle suites to produce structured evidence, and only become “complete/shippable” via computed predicates + required portal approvals.
 
 ## What SOLVER-Ralph is not
 
@@ -127,6 +73,28 @@ SOLVER-Ralph uses a **hexagonal architecture** to keep the *domain core* pure:
 
 This separation is key: it prevents tool/UI choices from becoming semantics, and makes it possible to swap implementations without changing what “Verified” or “Approved” means.
 
+### A tiny Ralph-specific “hexagon” map (ports & adapters)
+
+Hexagonal architecture is easiest to grasp as **a stable core with swappable edges**. The core defines the meaning of the work; the edges are just ways to plug the world in.
+
+**Domain core (the invariant semantics):**
+- Loop / Iteration / Candidate / Evidence / Portal / Freeze meaning and state machines
+- “No ghost inputs” + provenance rules (what context is admissible)
+- Binding-claim rules (Verified / Approved / Shippable)
+- Commands/events and their validation
+
+**Adapters (replaceable wiring):**
+- **HTTP API adapter**: REST → domain commands/events
+- **UI portal adapter**: human review/approval → portal decision records
+- **Agent worker adapter**: external agents consume events and call the API
+- **Oracle runner adapter**: sandboxed suite execution → evidence bundles
+- **Event store adapter**: append/read the event log (e.g., Postgres)
+- **Evidence store adapter**: immutable artifact storage (e.g., MinIO/S3)
+- **Identity adapter**: actor identity/roles (e.g., OIDC) and HUMAN vs SYSTEM boundaries
+
+The payoff is that you can swap storage, UIs, runners, or integration styles without changing what *Verified* or *Approved* means.
+
+
 ### Event sourcing and deterministic projections
 The system is **event-sourced**:
 - the append-only event stream is the source of truth,
@@ -163,6 +131,59 @@ They are **governed claims**: each has required evidence and required authority 
 
 This is especially important for LLM-based agents because it prevents the system from “believing” fluent text.
 
+## What SOLVER-Ralph requires to run effective
+
+Typed and structured documentation.  
+Refer to the repo for the archetype to follow for documentation of work and task discretization for agents.
+You need to build a workflow out of typed documentation so that the problem can easily be chunked and you need to create those rules for the semantic-ralph-loop
+
+An adjacent project SOLVER-engine will take a generic problem statement and produce typed documentation as an output, suitable for an agent to be assigned the problem statement and find a solution (if that type of problem permits such a thing to begin with - it can't wash  your dishes)
+
+## Typed documentation and why it matters
+
+SOLVER-Ralph aims to make knowledge work **typed and structured**:
+- inputs are expressed as typed problem statements,
+- procedures are expressed as typed stage-gated templates,
+- evaluation is expressed as typed oracle suites and gate criteria,
+- outputs are expressed as typed candidates and records.
+
+Typed documentation matters because it:
+- reduces ambiguity and drift in long-running work,
+- enables validation and linting of procedures,
+- makes replay and audit meaningful (you can re-run *the same* procedure),
+- and gives agents a stable substrate to operate on beyond freeform prompts.
+
+## Typed documentation as “design of agency”
+
+Typed documentation lets you design agency in a disciplined way:
+- you can specify what an agent is allowed to do at each stage,
+- what evidence it must produce,
+- what it must escalate to humans,
+- and how to detect failure modes (stalling, flaking, integrity issues).
+
+## Ralph Loops and Semantic Ralph Loops
+
+### Ralph Loops (general)
+A **Ralph Loop** is the generic governed loop pattern:
+- propose candidates,
+- gather evidence,
+- cross trust boundaries for binding decisions,
+- freeze accepted baselines,
+- repeat with fresh-context iterations and a summary of the previous loop
+
+### Semantic Ralph Loops (specialized for knowledge work)
+A **Semantic Ralph Loop** is a Ralph Loop whose primary candidates are **semantic artifacts**:
+documents, structured representations, analyses, decision records, and other “knowledge” objects where correctness is not reducible to unit tests.
+
+#### What’s invariant between them (and why that matters)
+Invariant across both:
+- evidence is mandatory for claims,
+- authority is explicit and human-gated,
+- context is pinned (no ghost inputs),
+- events provide replayability and auditability.
+
+This invariance is significant for LLM agents: it gives them a stable governance kernel regardless of domain, while keeping domain variability in typed procedures and oracles.
+
 ### A fair assessment of likelihood of success on complex long-run non-coding tasks
 Typed, structured procedures **increase** the probability of success for long-run semantic tasks by:
 - constraining ambiguity,
@@ -176,7 +197,10 @@ But they do not make hard problems easy:
 
 SOLVER-Ralph is best understood as an engine for *turning “how we decide” into executable, auditable structure*—not a guarantee that the underlying domain is solved.
 
-## Privacy and Powerful Agents
+## Summary
+
+SOLVER-Ralph is a compact governance kernel that turns agentic work into a replayable, evidence-backed, authority-gated process.  
+It keeps the platform simple and pushes complexity where it belongs: into typed, structured documentation that defines what “doing the work correctly” means.
 
 If you’re building private, on‑prem AI for real organizations, SOLVER-Ralph is the work surface that keeps agents honest, makes decisions attributable, and makes long-running semantic work tractable without pretending it’s effortless.
 
