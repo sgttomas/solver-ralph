@@ -7,20 +7,28 @@
 //! - Dependency graph projection (D-12)
 //! - Outbox publisher (D-13)
 //! - MinIO evidence store adapter (D-14)
+//! - Evidence manifest library (D-15)
 //! - NATS message bus adapter (D-21)
 //! - Zitadel identity provider adapter (D-17)
 
 pub mod config;
+pub mod evidence;
 pub mod graph;
+pub mod minio;
 pub mod outbox;
 pub mod postgres;
 pub mod projections;
 
 pub use config::*;
+pub use evidence::{
+    EvidenceArtifact, EvidenceManifest, EvidenceManifestBuilder, ManifestValidationError,
+    OracleResult, OracleResultStatus,
+};
 pub use graph::{
     DependencyEdge, EdgeType, GraphError, GraphNode, GraphProjection, StalenessMarker,
     StalenessReason,
 };
+pub use minio::{MinioConfig, MinioEvidenceStore};
 pub use outbox::{
     OutboxEntry, OutboxError, OutboxPublisher, OutboxPublisherConfig, OutboxWriter,
 };
