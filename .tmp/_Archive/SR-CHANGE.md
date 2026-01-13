@@ -63,13 +63,22 @@ The canonical governed set for SOLVER-Ralph is:
 
 | Artifact | Purpose | Layer |
 |----------|---------|-------|
+| SR-CHARTER | Human-provided scope, boundaries, and build priorities | Build |
 | SR-TYPES | Type registry and metadata schema | Platform |
 | SR-CONTRACT | Binding invariants | Platform |
 | SR-SPEC | Technical mechanics | Platform |
-| SR-INTENT | Design rationale | Platform |
-| SR-GUIDE | Usage guidance | Platform |
-| SR-AGENTS | Agent semantics | Platform |
+| SR-WORK-SURFACE | Work surface schemas (intake + procedure + context bundle) | Platform |
+| SR-PROCEDURE-KIT | Procedure template registry | Platform |
+| SR-SEMANTIC-ORACLE-SPEC | Semantic oracle interface and required evidence outputs | Platform |
+| SR-EVENT-MANAGER | Deterministic state / eligibility / dependency-graph computation spec | Platform |
+| SR-AGENT-WORKER-CONTRACT | Minimum worker behavior contract | Platform |
+| SR-AGENTS | Agent actor semantics | Platform |
+| SR-MODEL | Layer model and document-role map (orientation; non-binding) | Platform |
+| SR-INTENT | Design rationale (non-binding) | Platform |
+| SR-GUIDE | Usage guidance (non-binding) | Platform |
+| SR-PLAN | Instance scope + deliverable inventory + dependency graph | Instance |
 | SR-DIRECTIVE | Instance operational policy | Instance |
+| SR-EXCEPTIONS | Exception ledger (build-time authority port) | Build |
 | SR-CHANGE | This document | Platform |
 
 ### 1.3 Change classification

@@ -24,7 +24,7 @@ refs:
   - rel: informs
     to: SR-MODEL
 ---
-# SR-PLAN — SOLVER-Ralph build ): Tightens SR-PLAN’s non-authority posture by:
+# SR-PLAN — SOLVER-Ralph Build Plan (with Semantic Ralph Loop support)
   - clarifying that “portal touchpoints” are conditional; any binding decision attaches to the resulting change record, not to this plan,
 
 - **): Consolidates prior build plan drafts into a single decomposition aligned with:
@@ -58,12 +58,13 @@ This plan depends on the following authoritative commitment objects and governed
 
 ## 2. Orientation Summary (Non-Authoritative)
 
-This instance plan decomposes the build of **SOLVER-Ralph build** into deliverables that collectively realize:
+This instance plan decomposes the build of **SOLVER-Ralph** into deliverables that collectively realize:
 
 - a self-hostable system consistent with SR-SPEC’s event-sourced runtime,
 - deterministic state progression given the recorded event/evidence stream,
-- explicit human authority membranes (portals) and evidence-based verification.
-
+- explicit human authority membranes (portals) and evidence-based verification,
+- **Semantic Ralph Loops**: knowledge work executed via a governed **Work Surface** (Intake + Procedure Template + stage gating) and semantic oracle suites (meaning-matrix/manifold evaluations),
+- a deterministic **Event Manager / Projection Builder** that computes dependency-graph state and eligibility from recorded completion events (so agents do not maintain “current status” by narration).
 
 ---
 
@@ -101,9 +102,13 @@ The following are **constraints** (fixed unless changed via SR-CHANGE to SR-SPEC
 ## 4. Decomposition Strategy
 
 - **One loop per deliverable:** each deliverable is intended to map 1:1 to a Ralph Loop `work_unit`.
-- **Packages bias concurrency:** packages group deliverables primarily by output class and architectural layer (domain / adapters / API / UI / ops).
+- **Packages bias concurrency:** packages group deliverables primarily by dependency tightness and architectural layer (domain / adapters / API / UI / ops).
 - **Dependencies are the only binding ordering:** package order is not binding; only `depends_on` edges are binding constraints.
 - **SR-DIRECTIVE owns scheduling:** this plan intentionally does not define phases, budgets, retries, or global “done” criteria.
+
+Semantic extension (prompt-driven knowledge work):
+
+- A user prompt MAY be decomposed into a **Plan Instance** consisting of semantic work units (each with an Intake + Procedure Template id + stage-gate profile). The decomposition output is a commitment object that the Event Manager can consume to compute eligibility.
 
 ---
 
@@ -683,3 +688,73 @@ The following are **constraints** (fixed unless changed via SR-CHANGE to SR-SPEC
   - Replay procedure is documented and runnable.
 - **Expected evidence:**
   - Evidence bundle with replay run logs and resulting state checksum.
+### PKG-09 — Semantic work surface + prompt decomposition
+
+This package adds the **work surface** needed for Semantic Ralph Loops: intake templates, stage-gated procedures, semantic oracle integration, and deterministic eligibility computation for semantic work units.
+
+#### D-37 — Work surface schemas (Intake + Procedure Template) + validators
+- **Output class:** `candidate`
+- **Primary output:** Governed schemas and templates for:
+  - Intake (objective/scope/constraints/deliverables/definitions)
+  - Procedure Template (stages, required artifacts, stage gates)
+  - Work Surface binding (intake + procedure + stage + oracle profile)
+- **Depends on:** `D-08` (context compilation), `D-05` (domain primitives)
+- **Refs required:** `SR-CONTRACT`, `SR-SPEC`, `SR-TYPES`, `SR-DIRECTIVE`
+- **Acceptance criteria:**
+  - Intake + Procedure templates are machine-validated (schema oracle) and can be referenced in IterationStarted.
+  - Stage identifiers and required artifacts are unambiguous.
+- **Expected evidence:**
+  - Evidence bundle demonstrating validation oracles and sample work surface instances.
+
+#### D-38 — Prompt → Plan Instance decomposition (semantic work unit generator)
+- **Output class:** `candidate`
+- **Primary output:** A deterministic pipeline (or governed procedure) that turns a problem statement into a Plan Instance:
+  - work units with `depends_on` edges
+  - per-work-unit Intake references
+  - Procedure Template id + initial stage id
+- **Depends on:** `D-37`, `D-06`
+- **Refs required:** `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`
+- **Acceptance criteria:**
+  - Decomposition output is a commitment object (content-addressed) suitable for eligibility computation.
+  - Decomposition records non-binding rationale separately from binding dependency edges.
+- **Expected evidence:**
+  - Evidence bundle with decomposition examples and replayability check.
+
+#### D-39 — Semantic oracle runner integration (meaning matrices/manifolds)
+- **Output class:** `candidate`
+- **Primary output:** Oracle suite integration that can run semantic oracles and record structured measurements as evidence:
+  - stage manifold / meaning-matrix version binding
+  - residual/coverage/violation reports
+  - pass/fail decision rule derivation
+- **Depends on:** `D-15` (evidence manifest lib), `D-27` (oracle runner), `D-37`
+- **Refs required:** `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`
+- **Acceptance criteria:**
+  - Semantic oracle outputs are captured as artifacts and referenced by `evidence.gate_packet`.
+  - Suite identity/hash incorporates manifold definitions.
+- **Expected evidence:**
+  - Evidence bundle showing a semantic oracle run and captured measurements.
+
+#### D-40 — Event Manager: work-unit + stage state projection + eligible-set computation
+- **Output class:** `candidate`
+- **Primary output:** Deterministic event manager/projection builder capable of:
+  - computing work-unit status from completion events,
+  - computing stage progress within a work unit (stage-gated procedure),
+  - producing the eligible set from dependency graph + status + portal decisions.
+- **Depends on:** `D-11`, `D-12`, `D-22`, `D-36`
+- **Refs required:** `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`
+- **Acceptance criteria:**
+  - Projections rebuild deterministically from event stream.
+  - Eligible set matches normative predicate from SR-DIRECTIVE.
+- **Expected evidence:**
+  - Evidence bundle with replay run logs and eligibility snapshot checks.
+
+#### D-41 — Reference semantic worker (Work Surface executor)
+- **Output class:** `candidate`
+- **Primary output:** A worker bridge that consumes IterationStarted, compiles the Work Surface context, executes the declared procedure stage to generate candidate artifacts, invokes semantic oracle suites, and emits EvidenceBundleRecorded + iteration summaries.
+- **Depends on:** `D-23`, `D-37`, `D-39`, `D-40`
+- **Refs required:** `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`
+- **Acceptance criteria:**
+  - One work unit / one stage per iteration.
+  - Artifacts and evidence are recorded with no ghost inputs.
+- **Expected evidence:**
+  - End-to-end evidence bundle for a semantic work unit from intake → stage eval → stage pass.

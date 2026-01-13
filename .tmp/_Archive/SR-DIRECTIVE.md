@@ -3,36 +3,52 @@ doc_id: SR-DIRECTIVE
 doc_kind: governance.directive
 layer: build
 status: draft
-
 refs:
- - rel: governed_by
- to: SR-CHANGE
- - rel: depends_on
- to: SR-CONTRACT
- - rel: depends_on
- to: SR-SPEC
- - rel: depends_on
- to: SR-TYPES
- - rel: depends_on
- to: SR-AGENTS
- - rel: informs
- to: SR-PLAN
- - rel: informs
- to: SR-EXCEPTIONS
+  - rel: governed_by
+    to: SR-CHANGE
+  - rel: depends_on
+    to: SR-CONTRACT
+  - rel: depends_on
+    to: SR-SPEC
+  - rel: depends_on
+    to: SR-TYPES
+  - rel: depends_on
+    to: SR-WORK-SURFACE
+  - rel: depends_on
+    to: SR-PROCEDURE-KIT
+  - rel: depends_on
+    to: SR-EVENT-MANAGER
+  - rel: depends_on
+    to: SR-SEMANTIC-ORACLE-SPEC
+  - rel: depends_on
+    to: SR-AGENT-WORKER-CONTRACT
+  - rel: informs
+    to: SR-PLAN
+  - rel: informs
+    to: SR-EXCEPTIONS
 ---
-# SR-DIRECTIVE (Instance 1)
+
+# SR-DIRECTIVE (Semantic Ralph Loop Execution)
 
 > This directive is assembled by filling the kit tables and keeping prose thin.
 
 ## 0. Change log
 
 - 2026-01-11: initial assembly from filled kit artifacts (Steps 1–4).
+- 2026-01-12: extended directive to support **Semantic Ralph Loops** (knowledge work via Work Surfaces + stage-gated procedures + semantic oracle suites) while preserving the existing build-plan guidance tables.
 
 ## 1. Scope and authority
 
 ### 1.1 Purpose
 
-Define *how* SR‑PLAN instance‑1 is executed using SR‑SPEC mechanics while satisfying SR‑CONTRACT invariants; SR‑ETT is used to ensure each constraint is placed on an enforceable surface.
+Define *how* a governed SR‑PLAN instance is executed using SR‑SPEC mechanics and SR‑CONTRACT invariants, with an emphasis on producing trustworthy outputs.
+
+This directive governs two execution modes:
+
+1) **Build-plan execution** (the original intent): software engineering work where code/tests are primary oracles.
+2) **Semantic Ralph Loops** (new): knowledge work executed via a **Work Surface** (Intake + Procedure Template) and **stage-gated semantic oracle suites** (meaning-matrix/semantic-set evaluations) rather than assuming compilation/tests.
+
+This document constrains *process and enforcement surfaces* only. It does not redefine platform semantics (SR‑CONTRACT/SR‑TYPES/SR‑SPEC).
 
 ### 1.2 Non-goals
 
@@ -68,20 +84,54 @@ A work unit proceeds through the following skeleton (expressed using SR‑SPEC o
 - Each work unit must carry its own evidence packets; cross-talk is forbidden.
 - Budgets apply per work unit unless the Plan‑to‑Workflow mapping overrides them.
 
-### 2.3 Dependency-first scheduling
+### 2.3 Dependency-first scheduling and deterministic eligibility
 
-- The Plan‑to‑Workflow mapping is the authoritative dependency graph for build.
-- Work units may only enter Accept gates when all upstream dependencies are satisfied (or have explicit deferrals recorded).
+- The authoritative dependency graph for execution is derived from the active SR‑PLAN instance’s `depends_on` relationships, plus any binding deferrals/waivers recorded via Portals.
+- Work units may only enter Accept/Release gates when all upstream dependencies are satisfied (or have explicit deferrals recorded).
+
+**Deterministic eligibility (normative):**
+- The system MUST compute the **eligible set** as a deterministic function of:
+  - the SR‑PLAN dependency graph, and
+  - recorded completion / blocking events (EvidenceBundleRecorded + gate outcomes + stop triggers + portal decisions).
+- This eligibility computation MUST be performed by a deterministic system component (the **Event Manager / Projection Builder**), not by the agent.
+- The agent MAY choose any *one* eligible work unit to execute per iteration, but MUST record the selection rationale in iteration records.
+
+
+
+### 2.4 Semantic Ralph Loop specialization (Work Surface + stage gates)
+
+A Semantic Ralph Loop executes knowledge work through a **stage-gated procedure** rather than assuming the existence of code-level tests.
+
+Normative requirements:
+
+- Each semantic work unit MUST have a **Work Surface** consisting of:
+  - an **Intake** (objective, scope, constraints, definitions, deliverables),
+  - a **Procedure Template** (stages, required intermediate artifacts, and gate criteria),
+  - the current `stage_id` targeted by the iteration,
+  - the selected **oracle profile/suites** for that stage (including semantic semantic set definitions when applicable).
+- Each Iteration SHOULD target a single procedure stage (or a single stage transition) and MUST produce:
+  - updated candidate artifacts for that stage, and
+  - an Evidence Bundle (`evidence.gate_packet`) that binds results to (`candidate_id`, `procedure_template_id`, `stage_id`).
+- A stage gate is considered passed only when the required oracle suites for that stage have recorded results and the gate decision rules evaluate to PASS (or are explicitly waived by a binding portal decision where permitted).
+
+See SR-WORK-SURFACE and SR-PROCEDURE-KIT for the governed “work surface” schemas and procedure template format.
 
 ## 3. Inputs and refs discipline
 
 ### 3.1 Required IterationStarted refs
 
-Each IterationStarted MUST include (as `depends_on` unless noted):
-- SR‑TYPES, SR‑CONTRACT, SR‑SPEC, SR‑PLAN‑INSTANCE‑1 (content hashes)
-- Selected oracle suite(s) (suite id + hash)
-- Optional: base candidate ref (if iterating on an earlier candidate)
-- Supporting (`supported_by`): SR‑ETT, work-unit state
+Each `IterationStarted` MUST include (as `depends_on` unless noted):
+
+- **Governed platform docs**: SR‑TYPES, SR‑CONTRACT, SR‑SPEC, SR‑DIRECTIVE (with content hashes)
+- **Active plan instance**: SR‑PLAN‑INSTANCE‑* (content hash)
+- **Work Surface refs (semantic work):**
+  - Intake for the selected work unit
+  - Procedure Template (and the current `stage_id`)
+  - Selected oracle profile/suite(s) for the stage (suite id + hash; semantic suites MUST bind semantic set definitions via suite hash)
+- **Candidate lineage**: optional base candidate ref (if iterating on an earlier candidate)
+- Supporting (`supported_by`): current work-unit projection snapshot / eligibility computation output (the agent may read, but it is not authoritative)
+
+Rationale: Iteration context and eligibility MUST be reconstructible from recorded artifacts; no ghost inputs.
 
 ### 3.2 depends_on vs supported_by policy
 
@@ -106,25 +156,23 @@ Budget extensions (and any re-scope) are processed as request types in **HumanAu
 
 ### 4.2 Stop-the-line trigger registry
 
-Stop triggers observed in the Gate Registry (build):
+Stop triggers observed in the Gate Registry (build) and applicable to semantic work:
 
 - BUDGET_EXHAUSTED
-- BUDGET_EXHAUSTED (if repeated)
-- EVIDENCE_MISSING
-- EVIDENCE_MISSING (if ref cannot be fetched)
+- EVIDENCE_MISSING (or ref cannot be fetched)
 - INTEGRITY_VIOLATION
-- ORACLE_*
-- ORACLE_* (as applicable)
 - ORACLE_ENV_MISMATCH
 - ORACLE_FLAKE
-- ORACLE_GAP
-- ORACLE_GAP (if suite missing)
-- ORACLE_TAMPER
-- ORACLE_TAMPER (if suite mismatch)
+- ORACLE_GAP (required oracle missing / suite missing)
+- ORACLE_TAMPER (suite mismatch)
 - REPEATED_FAILURE
+- NO_ELIGIBLE_WORK (nothing eligible under dependency + blocking rules)
+- WORK_SURFACE_MISSING (intake/procedure/stage context absent for a semantic work unit)
+- STAGE_UNKNOWN (stage_id not defined in the bound procedure template)
+- SEMANTIC_PROFILE_MISSING (required stage profile/suite not declared)
 
 Stop triggers route to:
-- **GovernanceChangePortal** when policy is implicated (integrity/authority boundaries, suite/profile changes).
+- **GovernanceChangePortal** when policy is implicated (integrity/authority boundaries, suite/profile changes, procedure template changes).
 - **HumanAuthorityExceptionProcess** when the stop can be relieved by an explicit exception that does not waive integrity.
 
 ## 5. Verification profiles and oracle suites

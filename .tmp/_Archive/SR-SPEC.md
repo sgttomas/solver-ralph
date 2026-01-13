@@ -110,14 +110,38 @@ The platform tracks the following domain entities at runtime. These correspond t
 
 | SR-TYPES Type Key | SR-SPEC Entity | Primary Representation |
 |-------------------|----------------|----------------------|
-| `domain.work_unit` | Work Unit (Loop) | Loop state machine + projections |
+| `domain.work_unit` | Work Unit (Loop) | Loop/WorkUnit state machine + projections |
+| `domain.work_surface` | Work Surface | `WorkSurfaceRecorded` event + projection (references Intake + Procedure Template + stage) |
 | `domain.candidate` | Candidate | `CandidateMaterialized` event + projection |
-| `domain.evidence_bundle` | Evidence Bundle | `EvidenceBundleRecorded` event + MinIO blob |
+| `domain.evidence_bundle` | Evidence Bundle | `EvidenceBundleRecorded` event + blob store |
 | `domain.portal_decision` | Approval | `ApprovalRecorded` event + projection |
 | `domain.loop_record` | Iteration Summary | `IterationSummaryRecorded` event + projection |
 | `domain.event` | Event | Event store record |
 
-The schemas defined in this specification (§1.5 Event model, §1.8 Evidence model, etc.) are the normative definitions for these platform domain types.
+The schemas defined in this specification (§1.5 Event model, §1.6 Postgres schema, §1.7 projections, §1.8 graph) are the normative definitions for these platform domain types.
+
+#### 1.2.4 Work Surface and stage-gated procedures (normative)
+
+For Semantic Ralph Loops, the platform MUST treat the following as first-class, referenceable artifacts:
+
+- **Intake:** the structured statement of a work unit’s objective, scope, constraints, definitions, and required outputs. Intake is a commitment object when it is used as binding context for a loop.
+- **Procedure Template:** a stage-gated procedure that specifies the required intermediate artifacts, required oracle suites, and gate criteria for each stage.
+- **Procedure Stage (`stage_id`):** the named gate within a Procedure Template that the iteration is currently targeting. Stage identity participates in verification scope and evidence binding.
+- **Work Surface:** the set of governed references that define what work is being done and how it is evaluated: (Intake + Procedure Template + current stage + selected oracle profile/suites + any stage parameters).
+
+#### 1.2.5 Semantic oracles and semantic sets (normative)
+
+A **semantic oracle** is an oracle whose result record may include structured semantic measurements (e.g., residual vectors, coverage metrics, constraint violations) derived from an ontology / meaning-matrix / semantic set definition.
+
+Normative requirements:
+
+- A semantic oracle MUST emit a machine-readable result record.
+- If a PASS/FAIL outcome is used for gates, it MUST be computable from the result record using declared decision rules.
+- The oracle suite identity/hash MUST incorporate any semantic set / meaning-matrix definitions that materially affect evaluation.
+
+#### 1.2.6 Semantic Ralph Loop (normative)
+
+A **Semantic Ralph Loop** is a Ralph Loop whose candidates are primarily semantic artifacts (documents, structured analyses, decision records, ontological structures). It relies on stage-gated procedures and semantic oracle suites to produce evidence, rather than assuming a compiler/test harness exists.
 
 ### 1.3 Canonical identifiers and hashes
 
@@ -151,15 +175,24 @@ All immutable content-addressed artifacts MUST use `sha256` digests over the can
 - For **text** (e.g., Markdown evidence attachments): hash UTF-8 bytes with LF line endings.
 
 
-#### 1.3.3 Candidate identity (git + sha256)
+#### 1.3.3 Candidate identity (git + manifest + sha256)
 
-A **Candidate** is a content-addressable snapshot. Candidate identity MUST be stable and immutable for the scope claimed.
+A 
+**Stages / Work Surface**
+- `WorkSurfaceRecorded`
+- `ProcedureTemplateSelected`
+- `StageEntered`
+- `StageCompleted`
+- `SemanticOracleEvaluated`
+
+**Candidate** is a content-addressable snapshot. Candidate identity MUST be stable and immutable for the scope claimed.
 
 **Normative policy:**
 
 - `candidate_id` MUST include a cryptographic digest component: `sha256:<digest>`.
 - `candidate_id` SHOULD include a VCS pointer component when applicable: `git:<commit_sha>`.
-- The system MUST NOT blindly trust agent-declared candidate identity or hashes. When feasible, the system SHOULD compute the canonical digest for the submitted Candidate snapshot (e.g., a manifest hash or git-archive hash) and compare it to the declared digest. A mismatch MUST be treated as an integrity failure (reject the Candidate or record an integrity condition that blocks Verified/Shippable claims).
+- When a Candidate cannot be represented as a single VCS commit (common for knowledge-work artifacts), the system MUST materialize a **Candidate Manifest** (a canonical, sorted listing of included artifacts and their content hashes) and the `sha256:<digest>` component MUST be computed over the canonical manifest representation.
+- The system MUST NOT blindly trust agent-declared candidate identity. Candidate identity MUST be computed or verified by deterministic platform code. A mismatch is an integrity condition that blocks Verified/Shippable claims.
 
 ### 1.4 Actor identity model
 
@@ -360,6 +393,20 @@ Two patterns are permitted:
 
 The initial build implementation SHOULD use synchronous projections for `proj.*` tables and asynchronous projection for `graph.*` if needed.
 
+
+
+#### 1.7.3 Event Manager and eligibility projection (normative)
+
+The platform MUST provide a deterministic **event manager / projection builder** capable of computing:
+
+- current **work unit status** (e.g., TODO / IN_PROGRESS / BLOCKED / COMPLETE; and, for stage-gated procedures, the current `stage_id` and stage completion status),
+- the **eligible set** of work units based on SR-PLAN `depends_on` relationships and recorded completion events,
+- stop-trigger derived blocking states (e.g., REPEATED_FAILURE, ORACLE_GAP, BUDGET_EXHAUSTED).
+
+These projections MUST be rebuildable from the ordered event stream alone (no hidden state), consistent with §1.7.1.
+
+Implementation details MAY vary (synchronous or asynchronous projection), but the computed results MUST be deterministic functions of the event stream + governed inputs (SR-PLAN instance and SR-DIRECTIVE policy). See SR-EVENT-MANAGER for the normative “what” of these projections.
+
 ### 1.8 Dependency graph model (PostgreSQL)
 
 #### 1.8.1 Node types
@@ -367,6 +414,11 @@ The initial build implementation SHOULD use synchronous projections for `proj.*`
 The graph MUST support, at minimum, the following semantic node categories:
 
 - `GovernedArtifact`
+- `WorkSurface` (Intake + Procedure Template + stage context)
+- `Intake`
+- `ProcedureTemplate`
+- `ProcedureStage`
+- `SemanticSet` (meaning matrix / semantic set definition used by semantic oracles)
 - `Candidate`
 - `OracleSuite`
 - `EvidenceBundle`
@@ -376,7 +428,6 @@ The graph MUST support, at minimum, the following semantic node categories:
 - `Deferral`
 - `Waiver`
 - `Loop`
-- (Optional but RECOMMENDED) `Iteration`
 
 #### 1.8.2 Tables (normative)
 
@@ -435,29 +486,45 @@ The canonical evidence artifact type is `evidence.gate_packet`. Its manifest MUS
   "run_id": "run_01J...",
   "oracle_suite_id": "suite:SR-SUITE-CORE",
   "oracle_suite_hash": "sha256:...",
+  // Semantic Ralph Loops: bind evidence to the procedure context that was evaluated.
+  "procedure_template_id": "proc:...",
+  "stage_id": "stage:...",
   "results": [
     {
       "oracle_id": "oracle:unit_tests",
       "oracle_name": "Unit Tests",
-      "classification": "REQUIRED|ADVISORY",
-      "status": "PASS|FAIL",
-      "evidence_content_hash": "sha256:..."
+      "classification": "required",
+      "status": "PASS",
+      "started_at": "2026-01-09T12:00:00Z",
+      "finished_at": "2026-01-09T12:01:10Z",
+      "artifacts": [
+        {"path": "logs/unit_tests.log", "media_type": "text/plain", "sha256": "..."},
+        {"path": "reports/unit_tests.json", "media_type": "application/json", "sha256": "..."}
+      ]
+    },
+    {
+      // Example of a semantic oracle result: structured measurements + derived PASS/FAIL.
+      "oracle_id": "oracle:semantic_stage_eval",
+      "oracle_name": "Semantic Stage Evaluation",
+      "classification": "required",
+      "status": "PASS",
+      "measurements": {
+        "residual_vector_ref": {"path": "reports/semantic/residual.json", "sha256": "..."},
+        "coverage_ref": {"path": "reports/semantic/coverage.json", "sha256": "..."},
+        "violations_ref": {"path": "reports/semantic/violations.json", "sha256": "..."}
+      }
     }
   ],
-  "integrity_conditions": [
-    "ORACLE_TAMPER|ORACLE_GAP|ORACLE_ENV_MISMATCH|ORACLE_FLAKE|EVIDENCE_MISSING"
-  ],
-  "attribution": {
-    "actor_kind": "SYSTEM|AGENT|HUMAN",
-    "actor_id": "oidc_sub:...|svc:...|agent:...",
-    "timestamp": "2026-01-09T12:34:56Z"
-  },
-  "dependency_refs": {
-    "governed_artifacts": [
-      {"id": "SR-CONTRACT", "version": "", "content_hash": "sha256:..."}
-    ],
-    "active_exceptions": [
-      {"id": "exc_01J...", "type": "Waiver", "status": "ACTIVE"}
+  "context": {
+    "environment_fingerprint": {
+      "os": "...",
+      "container_image": "...",
+      "tool_versions": {"sr-oracles": "...", "sr-runner": "..."}
+    },
+    "governed_refs": [
+      {"id": "SR-CONTRACT", "version": "", "content_hash": "sha256:..."},
+      {"id": "SR-SPEC", "version": "", "content_hash": "sha256:..."},
+      {"id": "SR-DIRECTIVE", "version": "", "content_hash": "sha256:..."}
     ],
     "loop_id": "loop_01J...",
     "iteration_id": "iter_01J..."

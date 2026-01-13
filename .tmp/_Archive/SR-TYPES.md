@@ -234,9 +234,10 @@ These types are intrinsic to the running platform. The platform tracks and manag
 
 | Type Key | Authority Kind | Normative Status | What it represents |
 |---|---|---|---|
-| `domain.work_unit` | record | record | State machine for tracked work |
-| `domain.candidate` | record | record | Content-addressed work snapshot |
-| `domain.evidence_bundle` | record | evidence | Oracle verification output |
+| `domain.work_unit` | record | record | State machine for tracked work (coding or semantic) |
+| `domain.work_surface` | record | record | Intake + Procedure context + stage parameters for a work unit |
+| `domain.candidate` | record | record | Content-addressed work snapshot (commit or manifest) |
+| `domain.evidence_bundle` | record | evidence | Oracle evidence packet for a candidate (incl. semantic measurements) |
 | `domain.portal_decision` | record | record | Human authorization record |
 | `domain.loop_record` | record | record | Ralph-loop iteration summary |
 | `domain.event` | record | record | Immutable state change |
@@ -256,6 +257,8 @@ These record types support platform operation.
 | `record.evaluation_note` | record | record | Human evaluation of verification evidence |
 | `record.assessment_note` | record | record | Human assessment of validation evidence |
 | `record.intervention_note` | record | record | Human intervention note |
+| `record.intake` | record | record | Structured intake for a work unit (objective, scope, constraints) |
+| `record.procedure_instance` | record | record | Work-unit-specific binding of a procedure template and stage state |
 
 ### 4.5 Configuration Types
 
@@ -264,6 +267,9 @@ These record types support platform operation.
 | `config.agent_definition` | config | directional | Agent capability profiles |
 | `config.oracle_definition` | config | directional | Oracle configurations |
 | `config.portal_definition` | config | directional | Portal configurations |
+| `config.procedure_template` | config | record | Stage-gated procedure template definitions (work-surface kits) |
+| `config.semantic_set` | config | record | Meaning-matrix / semantic set definitions used by semantic oracles (versioned) |
+| `config.semantic_profile` | config | record | Mapping from work kinds/stages → required semantic oracle suites + thresholds |
 
 ### 4.6 Deprecated Type Keys
 
@@ -490,39 +496,52 @@ This section provides overview only.
 
 ### 7.1 Work Unit
 
-A work unit tracks the state of a piece of work through the platform.
+A work unit tracks the state of a piece of work through the platform. A work unit may be *coding work* or *semantic knowledge work*.
 
-**States:** DRAFT → SUBMITTED → VERIFIED → APPROVED → COMPLETE (or REJECTED)
+In semantic work, a work unit is executed via a **Work Surface** (Intake + Procedure Template + stage parameters) and progresses through declared procedure stages.
+
+**States (coarse):** DRAFT → ACTIVE → BLOCKED → COMPLETE (or REJECTED)
+
+**Stage model (semantic work):**
+- `procedure_template_ref` — binding reference to the procedure template
+- `current_stage_id` — stage currently targeted
+- `stage_status` — map `{stage_id -> {state, last_evidence_ref}}` (implementation may be projection-derived)
 
 **Key fields:**
 - `id` — stable identifier
-- `state` — current state
-- `instructions` — what to produce
-- `constraints` — scope, budget, tools
-- `evidence_refs` — linked evidence bundles
+- `state` — current coarse state
+- `work_kind` — kind of semantic work (e.g., research_memo, decision_record, ontology_build)
+- `work_surface_ref` — reference to the work surface / procedure instance (incl. intake)
+- `depends_on` — prerequisite work units (semantic dependency ordering)
+- `constraints` — scope, budget, tools, stop triggers
+- `evidence_refs` — linked evidence bundles (including stage-scoped)
 - `portal_refs` — linked portal decisions
 
 ### 7.2 Candidate
 
-A content-addressed snapshot of work output.
+A content-addressed snapshot of work output. Candidates are the unit of verification and approval.
 
 **Key fields:**
-- `id` — content-addressed identifier
-- `work_unit_ref` — which work unit produced this
-- `content_hash` — SHA-256 of contents
+- `id` — content-addressed identifier (MUST include `sha256:`; MAY include `git:`)
+- `work_unit_ref` — which work unit produced/updated this
+- `content_hash` — SHA-256 of the candidate identity basis (commit hash or canonical manifest hash)
+- `candidate_manifest_ref` — optional reference to a manifest listing included artifacts with per-file hashes and media types
 - `created_at` — timestamp
 
 ### 7.3 Evidence Bundle
 
-Oracle verification output.
+Oracle verification output. Canonical artifact: `evidence.gate_packet`.
 
 **Key fields:**
 - `id` — content-addressed identifier
-- `oracle_id` — which oracle produced this
-- `subject_ref` — what was verified (candidate ref)
-- `result` — PASS / FAIL / ERROR
-- `details` — structured output
+- `oracle_suite_id` — suite identity
+- `oracle_suite_hash` — suite hash (must incorporate semantic semantic set definitions when applicable)
+- `candidate_ref` — candidate being evaluated
+- `procedure_template_ref` — procedure template under which evaluation occurred (semantic work)
+- `stage_id` — stage evaluated (semantic work)
+- `results[]` — per-oracle results (PASS/FAIL/ERROR) and structured measurement records
 - `environment` — execution environment fingerprint
+- `produced_at` — timestamp
 
 ### 7.4 Portal Decision
 
@@ -561,6 +580,40 @@ Immutable state change record.
 - `actor` — who/what caused this
 
 ---
+
+
+
+### 7.7 Work Surface
+
+A Work Surface is the binding context for a Semantic Ralph Loop iteration.
+
+**Key fields:**
+- `work_unit_ref`
+- `intake_ref`
+- `procedure_template_ref`
+- `current_stage_id`
+- `oracle_profile_ref` (if used)
+- `params` (stage parameters; may include semantic set/version selectors)
+
+### 7.8 Procedure Template
+
+A stage-gated procedure definition used to generate candidates and define oracle checkpoints.
+
+**Key fields:**
+- `id`
+- `stages[]` with `stage_id`, required outputs, required oracle suites, and gate criteria
+- `transition_rules` (how stages advance)
+
+### 7.9 Semantic Set
+
+A versioned meaning-matrix / semantic-set definition used by semantic oracle suites.
+
+**Key fields:**
+- `id`
+- `version` / `content_hash`
+- `stage_id` applicability (optional)
+- `axes` / ontology bindings (opaque to the platform; interpreted by the oracle implementation)
+- `decision_rules` (how structured measurements map to PASS/FAIL, if applicable)
 
 ## 8. Final Notes
 

@@ -116,18 +116,25 @@ SOLVER-Ralph separates **evidence** from **authority**.
 
 ### 2.3 Candidate, Run, Ralph Loop, Iteration
 
-- **Candidate:** a content-addressable snapshot of work products. The unit of verification and approval.
-- **Run:** execution of a declared oracle suite against a Candidate, producing an Evidence Bundle.
-- **Ralph Loop:** a bounded workflow instance with goal, budgets, stop triggers, and controlled memory.
-- **Iteration:** one fresh-context cycle within a Ralph Loop.
+- **Candidate:** a content‑addressable snapshot of work products (code *or* knowledge artifacts). A Candidate MAY be a VCS commit, a bundle of files, or an artifact manifest with content hashes. The unit of verification and approval.
+- **Run:** execution of a declared oracle suite against a Candidate (and, when applicable, a declared *procedure stage*), producing an Evidence Bundle.
+- **Ralph Loop:** a bounded workflow instance (a Work Unit) with goal, budgets, stop triggers, and controlled memory. A Ralph Loop operates over a **Work Surface** (Intake + Procedure) and advances work through stage‑gated candidate generation and oracle‑backed evidence.
+- **Iteration:** one fresh‑context cycle within a Ralph Loop. An Iteration typically targets a single procedure stage or sub‑goal, and MUST record what was attempted, what candidate was produced/updated, what evidence was produced, and what stop triggers (if any) fired.
+
+Additional semantic-work definitions (normative for interpretation of the platform terms above):
+
+- **Work Surface:** the governed artifacts that define *what* is being worked on and *how*: Intake (problem statement decomposition for the work unit), a Procedure Template (stage-gated), and the selected oracle profile/suites (including any semantic set definitions used by those suites).
+- **Procedure Stage:** a named gate in a Procedure Template. Each stage defines required intermediate artifacts and required oracle suites for progressing beyond that stage.
+- **Semantic Ralph Loop:** a Ralph Loop whose primary candidates are semantic artifacts (documents, structured representations, decision records, analyses). It does not assume “tests” exist; instead it relies on stage-gated procedures and semantic oracle suites.
 
 ### 2.4 Oracles, Oracle Suites, Environment Constraints
 
-- **Oracle:** produces binary result (PASS/FAIL) and attributable evidence.
-- **Required Oracle:** participates in determining Verified claim.
-- **Advisory Oracle:** recorded but does not block Verified claim.
-- **Oracle Suite:** named set of oracle definitions with stable identity and hash.
-- **Environment Constraints:** declared context for oracle determinism.
+- **Oracle:** a procedure that produces attributable evidence about a Candidate’s conformance to declared constraints. An oracle MUST produce a structured result record; it MAY also produce a binary PASS/FAIL outcome derived from that record under declared decision rules.
+  - *Note:* Semantic oracles MAY emit measurements (e.g., residual vectors, coverage metrics, constraint violations) that are subsequently mapped to PASS/FAIL by a gate rule.
+- **Required Oracle:** participates in determining Verified claim (Strict/With-Exceptions). Missing required oracle output is an integrity gap.
+- **Advisory Oracle:** recorded for audit/diagnostics but does not block Verified claim.
+- **Oracle Suite:** a named set of oracle definitions with stable identity and hash. For semantic oracles, the suite identity/hash MUST incorporate any semantic-set / meaning-matrix definitions that materially affect evaluation.
+- **Environment Constraints:** declared context required for oracle determinism (or bounded nondeterminism) and replayability.
 
 ### 2.5 Integrity Conditions
 
@@ -307,7 +314,13 @@ The contract specifies invariants. The deployment enforces them as code.
 
 ### C-VER-4: Verified Claims Must Declare Mode and Basis
 
-**Requirement:** Every Verified claim MUST declare mode (Strict/With-Exceptions), suite identity, and waiver refs (if applicable).
+**Requirement:** Every Verified claim MUST declare:
+
+- mode (Strict / Verified-with-Exceptions)
+- oracle suite identity and hash
+- candidate identity
+- waiver refs (if applicable)
+- **verification scope** (at minimum: work_unit_id; and, for stage-gated procedures, the `stage_id` and `procedure_template_id` that the evidence pertains to)
 
 **Verified by:** Oracle (metadata validation).
 
@@ -481,13 +494,21 @@ The contract specifies invariants. The deployment enforces them as code.
 
 ### C-CTX-1: Iteration Context Provenance
 
-**Requirement:** IterationStarted event MUST include refs[] constituting authoritative provenance. IterationStarted.actor_kind MUST be SYSTEM.
+**Requirement:** The `IterationStarted` event MUST include `refs[]` constituting authoritative provenance for the iteration’s effective context, and `IterationStarted.actor_kind` MUST be `SYSTEM`.
+
+For Semantic Ralph Loops (stage-gated knowledge work), this provenance MUST include references sufficient to reconstruct the **Work Surface** for the iteration, including:
+
+- the Intake for the selected work unit
+- the Procedure Template (and the current `stage_id`)
+- the selected oracle suite(s) and their hashes (including any semantic-set / meaning-matrix definitions that materially affect evaluation)
 
 **Verified by:** Oracle (schema validation) + Portal (review).
 
 ### C-CTX-2: No Ghost Inputs
 
-**Requirement:** Iteration context MUST be derivable solely from IterationStarted payload + dereferenced refs. Unrepresented inputs MUST NOT influence work.
+**Requirement:** Iteration context MUST be derivable solely from the `IterationStarted` event payload and the dereferenced `refs[]`. Unrepresented inputs MUST NOT influence work.
+
+For Semantic Ralph Loops, “context” includes not only documents and notes, but also the active Procedure Template stage and the semantic oracle semantic set definitions used for evaluation.
 
 **Verified by:** Oracle (context compilation tests) + Portal (audit).
 
@@ -500,6 +521,8 @@ The contract specifies invariants. The deployment enforces them as code.
 ### C-LOOP-4: Candidate Production Traceable
 
 **Requirement:** Candidates MUST be materialized with stable identity and related to Loop, Iteration, Run(s), and Approval(s).
+
+For Candidates that cannot be represented as a single VCS commit (e.g., general knowledge-work artifacts), the system MUST record a **Candidate Manifest** listing included artifacts with content hashes sufficient to re-identify the Candidate deterministically.
 
 **Verified by:** Oracle (graph validation) + Portal (audit).
 
