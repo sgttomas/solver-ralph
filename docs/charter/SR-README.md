@@ -30,10 +30,38 @@ ALWAYS refer to the project docs/ for the authoritative coding architecture, pla
 
 When troubleshooting, refer to the appropriate SR-* documents.
 
-Confirm if Rust is now installed.
+ Install Rust or give user deatailed instructions how.
 
 
 ## Development History Summary for this Deliverable
+
+### Session 11 (2026-01-13)
+**Completed:** D-23
+
+**What was done:**
+
+D-23: Reference worker bridge (IterationStarted → context → candidate)
+- ReferenceWorkerBridge consumes IterationStarted from NATS
+- Deterministic context compilation using D-08 ContextCompiler
+- ContentResolver for ref-to-hash resolution with classification
+- Candidate registration via HTTP API
+- Iteration completion with structured summary
+- WorkerConfig with API URL, consumer name, batch size, test mode
+- WorkerError for message bus, context, API, serialization errors
+- WorkResult with content_hash, refs, summary, actions
+- Unit tests for configuration, content resolution, determinism
+
+**PKG-07 (Orchestration runtime) is now complete (D-21, D-22, D-23 done)**
+
+**Next deliverables:**
+- D-24: Oracle runner service (PKG-08) - depends on D-02, D-14 ✓
+- D-25: Core oracle suite implementation (PKG-08) - depends on D-03, D-15 ✓
+- D-28: UI scaffold + OIDC login (PKG-09) - depends on D-02, D-17 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17, D-22, D-24
+
+**Note:** Rust not installed in this environment. CI validates builds.
+
+---
 
 ### Session 10 (2026-01-13)
 **Completed:** D-16, D-21, D-22, D-32
@@ -67,11 +95,6 @@ D-32: Build/init scripts (DB, buckets, identity realm, secrets)
 **PKG-05 (Evidence storage and integrity) complete**
 **PKG-07 (Orchestration runtime) progress: D-21, D-22 done**
 **PKG-10 (Self-host instance) progress: D-31, D-32 done**
-
-**Next deliverables:**
-- D-23: Reference worker bridge (PKG-07) - now available
-- D-28: UI scaffold + OIDC login (PKG-09)
-- D-33: Operational logging + observability (PKG-10)
 
 **Note:** Rust not installed in this environment. CI validates builds.
 
