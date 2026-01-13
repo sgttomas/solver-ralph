@@ -32,31 +32,40 @@ Then /clear your context and redo the loop call that you are currently in.
 ## Development History Summary for this Deliverable
 
 ### Session 3 (2026-01-13)
-**Completed:** D-04 (Local developer tooling), D-05 (Domain model primitives and invariants)
+**Completed:** D-04, D-05, D-06, D-07, D-09
 
 **What was done:**
 
 D-04: Local developer tooling
-- Added scripts/check-deps.sh for dependency verification (Rust, Node, Docker, etc.)
-- Added scripts/dev-setup.sh for development environment setup
-- Added scripts/run-tests.sh for running test suites with structured output
-- Makefile already provides `make dev`, `make test`, `make build` targets
+- Added scripts/check-deps.sh, dev-setup.sh, run-tests.sh
+- Makefile provides `make dev`, `make test`, `make build` targets
 
 D-05: Domain model primitives and invariants
-- Added missing domain entities: Iteration, Candidate, Run, EvidenceBundle, Approval, FreezeRecord, Exception, Decision
-- Added entity identifiers: RunId, ApprovalId, FreezeId, ExceptionId, DecisionId
-- Added state enums: IterationState, RunState, VerificationStatus, ApprovalDecision, VerificationMode, ExceptionKind, ExceptionStatus
-- Added state machines: IterationStateMachine, RunStateMachine, ExceptionStateMachine with transition validation
-- Added VerificationComputer for computing verification status per SR-SPEC §3.3
-- Added InvariantValidator for enforcing human actor requirements and waiver target constraints per SR-CONTRACT
-- Added comprehensive unit tests for entities and state machines
+- Added all domain entities: Iteration, Candidate, Run, EvidenceBundle, Approval, FreezeRecord, Exception, Decision
+- Added entity identifiers, state enums, invariants with unit tests
 
-Committed and pushed to solver-ralph-1 branch (commit 57d1ba8)
+D-06: Deterministic state machines
+- Added IterationStateMachine, RunStateMachine, ExceptionStateMachine with transition validation
+- Added VerificationComputer for verification status computation per SR-SPEC §3.3
+- Added InvariantValidator for enforcing human actor requirements and waiver constraints
+- Unit tests cover valid/invalid transitions
+
+D-07: Ports and boundary interfaces
+- sr-ports crate already implemented with: EventStore, EvidenceStore, OracleRunner, MessageBus, IdentityProvider, Clock traits
+- Error types are explicit and suitable for deterministic handling
+
+D-09: Postgres schemas and migrations
+- 001_event_store.sql: Event store schema (es.*) with append-only enforcement, streams, events, outbox
+- 002_projections.sql: All projections (loops, iterations, candidates, runs, governed_artifacts, decisions, approvals, freeze_records, exceptions, etc.)
+- 003_graph.sql: Dependency graph (graph.*) with nodes, edges, staleness markers, utility functions for traversal
+
+Commits: 57d1ba8 (D-04/D-05), 979e0c4 (README update), 1aeb3f0 (D-09)
 
 **Next deliverables to work on (per SR-PLAN dependency graph):**
-- D-06: Deterministic state machines and transition validation (depends on D-05)
-- D-07: Ports and boundary interfaces (depends on D-05) - sr-ports already has basic traits
-- D-09: Postgres schemas and migrations (depends on D-02)
+- D-08: Context compilation rules (depends on D-06, D-07)
+- D-10: EventStore adapter (depends on D-07, D-09)
+- D-11: Projection builder (depends on D-10, D-06)
+- D-14: Evidence store adapter (depends on D-07, D-02)
 
 **Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners. Install Rust via https://rustup.rs/ to build locally.
 
