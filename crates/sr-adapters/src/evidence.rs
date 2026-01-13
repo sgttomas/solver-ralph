@@ -290,6 +290,35 @@ impl EvidenceManifest {
     }
 }
 
+/// Compute the overall verdict from a list of oracle results (standalone helper)
+///
+/// This is a standalone version of EvidenceManifest::compute_verdict for use
+/// when you have results but not a full manifest.
+pub fn compute_verdict(results: &[OracleResult]) -> OracleResultStatus {
+    if results.is_empty() {
+        return OracleResultStatus::Error;
+    }
+
+    let mut has_fail = false;
+    let mut has_error = false;
+
+    for result in results {
+        match result.status {
+            OracleResultStatus::Error => has_error = true,
+            OracleResultStatus::Fail => has_fail = true,
+            OracleResultStatus::Pass | OracleResultStatus::Skipped => {}
+        }
+    }
+
+    if has_error {
+        OracleResultStatus::Error
+    } else if has_fail {
+        OracleResultStatus::Fail
+    } else {
+        OracleResultStatus::Pass
+    }
+}
+
 /// Builder for constructing evidence manifests
 pub struct EvidenceManifestBuilder {
     bundle_id: Option<String>,

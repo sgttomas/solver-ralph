@@ -15,12 +15,14 @@
 //! - Reference worker bridge (D-23)
 //! - Oracle runner service (D-24)
 //! - Core oracle suite implementation (D-25)
+//! - Oracle integrity checks (D-27)
 
 pub mod config;
 pub mod evidence;
 pub mod governor;
 pub mod graph;
 pub mod infisical;
+pub mod integrity;
 pub mod minio;
 pub mod nats;
 pub mod oracle_runner;
@@ -33,8 +35,15 @@ pub mod worker;
 
 pub use config::*;
 pub use evidence::{
-    EvidenceArtifact, EvidenceManifest, EvidenceManifestBuilder, ManifestValidationError,
-    OracleResult, OracleResultStatus,
+    compute_verdict, EvidenceArtifact, EvidenceManifest, EvidenceManifestBuilder,
+    ManifestValidationError, OracleResult, OracleResultStatus,
+};
+pub use integrity::{
+    ArtifactHashCheck, ConstraintViolation, EnvironmentCheckResult, FlakeCheckResult,
+    FlakeEvidence, FlakeHistoryWindow, GapCheckResult, IntegrityCheckDetails,
+    IntegrityCheckResult, IntegrityChecker, IntegrityCheckerConfig, IntegrityError,
+    IntegrityViolation, ProfileVerificationResult, StopTrigger, StopTriggerType,
+    TamperCheckResult, ViolationSeverity,
 };
 pub use graph::{
     DependencyEdge, EdgeType, GraphError, GraphNode, GraphProjection, StalenessMarker,
