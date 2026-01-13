@@ -1,5 +1,4 @@
 //! SOLVER-Ralph Port Traits
-//!
 //! This crate defines the port interfaces (traits) that adapters must implement.
 //! Per SR-SPEC §4.1 and D-07, these ports include:
 //! - EventStore
@@ -10,9 +9,10 @@
 //! - Clock
 
 use std::future::Future;
+use std::pin::Pin;
 
 use chrono::{DateTime, Utc};
-use sr_domain::{DomainError, EventEnvelope, TypedRef};
+use sr_domain::EventEnvelope;
 
 /// Event store port per SR-SPEC §1.5.1
 ///
@@ -183,7 +183,7 @@ pub trait MessageBus: Send + Sync {
 /// Message subscription trait
 pub trait MessageSubscription: Send + Sync {
     /// Receive the next message
-    fn next(&mut self) -> impl Future<Output = Option<Vec<u8>>> + Send;
+    fn next(&mut self) -> Pin<Box<dyn Future<Output = Option<Vec<u8>>> + Send + '_>>;
 }
 
 /// Message bus errors

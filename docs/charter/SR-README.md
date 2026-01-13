@@ -36,7 +36,7 @@ When troubleshooting, refer to the appropriate SR-* documents.
 ## Development History Summary for this Deliverable
 
 ### Session 11 (2026-01-13)
-**Completed:** D-23
+**Completed:** D-23, D-24
 
 **What was done:**
 
@@ -46,18 +46,24 @@ D-23: Reference worker bridge (IterationStarted → context → candidate)
 - ContentResolver for ref-to-hash resolution with classification
 - Candidate registration via HTTP API
 - Iteration completion with structured summary
-- WorkerConfig with API URL, consumer name, batch size, test mode
-- WorkerError for message bus, context, API, serialization errors
-- WorkResult with content_hash, refs, summary, actions
-- Unit tests for configuration, content resolution, determinism
 
-**PKG-07 (Orchestration runtime) is now complete (D-21, D-22, D-23 done)**
+D-24: Oracle runner service (Podman + gVisor)
+- PodmanOracleRunner implementing OracleRunner port trait
+- Podman + gVisor (runsc) container execution
+- OracleSuiteDefinition with environment constraints
+- OracleDefinition with command, timeout, expected outputs
+- EnvironmentFingerprint for reproducibility auditing
+- Container isolation: network disabled, read-only workspace, scratch volume
+- Evidence manifest building and storage integration
+- Updated sr-ports OracleRunnerError with comprehensive variants
+
+**PKG-07 (Orchestration runtime) complete (D-21, D-22, D-23)**
+**PKG-08 (Oracle substrate) progress: D-24 done**
 
 **Next deliverables:**
-- D-24: Oracle runner service (PKG-08) - depends on D-02, D-14 ✓
 - D-25: Core oracle suite implementation (PKG-08) - depends on D-03, D-15 ✓
 - D-28: UI scaffold + OIDC login (PKG-09) - depends on D-02, D-17 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17, D-22, D-24
+- D-33: Operational logging + observability (PKG-10) - depends on D-17, D-22, D-24 ✓
 
 **Note:** Rust not installed in this environment. CI validates builds.
 
