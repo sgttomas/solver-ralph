@@ -33,6 +33,52 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 10 (2026-01-13)
+**Completed:** D-16
+
+**What was done:**
+
+D-16: Restricted evidence handling (Infisical + envelope keys)
+
+- SecretProvider port trait for key management (sr-ports):
+  - get_secret, store_secret, delete_secret, secret_exists
+  - get_envelope_key for KEK retrieval
+  - SecretValue, SecretMetadata, EnvelopeKey types
+
+- RestrictedEvidenceStore wrapper (sr-adapters/restricted.rs):
+  - Envelope encryption with AES-256-GCM
+  - EvidenceClassification: Public, Internal, Restricted, Confidential
+  - Classification-based encryption threshold
+  - DEK generation and KEK-encrypted storage
+
+- Redaction support per C-EVID-5:
+  - RedactionManifest schema with version, hashes, entries
+  - RedactionEntry tracking content type, offset, length
+  - EvidenceRedactor for creating redacted copies
+  - RedactionRule with glob and regex pattern matching
+  - Standard redaction rules (AWS keys, JWTs, passwords, private keys)
+
+- InfisicalSecretProvider adapter:
+  - Infisical API integration
+  - KEK caching for performance
+  - Path parsing for folder/key structure
+
+- InMemorySecretProvider for testing
+
+- Unit tests for encryption roundtrip, classification, redaction rules
+
+**PKG-05 (Evidence storage and integrity) is now complete (D-14, D-15, D-16 done)**
+
+**Next deliverables to work on:**
+- D-21: NATS/JetStream messaging integration (depends on D-13) - PKG-07
+- D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
+- D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
+- D-22: Loop governor service (depends on D-21, D-18) - PKG-07
+
+**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners.
+
+---
+
 ### Session 9 (2026-01-13)
 **Completed:** D-20
 
