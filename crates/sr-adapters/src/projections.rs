@@ -1284,6 +1284,259 @@ impl ProjectionBuilder {
             })
             .collect())
     }
+
+    /// List loops with optional state filter
+    pub async fn list_loops(
+        &self,
+        state: &Option<String>,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<LoopProjection>, ProjectionError> {
+        let rows = if let Some(s) = state {
+            sqlx::query(
+                r#"
+                SELECT loop_id, goal, work_unit, state, budgets, directive_ref,
+                       created_by_kind, created_by_id, created_at, activated_at,
+                       closed_at, iteration_count
+                FROM proj.loops WHERE state = $1
+                ORDER BY created_at DESC
+                LIMIT $2 OFFSET $3
+                "#,
+            )
+            .bind(s)
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT loop_id, goal, work_unit, state, budgets, directive_ref,
+                       created_by_kind, created_by_id, created_at, activated_at,
+                       closed_at, iteration_count
+                FROM proj.loops
+                ORDER BY created_at DESC
+                LIMIT $1 OFFSET $2
+                "#,
+            )
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|row| LoopProjection {
+                loop_id: row.get("loop_id"),
+                goal: row.get("goal"),
+                work_unit: row.get("work_unit"),
+                state: row.get("state"),
+                budgets: row.get("budgets"),
+                directive_ref: row.get("directive_ref"),
+                created_by_kind: row.get("created_by_kind"),
+                created_by_id: row.get("created_by_id"),
+                created_at: row.get("created_at"),
+                activated_at: row.get("activated_at"),
+                closed_at: row.get("closed_at"),
+                iteration_count: row.get("iteration_count"),
+            })
+            .collect())
+    }
+
+    /// Get an iteration by ID
+    pub async fn get_iteration(
+        &self,
+        iteration_id: &str,
+    ) -> Result<Option<IterationProjection>, ProjectionError> {
+        let result = sqlx::query(
+            r#"
+            SELECT iteration_id, loop_id, sequence, state, started_at,
+                   completed_at, refs, summary
+            FROM proj.iterations WHERE iteration_id = $1
+            "#,
+        )
+        .bind(iteration_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result.map(|row| IterationProjection {
+            iteration_id: row.get("iteration_id"),
+            loop_id: row.get("loop_id"),
+            sequence: row.get("sequence"),
+            state: row.get("state"),
+            started_at: row.get("started_at"),
+            completed_at: row.get("completed_at"),
+            refs: row.get("refs"),
+            summary: row.get("summary"),
+        }))
+    }
+
+    /// Get candidates produced by an iteration
+    pub async fn get_candidates_for_iteration(
+        &self,
+        iteration_id: &str,
+    ) -> Result<Vec<CandidateProjection>, ProjectionError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT candidate_id, content_hash, produced_by_iteration_id,
+                   verification_status, created_at, refs
+            FROM proj.candidates WHERE produced_by_iteration_id = $1
+            ORDER BY created_at ASC
+            "#,
+        )
+        .bind(iteration_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| CandidateProjection {
+                candidate_id: row.get("candidate_id"),
+                content_hash: row.get("content_hash"),
+                produced_by_iteration_id: row.get("produced_by_iteration_id"),
+                verification_status: row.get("verification_status"),
+                created_at: row.get("created_at"),
+                refs: row.get("refs"),
+            })
+            .collect())
+    }
+
+    /// List candidates with optional verification status filter
+    pub async fn list_candidates(
+        &self,
+        verification_status: Option<&str>,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<CandidateProjection>, ProjectionError> {
+        let rows = if let Some(status) = verification_status {
+            sqlx::query(
+                r#"
+                SELECT candidate_id, content_hash, produced_by_iteration_id,
+                       verification_status, created_at, refs
+                FROM proj.candidates WHERE verification_status = $1
+                ORDER BY created_at DESC
+                LIMIT $2 OFFSET $3
+                "#,
+            )
+            .bind(status)
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT candidate_id, content_hash, produced_by_iteration_id,
+                       verification_status, created_at, refs
+                FROM proj.candidates
+                ORDER BY created_at DESC
+                LIMIT $1 OFFSET $2
+                "#,
+            )
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|row| CandidateProjection {
+                candidate_id: row.get("candidate_id"),
+                content_hash: row.get("content_hash"),
+                produced_by_iteration_id: row.get("produced_by_iteration_id"),
+                verification_status: row.get("verification_status"),
+                created_at: row.get("created_at"),
+                refs: row.get("refs"),
+            })
+            .collect())
+    }
+
+    /// Get a run by ID
+    pub async fn get_run(&self, run_id: &str) -> Result<Option<RunProjection>, ProjectionError> {
+        let result = sqlx::query(
+            r#"
+            SELECT run_id, candidate_id, oracle_suite_id, oracle_suite_hash,
+                   state, started_at, completed_at, actor_kind, actor_id,
+                   evidence_bundle_hash
+            FROM proj.runs WHERE run_id = $1
+            "#,
+        )
+        .bind(run_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result.map(|row| RunProjection {
+            run_id: row.get("run_id"),
+            candidate_id: row.get("candidate_id"),
+            oracle_suite_id: row.get("oracle_suite_id"),
+            oracle_suite_hash: row.get("oracle_suite_hash"),
+            state: row.get("state"),
+            started_at: row.get("started_at"),
+            completed_at: row.get("completed_at"),
+            actor_kind: row.get("actor_kind"),
+            actor_id: row.get("actor_id"),
+            evidence_bundle_hash: row.get("evidence_bundle_hash"),
+        }))
+    }
+
+    /// List runs with optional state filter
+    pub async fn list_runs(
+        &self,
+        state: Option<&str>,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<RunProjection>, ProjectionError> {
+        let rows = if let Some(s) = state {
+            sqlx::query(
+                r#"
+                SELECT run_id, candidate_id, oracle_suite_id, oracle_suite_hash,
+                       state, started_at, completed_at, actor_kind, actor_id,
+                       evidence_bundle_hash
+                FROM proj.runs WHERE state = $1
+                ORDER BY started_at DESC
+                LIMIT $2 OFFSET $3
+                "#,
+            )
+            .bind(s)
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT run_id, candidate_id, oracle_suite_id, oracle_suite_hash,
+                       state, started_at, completed_at, actor_kind, actor_id,
+                       evidence_bundle_hash
+                FROM proj.runs
+                ORDER BY started_at DESC
+                LIMIT $1 OFFSET $2
+                "#,
+            )
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|row| RunProjection {
+                run_id: row.get("run_id"),
+                candidate_id: row.get("candidate_id"),
+                oracle_suite_id: row.get("oracle_suite_id"),
+                oracle_suite_hash: row.get("oracle_suite_hash"),
+                state: row.get("state"),
+                started_at: row.get("started_at"),
+                completed_at: row.get("completed_at"),
+                actor_kind: row.get("actor_kind"),
+                actor_id: row.get("actor_id"),
+                evidence_bundle_hash: row.get("evidence_bundle_hash"),
+            })
+            .collect())
+    }
 }
 
 // ============================================================================

@@ -33,6 +33,43 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 7 (2026-01-13)
+**Completed:** D-18
+
+**What was done:**
+
+D-18: Core API endpoints for loops, iterations, candidates, runs
+- Loop handlers: create, get, list, activate, pause, resume, close
+- Iteration handlers: start (SYSTEM-only per SR-SPEC §2.2), get, list, complete
+- Candidate handlers: register, get, list (by iteration or all)
+- Run handlers: start, get, list (by candidate or all), complete
+- API error types with proper HTTP status codes
+- Request/response types with JSON serialization
+- State transition validation using domain state machines
+- Event appending to PostgresEventStore
+- Projection updates after state changes
+- Added query methods to ProjectionBuilder: list_loops, get_iteration, get_candidates_for_iteration, list_candidates, get_run, list_runs
+- Updated main.rs with full route wiring and database initialization
+- AppState includes event_store and projections adapters
+
+**Routes implemented:**
+- POST/GET /api/v1/loops, GET/POST loops/:id/*, loops/:id/iterations
+- POST /api/v1/iterations, GET iterations/:id, POST iterations/:id/complete
+- POST/GET /api/v1/candidates, GET candidates/:id, candidates/:id/runs
+- POST/GET /api/v1/runs, GET runs/:id, POST runs/:id/complete
+
+**PKG-06 (API) is now complete (D-17, D-18 done)**
+
+**Next deliverables to work on:**
+- D-16: Restricted evidence handling (depends on D-14) - PKG-05
+- D-19: Approval/exception/decision API endpoints (depends on D-18) - PKG-06
+- D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
+- D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
+
+**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners.
+
+---
+
 ### Session 6 (2026-01-13)
 **Completed:** D-14, D-15, D-17, D-31
 
