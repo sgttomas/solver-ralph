@@ -14,6 +14,7 @@
 //! - Loop governor service (D-22)
 //! - Reference worker bridge (D-23)
 //! - Oracle runner service (D-24)
+//! - Core oracle suite implementation (D-25)
 
 pub mod config;
 pub mod evidence;
@@ -23,6 +24,7 @@ pub mod infisical;
 pub mod minio;
 pub mod nats;
 pub mod oracle_runner;
+pub mod oracle_suite;
 pub mod outbox;
 pub mod postgres;
 pub mod projections;
@@ -71,4 +73,12 @@ pub use oracle_runner::{
     CapturedArtifact, EnvironmentConstraints, EnvironmentFingerprint, ExpectedOutput,
     NetworkMode, OracleClassification, OracleDefinition, OracleExecutionResult,
     OracleSuiteDefinition, PodmanOracleRunner, PodmanOracleRunnerConfig,
+};
+pub use oracle_suite::{
+    create_core_suite, create_full_suite, create_gov_suite, oracle_ids, validate_suite,
+    BuildArtifact, BuildError, BuildReport, IntegrityCondition, IntegrityPathway,
+    IntegritySmokeReport, LintIssue, LintReport, MetaValidateReport, MetaValidationError,
+    OracleSuiteRegistry, SuiteValidationError, TestFailure, UnitTestReport,
+    VerificationProfile, WaivableCondition, PROFILE_GOV_CORE, PROFILE_STRICT_CORE,
+    PROFILE_STRICT_FULL, SUITE_CORE_ID, SUITE_FULL_ID, SUITE_GOV_ID,
 };

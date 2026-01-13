@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 
-use crate::entities::{ActorId, ActorKind, TypedRef};
+use crate::entities::{ActorKind, TypedRef};
 
 /// Event identifier: `evt_<ULID>` per SR-SPEC §1.3.1
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

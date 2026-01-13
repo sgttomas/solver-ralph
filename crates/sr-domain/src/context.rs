@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-use crate::entities::{ActorId, ContentHash, TypedRef};
+use crate::entities::{ContentHash, TypedRef};
 use crate::errors::DomainError;
 
 /// Context bundle - the deterministic output of context compilation

@@ -626,7 +626,7 @@ pub fn standard_redaction_rules() -> Vec<RedactionRule> {
         RedactionRule::new(
             "*",
             RedactedContentType::Secret,
-            r"(?i)(api[_-]?key|apikey)['\"]?\s*[:=]\s*['\"]?[a-zA-Z0-9_-]{20,}",
+            r#"(?i)(api[_-]?key|apikey)['"]?\s*[:=]\s*['"]?[a-zA-Z0-9_-]{20,}"#,
             "API Key pattern",
         )
         .unwrap(),
@@ -650,7 +650,7 @@ pub fn standard_redaction_rules() -> Vec<RedactionRule> {
         RedactionRule::new(
             "*",
             RedactedContentType::Secret,
-            r"(?i)(password|passwd|pwd)['\"]?\s*[:=]\s*['\"][^'\"]{4,}['\"]",
+            r#"(?i)(password|passwd|pwd)['"]?\s*[:=]\s*['"][^'"]{4,}['"]"#,
             "Password pattern",
         )
         .unwrap(),

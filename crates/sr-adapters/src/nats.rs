@@ -25,8 +25,7 @@ use async_nats::{
 };
 use serde::{Deserialize, Serialize};
 use sr_ports::{MessageBus, MessageBusError, MessageSubscription};
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{collections::HashSet, future::Future, pin::Pin, sync::Arc};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -260,8 +259,8 @@ impl NatsMessageBus {
         match self.jetstream.get_stream(&stream_name).await {
             Ok(stream) => {
                 debug!(stream = %stream_name, "Stream exists, updating config");
-                stream
-                    .update(config)
+                self.jetstream
+                    .update_stream(config.clone())
                     .await
                     .map_err(|e| MessageBusError::ConnectionError {
                         message: format!("Failed to update stream: {}", e),
@@ -347,8 +346,6 @@ impl NatsMessageBus {
         payload: &[u8],
         idempotency_key: &str,
     ) -> Result<(), MessageBusError> {
-        use async_nats::jetstream::context::PublishAckFuture;
-
         let ack = self
             .jetstream
             .publish_with_headers(
@@ -357,7 +354,7 @@ impl NatsMessageBus {
                     let mut headers = async_nats::HeaderMap::new();
                     headers.insert(
                         "Nats-Msg-Id",
-                        idempotency_key.parse().unwrap(),
+                        idempotency_key.to_string(),
                     );
                     headers
                 },
@@ -519,16 +516,18 @@ impl NatsConsumer {
 }
 
 impl MessageSubscription for NatsConsumer {
-    async fn next(&mut self) -> Option<Vec<u8>> {
-        let messages = self.fetch(1).await.ok()?;
-        if let Some(msg) = messages.into_iter().next() {
-            let payload = msg.inner.payload.to_vec();
-            // Auto-ack for simple subscription interface
-            let _ = msg.ack().await;
-            Some(payload)
-        } else {
-            None
-        }
+    fn next(&mut self) -> Pin<Box<dyn Future<Output = Option<Vec<u8>>> + Send + '_>> {
+        Box::pin(async move {
+            let messages = self.fetch(1).await.ok()?;
+            if let Some(msg) = messages.into_iter().next() {
+                let payload = msg.inner.payload.to_vec();
+                // Auto-ack for simple subscription interface
+                let _ = msg.ack().await;
+                Some(payload)
+            } else {
+                None
+            }
+        })
     }
 }
 

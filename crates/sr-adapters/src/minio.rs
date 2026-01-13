@@ -263,12 +263,13 @@ impl EvidenceStore for MinioEvidenceStore {
                 message: format!("Failed to read response body: {}", e),
             })?;
 
+        let bytes = data.into_bytes();
         debug!(
             content_hash = %content_hash,
-            size = data.len(),
+            size = bytes.len(),
             "Retrieved evidence manifest"
         );
-        Ok(data.into_bytes().to_vec())
+        Ok(bytes.to_vec())
     }
 
     #[instrument(skip(self), fields(bucket = %self.bucket))]
@@ -316,13 +317,14 @@ impl MinioEvidenceStore {
                 message: format!("Failed to read blob body: {}", e),
             })?;
 
+        let bytes = data.into_bytes();
         debug!(
             content_hash = %content_hash,
             blob_name = %blob_name,
-            size = data.len(),
+            size = bytes.len(),
             "Retrieved evidence blob"
         );
-        Ok(data.into_bytes().to_vec())
+        Ok(bytes.to_vec())
     }
 
     /// List all blobs in an evidence bundle

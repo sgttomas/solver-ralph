@@ -736,7 +736,9 @@ impl<E: EvidenceStore> PodmanOracleRunner<E> {
         run_started_at: DateTime<Utc>,
         run_completed_at: DateTime<Utc>,
     ) -> Result<EvidenceManifest, OracleRunnerError> {
-        let mut builder = EvidenceManifestBuilder::new(run_id, candidate_id)
+        let mut builder = EvidenceManifestBuilder::new()
+            .run_id(run_id)
+            .candidate_id(candidate_id)
             .oracle_suite(&suite.suite_id, &suite.suite_hash)
             .run_times(run_started_at, run_completed_at)
             .environment_fingerprint(serde_json::to_value(fingerprint).unwrap_or_default());
