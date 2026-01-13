@@ -1,10 +1,10 @@
-//! SOLVER-Ralph HTTP API Service (D-17, D-18, D-19)
+//! SOLVER-Ralph HTTP API Service (D-17, D-18, D-19, D-20)
 //!
 //! This is the main entry point for the SOLVER-Ralph API server.
 //! Per SR-SPEC §2, it provides HTTP endpoints for:
 //! - Loops, Iterations, Candidates, Runs (D-18)
 //! - Approvals, Exceptions, Decisions, Freeze Records (D-19)
-//! - Evidence, Governed Artifacts (D-20)
+//! - Evidence upload, retrieval, and association (D-20)
 //! - Staleness management
 //!
 //! Authentication is handled via OIDC (Zitadel) with JWT validation.
@@ -21,9 +21,11 @@ use axum::{
     Json, Router,
 };
 use config::ApiConfig;
-use handlers::{approvals, candidates, decisions, exceptions, freeze, iterations, loops, runs};
+use handlers::{
+    approvals, candidates, decisions, evidence, exceptions, freeze, iterations, loops, runs,
+};
 use serde::{Deserialize, Serialize};
-use sr_adapters::{PostgresEventStore, ProjectionBuilder};
+use sr_adapters::{MinioConfig, MinioEvidenceStore, PostgresEventStore, ProjectionBuilder};
 use sr_ports::EventStore;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -37,6 +39,7 @@ pub struct AppState {
     pub config: ApiConfig,
     pub event_store: Arc<dyn EventStore>,
     pub projections: Arc<ProjectionBuilder>,
+    pub evidence_store: Arc<MinioEvidenceStore>,
 }
 
 /// Health check response
@@ -229,6 +232,35 @@ fn create_router(state: AppState) -> Router {
             get(freeze::list_freeze_records_for_candidate),
         );
 
+    // Evidence routes (D-20) - Per SR-SPEC §1.9 and SR-CONTRACT §7
+    let evidence_routes = Router::new()
+        .route("/api/v1/evidence", post(evidence::upload_evidence))
+        .route("/api/v1/evidence", get(evidence::list_evidence))
+        .route(
+            "/api/v1/evidence/:content_hash",
+            get(evidence::get_evidence),
+        )
+        .route(
+            "/api/v1/evidence/:content_hash/associate",
+            post(evidence::associate_evidence),
+        )
+        .route(
+            "/api/v1/evidence/:content_hash/verify",
+            post(evidence::verify_evidence),
+        )
+        .route(
+            "/api/v1/evidence/:content_hash/blobs/:blob_name",
+            get(evidence::get_evidence_blob),
+        )
+        .route(
+            "/api/v1/runs/:run_id/evidence",
+            get(evidence::list_evidence_for_run),
+        )
+        .route(
+            "/api/v1/candidates/:candidate_id/evidence",
+            get(evidence::list_evidence_for_candidate),
+        );
+
     // Combine all routes
     Router::new()
         .merge(public_routes)
@@ -241,6 +273,7 @@ fn create_router(state: AppState) -> Router {
         .merge(exception_routes)
         .merge(decision_routes)
         .merge(freeze_routes)
+        .merge(evidence_routes)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -290,11 +323,33 @@ async fn main() {
     let event_store = Arc::new(PostgresEventStore::new(pool.clone()));
     let projections = Arc::new(ProjectionBuilder::new(pool.clone()));
 
+    // Create evidence store (MinIO)
+    let minio_config = MinioConfig {
+        endpoint: std::env::var("MINIO_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:9000".to_string()),
+        region: std::env::var("MINIO_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
+        access_key_id: std::env::var("MINIO_ACCESS_KEY")
+            .unwrap_or_else(|_| "minioadmin".to_string()),
+        secret_access_key: std::env::var("MINIO_SECRET_KEY")
+            .unwrap_or_else(|_| "minioadmin".to_string()),
+        bucket: std::env::var("MINIO_BUCKET").unwrap_or_else(|_| "evidence".to_string()),
+        force_path_style: true,
+    };
+
+    let evidence_store = Arc::new(
+        MinioEvidenceStore::new(minio_config)
+            .await
+            .expect("Failed to initialize MinIO evidence store"),
+    );
+
+    info!("MinIO evidence store initialized");
+
     // Create application state
     let state = AppState {
         config: config.clone(),
         event_store,
         projections,
+        evidence_store,
     };
 
     // Create router

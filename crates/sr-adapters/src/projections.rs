@@ -238,9 +238,14 @@ impl ProjectionBuilder {
                 self.apply_governed_artifact_recorded(&mut tx, event).await
             }
 
+            // Evidence events (D-20)
+            "EvidenceBundleRecorded" => {
+                self.apply_evidence_bundle_recorded(&mut tx, event).await
+            }
+            "EvidenceAssociated" => self.apply_evidence_associated(&mut tx, event).await,
+
             // Events we acknowledge but don't project
-            "EvidenceBundleRecorded"
-            | "StopTriggered"
+            "StopTriggered"
             | "OracleSuiteRegistered"
             | "OracleSuiteUpdated"
             | "OracleSuitePinned"
@@ -305,6 +310,8 @@ impl ProjectionBuilder {
     /// Truncate all projection tables for rebuild
     async fn truncate_projections(&self) -> Result<(), ProjectionError> {
         let tables = [
+            "proj.evidence_associations",  // Must truncate before evidence_bundles due to FK
+            "proj.evidence_bundles",
             "proj.loops",
             "proj.iterations",
             "proj.candidates",
@@ -1090,6 +1097,201 @@ impl ProjectionBuilder {
 
         Ok(())
     }
+
+    // ========================================================================
+    // Evidence event handlers (D-20)
+    // ========================================================================
+
+    /// Apply EvidenceBundleRecorded event
+    async fn apply_evidence_bundle_recorded(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let content_hash: String = event
+            .payload
+            .get("content_hash")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ProjectionError::DeserializationError {
+                message: "Missing content_hash".to_string(),
+            })?
+            .to_string();
+
+        let bundle_id: String = event
+            .payload
+            .get("bundle_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ProjectionError::DeserializationError {
+                message: "Missing bundle_id".to_string(),
+            })?
+            .to_string();
+
+        let run_id: String = event
+            .payload
+            .get("run_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ProjectionError::DeserializationError {
+                message: "Missing run_id".to_string(),
+            })?
+            .to_string();
+
+        let candidate_id: String = event
+            .payload
+            .get("candidate_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ProjectionError::DeserializationError {
+                message: "Missing candidate_id".to_string(),
+            })?
+            .to_string();
+
+        let oracle_suite_id: String = event
+            .payload
+            .get("oracle_suite_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        let oracle_suite_hash: String = event
+            .payload
+            .get("oracle_suite_hash")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        let verdict: String = event
+            .payload
+            .get("verdict")
+            .and_then(|v| v.as_str())
+            .unwrap_or("PASS")
+            .to_string();
+
+        let artifact_count: i32 = event
+            .payload
+            .get("artifact_count")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0) as i32;
+
+        sqlx::query(
+            r#"
+            INSERT INTO proj.evidence_bundles (
+                content_hash, bundle_id, run_id, candidate_id, oracle_suite_id,
+                oracle_suite_hash, verdict, artifact_count, run_completed_at,
+                recorded_by_kind, recorded_by_id, recorded_at, last_event_id, last_global_seq
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            ON CONFLICT (content_hash) DO NOTHING
+            "#,
+        )
+        .bind(&content_hash)
+        .bind(&bundle_id)
+        .bind(&run_id)
+        .bind(&candidate_id)
+        .bind(&oracle_suite_id)
+        .bind(&oracle_suite_hash)
+        .bind(&verdict)
+        .bind(artifact_count)
+        .bind(event.occurred_at)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.occurred_at)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(
+            content_hash = %content_hash,
+            run_id = %run_id,
+            "Evidence bundle projection created"
+        );
+
+        Ok(())
+    }
+
+    /// Apply EvidenceAssociated event
+    async fn apply_evidence_associated(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let content_hash: String = event
+            .payload
+            .get("content_hash")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ProjectionError::DeserializationError {
+                message: "Missing content_hash".to_string(),
+            })?
+            .to_string();
+
+        // Associate with run if provided
+        if let Some(run_id) = event.payload.get("run_id").and_then(|v| v.as_str()) {
+            sqlx::query(
+                r#"
+                INSERT INTO proj.evidence_associations (
+                    content_hash, entity_type, entity_id, associated_by_kind,
+                    associated_by_id, associated_at, last_event_id, last_global_seq
+                ) VALUES ($1, 'run', $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (content_hash, entity_type, entity_id) DO NOTHING
+                "#,
+            )
+            .bind(&content_hash)
+            .bind(run_id)
+            .bind(actor_kind_str(&event.actor_kind))
+            .bind(&event.actor_id)
+            .bind(event.occurred_at)
+            .bind(event.event_id.as_str())
+            .bind(event.global_seq.unwrap_or(0) as i64)
+            .execute(&mut **tx)
+            .await?;
+        }
+
+        // Associate with candidate if provided
+        if let Some(candidate_id) = event.payload.get("candidate_id").and_then(|v| v.as_str()) {
+            sqlx::query(
+                r#"
+                INSERT INTO proj.evidence_associations (
+                    content_hash, entity_type, entity_id, associated_by_kind,
+                    associated_by_id, associated_at, last_event_id, last_global_seq
+                ) VALUES ($1, 'candidate', $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (content_hash, entity_type, entity_id) DO NOTHING
+                "#,
+            )
+            .bind(&content_hash)
+            .bind(candidate_id)
+            .bind(actor_kind_str(&event.actor_kind))
+            .bind(&event.actor_id)
+            .bind(event.occurred_at)
+            .bind(event.event_id.as_str())
+            .bind(event.global_seq.unwrap_or(0) as i64)
+            .execute(&mut **tx)
+            .await?;
+        }
+
+        // Associate with iteration if provided
+        if let Some(iteration_id) = event.payload.get("iteration_id").and_then(|v| v.as_str()) {
+            sqlx::query(
+                r#"
+                INSERT INTO proj.evidence_associations (
+                    content_hash, entity_type, entity_id, associated_by_kind,
+                    associated_by_id, associated_at, last_event_id, last_global_seq
+                ) VALUES ($1, 'iteration', $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (content_hash, entity_type, entity_id) DO NOTHING
+                "#,
+            )
+            .bind(&content_hash)
+            .bind(iteration_id)
+            .bind(actor_kind_str(&event.actor_kind))
+            .bind(&event.actor_id)
+            .bind(event.occurred_at)
+            .bind(event.event_id.as_str())
+            .bind(event.global_seq.unwrap_or(0) as i64)
+            .execute(&mut **tx)
+            .await?;
+        }
+
+        debug!(content_hash = %content_hash, "Evidence association recorded");
+
+        Ok(())
+    }
 }
 
 /// Convert ActorKind to database string
@@ -1228,6 +1430,24 @@ pub struct FreezeRecordProjection {
     pub frozen_by_kind: String,
     pub frozen_by_id: String,
     pub frozen_at: DateTime<Utc>,
+}
+
+/// Evidence bundle projection read model (D-20)
+#[derive(Debug, Clone)]
+pub struct EvidenceProjection {
+    pub content_hash: String,
+    pub bundle_id: String,
+    pub run_id: String,
+    pub candidate_id: String,
+    pub iteration_id: Option<String>,
+    pub oracle_suite_id: String,
+    pub oracle_suite_hash: String,
+    pub verdict: String,
+    pub artifact_count: i32,
+    pub run_completed_at: DateTime<Utc>,
+    pub recorded_by_kind: String,
+    pub recorded_by_id: String,
+    pub recorded_at: DateTime<Utc>,
 }
 
 impl ProjectionBuilder {
@@ -2098,6 +2318,162 @@ impl ProjectionBuilder {
                 frozen_at: row.get("frozen_at"),
             })
             .collect())
+    }
+
+    // ========================================================================
+    // Evidence queries (D-20)
+    // ========================================================================
+
+    /// Get evidence for a run
+    pub async fn get_evidence_for_run(&self, run_id: &str) -> Result<Vec<String>, ProjectionError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT content_hash FROM proj.evidence_bundles WHERE run_id = $1
+            UNION
+            SELECT ea.content_hash FROM proj.evidence_associations ea
+            WHERE ea.entity_type = 'run' AND ea.entity_id = $1
+            "#,
+        )
+        .bind(run_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|row| row.get("content_hash")).collect())
+    }
+
+    /// Get evidence for a candidate
+    pub async fn get_evidence_for_candidate(
+        &self,
+        candidate_id: &str,
+    ) -> Result<Vec<String>, ProjectionError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT content_hash FROM proj.evidence_bundles WHERE candidate_id = $1
+            UNION
+            SELECT ea.content_hash FROM proj.evidence_associations ea
+            WHERE ea.entity_type = 'candidate' AND ea.entity_id = $1
+            "#,
+        )
+        .bind(candidate_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|row| row.get("content_hash")).collect())
+    }
+
+    /// Get evidence for an iteration
+    pub async fn get_evidence_for_iteration(
+        &self,
+        iteration_id: &str,
+    ) -> Result<Vec<String>, ProjectionError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT content_hash FROM proj.evidence_bundles WHERE iteration_id = $1
+            UNION
+            SELECT ea.content_hash FROM proj.evidence_associations ea
+            WHERE ea.entity_type = 'iteration' AND ea.entity_id = $1
+            "#,
+        )
+        .bind(iteration_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|row| row.get("content_hash")).collect())
+    }
+
+    /// List all evidence bundles with optional filtering
+    pub async fn list_evidence(
+        &self,
+        verdict: Option<&str>,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<EvidenceProjection>, ProjectionError> {
+        let rows = if let Some(verdict) = verdict {
+            sqlx::query(
+                r#"
+                SELECT content_hash, bundle_id, run_id, candidate_id, iteration_id,
+                       oracle_suite_id, oracle_suite_hash, verdict, artifact_count,
+                       run_completed_at, recorded_by_kind, recorded_by_id, recorded_at
+                FROM proj.evidence_bundles
+                WHERE verdict = $1
+                ORDER BY recorded_at DESC
+                LIMIT $2 OFFSET $3
+                "#,
+            )
+            .bind(verdict)
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT content_hash, bundle_id, run_id, candidate_id, iteration_id,
+                       oracle_suite_id, oracle_suite_hash, verdict, artifact_count,
+                       run_completed_at, recorded_by_kind, recorded_by_id, recorded_at
+                FROM proj.evidence_bundles
+                ORDER BY recorded_at DESC
+                LIMIT $1 OFFSET $2
+                "#,
+            )
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|row| EvidenceProjection {
+                content_hash: row.get("content_hash"),
+                bundle_id: row.get("bundle_id"),
+                run_id: row.get("run_id"),
+                candidate_id: row.get("candidate_id"),
+                iteration_id: row.get("iteration_id"),
+                oracle_suite_id: row.get("oracle_suite_id"),
+                oracle_suite_hash: row.get("oracle_suite_hash"),
+                verdict: row.get("verdict"),
+                artifact_count: row.get("artifact_count"),
+                run_completed_at: row.get("run_completed_at"),
+                recorded_by_kind: row.get("recorded_by_kind"),
+                recorded_by_id: row.get("recorded_by_id"),
+                recorded_at: row.get("recorded_at"),
+            })
+            .collect())
+    }
+
+    /// Get a specific evidence bundle by content hash
+    pub async fn get_evidence(
+        &self,
+        content_hash: &str,
+    ) -> Result<Option<EvidenceProjection>, ProjectionError> {
+        let result = sqlx::query(
+            r#"
+            SELECT content_hash, bundle_id, run_id, candidate_id, iteration_id,
+                   oracle_suite_id, oracle_suite_hash, verdict, artifact_count,
+                   run_completed_at, recorded_by_kind, recorded_by_id, recorded_at
+            FROM proj.evidence_bundles WHERE content_hash = $1
+            "#,
+        )
+        .bind(content_hash)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result.map(|row| EvidenceProjection {
+            content_hash: row.get("content_hash"),
+            bundle_id: row.get("bundle_id"),
+            run_id: row.get("run_id"),
+            candidate_id: row.get("candidate_id"),
+            iteration_id: row.get("iteration_id"),
+            oracle_suite_id: row.get("oracle_suite_id"),
+            oracle_suite_hash: row.get("oracle_suite_hash"),
+            verdict: row.get("verdict"),
+            artifact_count: row.get("artifact_count"),
+            run_completed_at: row.get("run_completed_at"),
+            recorded_by_kind: row.get("recorded_by_kind"),
+            recorded_by_id: row.get("recorded_by_id"),
+            recorded_at: row.get("recorded_at"),
+        }))
     }
 }
 

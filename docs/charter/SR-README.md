@@ -33,6 +33,48 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 9 (2026-01-13)
+**Completed:** D-20
+
+**What was done:**
+
+D-20: Evidence API endpoints (upload, retrieve, associate with runs/candidates)
+
+- Evidence handlers: upload, get, list, associate, verify, get_blob
+- UploadEvidenceRequest with manifest validation + base64 blob encoding
+- EvidenceBundleRecorded event on upload
+- EvidenceAssociated event for explicit associations
+- Content-addressed storage via MinioEvidenceStore
+- Manifest validation using EvidenceManifest.validate()
+- Integrity verification endpoint
+
+- Added EvidenceProjection struct and query methods to ProjectionBuilder
+- Added migration 004_evidence.sql for evidence_bundles and evidence_associations tables
+- Event handlers for EvidenceBundleRecorded and EvidenceAssociated
+- Added MinioEvidenceStore to AppState
+
+**Routes implemented:**
+- POST /api/v1/evidence (upload with manifest + blobs)
+- GET /api/v1/evidence (list all evidence)
+- GET /api/v1/evidence/:hash (get evidence manifest)
+- POST /api/v1/evidence/:hash/associate (link to run/candidate/iteration)
+- POST /api/v1/evidence/:hash/verify (integrity check)
+- GET /api/v1/evidence/:hash/blobs/:name (get specific blob)
+- GET /api/v1/runs/:id/evidence (list evidence for run)
+- GET /api/v1/candidates/:id/evidence (list evidence for candidate)
+
+**PKG-06 (API) is now fully complete (D-17, D-18, D-19, D-20 done)**
+
+**Next deliverables to work on:**
+- D-16: Restricted evidence handling (depends on D-14) - PKG-05
+- D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
+- D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
+- D-21: NATS/JetStream messaging integration (depends on D-13) - PKG-07
+
+**Note:** Rust is not installed in the current environment. CI will validate builds on GitHub runners.
+
+---
+
 ### Session 8 (2026-01-13)
 **Completed:** D-19
 

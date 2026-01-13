@@ -34,7 +34,7 @@ pub use outbox::{
 };
 pub use postgres::PostgresEventStore;
 pub use projections::{
-    ApprovalProjection, CandidateProjection, DecisionProjection, ExceptionProjection,
-    FreezeRecordProjection, IterationProjection, LoopProjection, ProjectionBuilder,
-    ProjectionConfig, ProjectionError, RunProjection,
+    ApprovalProjection, CandidateProjection, DecisionProjection, EvidenceProjection,
+    ExceptionProjection, FreezeRecordProjection, IterationProjection, LoopProjection,
+    ProjectionBuilder, ProjectionConfig, ProjectionError, RunProjection,
 };
