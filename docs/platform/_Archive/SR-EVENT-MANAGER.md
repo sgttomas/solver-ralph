@@ -4,34 +4,19 @@ doc_kind: governance.event_manager_spec
 layer: platform
 status: draft
 refs:
-- rel: governed_by
-  to: SR-CHANGE
-- rel: depends_on
-  to: SR-CONTRACT
-- rel: depends_on
-  to: SR-SPEC
-- rel: depends_on
-  to: SR-TYPES
-- rel: depends_on
-  to: SR-DIRECTIVE
-- rel: depends_on
-  to: SR-PLAN
-- rel: depends_on
-  to: SR-WORK-SURFACE
-- rel: depends_on
-  to: SR-PROCEDURE-KIT
-- rel: depends_on
-  to: SR-SEMANTIC-ORACLE-SPEC
+  - rel: governed_by
+    to: SR-CHANGE
+  - rel: depends_on
+    to: SR-CONTRACT
+  - rel: depends_on
+    to: SR-SPEC
+  - rel: depends_on
+    to: SR-TYPES
+  - rel: depends_on
+    to: SR-DIRECTIVE
 ---
 
 # SR-EVENT-MANAGER — Deterministic state + eligibility computation
-
-**Boundary note (policy snapshots):** SR-DIRECTIVE is a governed, run-scoped policy source (build governance). At runtime, the Event Manager MUST consume a **directive policy snapshot** that is:
-- **content-addressed** (has `meta.content_hash`)
-- **run-scoped** (references the active SR-PLAN)
-- **supported_by** an explicit reference to the governing SR-DIRECTIVE (and SR-CHANGE entry if applicable)
-
-This snapshot is the authoritative input for completion/eligibility rules; it may only change through governed routing (SR-CHANGE + SR-DIRECTIVE portal semantics), not by ad-hoc edits.
 
 **Purpose:** Specify the deterministic **Event Manager / Projection Builder** that computes:
 
@@ -46,10 +31,6 @@ This is the “small truth source” scaling mechanism: agents do not carry stat
 ---
 
 ## 1. Inputs (normative)
-
-
-**Evidence terminology note:** “Evidence Bundle” refers to the platform domain object (`domain.evidence_bundle`). When referring to the serialized manifest, the manifest may use `artifact_type = evidence.gate_packet`.
-
 
 The Event Manager MUST consume:
 
@@ -74,14 +55,11 @@ For each work unit id:
 - `stage_status` map `{stage_id -> {status, last_evidence_bundle_ref}}`
 - `deps_satisfied`: boolean
 - `block_reasons[]`: stop triggers / integrity conditions / missing portal decisions
-- `staleness_markers[]`: active staleness markers (if any) that require re-evaluation routing (see SR-SPEC staleness semantics)
 - `last_iteration_id`
 - `last_candidate_id`
 - `last_evidence_bundle_id`
 
 ### 2.2 eligible_set
-
-The eligible set is computed deterministically from the event log, the dependency graph snapshot, and the active directive policy snapshot.
 
 A set of work unit ids that are eligible to be selected **now** under SR-DIRECTIVE policy.
 
@@ -155,3 +133,4 @@ The Event Manager relies on at least:
 - `ApprovalRecorded` / waiver/deferral events
 
 Semantic-specific events MAY be present (e.g., `WorkSurfaceRecorded`, `StageCompleted`), but stage completion can also be derived from evidence bundles bound to stage ids.
+

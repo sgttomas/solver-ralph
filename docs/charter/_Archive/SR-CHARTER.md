@@ -22,6 +22,8 @@ refs:
   - rel: informs
     to: SR-EVENT-MANAGER
   - rel: informs
+    to: SR-AGENT-WORKER-CONTRACT
+  - rel: informs
     to: SR-MODEL
   - rel: informs
     to: SR-AGENTS
@@ -40,31 +42,17 @@ SOLVER-Ralph exists to make **agentic semantic knowledge work** controlled, gove
 
 It is a platform where:
 - agents can perform real knowledge work and produce **semantic artifacts** (analysis, decisions, plans, narratives, ontologies),
-- **required semantic oracles** (e.g., meaning-matrix / manifold evaluators) produce structured evidence deterministically within declared environment constraints under a declared procedure stage (non-deterministic checks are advisory or portal-reviewed),
+- **semantic oracles** (e.g., meaning-matrix / manifold evaluators) produce structured evidence deterministically under a declared procedure stage,
 - and **human authority** is required at trust boundaries for any binding decision.
 
 This charter defines the initial human inputs and boundaries that initiate development, and the rules that govern development while agents write **100% of the code** and draft **100% of the governed documentation**, in service of running **Semantic Ralph Loops**: stage-gated, proceduralized work units operating on a defined **work surface** (intake + procedure) with evidence-backed gating.
 
 ---
 
-## Canonical index and navigation
-
-**Normative status: index.**
-
-This charter stays intentionally concise. The canonical document index and folder meanings for this spec set live in `README.md`.
-
-Quick map for documents referenced in this charter (per the README folder meanings):
-
-- `charter/`: SR-CHARTER
-- `platform/` (**binding**): SR-CONTRACT, SR-SPEC, SR-TYPES, SR-EVENT-MANAGER, SR-WORK-SURFACE, SR-PROCEDURE-KIT, SR-SEMANTIC-ORACLE-SPEC
-- `build-governance/` (**binding for development**): SR-CHANGE, SR-AGENTS, SR-EXCEPTIONS
-- `program/` (**binding for a specific build/run**): SR-PLAN, SR-DIRECTIVE
-- `orientation/` (**non-binding**): SR-MODEL
-
 ## First Principles
 
 ### The platform is governed semantics, not narrative
-The platform is not a document viewer, and a “good story” is not correctness. The governed documents define the normative semantic substrate from which enforcement behavior is derived: how work is decomposed, how candidates are generated, how oracles evaluate, and how state transitions are authorized.
+The platform is not a document viewer, and a "good story" is not correctness. The governed documents define the normative semantic substrate from which enforcement behavior is derived: how work is decomposed, how candidates are generated, how oracles evaluate, and how state transitions are authorized.
 
 ### Authority is a human boundary, not an emergent property
 Evidence supports decisions. Evidence does not become authority.
@@ -73,7 +61,7 @@ Binding outcomes require explicit human authorization at defined trust boundarie
 ### Agents are actuators under governance
 Agents may propose, implement, and draft.
 Agents may not self-grant correctness, safety, approval, release readiness, authority, or semantic validity.
-“Verified” means “verified under a declared oracle suite/profile and stage,” not “true in the world.”
+"Verified" means "verified under a declared oracle suite/profile and stage," not "true in the world."
 
 ### Semantic work requires a work surface
 Semantic work is made auditable by constraining it to a declared **work surface**:
@@ -96,7 +84,7 @@ The build domain is governed so that the runtime semantic domain can be made tru
 
 ## Immediate Objective
 
-### Milestone 1: MVP = Get Semantic Work Units (“Semantic Ralph Loops”) functioning as intended
+### Milestone 1: MPV = Get Semantic Work Units ("Semantic Ralph Loops") functioning as intended
 The first deliverable is our MVP which is a functioning **semantic work-unit runtime**:
 - bounded agentic work,
 - iteration cycling with controlled memory,
@@ -105,7 +93,7 @@ The first deliverable is our MVP which is a functioning **semantic work-unit run
 - semantic oracle evidence capture and gating,
 - explicit human authority points for binding decisions.
 
-“Build Focus: Semantic Ralph Loop MVP”
+"Build Focus: Semantic Ralph Loop MVP"
 	•	The only innovation that must be built now is the semantic-ralph-loop runtime: bounded semantic work → structured evidence → human approval → completion event.
 	•	All other components (storage engines, UIs, orchestration frameworks, decomposition automation, adapter ecosystems) are commodities and may be implemented as minimal stubs to support proving the loop.
 	•	Any work that does not directly enable the semantic-ralph-loop MVP is out of scope unless explicitly authorized by human authority.
@@ -117,7 +105,7 @@ Non-goals (for this MVP phase):
 	•	not automating decomposition unless required to demo one loop end-to-end
 
 Stop Rule (for this MVP phase):
-	•	“If implementation work starts to drift into adapter/platform build-out before the semantic-ralph-loop MVP is demonstrated end-to-end, stop and escalate.”
+	•	"If implementation work starts to drift into adapter/platform build-out before the semantic-ralph-loop MVP is demonstrated end-to-end, stop and escalate."
 
 Once operational, it becomes the **semantic worker substrate** upon which subsequent platform capabilities and external applications can be built.
 
@@ -130,40 +118,26 @@ After Milestone 1, SOLVER-Ralph becomes a platform other applications integrate 
 
 ## Canonical Type Seeds (Minimum Vocabulary)
 
-These terms must be used consistently during development.
-
-**Naming normalization:** The canonical surface form for the core runtime construct is **`semantic-ralph-loop`** (hyphenated, lowercase). Acceptable aliases when context is clear: "Semantic Ralph Loop" (prose), "Work Unit (Semantic Loop)" (formal definition). All refer to the same construct. Avoid inventing new surface forms.
+These terms must be used consistently during development:
 
 - **Work Unit (Semantic Loop):** the bounded governed instance of semantic knowledge work.
   - It has a control-plane lifecycle and a governance-progress projection.
 - **Iteration:** a fresh-context execution cycle within a work unit.
-- **Work Surface:** the governed artifacts that define *what* is being worked on and *how*: (1) a typed Intake (problem statement decomposition for the work unit), (2) a Procedure Template (stage-gated), and (3) the selected oracle profile/suites (including any semantic-set definitions used by those suites). See SR-CONTRACT §2.3 for normative definition.
+- **Work Surface:** the declared intake + procedure template (stage-gated) that constrains how candidates are produced.
 - **Stage:** a gated phase of the procedure; semantic evaluation is indexed by stage.
 - **Proposal:** non-binding intent or draft output produced by an agent.
-- **Commitment Object:** a durable, content-addressed, referenceable artifact that can support binding claims (candidate, Evidence Bundle, approval, exception, context bundle). Commitment Objects are the runtime realization of the "record" normative category—i.e., records *are* Commitment Objects when instantiated as platform artifacts. See SR-CONTRACT §2.8.
-
-*Compatibility note:* Older drafts sometimes used the word **record** to mean “durable, referenceable artifact.” In this corpus, **Commitment Object** is the durability concept; records are one *normative_status* class of commitment objects (see SR-CONTRACT §2.8; SR-TYPES §1.3.1).
+- **Commitment Object:** a recorded, typed artifact that can support binding claims (candidate, evidence packet, approval, exception, context bundle).
 - **Context Bundle (`record.context_bundle`):** the standardized artifact capturing the complete effective context for an iteration (no ghost inputs).
-- **Evidence (Evidence Bundle):** oracle output; non-authoritative verification artifacts (including semantic measurements). An Evidence Bundle is the structured artifact from a Run, containing per-oracle results, attribution, and content hash. See SR-CONTRACT §2.6, §7.
+- **Evidence:** oracle output; non-authoritative verification artifacts (including semantic measurements).
 - **Semantic Oracle / Suite:** an evaluator that measures candidate adherence to stage-defined semantic constraints (e.g., manifold distance/residuals/coverage), producing structured evidence.
 - **Gate:** a required condition for a state transition, computed from records/evidence.
-- **Portal (Trust Boundary / Authority Port):** a gate requiring human arbitration; every Portal is a trust boundary whose recorded output is binding. Portal crossings produce Approval records. See SR-CONTRACT §2.6.
+- **Trust Boundary / Authority Port:** a human decision point whose recorded output is binding.
 - **Exception:** a narrowly scoped, explicitly recorded permission to deviate from governing documents or work instructions.
 
-Normative status categories (see SR-TYPES §2.2 for authoritative definitions):
-- **normative:** binding requirements (platform-definition: CONTRACT/SPEC/TYPES; build-execution: PLAN/DIRECTIVE/AGENTS/CHANGE)
-- **directional:** guidance and rationale; not binding unless referenced by a normative requirement (INTENT, GUIDE)
-- **index:** navigation only; no binding semantics (README)
-- **record:** durable, attributable records of what happened/was decided (approvals, exceptions, candidates, context bundles)
-- **evidence:** oracle outputs and verification artifacts; non-authoritative (including semantic measurement traces)
-*Migration note:* Earlier drafts used a coarse triad `{record, evidence, directional}`. Map old usage into the current ontology as follows:
-- **record** → `normative_status: record` (durable, attributable records) and/or the broader **Commitment Object** concept (durable, referenceable artifacts).
-- **evidence** → `normative_status: evidence`
-- **directional** → `normative_status: directional`
-
-Do not introduce new normative-status labels without routing through SR-CHANGE.
-
-**Note:** Plans and directives are `normative_status: normative` because they are binding for build-execution—but they do not define platform semantics (that authority belongs to CONTRACT/SPEC/TYPES).
+Normative status categories:
+- **record:** authoritative commitments (decisions, approvals, exceptions, candidates, context bundles)
+- **evidence:** oracle outputs and verification artifacts (including semantic measurement traces)
+- **directional:** build guidance and scaffolding (plans/directives), still governed but not platform-defining semantics
 
 ---
 
@@ -189,11 +163,6 @@ Human authority is required for:
 During the build phase, exceptions are not processed through a portal product.
 The human authority functions as the exception port, and each exception must be recorded in **SR-EXCEPTIONS** with an EX identifier.
 
-### Build-Phase vs Platform-Phase Portals
-Portals are normative trust-boundary concepts from day one. SR-CONTRACT (C-TB-4) requires implementations to define at minimum a Governance Change Portal and a Release Approval Portal, and portal crossings must produce binding Approval records (C-TB-3).
-
-During build, portals are executed as a **manual human process**: the human authority (Ryan) performs the portal function, and each crossing is recorded as an approval/decision/exception record per SR-CONTRACT requirements. Later, these same portals may be realized as product/UI portals—but the semantic and record requirements are identical regardless of execution mode.
-
 ---
 
 ## Precedence and Decision Routing
@@ -216,7 +185,7 @@ When documents conflict or guidance is ambiguous:
 3) SR-CHANGE  
 4) SR-DIRECTIVE  
 5) SR-PLAN  
-6) Task-local instructions (must not violate higher precedence)
+6) task-local work surface instructions  
 
 ### Routing rule
 - If the question is about **meaning/invariant/mechanics**, use platform-definition precedence.
@@ -225,7 +194,7 @@ When documents conflict or guidance is ambiguous:
 
 ---
 
-## Acceptance Contract (What “Counts”)
+## Acceptance Contract (What "Counts")
 
 ### A. What counts as a valid document increment
 A document increment is acceptable when:
@@ -237,7 +206,7 @@ A document increment is acceptable when:
 
 ### B. What counts as a valid code increment
 A code increment is acceptable when:
-- it implements platform semantics as specified (not “whatever passes tests”),
+- it implements platform semantics as specified (not "whatever passes tests"),
 - it produces or consumes evidence via oracle mechanisms where required (including semantic suites),
 - it preserves auditability via records/events sufficient for replay and attribution,
 - it does not bypass human authority requirements.

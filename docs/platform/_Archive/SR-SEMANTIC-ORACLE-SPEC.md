@@ -4,18 +4,14 @@ doc_kind: governance.semantic_oracle_spec
 layer: platform
 status: draft
 refs:
-- rel: governed_by
-  to: SR-CHANGE
-- rel: depends_on
-  to: SR-CONTRACT
-- rel: depends_on
-  to: SR-SPEC
-- rel: depends_on
-  to: SR-TYPES
-- rel: depends_on
-  to: SR-WORK-SURFACE
-- rel: depends_on
-  to: SR-PROCEDURE-KIT
+  - rel: governed_by
+    to: SR-CHANGE
+  - rel: depends_on
+    to: SR-CONTRACT
+  - rel: depends_on
+    to: SR-SPEC
+  - rel: depends_on
+    to: SR-TYPES
 ---
 
 # SR-SEMANTIC-ORACLE-SPEC — Semantic Oracles (Meaning Matrices / Semantic Sets)
@@ -52,17 +48,11 @@ A semantic oracle suite MUST have:
 - axis definitions / ontology bindings (opaque to platform, but hashed)
 - decision-rule parameters for pass/fail derivation
 
-If semantic set definitions change, the suite hash MUST change. **Any change to oracle suite selection or profile (including suite_hash changes) MUST be routed as a governed change via `GovernanceChangePortal` with `request_type: ORACLE_SUITE_OR_PROFILE_CHANGE` (see SR-DIRECTIVE).** This prevents “silent oracle drift.”
+If semantic set definitions change, the suite hash MUST change. This prevents “silent oracle drift.”
 
 ---
 
 ## 3. Required outputs (v1)
-
-**Requirement:** For required semantic gates, the following artifacts are mandatory unless replaced by a governed, compatible successor recorded in SR-CHANGE.
-
-
-**Evidence terminology note:** “Evidence Bundle” refers to the platform domain object (`domain.evidence_bundle`). When referring to the serialized manifest/packet, the manifest may use `artifact_type = evidence.gate_packet`.
-
 
 A semantic oracle run MUST produce machine-readable artifacts sufficient to:
 - audit the measurement,
@@ -75,15 +65,13 @@ Minimum required artifacts (paths are conventional; use manifest to bind):
 - `reports/semantic/coverage.json`
 - `reports/semantic/violations.json`
 
-These artifacts MUST be referenced in the Evidence Bundle manifest (domain object: `domain.evidence_bundle`; manifest `artifact_type`: `evidence.gate_packet`) via content hashes.
+These artifacts MUST be referenced in the Evidence Bundle (`evidence.gate_packet`) via content hashes.
 
 ---
 
-## 4. Standard result schema (normative for required semantic gates)
+## 4. Standard result schema (recommended)
 
-**Normative requirement:** If a semantic oracle suite is used as a **Required Oracle** for a stage gate, it MUST emit a stage evaluation result conforming to `sr.semantic_eval.v1` (or a declared compatible successor), and that result MUST include enough fields for gate pass/fail to be computed from recorded outputs without out-of-band assumptions.
-
-The platform provides a canonical JSON schema for semantic stage evaluation:
+The platform RECOMMENDS a canonical JSON schema for semantic stage evaluation:
 
 ```jsonc
 {
@@ -110,11 +98,6 @@ The platform provides a canonical JSON schema for semantic stage evaluation:
   "notes": "optional human-readable notes"
 }
 ```
-
-The platform does not interpret `metrics` semantics; it only requires that the gate decision rule be computable from recorded outputs.
-
-**Schema note:** `sr.semantic_eval.v1` is a wire format schema for semantic oracle outputs, defined locally within this specification. It is not a governed artifact type in SR-TYPES; it is a data schema for structured oracle results that are referenced withi
-
 
 The platform does not interpret `metrics` semantics; it only requires that the gate decision rule be computable from recorded outputs.
 

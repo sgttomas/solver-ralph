@@ -3,68 +3,55 @@ doc_id: SR-PLAN
 doc_kind: governance.plan
 layer: build
 status: draft
+
 refs:
-- rel: governed_by
-  to: SR-CHANGE
-- rel: depends_on
-  to: SR-CONTRACT
-- rel: depends_on
-  to: SR-SPEC
-- rel: depends_on
-  to: SR-TYPES
-- rel: depends_on
-  to: SR-GUIDE
-- rel: depends_on
-  to: SR-INTENT
-- rel: depends_on
-  to: SR-AGENTS
-- rel: depends_on
-  to: SR-DIRECTIVE
-- rel: depends_on
-  to: SR-WORK-SURFACE
-- rel: depends_on
-  to: SR-SEMANTIC-ORACLE-SPEC
-- rel: depends_on
-  to: SR-EVENT-MANAGER
-- rel: depends_on
-  to: SR-PROCEDURE-KIT
-- rel: informs
-  to: SR-MODEL
+  - rel: governed_by
+    to: SR-CHANGE
+  - rel: depends_on
+    to: SR-CONTRACT
+  - rel: depends_on
+    to: SR-SPEC
+  - rel: depends_on
+    to: SR-TYPES
+  - rel: depends_on
+    to: SR-GUIDE
+  - rel: depends_on
+    to: SR-INTENT
+  - rel: depends_on
+    to: SR-AGENTS
+  - rel: depends_on
+    to: SR-DIRECTIVE
+  - rel: informs
+    to: SR-MODEL
 ---
-
 # SR-PLAN — SOLVER-Ralph Build Plan (with Semantic Ralph Loop support)
+  - clarifying that “portal touchpoints” are conditional; any binding decision attaches to the resulting change record, not to this plan,
 
-This plan consolidates prior build-plan drafts into a single decomposition aligned with:
-- **SR-SPEC** (event-sourced runtime + stack constraints),
-- **SR-CONTRACT** (authority/evidence invariants and trust-boundary semantics),
-- **SR-TYPES / SR-INTENT / SR-GUIDE** (taxonomy, interpretation, and usage guidance),
-- **SR-DIRECTIVE** (execution sequencing, budgets/stop-triggers, and portal policies).
-
-Notes:
-- “Portal touchpoints” in this plan are **conditional**; any binding decision is recorded in the resulting approval/exception/change records, not in this plan.
-- Ordering is expressed only through explicit `depends_on` edges; package order is non-binding.
+- **): Consolidates prior build plan drafts into a single decomposition aligned with:
+  - SR-PLAN template,
+  - SR-SPEC (event-sourced runtime + stack constraints),
+  - SR-CONTRACT (authority, evidence, and governance constraints),
+  - the requirement that SR-PLAN remains **abstract** (SR-DIRECTIVE will define execution sequencing and closure).
 
 ---
 
 ## 1. Authoritative Planning Inputs
 
-**Domain/type note:** “Evidence Bundle” refers to the domain object (`domain.evidence_bundle`). When referencing the manifest schema, use `artifact_type = evidence.gate_packet`.
-
 This plan depends on the following authoritative commitment objects and governed artifacts:
 
 | ID | type_key | meta | content_hash (sha256) |
 |---|---|---|---|
-| SR-CONTRACT | governance.arch_contract |  | f5b42fa4e9e162e63fcdc33366499b98f6a5f1fd2ca9c1b0b5d597776d55eaef |
-| SR-SPEC | governance.technical_spec |  | a3c45a21e88ea41f9915cbce456986e059f2a0d10e1af91f9f1908513fb59aec |
-| SR-DIRECTIVE | governance.dev_directive |  | 6ee1f4130d193e1fefd020f5eefa8628bb117cbec04b3d619fb1b879b3551eba |
+| SR-CONTRACT | governance.contract |  | f5b42fa4e9e162e63fcdc33366499b98f6a5f1fd2ca9c1b0b5d597776d55eaef |
+| SR-SPEC | governance.spec |  | a3c45a21e88ea41f9915cbce456986e059f2a0d10e1af91f9f1908513fb59aec |
+| SR-DIRECTIVE | governance.directive |  | 6ee1f4130d193e1fefd020f5eefa8628bb117cbec04b3d619fb1b879b3551eba |
 | SR-TYPES | governance.types |  | ba60d69e15be9535bee32dd432192e87ec625712c1c860b3fdedc0f2b0da319c |
-| SR-GUIDE | governance.usage_guide |  | 27c4561bd883c72bba62453781abc898b5cd3f47b275810c394a9f6e5433abb1 |
-| SR-INTENT | governance.design_intent |  | 7940bafceb5dda19e70744ccfd58304027b10f0376186d3e87c3dcce79e85d35 |
-| SR-CHANGE | governance.change_mgmt |  | c0f631225ac7f0c8f348c3c85b522d50bab3793cfcab7b531c8bef98e075d580 |
-| SR-AGENTS | governance.agents |  | f2a303ad5fead512ed8250a3eee6db1c2de0b6851b302119024373594cd3ddd9 |
+| SR-GUIDE | governance.development_paradigm |  | 27c4561bd883c72bba62453781abc898b5cd3f47b275810c394a9f6e5433abb1 |
+| SR-INTENT | governance.intent |  | 7940bafceb5dda19e70744ccfd58304027b10f0376186d3e87c3dcce79e85d35 |
+| SR-CHANGE | governance.change |  | c0f631225ac7f0c8f348c3c85b522d50bab3793cfcab7b531c8bef98e075d580 |
+| SR-README | governance.readme |  | 19caba82029848f6e8e74184060e117cdaff4229e986f4a5f55fcb672ffce2ec |
+| SR-CONTRACT/SR-SPEC trust boundaries | governance.trust_topology |  | 32844e0e71268b27586a00cdbb38d71cc4c868d2c31867c902a5ae02fc4a6b2b |
+| SR-AGENTS | policy.agent_taxonomy |  | f2a303ad5fead512ed8250a3eee6db1c2de0b6851b302119024373594cd3ddd9 |
 | SR-PLAN | governance.plan |  | 1607f32a0a50345ffc0e2ca841e3a4437dc8e94709c9bf68784ef64c50a25eab |
-
-**Type key alignment note:** The type_key values in this table are aligned with the canonical SR-TYPES registry (§4.1–4.2). The previous "SR-CONTRACT/SR-SPEC trust boundaries" row has been removed as `governance.trust_topology` is not a registered type; trust boundary semantics are defined inline in SR-CONTRACT and SR-SPEC.
 
 
 ---
@@ -83,7 +70,7 @@ This instance plan decomposes the build of **SOLVER-Ralph** into deliverables th
 
 ## 3. Architecture and Tech Stack Assessment (Constraints)
 
-This section is a **plan-level restatement** of stack choices that are already specified in **SR-SPEC**. It does **not** introduce new platform semantics; if this document diverges, SR-SPEC controls. Changes MUST go through SR-CHANGE and update SR-SPEC/SR-CONTRACT as appropriate.
+The following are **constraints** (fixed unless changed via SR-CHANGE to SR-SPEC / SR-CONTRACT).
 
 ### 3.1 Stack (from SR-SPEC)
 
@@ -125,46 +112,6 @@ Semantic extension (prompt-driven knowledge work):
 
 ---
 
-## 4.1 MVP Branch 0 — Semantic Manifold MVP (Problem Statement Ingestion)
-
-**Purpose:** Establish the first concrete **Semantic Ralph Loop** by making the “semantic work manifold” executable end-to-end for one canonical work unit: **Problem Statement → Typed Intake Baseline**.
-
-This branch is intentionally narrow: it exists to prove the semantic-work substrate (Work Surface + semantic oracle suite + portal acceptance + freeze) can run deterministically from recorded events and referenced artifacts.
-
-### Branch 0 scope (binding to governed artifacts)
-
-Branch 0 MUST produce, at minimum, one runnable semantic work surface instance with:
-
-- A governed **Procedure Template** for problem-statement ingestion (stage-gated).
-- A governed **SemanticSet / manifold definition** (meaning-matrix) used by semantic oracles.
-- A governed semantic **oracle suite** (e.g., `oracle.suite.intake_admissibility.v1`) whose identity/hash incorporates the manifold definition.
-- A portal touchpoint for **Intake acceptance** (human authority boundary) that records approval and produces a **Freeze baseline** for the accepted intake bundle.
-- Replay: given the event stream + referenced artifacts, the accepted intake baseline can be reconstructed deterministically (or verified by deterministic checksum).
-
-### What Branch 0 pulls forward (non-binding ordering, binding dependencies)
-
-Branch 0 prioritizes the following deliverables as the MVP spine (their explicit `depends_on` edges remain the only binding ordering constraint):
-
-- **D-37** Work surface schemas (Intake + Procedure Template + Work Surface binding; include stage_id + stage parameters).
-- **D-39** Semantic oracle integration (manifold binding + residual/coverage/violation artifacts + deterministic suite hash binding).
-- **D-41** Reference semantic worker (executes one stage per iteration; runs semantic suite; emits evidence; requests portal action).
-- **D-19 / D-30** Minimal portal recording path (approval/exception/freeze) sufficient to accept an intake baseline.
-- **D-34 / D-36** End-to-end harness + replay proof must include the Branch 0 semantic loop.
-
-### Branch 0 acceptance definition (what “done” means)
-
-Branch 0 is complete when a self-hosted instance can execute the following recorded sequence:
-
-1) Loop created for a problem-statement work unit  
-2) Iteration started with a Work Surface ref set that includes: Intake source(s), Procedure Template, stage_id + stage parameters, and the semantic oracle suite/manifold definitions  
-3) Candidate intake bundle produced (typed, structured)  
-4) Evidence Bundle recorded from the semantic oracle suite (admissibility checks)  
-5) Human portal approval recorded for the intake baseline  
-6) Freeze baseline created for the accepted intake bundle  
-7) Replay proves deterministic reconstruction (or deterministic checksum equivalence) from the recorded event/evidence stream
-
----
-
 ## 5. Packages Overview
 
 | Package | Purpose | Deliverables |
@@ -180,7 +127,6 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
 | PKG-09 | UI portals and human review surface | 3 |
 | PKG-10 | Self-host and operations substrate | 3 |
 | PKG-11 | End-to-end demonstration and determinism proof | 3 |
-| PKG-12 | Semantic work surface + prompt decomposition | 5 |
 
 ---
 
@@ -194,15 +140,15 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
 
 | Deliverable | Title | Output class | Depends on |
 |---|---|---|---|
-| D-01 | Governance hygiene patchset for build | record |  |
+| D-01 | Governance hygiene patchset for build build | record |  |
 
-#### D-01 — Governance hygiene patchset for build
+#### D-01 — Governance hygiene patchset for build build
 - **Output class:** `record`
 - **Primary output:** A recorded governance-unblocker packet: rationale + proposed diffs for any required governance artifacts (e.g., SR-AGENTS, SR-DIRECTIVE, SR-TYPES alignment).
   **type_key:** `record.intervention_note`
 - **Condition:** If governance doc/type mismatches are discovered that materially block implementation or increase drift risk.
 - **Depends on:** *(none)*
-- **Refs required:** `SR-CHANGE`, `SR-CONTRACT`, `SR-SPEC`, `SR-TYPES`, `SR-GUIDE`, `SR-DIRECTIVE`, `SR-AGENTS`
+- **Refs required:** `SR-CHANGE`, `SR-CONTRACT`, `SR-SPEC`, `SR-TYPES`, `SR-GUIDE`, `SR-DIRECTIVE`, `SR-README`, `SR-AGENTS`
 - **Portal touchpoints (if applicable):** GovernanceChangePortal — only if this deliverable produces a governed change proposal; any binding decision attaches to the resulting change record (not to this plan).
 - **Acceptance criteria:**
   - All proposed governance changes are expressed as explicit diffs or replacement files with versions bumped.
@@ -233,7 +179,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - UI project builds (skeleton acceptable).
   - Shared schema and codegen locations are defined (even if empty).
 - **Expected evidence:**
-  - Core build logs and artifact hashes in an Evidence Bundle (build-only acceptable for this scaffold).
+  - Core build logs and artifact hashes in an evidence bundle (build-only acceptable for this scaffold).
 
 #### D-03 — Continuous integration baseline (build/test/lint)
 - **Output class:** `candidate`
@@ -246,7 +192,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - CI produces a machine-readable summary (pass/fail, durations, artifact hashes).
   - CI failures are surfaced deterministically (no hidden steps).
 - **Expected evidence:**
-  - Evidence Bundle containing CI run logs and summary manifest.
+  - Evidence bundle containing CI run logs and summary manifest.
 
 #### D-04 — Local developer tooling (scripts, dev env build)
 - **Output class:** `candidate`
@@ -258,7 +204,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - A new developer can run `make dev` (or equivalent) to start the minimal stack.
   - A new developer can run `make test` (or equivalent) to execute the baseline oracle suite locally.
 - **Expected evidence:**
-  - Evidence Bundle containing local run transcript (commands + outputs) and tool versions.
+  - Evidence bundle containing local run transcript (commands + outputs) and tool versions.
 ### PKG-03 — Domain core (deterministic rules)
 **Grouping rationale:** The domain core is the deterministic supervisor. This package establishes the central state machine semantics and boundary interfaces before adapter work scales.
 
@@ -280,7 +226,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Invariants correspond to SR-CONTRACT constraints where applicable (no premature authority claims; approvals are explicit records; etc.).
   - Domain types are serialization-friendly (for event storage) without embedding transport concerns.
 - **Expected evidence:**
-  - Evidence Bundle containing unit test results and static checks for the domain crate.
+  - Evidence bundle containing unit test results and static checks for the domain crate.
 
 #### D-06 — Deterministic state machines and transition validation
 - **Output class:** `candidate`
@@ -293,7 +239,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Invalid transitions are rejected deterministically with structured errors.
   - Property tests or model-based tests exist for at least the highest-risk transitions.
 - **Expected evidence:**
-  - Evidence Bundle with unit + property test results for transition logic.
+  - Evidence bundle with unit + property test results for transition logic.
 
 #### D-07 — Ports and boundary interfaces (domain → adapters)
 - **Output class:** `candidate`
@@ -306,7 +252,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Ports express the minimum operations required by SR-SPEC workflows.
   - Error types are explicit and suitable for deterministic handling.
 - **Expected evidence:**
-  - Evidence Bundle with compilation + unit tests for ports module.
+  - Evidence bundle with compilation + unit tests for ports module.
 
 #### D-08 — Context compilation rules (refs → deterministic context bundle)
 - **Output class:** `candidate`
@@ -319,7 +265,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Restricted/redacted material handling is explicit (no implicit leaks).
   - Compilation failures are deterministic and explainable.
 - **Expected evidence:**
-  - Evidence Bundle with determinism tests over context compilation.
+  - Evidence bundle with determinism tests over context compilation.
 ### PKG-04 — Persistence, projections, and graph
 **Grouping rationale:** Event sourcing + projections are the mechanism for deterministic replayability. This package implements the storage substrate and derived views needed by API/UI and orchestration.
 
@@ -342,7 +288,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Schemas include constraints needed for event ordering and uniqueness.
   - Graph projection tables support staleness traversal queries as required by SR-SPEC.
 - **Expected evidence:**
-  - Evidence Bundle with migration run logs against a clean Postgres instance.
+  - Evidence bundle with migration run logs against a clean Postgres instance.
 
 #### D-10 — EventStore adapter (append-only streams + concurrency control)
 - **Output class:** `candidate`
@@ -355,7 +301,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Concurrency conflicts are detected and surfaced deterministically.
   - A replay of an event stream reproduces the same aggregate state.
 - **Expected evidence:**
-  - Evidence Bundle with adapter unit/integration tests and replay determinism test.
+  - Evidence bundle with adapter unit/integration tests and replay determinism test.
 
 #### D-11 — Projection builder (read models from event streams)
 - **Output class:** `candidate`
@@ -367,7 +313,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Projection rebuild from scratch matches incremental projection results (consistency test).
   - Projection versioning / backfill strategy is explicit (even if simple initially).
 - **Expected evidence:**
-  - Evidence Bundle with projection rebuild tests and sample datasets.
+  - Evidence bundle with projection rebuild tests and sample datasets.
 
 #### D-12 — Dependency graph projection + staleness traversal
 - **Output class:** `candidate`
@@ -380,7 +326,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Traversal queries return correct transitive dependents on representative fixtures.
   - Staleness marking is representable as events and reflected in projections.
 - **Expected evidence:**
-  - Evidence Bundle with graph projection + traversal tests.
+  - Evidence bundle with graph projection + traversal tests.
 
 #### D-13 — Outbox publisher and NATS event publication
 - **Output class:** `candidate`
@@ -392,7 +338,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Published event payloads are validated and include required metadata.
   - Publisher is resilient to restarts without duplicating logical events (idempotency keys).
 - **Expected evidence:**
-  - Evidence Bundle with local NATS integration test logs.
+  - Evidence bundle with local NATS integration test logs.
 ### PKG-05 — Evidence storage and integrity
 **Grouping rationale:** Evidence is the substrate for verification and human judgment. This package ensures evidence is durable, content-addressed, and (when required) access-controlled.
 
@@ -409,11 +355,11 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
 - **Refs required:** `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`
 - **Recommended verification profile (non-binding):** `STRICT-CORE`
 - **Acceptance criteria:**
-  - Evidence Bundles are stored immutably under content hashes.
+  - Evidence bundles are stored immutably under content hashes.
   - Evidence manifests are validated on write and retrievable on read.
   - Access control story is explicit (even if coarse initially).
 - **Expected evidence:**
-  - Evidence Bundle with upload/download integration tests and manifest validation results.
+  - Evidence bundle with upload/download integration tests and manifest validation results.
 
 #### D-15 — Evidence manifest v1 library + validation oracle
 - **Output class:** `candidate`
@@ -426,7 +372,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Hash computation is reproducible across runs.
   - Validation failures are deterministic and machine-readable.
 - **Expected evidence:**
-  - Evidence Bundle with unit tests + oracle run logs for manifest validation.
+  - Evidence bundle with unit tests + oracle run logs for manifest validation.
 
 #### D-16 — Restricted evidence handling (Infisical + envelope keys)
 - **Output class:** `candidate`
@@ -439,7 +385,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Key retrieval paths are auditable and minimal.
   - Redaction rules are explicit and test-covered.
 - **Expected evidence:**
-  - Evidence Bundle with encryption/decryption tests and access-control checks.
+  - Evidence bundle with encryption/decryption tests and access-control checks.
 ### PKG-06 — API and identity boundary
 **Grouping rationale:** The API is the external control plane and portal surface. Auth and strict transition enforcement must be in place before UI and orchestration can rely on it.
 
@@ -461,7 +407,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - OIDC login flow works for a basic user and yields a verified identity in requests.
   - Auth failures are deterministic and logged.
 - **Expected evidence:**
-  - Evidence Bundle with auth flow integration test transcript and service startup logs.
+  - Evidence bundle with auth flow integration test transcript and service startup logs.
 
 #### D-18 — Core API endpoints (loops, iterations, candidates, runs)
 - **Output class:** `candidate`
@@ -474,7 +420,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - SYSTEM-only actions are enforced where required (per SR-SPEC).
   - All endpoints produce and consume typed refs where applicable.
 - **Expected evidence:**
-  - Evidence Bundle with API contract tests and example traces.
+  - Evidence bundle with API contract tests and example traces.
 
 #### D-19 — Governance and portal-related API endpoints (approvals, freezes, exceptions, artifacts)
 - **Output class:** `candidate`
@@ -487,20 +433,20 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Freeze objects are content-addressed and reference the exact artifact set.
   - Shippable computation is deterministic given current state.
 - **Expected evidence:**
-  - Evidence Bundle with API tests covering approval/freeze/shippable flows.
+  - Evidence bundle with API tests covering approval/freeze/shippable flows.
 
 #### D-20 — Evidence API (upload, retrieve, associate with runs/candidates)
 - **Output class:** `candidate`
-- **Primary output:** API surface for Evidence Bundle upload/retrieval and association with runs/candidates/iterations, using EvidenceStore adapter.
+- **Primary output:** API surface for evidence bundle upload/retrieval and association with runs/candidates/iterations, using EvidenceStore adapter.
 - **Depends on:** `D-14`, `D-18`
 - **Refs required:** `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`
 - **Recommended verification profile (non-binding):** `STRICT-CORE`
 - **Acceptance criteria:**
-  - Evidence Bundles can be uploaded and retrieved by content hash.
+  - Evidence bundles can be uploaded and retrieved by content hash.
   - Association records link evidence to the relevant domain objects.
   - Manifest validation is enforced on ingest.
 - **Expected evidence:**
-  - Evidence Bundle with evidence ingest/retrieve integration tests.
+  - Evidence bundle with evidence ingest/retrieve integration tests.
 ### PKG-07 — Orchestration runtime
 **Grouping rationale:** Orchestration is where actor-driven choices become recorded transitions. This package implements the minimal runtime to start iterations and integrate a worker.
 
@@ -521,7 +467,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Publisher and consumer handle redelivery deterministically.
   - At-least-once semantics are handled without duplicating logical state transitions.
 - **Expected evidence:**
-  - Evidence Bundle with message bus integration tests and redelivery simulations.
+  - Evidence bundle with message bus integration tests and redelivery simulations.
 
 #### D-22 — Loop governor service (SYSTEM event emission + budgets)
 - **Output class:** `candidate`
@@ -534,7 +480,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Governor respects configured budgets/limits (even if conservative initially).
   - Governor records its decisions as events or decision records (no silent actions).
 - **Expected evidence:**
-  - Evidence Bundle with simulated loop runs and governor decision logs.
+  - Evidence bundle with simulated loop runs and governor decision logs.
 
 #### D-23 — Reference worker bridge (IterationStarted → context → candidate proposal)
 - **Output class:** `candidate`
@@ -547,7 +493,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Worker can submit a candidate proposal and a structured summary record.
   - Worker failures are recorded and do not corrupt state.
 - **Expected evidence:**
-  - Evidence Bundle with end-to-end trace: iteration started → worker receives → candidate submitted.
+  - Evidence bundle with end-to-end trace: iteration started → worker receives → candidate submitted.
 ### PKG-08 — Oracles and verification substrate
 **Grouping rationale:** Oracles convert candidates into evidence. This package provides sandboxed execution, core suites, and integrity checks so the rest of the system can rely on verifiable outcomes.
 
@@ -560,7 +506,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
 
 #### D-24 — Oracle runner service (Podman + gVisor)
 - **Output class:** `candidate`
-- **Primary output:** Service that runs oracle suites in sandboxed containers, captures outputs, and emits Evidence Bundles.
+- **Primary output:** Service that runs oracle suites in sandboxed containers, captures outputs, and emits evidence bundles.
 - **Depends on:** `D-02`, `D-14`
 - **Refs required:** `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`
 - **Recommended verification profile (non-binding):** `STRICT-CORE`
@@ -569,7 +515,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Runner captures stdout/stderr, exit codes, and artifact hashes.
   - Runner cannot access restricted evidence without explicit authorization.
 - **Expected evidence:**
-  - Evidence Bundle with sample oracle run logs and container isolation checks.
+  - Evidence bundle with sample oracle run logs and container isolation checks.
 
 #### D-25 — Core oracle suite implementation (build/unit/schema/lint)
 - **Output class:** `candidate`
@@ -580,9 +526,9 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
 - **Acceptance criteria:**
   - Suite produces machine-readable results and deterministic summaries.
   - Failures are attributable and reproducible locally.
-  - Suite output is stored as Evidence Bundles.
+  - Suite output is stored as evidence bundles.
 - **Expected evidence:**
-  - Evidence Bundle containing a passing run of the core suite on the repo.
+  - Evidence bundle containing a passing run of the core suite on the repo.
 
 #### D-26 — Integration/e2e oracle suite (DB/MinIO/NATS/API/UI)
 - **Output class:** `candidate`
@@ -594,7 +540,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Suite can stand up the full stack and run e2e flows deterministically within tolerance.
   - Flake controls exist (timeouts, retries policy) and are recorded.
 - **Expected evidence:**
-  - Evidence Bundle with an e2e run transcript and artifacts.
+  - Evidence bundle with an e2e run transcript and artifacts.
 
 #### D-27 — Oracle integrity checks (TAMPER/GAP/FLAKE/ENV_MISMATCH)
 - **Output class:** `candidate`
@@ -603,11 +549,11 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
 - **Refs required:** `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`
 - **Recommended verification profile (non-binding):** `STRICT-CORE`
 - **Acceptance criteria:**
-  - Tamper detection is implemented for Evidence Bundles and candidate hashes.
+  - Tamper detection is implemented for evidence bundles and candidate hashes.
   - Known integrity failure modes produce explicit failure records/flags.
   - Stop triggers route to the correct portal touchpoints (no silent overrides).
 - **Expected evidence:**
-  - Evidence Bundle with simulated integrity failure cases and expected outputs.
+  - Evidence bundle with simulated integrity failure cases and expected outputs.
 ### PKG-09 — UI portals and human review surface
 **Grouping rationale:** Humans cross authority membranes through portals. This package provides the minimum UI needed to review evidence and record approvals/waivers.
 
@@ -627,19 +573,19 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - UI can authenticate and display the logged-in identity.
   - UI build is reproducible and runs in CI.
 - **Expected evidence:**
-  - Evidence Bundle with UI build/test logs.
+  - Evidence bundle with UI build/test logs.
 
 #### D-29 — Loop/iteration/candidate views + evidence viewer
 - **Output class:** `candidate`
-- **Primary output:** UI pages to view loops/iterations/candidates and to inspect associated Evidence Bundles (manifests + artifacts).
+- **Primary output:** UI pages to view loops/iterations/candidates and to inspect associated evidence bundles (manifests + artifacts).
 - **Depends on:** `D-28`, `D-20`, `D-18`
 - **Refs required:** `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`
 - **Recommended verification profile (non-binding):** `STRICT-CORE`
 - **Acceptance criteria:**
   - UI can render loop/iteration status from API read models.
-  - Evidence Bundles can be browsed by content hash with clear provenance.
+  - Evidence bundles can be browsed by content hash with clear provenance.
 - **Expected evidence:**
-  - Evidence Bundle with UI tests and a recorded demo trace.
+  - Evidence bundle with UI tests and a recorded demo trace.
 
 #### D-30 — Portal workflows UI (approvals, exceptions, oracle suite changes)
 - **Output class:** `candidate`
@@ -652,7 +598,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Exception requests include required rationale and scope.
   - UI does not imply approval; it records submissions only.
 - **Expected evidence:**
-  - Evidence Bundle with UI workflow tests and API integration traces.
+  - Evidence bundle with UI workflow tests and API integration traces.
 ### PKG-10 — Self-host and operations substrate
 **Grouping rationale:** Instance-1 targets a fully usable self-hosted system. This package makes the stack runnable end-to-end with pinned dependencies and basic observability.
 
@@ -673,7 +619,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Service dependencies come up reliably (health checks).
   - Versions are pinned and recorded.
 - **Expected evidence:**
-  - Evidence Bundle with startup logs and service health checks.
+  - Evidence bundle with startup logs and service health checks.
 
 #### D-32 — Build/init scripts (DB, buckets, identity realm, secrets)
 - **Output class:** `candidate`
@@ -685,7 +631,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Build is idempotent (safe to re-run).
   - Secrets are not stored in plaintext in repo; Infisical holds sensitive values.
 - **Expected evidence:**
-  - Evidence Bundle with build run logs and resulting resource inventory.
+  - Evidence bundle with build run logs and resulting resource inventory.
 
 #### D-33 — Operational logging + minimal observability
 - **Output class:** `candidate`
@@ -697,7 +643,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Logs include request/trace identifiers and actor identity where applicable.
   - Key state transitions are logged with event ids (no silent transitions).
 - **Expected evidence:**
-  - Evidence Bundle with sample logs from an end-to-end run.
+  - Evidence bundle with sample logs from an end-to-end run.
 ### PKG-11 — End-to-end demonstration and determinism proof
 **Grouping rationale:** The objective is a usable system that deterministically progresses by recorded events. This package proves the system works end-to-end and is replayable.
 
@@ -717,7 +663,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Harness can run in self-host mode and produce a deterministic event+evidence transcript.
   - Harness asserts key invariants (no approvals without evidence, etc.).
 - **Expected evidence:**
-  - Evidence Bundle containing the harness run transcript and produced event/evidence ids.
+  - Evidence bundle containing the harness run transcript and produced event/evidence ids.
 
 #### D-35 — End-to-end harness (failure modes: integrity + exception)
 - **Output class:** `candidate`
@@ -729,7 +675,7 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Failure cases are recorded as explicit events/records.
   - System routes to the correct portal touchpoints instead of silently proceeding.
 - **Expected evidence:**
-  - Evidence Bundle with failure-case run transcripts and expected portal submissions.
+  - Evidence bundle with failure-case run transcripts and expected portal submissions.
 
 #### D-36 — Replayability demonstration (event stream → reconstructed state)
 - **Output class:** `candidate`
@@ -741,18 +687,10 @@ Branch 0 is complete when a self-hosted instance can execute the following recor
   - Replaying the same event stream yields the same reconstructed state hash (or equivalent deterministic checksum).
   - Replay procedure is documented and runnable.
 - **Expected evidence:**
-  - Evidence Bundle with replay run logs and resulting state checksum.
-### PKG-12 — Semantic work surface + prompt decomposition
+  - Evidence bundle with replay run logs and resulting state checksum.
+### PKG-09 — Semantic work surface + prompt decomposition
 
 This package adds the **work surface** needed for Semantic Ralph Loops: intake templates, stage-gated procedures, semantic oracle integration, and deterministic eligibility computation for semantic work units.
-
-| Deliverable | Title | Output class | Depends on |
-|---|---|---|---|
-| D-37 | Work surface schemas (Intake + Procedure Template) + validators | candidate | D-08, D-05 |
-| D-38 | Prompt → Plan Instance decomposition (semantic work unit generator) | candidate | D-37, D-06 |
-| D-39 | Semantic oracle runner integration (meaning matrices/manifolds) | candidate | D-15, D-27, D-37 |
-| D-40 | Event Manager: work-unit + stage state projection + eligible-set computation | candidate | D-11, D-12, D-22, D-36 |
-| D-41 | Reference semantic worker (Work Surface executor) | candidate | D-23, D-37, D-39, D-40 |
 
 #### D-37 — Work surface schemas (Intake + Procedure Template) + validators
 - **Output class:** `candidate`
@@ -765,10 +703,8 @@ This package adds the **work surface** needed for Semantic Ralph Loops: intake t
 - **Acceptance criteria:**
   - Intake + Procedure templates are machine-validated (schema oracle) and can be referenced in IterationStarted.
   - Stage identifiers and required artifacts are unambiguous.
-  - Work Surface binding schema includes **stage_id** and **stage parameters** (so the current stage is explicit and replayable).
-  - Provide at least one concrete governed Procedure Template instance for Branch 0: **Problem Statement Ingestion** (stages 0–2 with an Intake Acceptance portal boundary).
 - **Expected evidence:**
-  - Evidence Bundle demonstrating validation oracles and sample work surface instances.
+  - Evidence bundle demonstrating validation oracles and sample work surface instances.
 
 #### D-38 — Prompt → Plan Instance decomposition (semantic work unit generator)
 - **Output class:** `candidate`
@@ -782,7 +718,7 @@ This package adds the **work surface** needed for Semantic Ralph Loops: intake t
   - Decomposition output is a commitment object (content-addressed) suitable for eligibility computation.
   - Decomposition records non-binding rationale separately from binding dependency edges.
 - **Expected evidence:**
-  - Evidence Bundle with decomposition examples and replayability check.
+  - Evidence bundle with decomposition examples and replayability check.
 
 #### D-39 — Semantic oracle runner integration (meaning matrices/manifolds)
 - **Output class:** `candidate`
@@ -795,10 +731,8 @@ This package adds the **work surface** needed for Semantic Ralph Loops: intake t
 - **Acceptance criteria:**
   - Semantic oracle outputs are captured as artifacts and referenced by `evidence.gate_packet`.
   - Suite identity/hash incorporates manifold definitions.
-  - Define and support a governed **SemanticSet / manifold definition** artifact that semantic suites bind by hash (no ghost inputs).
-  - Implement and demonstrate one concrete semantic suite for Branch 0: `oracle.suite.intake_admissibility.v1` (schema, traceability coverage, contradiction scan, ambiguity inventory, privacy scan, term-map alignment).
 - **Expected evidence:**
-  - Evidence Bundle showing a semantic oracle run and captured measurements.
+  - Evidence bundle showing a semantic oracle run and captured measurements.
 
 #### D-40 — Event Manager: work-unit + stage state projection + eligible-set computation
 - **Output class:** `candidate`
@@ -812,7 +746,7 @@ This package adds the **work surface** needed for Semantic Ralph Loops: intake t
   - Projections rebuild deterministically from event stream.
   - Eligible set matches normative predicate from SR-DIRECTIVE.
 - **Expected evidence:**
-  - Evidence Bundle with replay run logs and eligibility snapshot checks.
+  - Evidence bundle with replay run logs and eligibility snapshot checks.
 
 #### D-41 — Reference semantic worker (Work Surface executor)
 - **Output class:** `candidate`
@@ -822,6 +756,5 @@ This package adds the **work surface** needed for Semantic Ralph Loops: intake t
 - **Acceptance criteria:**
   - One work unit / one stage per iteration.
   - Artifacts and evidence are recorded with no ghost inputs.
-  - Branch 0 demo: execute the problem-statement ingestion Procedure Template end-to-end, including suite run and Intake Acceptance portal submission, culminating in a freeze baseline for the accepted intake bundle.
 - **Expected evidence:**
-  - End-to-end Evidence Bundle for a semantic work unit from intake → stage eval → stage pass.
+  - End-to-end evidence bundle for a semantic work unit from intake → stage eval → stage pass.

@@ -4,18 +4,14 @@ doc_kind: governance.work_surface_spec
 layer: platform
 status: draft
 refs:
-- rel: governed_by
-  to: SR-CHANGE
-- rel: depends_on
-  to: SR-CONTRACT
-- rel: depends_on
-  to: SR-SPEC
-- rel: depends_on
-  to: SR-TYPES
-- rel: depends_on
-  to: SR-PROCEDURE-KIT
-- rel: depends_on
-  to: SR-SEMANTIC-ORACLE-SPEC
+  - rel: governed_by
+    to: SR-CHANGE
+  - rel: depends_on
+    to: SR-CONTRACT
+  - rel: depends_on
+    to: SR-SPEC
+  - rel: depends_on
+    to: SR-TYPES
 ---
 
 # SR-WORK-SURFACE — Work Surface for Semantic Ralph Loops
@@ -178,7 +174,6 @@ A Work Surface Instance is the binding of a specific work unit to:
 
 Work Surface Instance MUST include:
 
-- `artifact_type: domain.work_surface` (aligns with SR-TYPES `domain.work_surface`)
 - `work_unit_id`
 - `intake_ref` (content-addressed ref)
 - `procedure_template_ref` (content-addressed ref)
@@ -186,35 +181,10 @@ Work Surface Instance MUST include:
 - `oracle_suites[]` (suite ids + hashes; MUST include any semantic set bindings via suite hash)
 - `params{}` (optional; stage parameters, semantic set selectors, thresholds)
 
-### 5.2 Recommended carrier format
+### 5.2 Relationship to SR-SPEC events
 
-```yaml
----
-artifact_type: domain.work_surface
-artifact_version: v1
-work_unit_id: WU-...
-intake_ref:
-  id: intake:...
-  content_hash: sha256:...
-procedure_template_ref:
-  id: proc:...
-  content_hash: sha256:...
-stage_id: stage:FRAME
-oracle_suites:
-  - suite_id: suite:SR-SUITE-STRUCTURE
-    suite_hash: sha256:...
-params:
-  threshold: 0.9
----
-```
-
-### 5.3 Relationship to SR-SPEC events
-
-- **Suite-hash binding:** When semantic oracles are used, the Work Surface instance and any `EvidenceBundleRecorded` events MUST declare the oracle suite IDs **and** `suite_hash`. The `suite_hash` is the epistemic anchor for semantic set definitions (see SR-SEMANTIC-ORACLE-SPEC).
 - `IterationStarted` MUST reference the Work Surface Instance (directly or via its component refs), per SR-CONTRACT C-CTX-1/C-CTX-2.
 - `EvidenceBundleRecorded` MUST bind evidence to (`candidate_id`, `procedure_template_id`, `stage_id`) per SR-SPEC §1.9.1.
-
-(Canonical evidence artifact type key: `domain.evidence_bundle`.)
 
 ---
 

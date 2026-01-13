@@ -77,11 +77,11 @@ The canonical governed set for SOLVER-Ralph is:
 | SR-AGENTS | Agent actor semantics | Platform |
 | SR-MODEL | Layer model and document-role map (orientation; non-binding) | Platform |
 | SR-INTENT | Design rationale (non-binding) | Platform |
+| SR-GUIDE | Usage guidance (non-binding) | Platform |
 | SR-PLAN | Instance scope + deliverable inventory + dependency graph | Instance |
 | SR-DIRECTIVE | Instance operational policy | Instance |
 | SR-EXCEPTIONS | Exception ledger (build-time authority port) | Build |
 | SR-CHANGE | This document | Build |
-| SR-TASKS | Task assignment from event manager | Build |
 
 ### 1.3 Change classification
 

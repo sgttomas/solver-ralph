@@ -12,11 +12,6 @@ refs:
 
 # SOLVER-Ralph Types 
 
-**Scope note:** SR-TYPES registers both (a) **runtime-intrinsic** artifact types and (b) **build scaffolding** artifact types used to construct and govern the platform itself. Runtime invariants live in **SR-CONTRACT**; mechanics live in **SR-SPEC**. When in conflict, CONTRACT/SPEC control.
-
-**Naming note:** The canonical surface form for the core work unit is `semantic-ralph-loop` (hyphenated, lowercase). Do not introduce new variants; normalize via SR-CONTRACT §2.11.
-
-
 ## 1. Foundations
 
 ### 1.0 Domains of Statements (Meaning Ownership)
@@ -58,8 +53,6 @@ The **Layer 1/2/3** narrative is maintained as a **non-binding mapping appendix*
 
 This document registers all three categories but distinguishes them clearly.
 
-**Scope clarification:** This document includes both runtime-intrinsic platform domain types (§4.3, §7) and build-time/governance typing (§4.1, §4.2, §6). The platform domain types are intrinsic to the running platform; the specification and scaffolding types support building the platform but are not tracked at runtime. See §4 for the complete registry.
-
 ---
 
 ### 1.1 Type-Registry Vocabulary
@@ -80,8 +73,6 @@ This section registers vocabulary for type classification. These are registry en
 | **Proposal / Commitment Object** | Fluid vs durable status | SR-CONTRACT |
 | **Agent** | Stochastic generator; no authority for binding claims | SR-AGENTS, SR-CONTRACT |
 
-**Commitment Object note:** “Commitment Object” is a cross-cutting *durability* concept (defined in SR-CONTRACT §2.8), not a unique SR-TYPES `type_key`. Many types (Candidates, Evidence Bundles, Portal Decisions, Events, and `record.*` exception/decision records) are commitment objects.
-
 ---
 
 ### 1.2 Evidence vs Authority (Reference)
@@ -99,13 +90,11 @@ For type-classification purposes:
 
 #### 1.3.1 Proposal vs Commitment Object (Reference)
 
-For the authoritative distinction, see **SR-CONTRACT §2.8**.
+For the authoritative distinction, see **SR-CONTRACT**.
 
 **Type-classification guidance:**
 - Proposals are not typed artifacts—they are content that has not crossed a trust boundary
 - Commitment objects include: Candidates, Evidence Bundles, Portal Decisions, Events
-
-**Clarification:** Commitment Object is a durability/referenceability category, not a normative_status value. Commitment Objects span both `normative_status: record` (e.g., Portal Decisions, Candidates) and `normative_status: evidence` (e.g., Evidence Bundles). The defining characteristic is that they are durable, content-addressed, and safe for downstream reliance—see SR-CONTRACT §2.8.
 
 #### 1.3.2 Verification, Evaluation, Validation, Assessment (Reference)
 
@@ -150,21 +139,6 @@ Users of the platform interact with the running system, not the specification do
 | **record** | Durable record of what happened/was decided |
 | **evidence** | Oracle output; not authority |
 
-#### Mapping note: authority_kind × normative_status
-
-These are orthogonal classification axes:
-- **authority_kind** describes *what kind of authority* the artifact could carry (content, process, record, config, index)
-- **normative_status** describes *binding-ness / evidentiary role* (normative, directional, index, record, evidence)
-
-For example, a `governance.plan` has `authority_kind: process` (it governs process) and `normative_status: normative` (it is binding for build-execution). An `evidence_bundle` has `authority_kind: record` (it is a durable record) and `normative_status: evidence` (it carries oracle output, not authority).
-
-#### Terminology normalization: Portal
-
-**Canonical term:** `portal` (lowercase in schemas/code; "Portal" in prose)
-**Aliases:** "trust boundary", "authority port" (deprecated; retained for backward compatibility with SR-CHARTER)
-
-A Portal is a gate requiring human arbitration; every Portal is a trust boundary whose recorded output is binding. Portal crossings produce Approval records. See SR-CONTRACT §2.6 for the authoritative definition.
-
 ### 2.3 Binding Precedence and Decision Routing
 
 **Precedence is decision-type scoped.** Do not interpret this as “which document is truer.” Interpret it as: *which document governs this kind of decision.*
@@ -176,12 +150,8 @@ Use this scope when the question is about **platform meaning**, **binding invari
 1. **SR-CONTRACT** (binding invariants; what must always be true)
 2. **SR-SPEC** (binding mechanics; how invariants are realized/enforced)
 3. **SR-TYPES** (binding vocabulary and typing; canonical terms)
-4. **SR-WORK-SURFACE** (work surface schemas and procedure templates)
-5. **SR-SEMANTIC-ORACLE-SPEC** (semantic oracle interfaces and evidence schemas)
-6. **SR-EVENT-MANAGER** (event store and projection mechanics)
-7. **SR-PROCEDURE-KIT** (procedure template definitions and stage mechanics)
-8. **SR-AGENT-WORKER-CONTRACT** (agent-platform interface contract)
-9. **SR-GUIDE** / **SR-INTENT** / **SR-MODEL** (non-binding: usage guidance, rationale, conceptual models)
+4. **SR-GUIDE** (usage guidance; how to apply governed artifacts)
+5. **SR-INTENT** (rationale; directional only when conflicting)
 
 #### B) Build-execution precedence (agent behavior / process / gating)
 
@@ -189,11 +159,10 @@ Use this scope when the question is about **agent behavior**, **work process**, 
 
 1. **SR-CONTRACT** (still highest: invariants may never be violated)
 2. **SR-AGENTS** (agent constraints; operating model)
-3. **SR-AGENT-WORKER-CONTRACT** (agent-platform interface; worker integration patterns)
-4. **SR-CHANGE** (routing/process for governed changes; not semantic truth)
-5. **SR-DIRECTIVE** (execution configuration: gates, budgets, stop triggers)
-6. **SR-PLAN** (decomposition and deliverables)
-7. **Task-local instructions** (issue/PR-specific instructions)
+3. **SR-CHANGE** (routing/process for governed changes; not semantic truth)
+4. **SR-DIRECTIVE** (execution configuration: gates, budgets, stop triggers)
+5. **SR-PLAN** (decomposition and deliverables)
+6. **Task-local instructions** (issue/PR-specific instructions)
 
 #### Routing rule
 
@@ -238,13 +207,10 @@ These types define the platform. They are used during Layer 1 (building) and bec
 
 | Type Key | Authority Kind | Normative Status | Purpose |
 |---|---|---|---|
-| `governance.charter` | content | normative | Project charter; scope, milestones, authority model (SR-CHARTER) |
 | `governance.types` | process | normative | This document; type registry |
 | `governance.arch_contract` | content | normative | Binding invariants (SR-CONTRACT) |
 | `governance.technical_spec` | content | normative | Binding mechanics (SR-SPEC) |
 | `governance.agents` | process | normative | Agent constraints (SR-AGENTS) |
-| `governance.work_surface_spec` | content | normative | Work Surface schemas: Intake, Procedure Template, Work Surface Instance (SR-WORK-SURFACE) |
-| `governance.procedure_kit` | content | normative | Registry of reusable procedure templates for semantic work (SR-PROCEDURE-KIT) |
 | `governance.design_intent` | content | directional | Design rationale (SR-INTENT) |
 | `governance.usage_guide` | content | directional | Platform usage guide (SR-GUIDE) |
 | `governance.readme` | index | index | Navigation and orientation |
@@ -271,7 +237,7 @@ These types are intrinsic to the running platform. The platform tracks and manag
 | `domain.work_unit` | record | record | State machine for tracked work (coding or semantic) |
 | `domain.work_surface` | record | record | Intake + Procedure context + stage parameters for a work unit |
 | `domain.candidate` | record | record | Content-addressed work snapshot (commit or manifest) |
-| `domain.evidence_bundle` | record | evidence | Oracle evidence bundle for a candidate (incl. semantic measurements) |
+| `domain.evidence_bundle` | record | evidence | Oracle evidence packet for a candidate (incl. semantic measurements) |
 | `domain.portal_decision` | record | record | Human authorization record |
 | `domain.loop_record` | record | record | Ralph-loop iteration summary |
 | `domain.event` | record | record | Immutable state change |
@@ -319,8 +285,6 @@ These record types support platform operation.
 ## 5. Governance Document Templates
 
 ### 5.1 README
-
-**Index note:** This template is for repository `README.md` as a navigation/index artifact (`normative_status: index`). The canonical usage guide is **SR-GUIDE**. There is no separate SR-README governed artifact in the current canonical set unless reintroduced via SR-CHANGE.
 
 **Purpose:** Navigation and orientation.
 
@@ -566,12 +530,12 @@ A content-addressed snapshot of work output. Candidates are the unit of verifica
 
 ### 7.3 Evidence Bundle
 
-Oracle verification output. Canonical type: `domain.evidence_bundle` (see SR-CONTRACT §2.11 for terminology mapping).
+Oracle verification output. Canonical artifact: `evidence.gate_packet`.
 
 **Key fields:**
 - `id` — content-addressed identifier
 - `oracle_suite_id` — suite identity
-- `oracle_suite_hash` — suite hash (must incorporate semantic set definitions when applicable)
+- `oracle_suite_hash` — suite hash (must incorporate semantic semantic set definitions when applicable)
 - `candidate_ref` — candidate being evaluated
 - `procedure_template_ref` — procedure template under which evaluation occurred (semantic work)
 - `stage_id` — stage evaluated (semantic work)
@@ -594,9 +558,7 @@ Human authorization record.
 
 ### 7.5 Loop Record
 
-Summary of a semantic-ralph-loop iteration.
-
-**Naming normalization:** The canonical surface form is `semantic-ralph-loop` (hyphenated, lowercase). Acceptable aliases: "Semantic Ralph Loop" (prose), "Ralph Loop" (informal). See SR-CONTRACT §2.3 and §2.11 for the full terminology mapping.
+Summary of a ralph-loop iteration.
 
 **Key fields:**
 - `id` — stable identifier
@@ -623,14 +585,14 @@ Immutable state change record.
 
 ### 7.7 Work Surface
 
-A Work Surface is the binding context for a semantic-ralph-loop iteration. Per SR-CONTRACT §2.3 and SR-CHARTER, a Work Surface comprises: (1) Intake, (2) Procedure Template, and (3) oracle profile/suites.
+A Work Surface is the binding context for a Semantic Ralph Loop iteration.
 
 **Key fields:**
 - `work_unit_ref`
 - `intake_ref`
 - `procedure_template_ref`
 - `current_stage_id`
-- `oracle_profile_ref` — required; references the oracle suite(s) and semantic set definitions bound to this work surface
+- `oracle_profile_ref` (if used)
 - `params` (stage parameters; may include semantic set/version selectors)
 
 ### 7.8 Procedure Template

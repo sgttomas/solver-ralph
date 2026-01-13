@@ -7,21 +7,12 @@ refs:
   - rel: governed_by
     to: SR-CHANGE
   - rel: depends_on
-    to: SR-CONTRACT
-  - rel: depends_on
-    to: SR-SPEC
-  - rel: depends_on
-    to: SR-TYPES
-  - rel: depends_on
     to: SR-WORK-SURFACE
   - rel: depends_on
     to: SR-SEMANTIC-ORACLE-SPEC
 ---
 
 # SR-PROCEDURE-KIT — Procedure Templates for Semantic Ralph Loops
-
-**Naming note:** Canonical work-unit surface form is `semantic-ralph-loop` (other variants are aliases).
-**Evidence note:** Evidence Bundle is the domain object (`domain.evidence_bundle`). The Evidence Bundle manifest uses `artifact_type = evidence.gate_packet`.
 
 **Purpose:** Provide a governed registry of reusable **Procedure Templates** for semantic knowledge work. These templates proceduralize candidate generation so that semantic oracle suites can be attached with specificity.
 
@@ -41,19 +32,6 @@ A procedure template MUST declare:
 - `stages[]` with required outputs and required oracle suites,
 - `terminal_stage_id`.
 
-**Schema alignment note:** The full Procedure Template schema is defined in SR-WORK-SURFACE §4.1. This document uses an abbreviated format for readability; concrete implementations MUST include all required fields per SR-WORK-SURFACE:
-
-| SR-WORK-SURFACE Field | This Document | Notes |
-|----------------------|---------------|-------|
-| `stage_id` | ✅ Present | e.g., `stage:FRAME` |
-| `stage_name` | Implied from header | e.g., "Frame the problem" |
-| `purpose` | "Purpose:" | Maps to `purpose` field |
-| `required_outputs[]` | "Required outputs:" | |
-| `steps[]` | Omitted | Implementation-specific; add per work kind |
-| `required_oracle_suites[]` | "Required oracle suites:" | |
-| `gate_rule` | Implicit | Default: `all_required_oracles_pass` unless stated |
-| `transition_on_pass` | "Transition on pass:" | |
-
 ---
 
 ## 2. Baseline template: GENERIC-KNOWLEDGE-WORK (v1)
@@ -67,7 +45,7 @@ This baseline template is intentionally abstract. It is suitable when you want a
 ### Stages
 
 #### stage:FRAME
-**Purpose:** Restate objective, audience, non-goals; extract constraints and definitions into machine-checkable artifacts.
+**Goal:** Restate objective, audience, non-goals; extract constraints and definitions into machine-checkable artifacts.
 
 **Required outputs:**
 - `artifacts/context/frame.md`
@@ -82,7 +60,7 @@ This baseline template is intentionally abstract. It is suitable when you want a
 ---
 
 #### stage:OPTIONS
-**Purpose:** Generate multiple candidate approaches/outlines *before* drafting.
+**Goal:** Generate multiple candidate approaches/outlines *before* drafting.
 
 **Required outputs:**
 - `artifacts/candidates/option_A.md`
@@ -97,7 +75,7 @@ This baseline template is intentionally abstract. It is suitable when you want a
 ---
 
 #### stage:DRAFT
-**Purpose:** Produce the candidate deliverable(s) in requested structure; produce traceability artifacts.
+**Goal:** Produce the candidate deliverable(s) in requested structure; produce traceability artifacts.
 
 **Required outputs:**
 - `candidate/main.<md|pdf|...>`
@@ -112,7 +90,7 @@ This baseline template is intentionally abstract. It is suitable when you want a
 ---
 
 #### stage:SEMANTIC_EVAL
-**Purpose:** Evaluate candidate against the stage manifold / meaning-matrix suite(s). Capture structured semantic measurements and derived pass/fail.
+**Goal:** Evaluate candidate against the stage manifold / meaning-matrix suite(s). Capture structured semantic measurements and derived pass/fail.
 
 **Required outputs:**
 - `reports/semantic/residual.json`
@@ -127,13 +105,11 @@ This baseline template is intentionally abstract. It is suitable when you want a
 ---
 
 #### stage:FINAL
-**Purpose:** Package final candidate + summary; ensure evidence bundle references everything required to reconstruct context and evaluation.
+**Goal:** Package final candidate + summary; ensure evidence bundle references everything required to reconstruct context and evaluation.
 
 **Required outputs:**
 - `candidate/final.md` (or equivalent)
 - `evidence/gate_packet.json` (recorded by platform as `evidence.gate_packet`)
-
-*Clarification:* `evidence/gate_packet.json` is the **manifest carrier** for the iteration’s Evidence Bundle(s) (domain object `domain.evidence_bundle`). The bundle MUST bind to `candidate_id`, `procedure_template_id`, `stage_id`, and any relevant `suite_hash` values so replay can determine “what was verified”.
 
 **Required oracle suites:**
 - `suite:SR-SUITE-REFS` (no ghost inputs; refs integrity)
@@ -161,3 +137,4 @@ Stages should be designed so that:
 - each stage can be completed within one or a small number of iterations,
 - each stage has oracle suites that can be run deterministically (or with bounded nondeterminism),
 - stage completion can be computed from recorded evidence bundles and portal decisions.
+

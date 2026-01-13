@@ -4,22 +4,18 @@ doc_kind: governance.agent_worker_contract
 layer: build
 status: draft
 refs:
-- rel: governed_by
-  to: SR-CHANGE
-- rel: depends_on
-  to: SR-CONTRACT
-- rel: depends_on
-  to: SR-SPEC
-- rel: depends_on
-  to: SR-TYPES
-- rel: depends_on
-  to: SR-WORK-SURFACE
-- rel: depends_on
-  to: SR-SEMANTIC-ORACLE-SPEC
-- rel: depends_on
-  to: SR-DIRECTIVE
-- rel: depends_on
-  to: SR-EVENT-MANAGER
+  - rel: governed_by
+    to: SR-CHANGE
+  - rel: depends_on
+    to: SR-CONTRACT
+  - rel: depends_on
+    to: SR-SPEC
+  - rel: depends_on
+    to: SR-TYPES
+  - rel: depends_on
+    to: SR-WORK-SURFACE
+  - rel: depends_on
+    to: SR-SEMANTIC-ORACLE-SPEC
 ---
 
 # SR-AGENT-WORKER-CONTRACT — Worker behavior for Semantic Ralph Loops
@@ -46,7 +42,6 @@ The worker MUST be invoked with (directly or via refs):
 ### 2.1 Choose one eligible target
 
 - The worker MUST choose exactly one eligible work unit (and one stage target) per iteration.
-- The worker MUST treat the eligible set provided by the platform projection (SR-EVENT-MANAGER) as authoritative and MUST NOT infer eligibility by inspecting raw artifacts/events.
 - The worker MUST record why it chose that target (non-binding rationale) in the iteration summary artifact.
 
 ### 2.2 Execute the procedure stage
@@ -63,7 +58,7 @@ The worker MUST be invoked with (directly or via refs):
 
 The worker MUST ensure the following artifacts exist (paths are conventional):
 
-- **Context Artifact**: a machine-readable record of all inputs used (refs + hashes), the work surface binding, and the stage_id. It MUST include a `supported_by` reference to the projection snapshot that provided `eligible_set` (SR-EVENT-MANAGER).
+- **Context Artifact**: a machine-readable record of all inputs used (refs + hashes), the work surface binding, and the stage_id.
 - **Candidate Manifest** (if candidate is not a single VCS commit): list of artifacts with hashes.
 - **Evidence Bundle** (`evidence.gate_packet`) binding results to (`candidate_id`, `procedure_template_id`, `stage_id`).
 
@@ -86,10 +81,6 @@ The worker MUST stop and emit a stop-trigger outcome when:
 Stop triggers must be routed per SR-DIRECTIVE.
 
 ---
-
-
-
-After emitting a stop trigger, the worker MUST **pause execution** and wait for an explicit portal/authority decision (or updated eligibility projection) before continuing. Workers MUST NOT “push through” a stop condition.
 
 ## 4. Output discipline (normative)
 

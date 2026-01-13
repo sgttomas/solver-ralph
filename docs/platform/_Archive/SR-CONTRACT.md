@@ -4,24 +4,8 @@ doc_kind: governance.arch_contract
 layer: platform
 status: draft
 refs:
-- rel: governed_by
-  to: SR-CHANGE
-- rel: depends_on
-  to: SR-TYPES
-- rel: informs
-  to: SR-SPEC
-- rel: informs
-  to: SR-DIRECTIVE
-- rel: informs
-  to: SR-INTENT
-- rel: informs
-  to: SR-WORK-SURFACE
-- rel: informs
-  to: SR-SEMANTIC-ORACLE-SPEC
-- rel: informs
-  to: SR-EVENT-MANAGER
-- rel: informs
-  to: SR-AGENT-WORKER-CONTRACT
+  - rel: governed_by
+    to: SR-CHANGE
 ---
 
 # SOLVER-Ralph Architectural Contract 
@@ -143,8 +127,6 @@ Additional semantic-work definitions (normative for interpretation of the platfo
 - **Procedure Stage:** a named gate in a Procedure Template. Each stage defines required intermediate artifacts and required oracle suites for progressing beyond that stage.
 - **Semantic Ralph Loop:** a Ralph Loop whose primary candidates are semantic artifacts (documents, structured representations, decision records, analyses). It does not assume “tests” exist; instead it relies on stage-gated procedures and semantic oracle suites.
 
-**Naming normalization:** The canonical surface form is `semantic-ralph-loop` (hyphenated, lowercase). Canonical cross-document term normalization is defined in **§2.11**, and **SR-TYPES** defines the authoritative `type_key` namespaces.
-
 ### 2.4 Oracles, Oracle Suites, Environment Constraints
 
 - **Oracle:** a procedure that produces attributable evidence about a Candidate’s conformance to declared constraints. An oracle MUST produce a structured result record; it MAY also produce a binary PASS/FAIL outcome derived from that record under declared decision rules.
@@ -201,39 +183,6 @@ Contract-mandated minimum set:
 - **Deployment:** a running installation of the platform that enforces the governed set.
 
 The contract specifies invariants. The deployment enforces them as code.
-
-### 2.11 Canonical Terminology Mapping
-
-To prevent drift between documents, schemas, and code, the following terms are canonical and must be used consistently:
-
-| Canonical Term | Aliases / Prior Usage | Definition Reference |
-|----------------|----------------------|---------------------|
-| `semantic-ralph-loop` | Semantic Ralph Loop, Work Unit (Semantic Loop), Ralph Loop | §2.3 |
-| `evidence_bundle` | evidence packet, evidence artifact | §2.6 |
-| `commitment_object` | record (when instantiated) | §2.8 |
-| `proposal` | draft, non-binding output | §2.8 |
-| `approval` | portal approval, approval record | §2.6 |
-| `freeze_record` | baseline snapshot | §2.6 |
-| `gate_waiver` | waiver, exception (when gate-specific) | §2.6 |
-| `deviation` | exception (when requirement-scoped) | §2.7 |
-| `deferral` | postponement | §2.7 |
-| `portal` | trust boundary, authority port | §2.6 |
-| `work_surface` | intake + procedure + oracle profile | §2.3 |
-
-**Interpretation note (canonical tokens vs SR-TYPES type keys):**
-
-- The **Canonical Term** column defines *surface-form tokens* for cross-document consistency in **prose** and in **schema field names / API signatures**.
-- These tokens are **not** SR-TYPES `type_key` values. Type keys are governed by **SR-TYPES** and use dotted namespaces (e.g., `domain.evidence_bundle`, `record.deviation`).
-- When an artifact is persisted, it MUST carry the appropriate `meta.type_key` (SR-SPEC) and/or manifest `artifact_type`.
-
-**Where the mapping matters (common cases):**
-- `evidence_bundle` ↔ `domain.evidence_bundle` (domain object) ↔ manifest `artifact_type = evidence.gate_packet`
-- `work_surface` ↔ `domain.work_surface`
-- `approval` ↔ `domain.portal_decision`
-- `freeze_record` ↔ `record.freeze`
-- `deviation`/`deferral`/`gate_waiver` ↔ `record.deviation`/`record.deferral`/`record.waiver`
-
-**Rule:** Schemas, code, and governed documents MUST use canonical terms. Aliases are permitted in prose for readability but MUST NOT appear in type names, field names, or API signatures.
 
 ---
 

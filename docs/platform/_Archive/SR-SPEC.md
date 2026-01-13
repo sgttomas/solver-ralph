@@ -1,15 +1,15 @@
 ---
 doc_id: SR-SPEC
-doc_kind: governance.technical_spec
+doc_kind: governance.platform_spec
 layer: platform
 status: draft
 refs:
-- rel: governed_by
-  to: SR-CHANGE
-- rel: depends_on
-  to: SR-CONTRACT
-- rel: depends_on
-  to: SR-TYPES
+  - rel: governed_by
+    to: SR-CHANGE
+  - rel: depends_on
+    to: SR-CONTRACT
+  - rel: depends_on
+    to: SR-TYPES
 ---
 
 # SOLVER-Ralph Technical Specification 
@@ -69,16 +69,11 @@ The words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are no
 
 ### 1.2 Terminology (normative)
 
-**Evidence naming note:** `domain.evidence_bundle` is the SR-TYPES *platform domain type key* for an Evidence Bundle. In the evidence bundle manifest schema, the JSON field `artifact_type` uses the value `evidence.gate_packet`. These are complementary (domain typing vs manifest schema field), not conflicting.
-
-
 This specification uses the SOLVER-Ralph Contract terms as normative:
-
-*Canonical term normalization (cross-doc tokens) is defined in **SR-CONTRACT §2.11**. This spec uses those canonical surface forms for identifiers and field naming.*
 
 - **Candidate:** a content-addressable snapshot of work products; unit of verification and approval.
 - **Run:** an execution of an oracle suite against a specific Candidate, producing an Evidence Bundle.
-- **Evidence Bundle:** structured evidence artifact produced by a Run (canonical type: `domain.evidence_bundle (canonical type key for Evidence Bundle)`).
+- **Evidence Bundle:** structured evidence artifact produced by a Run (canonical type: `evidence.gate_packet`).
 - **Oracle Suite:** a named set of oracle definitions with stable identity and deterministic hash; includes environment constraints.
 - **Ralph Loop:** bounded workflow instance with goal, budgets, stop-the-line triggers, and controlled memory.
 - **Iteration:** a fresh-context cycle within a Loop.
@@ -145,9 +140,6 @@ Normative requirements:
 - The oracle suite identity/hash MUST incorporate any semantic set / meaning-matrix definitions that materially affect evaluation.
 
 #### 1.2.6 Semantic Ralph Loop (normative)
-
-**Naming note:** The canonical surface form for this work unit across the spec set is `semantic-ralph-loop` (other variants like “Ralph Loop” / “Semantic Ralph Loop” are aliases).
-
 
 A **Semantic Ralph Loop** is a Ralph Loop whose candidates are primarily semantic artifacts (documents, structured analyses, decision records, ontological structures). It relies on stage-gated procedures and semantic oracle suites to produce evidence, rather than assuming a compiler/test harness exists.
 
@@ -435,7 +427,6 @@ The graph MUST support, at minimum, the following semantic node categories:
 - `Deviation`
 - `Deferral`
 - `Waiver`
-- `Iteration`
 - `Loop`
 
 #### 1.8.2 Tables (normative)
@@ -485,12 +476,11 @@ SELECT * FROM walk;
 
 #### 1.9.1 Evidence bundle manifest (v1)
 
-The platform domain type key for an Evidence Bundle is `domain.evidence_bundle` (per SR-TYPES). In the manifest schema below, the `artifact_type` field uses `evidence.gate_packet`. Its manifest MUST include at minimum:
+The canonical evidence artifact type is `evidence.gate_packet`. Its manifest MUST include at minimum:
 
 ```jsonc
 {
   "artifact_type": "evidence.gate_packet",
-
   "artifact_version": "v1",
   "candidate_id": "git:abcd...|sha256:...",
   "run_id": "run_01J...",
@@ -1337,8 +1327,6 @@ The system MUST NOT use raw, unbounded conversation history as iteration memory.
 
 5) **Oracle suite intended for verification**  
    - `kind=OracleSuite`, `rel=depends_on`
-   - MUST carry `suite_hash` and `meta.content_hash`
-   - MUST incorporate semantic set definitions per §1.2.5 and any declared environment constraints
 
 6) **Active exceptions in scope** (binding modifiers)  
    - `kind=Deviation|Deferral|Waiver`, `rel=depends_on`  
@@ -1362,28 +1350,6 @@ The system MUST NOT use raw, unbounded conversation history as iteration memory.
 9) **Gating policy in force** (audit-only by default)
    - `kind=GovernedArtifact` (typically `type=config.gating_policy` per SR-TYPES), `rel=supported_by`
    - MUST carry `meta.version` and `meta.content_hash`
-
-
-10) **Intake** (Work Surface component)
-   - `kind=Intake`, `rel=depends_on`
-
-11) **Procedure Template** (Work Surface component)
-   - `kind=ProcedureTemplate`, `rel=depends_on`
-   - `meta.current_stage_id=<stage_id>`
-
-**Work Surface binding (semantic work):** For semantic work units, the iteration context `refs[]` MUST include the three Work Surface components:
-
-- **Intake:** `kind=Intake`, `rel=depends_on`  
-  - MUST carry `meta.content_hash`  
-  - References the structured objective / problem statement for this work unit
-- **Procedure Template:** `kind=ProcedureTemplate`, `rel=depends_on`  
-  - MUST carry `meta.content_hash` and `meta.current_stage_id`  
-  - References the stage-gated procedure definition
-- **Oracle profile / suite selection (when semantic oracles are used):** `kind=OracleSuite`, `rel=depends_on`  
-  - MUST carry `meta.content_hash` and `suite_hash`  
-  - Binds semantic set definitions per §1.2.5 (prevents silent oracle drift)
-
-*Note:* These three components together constitute the **Work Surface** (SR-CONTRACT C-CTX-1/C-CTX-2; SR-WORK-SURFACE).
 
 **Meta requirements:** For dereferenceable references in this set (especially `GovernedArtifact`, `Candidate`, `OracleSuite`, `EvidenceBundle`), `meta.content_hash` is REQUIRED (see §1.5.3.1). Use `meta.selector` to make “what was actually used” replayable without embedding entire documents in events.
 
@@ -1788,14 +1754,3 @@ To protect the integrity of governance artifacts and evidence:
 **Non-waivable:** all integrity conditions listed above are non-waivable per SR-CONTRACT. They require resolution (re-run, rebase, or governance change), not waiver.
 
 (Additional conditions MAY be added by the Development Directive.)
-
-## Appendix C
-
-### Semantic loop stop triggers (SR-DIRECTIVE-defined extensions)
-
-SR-DIRECTIVE MAY define additional stop triggers beyond the baseline set listed above. For semantic-ralph-loops, the following DIRECTIVE-defined stop triggers are recognized:
-
-- `WORK_SURFACE_MISSING` — intake/procedure/stage context absent for the iteration.
-- `STAGE_UNKNOWN` — `stage_id` not defined in the bound procedure template.
-- `SEMANTIC_PROFILE_MISSING` — required stage semantic profile/suite not declared for evaluation.
-

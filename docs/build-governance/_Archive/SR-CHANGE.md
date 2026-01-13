@@ -34,8 +34,6 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **SR-ETT eliminated:** Removed SR-ETT from refs and canonical governed set. SR-ETT content has been absorbed into SR-INTENT (rationale), SR-CONTRACT (invariants), and SR-SPEC (mechanics).
 - **SR-PARADIGM → SR-GUIDE:** Renamed in governed set. SR-PARADIGM is now SR-GUIDE (usage guidance document).
 - **SR-README removed:** SR-README was a narrative overview; its role is subsumed by SR-GUIDE.
-
-- **Compatibility note:** SR-TYPES may still include a `governance.readme` *template/type* for `README.md` as an **index** artifact. This does **not** imply an SR-README governed artifact exists in the canonical set unless explicitly reintroduced via SR-CHANGE. For this corpus: treat `README.md` as `normative_status: index` and treat SR-GUIDE as the directional usage guide.
 - **SR-AGENTS added:** Added to canonical governed set (agent semantics are now explicitly governed).
 - Updated routing table to reflect current canonical set.
 - Updated type key from `governance.change_policy` to `governance.change_mgmt` per SR-TYPES.
@@ -77,11 +75,11 @@ The canonical governed set for SOLVER-Ralph is:
 | SR-AGENTS | Agent actor semantics | Platform |
 | SR-MODEL | Layer model and document-role map (orientation; non-binding) | Platform |
 | SR-INTENT | Design rationale (non-binding) | Platform |
+| SR-GUIDE | Usage guidance (non-binding) | Platform |
 | SR-PLAN | Instance scope + deliverable inventory + dependency graph | Instance |
 | SR-DIRECTIVE | Instance operational policy | Instance |
 | SR-EXCEPTIONS | Exception ledger (build-time authority port) | Build |
-| SR-CHANGE | This document | Build |
-| SR-TASKS | Task assignment from event manager | Build |
+| SR-CHANGE | This document | Platform |
 
 ### 1.3 Change classification
 

@@ -39,7 +39,8 @@ This document is intentionally **not** a workflow manual. Execution policies (bu
 5. **SR-SEMANTIC-ORACLE-SPEC**
 6. **SR-EVENT-MANAGER**
 7. **SR-PROCEDURE-KIT**
-8. **SR-INTENT**
+8. **SR-GUIDE**
+9. **SR-INTENT**
 
 #### B) Build-execution precedence (agent behavior / process / gating)
 
@@ -88,16 +89,6 @@ An **Agent** is an actor-kind whose outputs are **non-binding proposals**.
 > Note: stochasticity is a common implementation detail, but **not** the defining property.
 > The defining property is **non-authority** and trust-boundary-constrained interaction with the system.
 
-### 1.3 Tasks
-
-When you receive a task:
-
-1) Identify your layer: during this build, you are in Layer 1.  
-2) Identify whether the task touches platform-definition or workflow.  
-3) Treat SR-CONTRACT/SR-SPEC/SR-TYPES as authoritative for meaning/mechanics.  
-4) Treat workflow docs as authoritative for process, within the constraints of platform-definition.  
-5) Treat outputs as proposals until promoted via recorded commitment objects and required approvals.
-
 ---
 
 ## 2. Epistemology: why agents cannot create "truth" in SOLVER‑Ralph
@@ -122,7 +113,7 @@ The system is designed so that "agent authority leakage" is prevented by coercio
 
 ## 3. Hexagonal architecture placement
 
-Agents live outside the domain core, interacting through adapters.
+Agents live outside the domain core, interacting through coercion surfaces.
 
 ### 3.1 Agents are adapters behind driving ports
 
