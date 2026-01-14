@@ -7,11 +7,11 @@ export function OverviewScreen() {
     <div className={styles.wrap}>
       <header className={styles.header}>
         <h1>Overview</h1>
-        <p>Governance posture across agents, loops, and decision gates.</p>
+        <p>Governance posture across agents, workflows, and decision gates.</p>
       </header>
 
       <section className={styles.metrics}>
-        <Card title="Active Loops" right={<Pill>Live</Pill>}>
+        <Card title="Active Workflows" right={<Pill>Live</Pill>}>
           <div className={styles.big}>4,025</div>
           <div className={styles.sub}>Running across environments</div>
         </Card>

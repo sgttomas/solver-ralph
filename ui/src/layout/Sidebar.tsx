@@ -3,8 +3,8 @@ import styles from "./Sidebar.module.css";
 
 const items = [
   { to: "/overview", label: "Overview" },
-  { to: "/prompt-loop", label: "Prompt Loop" },
-  { to: "/loops", label: "Loops" },
+  { to: "/prompt-loop", label: "Tasks" },
+  { to: "/loops", label: "Workflows" },
   { to: "/evidence", label: "Evidence" },
   { to: "/approvals", label: "Approvals" },
   { to: "/agents", label: "Agents" },
