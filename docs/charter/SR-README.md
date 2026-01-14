@@ -54,6 +54,41 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 20 (2026-01-13)
+**Completed:** D-40
+
+**What was done:**
+
+D-40: Event Manager: work-unit + stage state projection + eligible-set computation
+- Created event_manager module in sr-adapters implementing SR-EVENT-MANAGER spec:
+  - WorkUnitStatus: Coarse status (TODO/ELIGIBLE/IN_PROGRESS/BLOCKED/COMPLETE), stage tracking, block reasons
+  - StageStatusEntry: Per-stage status (PENDING/ACTIVE/PASSED/FAILED/BLOCKED), evidence refs
+  - BlockReason: Stop triggers, portal requirements, dependency unsatisfied, integrity conditions
+  - StalenessMarkerEntry: Staleness tracking with resolution
+  - EligibleSet: Computation of work units eligible for scheduling
+  - DependencyGraphSnapshot: Nodes, edges, satisfaction annotations
+  - RunList: Human-friendly view grouped by coarse status with completion percentage
+  - EventManager: Projection builder that consumes events and produces derived state
+- Event handlers implemented for all key events:
+  - WorkSurfaceRecorded, StageEntered, StageCompleted
+  - IterationStarted, IterationCompleted, CandidateMaterialized
+  - EvidenceBundleRecorded, StopTriggered, ApprovalRecorded
+  - SemanticOracleEvaluated, NodeMarkedStale, StalenessResolved
+- 14 unit tests including deterministic replay verification:
+  - Stage progression, eligible set computation, stop trigger blocking
+  - Approval unblocking, run list state reflection
+- Module exported from sr-adapters lib.rs
+
+**PKG-12 (Semantic Worker Foundation) progress: D-37 ✓, D-38 ✓, D-39 ✓, D-40 ✓**
+
+**Next deliverables:**
+- D-41: Reference semantic worker (PKG-12) - depends on D-23 ✓, D-37 ✓, D-39 ✓, D-40 ✓ - NOW READY
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+
+
+---
+
 ### Session 19 (2026-01-14)
 **Completed:** D-36
 

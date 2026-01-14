@@ -17,8 +17,10 @@
 //! - Core oracle suite implementation (D-25)
 //! - Oracle integrity checks (D-27)
 //! - Semantic oracle suite implementation (D-39)
+//! - Event Manager: work-unit + stage projection + eligible-set computation (D-40)
 
 pub mod config;
+pub mod event_manager;
 pub mod evidence;
 pub mod governor;
 pub mod graph;
@@ -98,4 +100,9 @@ pub use semantic_suite::{
     SemanticOracleDefinition, SemanticOracleSuiteDefinition, SemanticReportBundle,
     SemanticSetBindingRef, SEMANTIC_ORACLE_PREFIX, SUITE_INTAKE_ADMISSIBILITY_ID,
     SUITE_SEMANTIC_PREFIX,
+};
+pub use event_manager::{
+    BlockReason, BlockReasonType, CoarseStatus, DependencyGraphEdge, DependencyGraphNode,
+    DependencyGraphSnapshot, EligibleSet, EligibleSetEntry, EventManager, EventManagerError,
+    RunList, RunListEntry, StageStatus, StageStatusEntry, StalenessMarkerEntry, WorkUnitStatus,
 };
