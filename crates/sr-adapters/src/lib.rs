@@ -16,6 +16,7 @@
 //! - Oracle runner service (D-24)
 //! - Core oracle suite implementation (D-25)
 //! - Oracle integrity checks (D-27)
+//! - Semantic oracle suite implementation (D-39)
 
 pub mod config;
 pub mod evidence;
@@ -31,6 +32,7 @@ pub mod outbox;
 pub mod postgres;
 pub mod projections;
 pub mod restricted;
+pub mod semantic_suite;
 pub mod worker;
 
 pub use config::*;
@@ -90,4 +92,10 @@ pub use oracle_suite::{
     OracleSuiteRegistry, SuiteValidationError, TestFailure, UnitTestReport,
     VerificationProfile, WaivableCondition, PROFILE_GOV_CORE, PROFILE_STRICT_CORE,
     PROFILE_STRICT_FULL, SUITE_CORE_ID, SUITE_FULL_ID, SUITE_GOV_ID,
+};
+pub use semantic_suite::{
+    create_intake_admissibility_suite, to_oracle_suite_definition, IntakeAdmissibilityRunner,
+    SemanticOracleDefinition, SemanticOracleSuiteDefinition, SemanticReportBundle,
+    SemanticSetBindingRef, SEMANTIC_ORACLE_PREFIX, SUITE_INTAKE_ADMISSIBILITY_ID,
+    SUITE_SEMANTIC_PREFIX,
 };

@@ -26,6 +26,9 @@ use crate::oracle_runner::{
     EnvironmentConstraints, ExpectedOutput, NetworkMode, OracleClassification, OracleDefinition,
     OracleSuiteDefinition,
 };
+use crate::semantic_suite::{
+    create_intake_admissibility_suite, to_oracle_suite_definition, SUITE_INTAKE_ADMISSIBILITY_ID,
+};
 
 // ============================================================================
 // Suite Registry
@@ -57,6 +60,13 @@ impl OracleSuiteRegistry {
         suites.insert(SUITE_GOV_ID.to_string(), create_gov_suite());
         suites.insert(SUITE_CORE_ID.to_string(), create_core_suite());
         suites.insert(SUITE_FULL_ID.to_string(), create_full_suite());
+
+        // Register semantic oracle suite (D-39)
+        let semantic_suite = create_intake_admissibility_suite();
+        suites.insert(
+            SUITE_INTAKE_ADMISSIBILITY_ID.to_string(),
+            to_oracle_suite_definition(&semantic_suite),
+        );
 
         let mut profiles = BTreeMap::new();
         profiles.insert(PROFILE_GOV_CORE.to_string(), create_gov_core_profile());
@@ -934,11 +944,25 @@ mod tests {
     fn test_registry_with_core_suites() {
         let registry = OracleSuiteRegistry::with_core_suites();
 
-        // Should have 3 suites
+        // Should have 4 suites (GOV, CORE, FULL, and semantic intake_admissibility)
         let suites = futures::executor::block_on(async {
             registry.list_suites().await
         });
-        assert_eq!(suites.len(), 3);
+        assert_eq!(suites.len(), 4);
+    }
+
+    #[test]
+    fn test_registry_includes_semantic_suite() {
+        let registry = OracleSuiteRegistry::with_core_suites();
+
+        let suite = futures::executor::block_on(async {
+            registry.get_suite(SUITE_INTAKE_ADMISSIBILITY_ID).await
+        });
+
+        assert!(suite.is_some());
+        let suite = suite.unwrap();
+        assert!(suite.metadata.contains_key("semantic_set_id"));
+        assert!(suite.metadata.contains_key("semantic_set_hash"));
     }
 
     #[test]

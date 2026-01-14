@@ -8,6 +8,7 @@
 //! - Context compilation for deterministic context bundles
 //! - Work surface schemas (Intake, ProcedureTemplate, WorkSurfaceInstance)
 //! - Plan instance decomposition (PlanInstance, WorkUnitPlan, DecompositionRationale)
+//! - Semantic oracle schemas (SemanticSet, SemanticEvalResult) per SR-SEMANTIC-ORACLE-SPEC
 //!
 //! Per SR-SPEC §4.1 (Hexagonal Architecture), this crate MUST NOT import
 //! DB clients, HTTP frameworks, container runtimes, or LLM SDKs.
@@ -19,6 +20,7 @@ pub mod errors;
 pub mod events;
 pub mod plan_instance;
 pub mod procedure_templates;
+pub mod semantic_oracle;
 pub mod state_machines;
 pub mod work_surface;
 
@@ -29,5 +31,6 @@ pub use errors::*;
 pub use events::*;
 pub use plan_instance::*;
 pub use procedure_templates::*;
+pub use semantic_oracle::*;
 pub use state_machines::*;
 pub use work_surface::*;

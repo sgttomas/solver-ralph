@@ -54,6 +54,44 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 16 (2026-01-13)
+**Completed:** D-39
+
+**What was done:**
+
+D-39: Semantic oracle runner integration (meaning matrices/manifolds)
+- Created semantic_oracle.rs module in sr-domain with:
+  - SemanticSet schema (v1): manifold/meaning-matrix definition with axes, constraints, decision rules
+  - SemanticAxis: dimension of semantic space with weight, required flag, min coverage, max residual
+  - SemanticConstraint: required/preferred/prohibited constraint types with severity levels
+  - DecisionRule: pass/fail derivation from measurements (max_residual_norm, min_coverage, max_violations)
+  - SemanticEvalResult schema (`sr.semantic_eval.v1`): structured output per SR-SEMANTIC-ORACLE-SPEC §4
+  - ResidualVector, CoverageMetrics, ConstraintViolation measurement types
+  - Report artifacts: ResidualReport, CoverageReport, ViolationsReport
+  - Content-addressed hashing for semantic set binding
+  - intake_admissibility_semantic_set() for Branch 0
+- Created semantic_suite.rs module in sr-adapters with:
+  - SemanticOracleSuiteDefinition: extends OracleSuiteDefinition with semantic set binding
+  - create_intake_admissibility_suite(): `oracle.suite.intake_admissibility.v1` for Branch 0
+  - IntakeAdmissibilityRunner: deterministic local evaluation for intake artifacts
+  - Six semantic oracles bound to axes: schema_compliance, traceability_coverage, contradiction_free, ambiguity_bounded, privacy_safe, term_map_aligned
+  - Suite hash incorporates semantic set hash per SR-SEMANTIC-ORACLE-SPEC §2
+  - SemanticReportBundle: generates residual, coverage, violations report artifacts
+  - to_oracle_suite_definition(): converts semantic suite to standard OracleSuiteDefinition
+- Updated OracleSuiteRegistry to register semantic suite alongside core suites
+- 85 unit tests passing (8 new tests for semantic_suite, 12 new tests for semantic_oracle)
+
+**PKG-12 (Semantic work surface) progress: D-37 ✓, D-38 ✓, D-39 done**
+
+**Next deliverables:**
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+- D-30: Portal workflows UI (approvals, exceptions) (PKG-09) - depends on D-29 ✓, D-19 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+- D-41: Reference semantic worker (PKG-12) - depends on D-23 ✓, D-38 ✓, D-39 ✓
+
+
+---
+
 ### Session 15 (2026-01-13)
 **Completed:** D-38
 
