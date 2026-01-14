@@ -54,6 +54,35 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 17 (2026-01-13)
+**Completed:** D-30
+
+**What was done:**
+
+D-30: Portal workflows UI (approvals, exceptions, freeze records)
+- Approvals.tsx - Full portal workflows page:
+  - Approval submission form (HUMAN-only per SR-CONTRACT C-TB-3)
+  - Exception creation/activation/resolution (HUMAN-only per SR-SPEC §1.8)
+  - Decision recording with precedent support (HUMAN-only per C-DEC-1)
+  - Tabbed interface with counters for each entity type
+  - Governance note warning about HUMAN-only requirements
+- CandidateDetail.tsx - Freeze record creation:
+  - Added "Create Freeze" form to freeze records tab
+  - Baseline ID, verification mode, oracle suite, approval linkage
+  - Integration with existing candidate context
+- Per SR-SPEC §1.8, exceptions (DEVIATION, DEFERRAL, WAIVER) are narrowly scoped permissions; waivers cannot target integrity conditions
+
+**PKG-09 (UI portals) progress: D-28 ✓, D-29 ✓, D-30 done**
+
+**Next deliverables:**
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+- D-34: End-to-end harness happy path (PKG-11) - depends on D-22 ✓, D-23 ✓, D-24 ✓, D-25 ✓, D-19 ✓, D-30 ✓, D-31 ✓
+- D-41: Reference semantic worker (PKG-12) - depends on D-23 ✓, D-38 ✓, D-39 ✓, D-40
+
+
+---
+
 ### Session 16 (2026-01-13)
 **Completed:** D-39
 
