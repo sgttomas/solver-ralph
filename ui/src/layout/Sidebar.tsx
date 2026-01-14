@@ -18,7 +18,7 @@ export function Sidebar() {
   return (
     <div className={styles.wrap}>
       <div className={styles.brand}>
-        <div className={styles.mark} />
+        <img src="/logo.png" alt="Chirality AI" className={styles.mark} />
         <div>
           <div className={styles.name}>Chirality AI</div>
           <div className={styles.tag}>Governance console</div>
