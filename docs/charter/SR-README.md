@@ -55,7 +55,7 @@ When troubleshooting, refer to the appropriate SR-* documents.
 ## Development History Summary for this Deliverable
 
 ### Session 20 (2026-01-13)
-**Completed:** D-40
+**Completed:** D-40, D-41
 
 **What was done:**
 
@@ -74,17 +74,32 @@ D-40: Event Manager: work-unit + stage state projection + eligible-set computati
   - IterationStarted, IterationCompleted, CandidateMaterialized
   - EvidenceBundleRecorded, StopTriggered, ApprovalRecorded
   - SemanticOracleEvaluated, NodeMarkedStale, StalenessResolved
-- 14 unit tests including deterministic replay verification:
-  - Stage progression, eligible set computation, stop trigger blocking
-  - Approval unblocking, run list state reflection
-- Module exported from sr-adapters lib.rs
+- 14 unit tests including deterministic replay verification
 
-**PKG-12 (Semantic Worker Foundation) progress: D-37 ✓, D-38 ✓, D-39 ✓, D-40 ✓**
+D-41: Reference semantic worker (Work Surface executor)
+- Created semantic_worker module implementing SR-AGENT-WORKER-CONTRACT:
+  - SemanticWorkerBridge: Main worker that consumes IterationStarted events
+  - SelectionRationale: Documents work unit selection per §2.1 (eligible set snapshot hash)
+  - StageExecutionResult: Captures stage execution with artifacts and oracle results
+  - EvidenceBundlePayload: Evidence emission per §2.4 with gate verdict
+  - IterationSummary: Full iteration record with next step recommendation
+  - StopTriggerInfo: Stop conditions per §3 (oracle unavailable, thrashing, budget)
+- Contract compliance:
+  - Obtains eligible set from Event Manager (D-40)
+  - Chooses one eligible work unit with documented rationale
+  - Executes procedure stage and runs semantic oracle suites
+  - Emits EvidenceBundleRecorded + iteration summaries
+  - Thrashing detection (max iterations per work unit)
+- 8 unit tests for serialization and variant coverage
+
+**PKG-12 (Semantic Worker Foundation) COMPLETE: D-37 ✓, D-38 ✓, D-39 ✓, D-40 ✓, D-41 ✓**
+
+**Branch 0 MVP spine now complete!**
 
 **Next deliverables:**
-- D-41: Reference semantic worker (PKG-12) - depends on D-23 ✓, D-37 ✓, D-39 ✓, D-40 ✓ - NOW READY
 - D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
 - D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+- D-35: End-to-end harness failure modes (PKG-11) - depends on D-34 ✓, D-27 ✓
 
 
 ---

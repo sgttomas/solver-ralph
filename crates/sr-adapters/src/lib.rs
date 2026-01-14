@@ -18,6 +18,7 @@
 //! - Oracle integrity checks (D-27)
 //! - Semantic oracle suite implementation (D-39)
 //! - Event Manager: work-unit + stage projection + eligible-set computation (D-40)
+//! - Reference semantic worker (D-41)
 
 pub mod config;
 pub mod event_manager;
@@ -35,6 +36,7 @@ pub mod postgres;
 pub mod projections;
 pub mod restricted;
 pub mod semantic_suite;
+pub mod semantic_worker;
 pub mod worker;
 
 pub use config::*;
@@ -105,4 +107,9 @@ pub use event_manager::{
     BlockReason, BlockReasonType, CoarseStatus, DependencyGraphEdge, DependencyGraphNode,
     DependencyGraphSnapshot, EligibleSet, EligibleSetEntry, EventManager, EventManagerError,
     RunList, RunListEntry, StageStatus, StageStatusEntry, StalenessMarkerEntry, WorkUnitStatus,
+};
+pub use semantic_worker::{
+    EvidenceBundlePayload, GateVerdict, IterationSummary, NextStepRecommendation,
+    SelectionRationale, SemanticOracleResult, SemanticWorkerBridge, SemanticWorkerConfig,
+    StageArtifact, StageExecutionResult, StopTriggerInfo, StopTriggerReason,
 };
