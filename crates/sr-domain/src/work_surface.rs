@@ -98,7 +98,7 @@ impl WorkUnitId {
 // ============================================================================
 
 /// Work kind taxonomy per SR-WORK-SURFACE §3.1
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkKind {
     ResearchMemo,
