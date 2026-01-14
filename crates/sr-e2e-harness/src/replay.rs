@@ -53,11 +53,11 @@ pub struct ReplayRunner {
 impl ReplayRunner {
     /// Create a new replay runner
     pub async fn new(config: ReplayConfig) -> Result<Self, ReplayError> {
-        let pool = PgPool::connect(&config.database_url)
-            .await
-            .map_err(|e| ReplayError::ConnectionError {
+        let pool = PgPool::connect(&config.database_url).await.map_err(|e| {
+            ReplayError::ConnectionError {
                 message: e.to_string(),
-            })?;
+            }
+        })?;
 
         let event_store = PostgresEventStore::new(pool.clone());
         let projection_config = ProjectionConfig {
@@ -186,18 +186,40 @@ impl ReplayRunner {
         // Add projection table checksums in deterministic order
         let tables = [
             ("proj.loops", "loop_id", "state, goal, iteration_count"),
-            ("proj.iterations", "iteration_id", "state, loop_id, sequence"),
-            ("proj.candidates", "candidate_id", "content_hash, verification_status"),
-            ("proj.runs", "run_id", "state, candidate_id, evidence_bundle_hash"),
+            (
+                "proj.iterations",
+                "iteration_id",
+                "state, loop_id, sequence",
+            ),
+            (
+                "proj.candidates",
+                "candidate_id",
+                "content_hash, verification_status",
+            ),
+            (
+                "proj.runs",
+                "run_id",
+                "state, candidate_id, evidence_bundle_hash",
+            ),
             ("proj.approvals", "approval_id", "portal_id, decision"),
             ("proj.exceptions", "exception_id", "kind, state"),
-            ("proj.freeze_records", "freeze_id", "baseline_id, candidate_id"),
+            (
+                "proj.freeze_records",
+                "freeze_id",
+                "baseline_id, candidate_id",
+            ),
             ("proj.decisions", "decision_id", "category, decision"),
-            ("proj.evidence_bundles", "content_hash", "bundle_id, verdict"),
+            (
+                "proj.evidence_bundles",
+                "content_hash",
+                "bundle_id, verdict",
+            ),
         ];
 
         for (table, order_by, columns) in tables {
-            let table_hash = self.compute_table_checksum(table, order_by, columns).await?;
+            let table_hash = self
+                .compute_table_checksum(table, order_by, columns)
+                .await?;
             hasher.update(table.as_bytes());
             hasher.update(&table_hash.row_count.to_le_bytes());
             hasher.update(table_hash.content_hash.as_bytes());

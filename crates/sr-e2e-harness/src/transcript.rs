@@ -173,7 +173,10 @@ impl HarnessTranscript {
 
     /// Get failed invariants
     pub fn failed_invariants(&self) -> Vec<&InvariantCheck> {
-        self.invariants_checked.iter().filter(|i| !i.passed).collect()
+        self.invariants_checked
+            .iter()
+            .filter(|i| !i.passed)
+            .collect()
     }
 
     /// Serialize to JSON
@@ -377,11 +380,7 @@ mod tests {
             true,
             "All approvals have evidence",
         );
-        transcript.check_invariant(
-            "human_approval_required",
-            false,
-            "Missing human approval",
-        );
+        transcript.check_invariant("human_approval_required", false, "Missing human approval");
 
         assert!(!transcript.all_invariants_passed());
         assert_eq!(transcript.failed_invariants().len(), 1);
@@ -394,6 +393,10 @@ mod tests {
         transcript.mark_success();
 
         assert!(transcript.content_hash.is_some());
-        assert!(transcript.content_hash.as_ref().unwrap().starts_with("sha256:"));
+        assert!(transcript
+            .content_hash
+            .as_ref()
+            .unwrap()
+            .starts_with("sha256:"));
     }
 }

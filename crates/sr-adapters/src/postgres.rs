@@ -25,11 +25,12 @@ impl PostgresEventStore {
 
     /// Connect to PostgreSQL and create a new event store
     pub async fn connect(database_url: &str) -> Result<Self, EventStoreError> {
-        let pool = PgPool::connect(database_url)
-            .await
-            .map_err(|e| EventStoreError::ConnectionError {
-                message: e.to_string(),
-            })?;
+        let pool =
+            PgPool::connect(database_url)
+                .await
+                .map_err(|e| EventStoreError::ConnectionError {
+                    message: e.to_string(),
+                })?;
         Ok(Self { pool })
     }
 
@@ -48,15 +49,14 @@ impl PostgresEventStore {
         let kind_str = stream_kind_to_str(stream_kind);
 
         // Try to get existing stream with row lock
-        let result = sqlx::query(
-            "SELECT stream_version FROM es.streams WHERE stream_id = $1 FOR UPDATE",
-        )
-        .bind(stream_id)
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(|e| EventStoreError::ConnectionError {
-            message: e.to_string(),
-        })?;
+        let result =
+            sqlx::query("SELECT stream_version FROM es.streams WHERE stream_id = $1 FOR UPDATE")
+                .bind(stream_id)
+                .fetch_optional(&mut **tx)
+                .await
+                .map_err(|e| EventStoreError::ConnectionError {
+                    message: e.to_string(),
+                })?;
 
         match result {
             Some(row) => {
@@ -462,10 +462,7 @@ mod tests {
             infer_stream_kind("appr_abc"),
             StreamKind::Approval
         ));
-        assert!(matches!(
-            infer_stream_kind("dec_abc"),
-            StreamKind::Decision
-        ));
+        assert!(matches!(infer_stream_kind("dec_abc"), StreamKind::Decision));
         assert!(matches!(
             infer_stream_kind("exc_abc"),
             StreamKind::Exception

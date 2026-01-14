@@ -21,6 +21,7 @@ import {
   Evidence,
   EvidenceDetail,
   Approvals,
+  PromptLoop,
 } from './pages';
 
 function App(): JSX.Element {
@@ -86,6 +87,14 @@ function App(): JSX.Element {
             element={
               <ProtectedRoute>
                 <Approvals />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/prompt"
+            element={
+              <ProtectedRoute>
+                <PromptLoop />
               </ProtectedRoute>
             }
           />

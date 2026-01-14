@@ -284,10 +284,8 @@ pub async fn list_iterations_for_loop(
         })?;
 
     let iterations = state.projections.get_iterations(&loop_id).await?;
-    let responses: Vec<IterationResponse> = iterations
-        .into_iter()
-        .map(projection_to_response)
-        .collect();
+    let responses: Vec<IterationResponse> =
+        iterations.into_iter().map(projection_to_response).collect();
 
     Ok(Json(ListIterationsResponse {
         total: responses.len(),

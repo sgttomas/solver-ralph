@@ -23,8 +23,8 @@
 //!   --help              Show help
 
 use sr_e2e_harness::{
-    run_exception_waiver, run_happy_path, run_integrity_tamper, run_oracle_failure,
-    FailureMode, FailureModeConfig, HarnessConfig, ReplayConfig, ReplayRunner,
+    run_exception_waiver, run_happy_path, run_integrity_tamper, run_oracle_failure, FailureMode,
+    FailureModeConfig, HarnessConfig, ReplayConfig, ReplayRunner,
 };
 use std::env;
 use std::fs::File;
@@ -293,7 +293,14 @@ async fn run_replay_mode(args: &[String]) {
     println!("  SOLVER-Ralph Replay Tool (D-36)");
     println!("==============================================");
     println!();
-    println!("Mode: {}", if replay_config.full_rebuild { "Full Rebuild" } else { "Incremental" });
+    println!(
+        "Mode: {}",
+        if replay_config.full_rebuild {
+            "Full Rebuild"
+        } else {
+            "Incremental"
+        }
+    );
     println!("Batch Size: {}", replay_config.batch_size);
     println!();
 
@@ -352,7 +359,10 @@ async fn run_replay_mode(args: &[String]) {
     // Print component checksums
     println!("Component Checksums:");
     for (table, hash) in &result.state_checksum.component_hashes {
-        println!("  {}: {} rows, hash={}", table, hash.row_count, hash.content_hash);
+        println!(
+            "  {}: {} rows, hash={}",
+            table, hash.row_count, hash.content_hash
+        );
     }
     println!();
 
@@ -422,8 +432,8 @@ async fn run_determinism_mode(args: &[String]) {
 
     // Output result
     if json_output || output_file.is_some() {
-        let result_json = serde_json::to_string_pretty(&result)
-            .expect("Failed to serialize result");
+        let result_json =
+            serde_json::to_string_pretty(&result).expect("Failed to serialize result");
 
         if let Some(ref file_path) = output_file {
             let mut file = File::create(file_path).expect("Failed to create output file");

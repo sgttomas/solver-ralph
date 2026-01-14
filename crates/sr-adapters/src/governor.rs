@@ -17,7 +17,7 @@ use sha2::{Digest, Sha256};
 use sr_domain::{
     ActorKind, EventEnvelope, EventId, IterationState, LoopState, StreamKind, TypedRef,
 };
-use sr_ports::{EvidenceStoreError, EventStore, EventStoreError};
+use sr_ports::{EventStore, EventStoreError, EvidenceStoreError};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -43,10 +43,10 @@ pub struct LoopBudget {
 impl Default for LoopBudget {
     fn default() -> Self {
         Self {
-            max_iterations: 100,           // Conservative default
-            max_duration_secs: 3600,       // 1 hour
-            max_cost_units: 0,             // Unlimited by default
-            min_iteration_delay_secs: 1,   // 1 second minimum delay
+            max_iterations: 100,         // Conservative default
+            max_duration_secs: 3600,     // 1 hour
+            max_cost_units: 0,           // Unlimited by default
+            min_iteration_delay_secs: 1, // 1 second minimum delay
         }
     }
 }
@@ -309,11 +309,8 @@ impl<E: EventStore> LoopGovernor<E> {
                     .and_then(|b| serde_json::from_value(b.clone()).ok())
                     .unwrap_or_default();
 
-                let state = LoopTrackingState::new(
-                    event.stream_id.clone(),
-                    budget,
-                    event.occurred_at,
-                );
+                let state =
+                    LoopTrackingState::new(event.stream_id.clone(), budget, event.occurred_at);
                 loops.insert(event.stream_id.clone(), state);
                 debug!(loop_id = %event.stream_id, "Loop created");
             }
@@ -408,11 +405,7 @@ impl<E: EventStore> LoopGovernor<E> {
             }
             "ApprovalRecorded" => {
                 // Extract portal_id and loop reference from approval
-                if let Some(portal_id) = event
-                    .payload
-                    .get("portal_id")
-                    .and_then(|p| p.as_str())
-                {
+                if let Some(portal_id) = event.payload.get("portal_id").and_then(|p| p.as_str()) {
                     // Find the loop this approval relates to
                     // Approvals can reference loops via subject_refs
                     let related_loop_id = event
@@ -458,13 +451,14 @@ impl<E: EventStore> LoopGovernor<E> {
 
     /// Check iteration preconditions for a loop
     #[instrument(skip(self))]
-    pub async fn check_preconditions(&self, loop_id: &str) -> Result<IterationPreconditions, GovernorError> {
+    pub async fn check_preconditions(
+        &self,
+        loop_id: &str,
+    ) -> Result<IterationPreconditions, GovernorError> {
         let loops = self.loops.read().await;
-        let state = loops
-            .get(loop_id)
-            .ok_or(GovernorError::LoopNotFound {
-                loop_id: loop_id.to_string(),
-            })?;
+        let state = loops.get(loop_id).ok_or(GovernorError::LoopNotFound {
+            loop_id: loop_id.to_string(),
+        })?;
 
         let now = Utc::now();
 
@@ -472,14 +466,16 @@ impl<E: EventStore> LoopGovernor<E> {
         let iterations_remaining = if state.budget.max_iterations == 0 {
             u32::MAX
         } else {
-            state.budget.max_iterations.saturating_sub(state.iteration_count)
+            state
+                .budget
+                .max_iterations
+                .saturating_sub(state.iteration_count)
         };
 
         let duration_remaining = if state.budget.max_duration_secs == 0 {
             i64::MAX
         } else {
-            state.budget.max_duration_secs
-                - (now - state.created_at).num_seconds()
+            state.budget.max_duration_secs - (now - state.created_at).num_seconds()
         };
 
         // Check delay
@@ -530,7 +526,10 @@ impl<E: EventStore> LoopGovernor<E> {
                 budget_remaining_iterations: if state.budget.max_iterations == 0 {
                     u32::MAX
                 } else {
-                    state.budget.max_iterations.saturating_sub(state.iteration_count)
+                    state
+                        .budget
+                        .max_iterations
+                        .saturating_sub(state.iteration_count)
                 },
                 budget_remaining_secs: if state.budget.max_duration_secs == 0 {
                     i64::MAX
@@ -545,11 +544,7 @@ impl<E: EventStore> LoopGovernor<E> {
                     .iter()
                     .map(|s| format!("{:?}", s))
                     .collect(),
-                pending_portal_approvals: state
-                    .pending_portal_approvals
-                    .iter()
-                    .cloned()
-                    .collect(),
+                pending_portal_approvals: state.pending_portal_approvals.iter().cloned().collect(),
             }
         };
 
@@ -582,7 +577,10 @@ impl<E: EventStore> LoopGovernor<E> {
         let iteration_id = format!("iter_{}", ulid::Ulid::new());
         let iteration_number = {
             let loops = self.loops.read().await;
-            loops.get(loop_id).map(|s| s.iteration_count + 1).unwrap_or(1)
+            loops
+                .get(loop_id)
+                .map(|s| s.iteration_count + 1)
+                .unwrap_or(1)
         };
 
         // Build IterationStarted event
@@ -618,7 +616,10 @@ impl<E: EventStore> LoopGovernor<E> {
             preconditions: snapshot,
             outcome: GovernorOutcome::Executed,
             decided_at: now,
-            rationale: format!("All preconditions satisfied, starting iteration {}", iteration_number),
+            rationale: format!(
+                "All preconditions satisfied, starting iteration {}",
+                iteration_number
+            ),
         };
 
         {
@@ -711,11 +712,9 @@ impl<E: EventStore> LoopGovernor<E> {
         condition: StopCondition,
     ) -> Result<(), GovernorError> {
         let mut loops = self.loops.write().await;
-        let state = loops
-            .get_mut(loop_id)
-            .ok_or(GovernorError::LoopNotFound {
-                loop_id: loop_id.to_string(),
-            })?;
+        let state = loops.get_mut(loop_id).ok_or(GovernorError::LoopNotFound {
+            loop_id: loop_id.to_string(),
+        })?;
 
         state.stop_triggers.push(condition);
 
@@ -729,7 +728,11 @@ impl<E: EventStore> LoopGovernor<E> {
                 budget_remaining_iterations: 0,
                 budget_remaining_secs: 0,
                 has_incomplete_iteration: false,
-                stop_triggers: state.stop_triggers.iter().map(|s| format!("{:?}", s)).collect(),
+                stop_triggers: state
+                    .stop_triggers
+                    .iter()
+                    .map(|s| format!("{:?}", s))
+                    .collect(),
                 pending_portal_approvals: state.pending_portal_approvals.iter().cloned().collect(),
             },
             outcome: GovernorOutcome::Executed,
@@ -796,11 +799,8 @@ mod tests {
 
     #[test]
     fn test_loop_tracking_state() {
-        let state = LoopTrackingState::new(
-            "loop_test".to_string(),
-            LoopBudget::default(),
-            Utc::now(),
-        );
+        let state =
+            LoopTrackingState::new("loop_test".to_string(), LoopBudget::default(), Utc::now());
 
         assert_eq!(state.loop_state, LoopState::Created);
         assert_eq!(state.iteration_count, 0);

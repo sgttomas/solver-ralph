@@ -34,6 +34,13 @@ pub struct ApiConfig {
 impl ApiConfig {
     /// Load configuration from environment variables
     pub fn from_env() -> Self {
+        let audiences = env::var("SR_OIDC_AUDIENCE")
+            .unwrap_or_else(|_| "solver-ralph".to_string())
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<String>>();
+
         Self {
             host: env::var("SR_HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
             port: env::var("SR_PORT")
@@ -43,27 +50,26 @@ impl ApiConfig {
             oidc: OidcConfig {
                 issuer: env::var("SR_OIDC_ISSUER")
                     .unwrap_or_else(|_| "http://localhost:8080".to_string()),
-                audience: env::var("SR_OIDC_AUDIENCE")
-                    .unwrap_or_else(|_| "solver-ralph".to_string()),
+                audiences,
                 jwks_uri: env::var("SR_OIDC_JWKS_URI").ok(),
-                skip_validation: env::var("SR_OIDC_SKIP_VALIDATION")
+                skip_validation: env::var("SR_AUTH_TEST_MODE")
+                    .or_else(|_| env::var("SR_OIDC_SKIP_VALIDATION"))
                     .map(|v| v == "true" || v == "1")
                     .unwrap_or(false),
             },
-            database_url: env::var("SR_DATABASE_URL")
-                .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/solver_ralph".to_string()),
+            database_url: env::var("SR_DATABASE_URL").unwrap_or_else(|_| {
+                "postgres://postgres:postgres@localhost:5432/solver_ralph".to_string()
+            }),
             minio_endpoint: env::var("SR_MINIO_ENDPOINT")
                 .unwrap_or_else(|_| "http://localhost:9000".to_string()),
             minio_access_key: env::var("SR_MINIO_ACCESS_KEY")
                 .unwrap_or_else(|_| "minioadmin".to_string()),
             minio_secret_key: env::var("SR_MINIO_SECRET_KEY")
                 .unwrap_or_else(|_| "minioadmin".to_string()),
-            minio_bucket: env::var("SR_MINIO_BUCKET")
-                .unwrap_or_else(|_| "evidence".to_string()),
+            minio_bucket: env::var("SR_MINIO_BUCKET").unwrap_or_else(|_| "evidence".to_string()),
             nats_url: env::var("SR_NATS_URL")
                 .unwrap_or_else(|_| "nats://localhost:4222".to_string()),
-            log_level: env::var("SR_LOG_LEVEL")
-                .unwrap_or_else(|_| "info".to_string()),
+            log_level: env::var("SR_LOG_LEVEL").unwrap_or_else(|_| "info".to_string()),
         }
     }
 
@@ -89,7 +95,8 @@ impl ApiConfig {
             host: "127.0.0.1".to_string(),
             port: 0, // Random port
             oidc: OidcConfig::test_mode(),
-            database_url: "postgres://postgres:postgres@localhost:5432/solver_ralph_test".to_string(),
+            database_url: "postgres://postgres:postgres@localhost:5432/solver_ralph_test"
+                .to_string(),
             minio_endpoint: "http://localhost:9000".to_string(),
             minio_access_key: "minioadmin".to_string(),
             minio_secret_key: "minioadmin".to_string(),

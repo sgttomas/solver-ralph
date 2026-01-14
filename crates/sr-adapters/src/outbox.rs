@@ -56,9 +56,10 @@ pub fn topic_for_event(event_type: &str) -> String {
         }
 
         // Iteration events
-        "IterationStarted" | "IterationCompleted" | "IterationSummaryRecorded" | "StopTriggered" => {
-            "sr.events.iteration".to_string()
-        }
+        "IterationStarted"
+        | "IterationCompleted"
+        | "IterationSummaryRecorded"
+        | "StopTriggered" => "sr.events.iteration".to_string(),
 
         // Candidate events
         "CandidateMaterialized" | "CandidateVerificationComputed" => {
@@ -69,7 +70,9 @@ pub fn topic_for_event(event_type: &str) -> String {
         "RunStarted" | "RunCompleted" | "EvidenceBundleRecorded" => "sr.events.run".to_string(),
 
         // Oracle events
-        "OracleSuiteRegistered" | "OracleSuiteUpdated" | "OracleSuitePinned"
+        "OracleSuiteRegistered"
+        | "OracleSuiteUpdated"
+        | "OracleSuitePinned"
         | "OracleSuiteRebased" => "sr.events.oracle".to_string(),
 
         // Governance events
@@ -94,7 +97,10 @@ pub fn topic_for_event(event_type: &str) -> String {
         "DecisionRecorded" => "sr.events.decision".to_string(),
 
         // Work surface events
-        "WorkSurfaceRecorded" | "ProcedureTemplateSelected" | "StageEntered" | "StageCompleted"
+        "WorkSurfaceRecorded"
+        | "ProcedureTemplateSelected"
+        | "StageEntered"
+        | "StageCompleted"
         | "SemanticOracleEvaluated" => "sr.events.worksurface".to_string(),
 
         // Default topic for unknown events
@@ -127,10 +133,9 @@ impl OutboxWriter {
         event: &EventEnvelope,
     ) -> Result<i64, OutboxError> {
         let topic = topic_for_event(&event.event_type);
-        let message =
-            serde_json::to_value(event).map_err(|e| OutboxError::SerializationError {
-                message: e.to_string(),
-            })?;
+        let message = serde_json::to_value(event).map_err(|e| OutboxError::SerializationError {
+            message: e.to_string(),
+        })?;
         let message_hash = compute_message_hash(event);
 
         let outbox_id = sqlx::query_scalar::<_, i64>(
@@ -294,10 +299,7 @@ impl OutboxPublisher {
     /// The callback receives the topic and message payload.
     /// Returns the number of successfully published messages.
     #[instrument(skip(self, publish_fn))]
-    pub async fn process_batch<F, Fut>(
-        &self,
-        publish_fn: F,
-    ) -> Result<usize, OutboxError>
+    pub async fn process_batch<F, Fut>(&self, publish_fn: F) -> Result<usize, OutboxError>
     where
         F: Fn(String, Vec<u8>) -> Fut,
         Fut: std::future::Future<Output = Result<(), OutboxError>>,
@@ -405,7 +407,10 @@ mod tests {
     fn test_topic_mapping() {
         assert_eq!(topic_for_event("LoopCreated"), "sr.events.loop");
         assert_eq!(topic_for_event("IterationStarted"), "sr.events.iteration");
-        assert_eq!(topic_for_event("CandidateMaterialized"), "sr.events.candidate");
+        assert_eq!(
+            topic_for_event("CandidateMaterialized"),
+            "sr.events.candidate"
+        );
         assert_eq!(topic_for_event("RunStarted"), "sr.events.run");
         assert_eq!(topic_for_event("ApprovalRecorded"), "sr.events.approval");
         assert_eq!(topic_for_event("DecisionRecorded"), "sr.events.decision");
@@ -422,8 +427,8 @@ mod tests {
 
     #[test]
     fn test_message_hash_determinism() {
-        use sr_domain::{ActorKind, EventId, StreamKind, TypedRef};
         use chrono::Utc;
+        use sr_domain::{ActorKind, EventId, StreamKind, TypedRef};
 
         let event = EventEnvelope {
             event_id: EventId::from_string("evt_test123".to_string()),

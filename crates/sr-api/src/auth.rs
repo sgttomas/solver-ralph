@@ -26,8 +26,8 @@ use tracing::{debug, error, info, warn};
 pub struct OidcConfig {
     /// Issuer URL (e.g., "https://auth.example.com")
     pub issuer: String,
-    /// Expected audience
-    pub audience: String,
+    /// Expected audiences (comma-separated env)
+    pub audiences: Vec<String>,
     /// JWKS endpoint (defaults to {issuer}/.well-known/jwks.json)
     pub jwks_uri: Option<String>,
     /// Whether to skip validation (for testing only)
@@ -39,7 +39,7 @@ impl OidcConfig {
     pub fn local_dev() -> Self {
         Self {
             issuer: "http://localhost:8080".to_string(),
-            audience: "solver-ralph".to_string(),
+            audiences: vec!["solver-ralph".to_string()],
             jwks_uri: None,
             skip_validation: false,
         }
@@ -49,7 +49,7 @@ impl OidcConfig {
     pub fn test_mode() -> Self {
         Self {
             issuer: "test-issuer".to_string(),
-            audience: "test-audience".to_string(),
+            audiences: vec!["test-audience".to_string()],
             jwks_uri: None,
             skip_validation: true,
         }
@@ -96,14 +96,14 @@ impl OidcProvider {
         let jwks_uri = self.config.jwks_uri();
         debug!(uri = %jwks_uri, "Fetching JWKS");
 
-        let response = self
-            .http_client
-            .get(&jwks_uri)
-            .send()
-            .await
-            .map_err(|e| AuthError::ProviderError {
-                message: format!("Failed to fetch JWKS: {}", e),
-            })?;
+        let response =
+            self.http_client
+                .get(&jwks_uri)
+                .send()
+                .await
+                .map_err(|e| AuthError::ProviderError {
+                    message: format!("Failed to fetch JWKS: {}", e),
+                })?;
 
         if !response.status().is_success() {
             return Err(AuthError::ProviderError {
@@ -165,7 +165,13 @@ impl OidcProvider {
 
         // Configure validation
         let mut validation = Validation::new(Algorithm::RS256);
-        validation.set_audience(&[&self.config.audience]);
+
+        if !self.config.audiences.is_empty() {
+            let audience_vec: Vec<&str> =
+                self.config.audiences.iter().map(|s| s.as_str()).collect();
+            validation.set_audience(&audience_vec);
+        }
+
         validation.set_issuer(&[&self.config.issuer]);
 
         // Decode and validate token
@@ -307,7 +313,9 @@ impl IntoResponse for AuthError {
             AuthError::InvalidAuthHeader => (StatusCode::UNAUTHORIZED, "Invalid authorization"),
             AuthError::InvalidToken { .. } => (StatusCode::UNAUTHORIZED, "Invalid token"),
             AuthError::TokenExpired => (StatusCode::UNAUTHORIZED, "Token expired"),
-            AuthError::InsufficientPermissions => (StatusCode::FORBIDDEN, "Insufficient permissions"),
+            AuthError::InsufficientPermissions => {
+                (StatusCode::FORBIDDEN, "Insufficient permissions")
+            }
             AuthError::ProviderError { .. } => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Authentication error")
             }
@@ -357,7 +365,9 @@ where
             .get(AUTHORIZATION)
             .ok_or(AuthError::MissingAuthHeader)?;
 
-        let auth_str = auth_header.to_str().map_err(|_| AuthError::InvalidAuthHeader)?;
+        let auth_str = auth_header
+            .to_str()
+            .map_err(|_| AuthError::InvalidAuthHeader)?;
 
         // Parse Bearer token
         let token = auth_str

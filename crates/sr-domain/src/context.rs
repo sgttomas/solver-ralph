@@ -238,14 +238,12 @@ impl ContextCompiler {
     /// Sort refs deterministically by (kind, id, rel)
     fn sort_refs(&self, refs: &[TypedRef]) -> Vec<TypedRef> {
         let mut sorted: Vec<TypedRef> = refs.to_vec();
-        sorted.sort_by(|a, b| {
-            match a.kind.cmp(&b.kind) {
-                std::cmp::Ordering::Equal => match a.id.cmp(&b.id) {
-                    std::cmp::Ordering::Equal => a.rel.cmp(&b.rel),
-                    other => other,
-                },
+        sorted.sort_by(|a, b| match a.kind.cmp(&b.kind) {
+            std::cmp::Ordering::Equal => match a.id.cmp(&b.id) {
+                std::cmp::Ordering::Equal => a.rel.cmp(&b.rel),
                 other => other,
-            }
+            },
+            other => other,
         });
         sorted
     }
@@ -328,21 +326,30 @@ impl RefSelector {
 
         // Add direct dependencies first (highest priority)
         for r in direct_deps {
-            if !result.iter().any(|x: &TypedRef| x.id == r.id && x.kind == r.kind) {
+            if !result
+                .iter()
+                .any(|x: &TypedRef| x.id == r.id && x.kind == r.kind)
+            {
                 result.push(r.clone());
             }
         }
 
         // Add governing documents
         for r in governing_docs {
-            if !result.iter().any(|x: &TypedRef| x.id == r.id && x.kind == r.kind) {
+            if !result
+                .iter()
+                .any(|x: &TypedRef| x.id == r.id && x.kind == r.kind)
+            {
                 result.push(r.clone());
             }
         }
 
         // Add evidence
         for r in evidence {
-            if !result.iter().any(|x: &TypedRef| x.id == r.id && x.kind == r.kind) {
+            if !result
+                .iter()
+                .any(|x: &TypedRef| x.id == r.id && x.kind == r.kind)
+            {
                 result.push(r.clone());
             }
         }
@@ -358,8 +365,7 @@ impl RefSelector {
         refs: &[TypedRef],
         dependencies: &BTreeMap<String, Vec<String>>, // id -> [dependency_ids]
     ) -> Result<Vec<TypedRef>, DomainError> {
-        let ref_map: BTreeMap<String, &TypedRef> =
-            refs.iter().map(|r| (r.id.clone(), r)).collect();
+        let ref_map: BTreeMap<String, &TypedRef> = refs.iter().map(|r| (r.id.clone(), r)).collect();
 
         let mut in_degree: BTreeMap<String, usize> = BTreeMap::new();
         let mut adj: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -471,9 +477,7 @@ mod tests {
         let timestamp = Utc::now();
 
         // Mock resolver
-        let resolve = |_: &TypedRef| {
-            Ok((ContentHash::new("abc123"), ItemClassification::Public))
-        };
+        let resolve = |_: &TypedRef| Ok((ContentHash::new("abc123"), ItemClassification::Public));
 
         let bundle1 = compiler.compile(&refs, timestamp, resolve).unwrap();
         let bundle2 = compiler.compile(&refs, timestamp, resolve).unwrap();
@@ -494,7 +498,10 @@ mod tests {
 
         let resolve = |r: &TypedRef| {
             if r.kind == "Secret" {
-                Ok((ContentHash::new("secret123"), ItemClassification::Confidential))
+                Ok((
+                    ContentHash::new("secret123"),
+                    ItemClassification::Confidential,
+                ))
             } else {
                 Ok((ContentHash::new("public456"), ItemClassification::Public))
             }

@@ -18,6 +18,8 @@ export interface AppConfig {
   oidcPostLogoutRedirectUri: string;
   /** OIDC scopes */
   oidcScopes: string;
+  /** Dev mode: bypass OIDC authentication */
+  devAuthBypass: boolean;
 }
 
 function getEnv(key: string, defaultValue: string): string {
@@ -33,6 +35,7 @@ export const config: AppConfig = {
   oidcRedirectUri: getEnv('VITE_OIDC_REDIRECT_URI', window.location.origin + '/callback'),
   oidcPostLogoutRedirectUri: getEnv('VITE_OIDC_POST_LOGOUT_REDIRECT_URI', window.location.origin),
   oidcScopes: getEnv('VITE_OIDC_SCOPES', 'openid profile email'),
+  devAuthBypass: getEnv('VITE_DEV_AUTH_BYPASS', 'false') === 'true',
 };
 
 export default config;

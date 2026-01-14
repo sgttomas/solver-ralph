@@ -13,6 +13,7 @@ pub mod exceptions;
 pub mod freeze;
 pub mod iterations;
 pub mod loops;
+pub mod prompt_loop;
 pub mod runs;
 
 pub use error::{ApiError, ApiResult};

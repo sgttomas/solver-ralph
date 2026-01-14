@@ -560,7 +560,12 @@ mod tests {
 
         let mut pg_result = ServiceTestResult::new("postgres", "localhost:5432");
         pg_result.reachable = true;
-        pg_result.add_test(TestResult::fail("connect", "Connection test", "timeout", 100));
+        pg_result.add_test(TestResult::fail(
+            "connect",
+            "Connection test",
+            "timeout",
+            100,
+        ));
         report.add_service_result("postgres", pg_result);
 
         report.compute_status();

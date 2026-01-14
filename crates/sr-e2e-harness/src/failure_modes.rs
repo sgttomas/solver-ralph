@@ -21,9 +21,7 @@ use crate::harness::{HarnessConfig, HarnessError, HarnessResult};
 use crate::transcript::{HarnessTranscript, TranscriptEntryKind};
 use chrono::Utc;
 use sha2::{Digest, Sha256};
-use sr_adapters::{
-    EvidenceArtifact, EvidenceManifestBuilder, OracleResult, OracleResultStatus,
-};
+use sr_adapters::{EvidenceArtifact, EvidenceManifestBuilder, OracleResult, OracleResultStatus};
 use std::collections::HashMap;
 use tracing::{info, instrument};
 
@@ -156,7 +154,10 @@ async fn execute_oracle_failure(
         None,
     );
     transcript.produced_ids.loop_id = Some(loop_response.loop_id.clone());
-    transcript.produced_ids.event_ids.push(loop_response.event_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(loop_response.event_id.clone());
 
     let loop_id = loop_response.loop_id;
 
@@ -171,7 +172,10 @@ async fn execute_oracle_failure(
         Some(loop_id.clone()),
         None,
     );
-    transcript.produced_ids.event_ids.push(activate_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(activate_response.event_id);
 
     // Step 3: Start Iteration
     transcript.start_operation(TranscriptEntryKind::StartIteration, "Starting iteration");
@@ -195,13 +199,22 @@ async fn execute_oracle_failure(
         Some(iteration_response.iteration_id.clone()),
         None,
     );
-    transcript.produced_ids.iteration_ids.push(iteration_response.iteration_id.clone());
-    transcript.produced_ids.event_ids.push(iteration_response.event_id);
+    transcript
+        .produced_ids
+        .iteration_ids
+        .push(iteration_response.iteration_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(iteration_response.event_id);
 
     let iteration_id = iteration_response.iteration_id;
 
     // Step 4: Register Candidate
-    transcript.start_operation(TranscriptEntryKind::RegisterCandidate, "Registering candidate");
+    transcript.start_operation(
+        TranscriptEntryKind::RegisterCandidate,
+        "Registering candidate",
+    );
 
     let candidate_content = format!("failure-candidate-{}", loop_id);
     let content_hash = compute_sha256(&candidate_content);
@@ -226,8 +239,14 @@ async fn execute_oracle_failure(
         Some(candidate_response.candidate_id.clone()),
         None,
     );
-    transcript.produced_ids.candidate_ids.push(candidate_response.candidate_id.clone());
-    transcript.produced_ids.event_ids.push(candidate_response.event_id);
+    transcript
+        .produced_ids
+        .candidate_ids
+        .push(candidate_response.candidate_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(candidate_response.event_id);
 
     let candidate_id = candidate_response.candidate_id;
 
@@ -249,8 +268,14 @@ async fn execute_oracle_failure(
         Some(run_response.run_id.clone()),
         None,
     );
-    transcript.produced_ids.run_ids.push(run_response.run_id.clone());
-    transcript.produced_ids.event_ids.push(run_response.event_id);
+    transcript
+        .produced_ids
+        .run_ids
+        .push(run_response.run_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(run_response.event_id);
 
     let run_id = run_response.run_id;
 
@@ -281,7 +306,10 @@ async fn execute_oracle_failure(
             "failing_oracles": ["lint", "unit-test"]
         })),
     );
-    transcript.produced_ids.evidence_hashes.push(evidence_response.content_hash.clone());
+    transcript
+        .produced_ids
+        .evidence_hashes
+        .push(evidence_response.content_hash.clone());
 
     let evidence_hash = evidence_response.content_hash;
 
@@ -309,7 +337,10 @@ async fn execute_oracle_failure(
         Some(run_id.clone()),
         Some(serde_json::json!({ "outcome": "FAILURE" })),
     );
-    transcript.produced_ids.event_ids.push(run_complete_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(run_complete_response.event_id);
 
     // Step 8: Record stop trigger (per SR-CONTRACT C-LOOP-3)
     transcript.start_operation(
@@ -368,10 +399,16 @@ async fn execute_oracle_failure(
         Some(iteration_id.clone()),
         None,
     );
-    transcript.produced_ids.event_ids.push(iteration_complete_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(iteration_complete_response.event_id);
 
     // Step 10: Close loop (failure state)
-    transcript.start_operation(TranscriptEntryKind::CloseLoop, "Closing loop (failure state)");
+    transcript.start_operation(
+        TranscriptEntryKind::CloseLoop,
+        "Closing loop (failure state)",
+    );
 
     let close_response = client.close_loop(&loop_id).await?;
 
@@ -382,7 +419,10 @@ async fn execute_oracle_failure(
         Some(loop_id.clone()),
         None,
     );
-    transcript.produced_ids.event_ids.push(close_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(close_response.event_id);
 
     // Final invariants
     transcript.check_invariant(
@@ -393,10 +433,7 @@ async fn execute_oracle_failure(
 
     transcript.check_invariant(
         "no_silent_progression",
-        transcript
-            .produced_ids
-            .approval_ids
-            .is_empty()
+        transcript.produced_ids.approval_ids.is_empty()
             && transcript.produced_ids.freeze_ids.is_empty(),
         "System did not silently proceed to approval/freeze",
     );
@@ -476,7 +513,10 @@ async fn execute_integrity_tamper(
     transcript: &mut HarnessTranscript,
 ) -> Result<(), HarnessError> {
     // Setup: Create loop, iteration, candidate, run (abbreviated)
-    transcript.start_operation(TranscriptEntryKind::CreateLoop, "Creating loop for tamper test");
+    transcript.start_operation(
+        TranscriptEntryKind::CreateLoop,
+        "Creating loop for tamper test",
+    );
 
     let loop_response = client
         .create_loop(
@@ -498,20 +538,30 @@ async fn execute_integrity_tamper(
         None,
     );
     transcript.produced_ids.loop_id = Some(loop_response.loop_id.clone());
-    transcript.produced_ids.event_ids.push(loop_response.event_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(loop_response.event_id.clone());
 
     let loop_id = loop_response.loop_id;
 
     // Activate loop
     let activate_response = client.activate_loop(&loop_id).await?;
-    transcript.produced_ids.event_ids.push(activate_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(activate_response.event_id);
 
     // Start iteration
-    let iteration_response = client
-        .start_iteration(&loop_id, vec![])
-        .await?;
-    transcript.produced_ids.iteration_ids.push(iteration_response.iteration_id.clone());
-    transcript.produced_ids.event_ids.push(iteration_response.event_id);
+    let iteration_response = client.start_iteration(&loop_id, vec![]).await?;
+    transcript
+        .produced_ids
+        .iteration_ids
+        .push(iteration_response.iteration_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(iteration_response.event_id);
 
     let iteration_id = iteration_response.iteration_id;
 
@@ -520,8 +570,14 @@ async fn execute_integrity_tamper(
     let candidate_response = client
         .register_candidate(&content_hash, Some(&iteration_id), vec![])
         .await?;
-    transcript.produced_ids.candidate_ids.push(candidate_response.candidate_id.clone());
-    transcript.produced_ids.event_ids.push(candidate_response.event_id);
+    transcript
+        .produced_ids
+        .candidate_ids
+        .push(candidate_response.candidate_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(candidate_response.event_id);
 
     let candidate_id = candidate_response.candidate_id;
 
@@ -533,8 +589,14 @@ async fn execute_integrity_tamper(
             &config.base.oracle_suite_hash,
         )
         .await?;
-    transcript.produced_ids.run_ids.push(run_response.run_id.clone());
-    transcript.produced_ids.event_ids.push(run_response.event_id);
+    transcript
+        .produced_ids
+        .run_ids
+        .push(run_response.run_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(run_response.event_id);
 
     let run_id = run_response.run_id;
 
@@ -566,7 +628,10 @@ async fn execute_integrity_tamper(
             "description": "Artifact hashes do not match declared values"
         })),
     );
-    transcript.produced_ids.evidence_hashes.push(evidence_response.content_hash.clone());
+    transcript
+        .produced_ids
+        .evidence_hashes
+        .push(evidence_response.content_hash.clone());
 
     // Record integrity check result
     transcript.start_operation(
@@ -621,9 +686,16 @@ async fn execute_integrity_tamper(
 
     // Complete run with integrity failure
     let run_complete_response = client
-        .complete_run(&run_id, "INTEGRITY_FAILURE", Some(&evidence_response.content_hash))
+        .complete_run(
+            &run_id,
+            "INTEGRITY_FAILURE",
+            Some(&evidence_response.content_hash),
+        )
         .await?;
-    transcript.produced_ids.event_ids.push(run_complete_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(run_complete_response.event_id);
 
     // Close loop
     let _ = client.close_loop(&loop_id).await?;
@@ -717,7 +789,10 @@ async fn execute_exception_waiver(
     transcript: &mut HarnessTranscript,
 ) -> Result<(), HarnessError> {
     // Step 1: Create Loop
-    transcript.start_operation(TranscriptEntryKind::CreateLoop, "Creating loop for waiver test");
+    transcript.start_operation(
+        TranscriptEntryKind::CreateLoop,
+        "Creating loop for waiver test",
+    );
 
     let loop_response = client
         .create_loop(
@@ -739,19 +814,29 @@ async fn execute_exception_waiver(
         None,
     );
     transcript.produced_ids.loop_id = Some(loop_response.loop_id.clone());
-    transcript.produced_ids.event_ids.push(loop_response.event_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(loop_response.event_id.clone());
 
     let loop_id = loop_response.loop_id;
 
     // Activate and setup
     let activate_response = client.activate_loop(&loop_id).await?;
-    transcript.produced_ids.event_ids.push(activate_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(activate_response.event_id);
 
-    let iteration_response = client
-        .start_iteration(&loop_id, vec![])
-        .await?;
-    transcript.produced_ids.iteration_ids.push(iteration_response.iteration_id.clone());
-    transcript.produced_ids.event_ids.push(iteration_response.event_id);
+    let iteration_response = client.start_iteration(&loop_id, vec![]).await?;
+    transcript
+        .produced_ids
+        .iteration_ids
+        .push(iteration_response.iteration_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(iteration_response.event_id);
 
     let iteration_id = iteration_response.iteration_id;
 
@@ -759,8 +844,14 @@ async fn execute_exception_waiver(
     let candidate_response = client
         .register_candidate(&content_hash, Some(&iteration_id), vec![])
         .await?;
-    transcript.produced_ids.candidate_ids.push(candidate_response.candidate_id.clone());
-    transcript.produced_ids.event_ids.push(candidate_response.event_id);
+    transcript
+        .produced_ids
+        .candidate_ids
+        .push(candidate_response.candidate_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(candidate_response.event_id);
 
     let candidate_id = candidate_response.candidate_id;
 
@@ -771,8 +862,14 @@ async fn execute_exception_waiver(
             &config.base.oracle_suite_hash,
         )
         .await?;
-    transcript.produced_ids.run_ids.push(run_response.run_id.clone());
-    transcript.produced_ids.event_ids.push(run_response.event_id);
+    transcript
+        .produced_ids
+        .run_ids
+        .push(run_response.run_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(run_response.event_id);
 
     let run_id = run_response.run_id;
 
@@ -804,7 +901,10 @@ async fn execute_exception_waiver(
             "waivable": true
         })),
     );
-    transcript.produced_ids.evidence_hashes.push(evidence_response.content_hash.clone());
+    transcript
+        .produced_ids
+        .evidence_hashes
+        .push(evidence_response.content_hash.clone());
 
     let evidence_hash = evidence_response.content_hash;
 
@@ -812,7 +912,10 @@ async fn execute_exception_waiver(
     let run_complete_response = client
         .complete_run(&run_id, "FAILURE", Some(&evidence_hash))
         .await?;
-    transcript.produced_ids.event_ids.push(run_complete_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(run_complete_response.event_id);
 
     // Step 3: Create Exception (WAIVER) - per SR-CONTRACT C-EXC-4
     transcript.start_operation(
@@ -846,8 +949,14 @@ async fn execute_exception_waiver(
             "target_oracle": "lint"
         })),
     );
-    transcript.produced_ids.waiver_ids.push(exception_response.exception_id.clone());
-    transcript.produced_ids.event_ids.push(exception_response.event_id);
+    transcript
+        .produced_ids
+        .waiver_ids
+        .push(exception_response.exception_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(exception_response.event_id);
 
     let waiver_id = exception_response.exception_id;
 
@@ -875,7 +984,10 @@ async fn execute_exception_waiver(
             "status": "ACTIVE"
         })),
     );
-    transcript.produced_ids.event_ids.push(activate_exception_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(activate_exception_response.event_id);
 
     // Step 5: Record approval WITH waiver acknowledgment
     transcript.start_operation(
@@ -921,8 +1033,14 @@ async fn execute_exception_waiver(
             "verification_mode": "WITH_EXCEPTIONS"
         })),
     );
-    transcript.produced_ids.approval_ids.push(approval_response.approval_id.clone());
-    transcript.produced_ids.event_ids.push(approval_response.event_id);
+    transcript
+        .produced_ids
+        .approval_ids
+        .push(approval_response.approval_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(approval_response.event_id);
 
     let approval_id = approval_response.approval_id;
 
@@ -961,8 +1079,14 @@ async fn execute_exception_waiver(
             "active_waivers": [waiver_id.clone()]
         })),
     );
-    transcript.produced_ids.freeze_ids.push(freeze_response.freeze_id.clone());
-    transcript.produced_ids.event_ids.push(freeze_response.event_id);
+    transcript
+        .produced_ids
+        .freeze_ids
+        .push(freeze_response.freeze_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(freeze_response.event_id);
 
     // Step 7: Resolve the exception (marking it complete)
     transcript.start_operation(
@@ -971,7 +1095,10 @@ async fn execute_exception_waiver(
     );
 
     let resolve_response = client
-        .resolve_exception(&waiver_id, Some("Legacy code migrated, lint issues resolved"))
+        .resolve_exception(
+            &waiver_id,
+            Some("Legacy code migrated, lint issues resolved"),
+        )
         .await?;
 
     transcript.complete_operation(
@@ -983,7 +1110,10 @@ async fn execute_exception_waiver(
             "status": "RESOLVED"
         })),
     );
-    transcript.produced_ids.event_ids.push(resolve_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(resolve_response.event_id);
 
     // Complete iteration and close loop
     let _ = client
@@ -1217,11 +1347,14 @@ fn create_waivable_failure_manifest(
             size: 512,
             description: Some("Lint warnings (waivable)".to_string()),
         })
-        .add_metadata("waivable_failure", serde_json::json!({
-            "failing_oracle": "lint",
-            "waivable": true,
-            "rationale": "Legacy code migration in progress"
-        }));
+        .add_metadata(
+            "waivable_failure",
+            serde_json::json!({
+                "failing_oracle": "lint",
+                "waivable": true,
+                "rationale": "Legacy code migration in progress"
+            }),
+        );
 
     for result in oracle_results {
         builder = builder.add_result(result);

@@ -452,7 +452,11 @@ impl ProcedureTemplate {
     /// Get the initial stage ID
     pub fn get_initial_stage(&self) -> &StageId {
         self.initial_stage_id.as_ref().unwrap_or_else(|| {
-            &self.stages.first().expect("Template must have at least one stage").stage_id
+            &self
+                .stages
+                .first()
+                .expect("Template must have at least one stage")
+                .stage_id
         })
     }
 
@@ -718,7 +722,9 @@ impl ProcedureTemplateValidator {
         }
 
         // Verify terminal stage exists
-        let terminal_exists = template.stages.iter()
+        let terminal_exists = template
+            .stages
+            .iter()
             .any(|s| s.stage_id == template.terminal_stage_id);
         if !terminal_exists {
             return Err(DomainError::InvariantViolation {
@@ -733,8 +739,7 @@ impl ProcedureTemplateValidator {
         for stage in &template.stages {
             match &stage.transition_on_pass {
                 TransitionTarget::Stage(target_id) => {
-                    let target_exists = template.stages.iter()
-                        .any(|s| &s.stage_id == target_id);
+                    let target_exists = template.stages.iter().any(|s| &s.stage_id == target_id);
                     if !target_exists {
                         return Err(DomainError::InvariantViolation {
                             invariant: format!(
@@ -751,8 +756,7 @@ impl ProcedureTemplateValidator {
 
         // Verify initial stage exists (if specified)
         if let Some(initial) = &template.initial_stage_id {
-            let initial_exists = template.stages.iter()
-                .any(|s| &s.stage_id == initial);
+            let initial_exists = template.stages.iter().any(|s| &s.stage_id == initial);
             if !initial_exists {
                 return Err(DomainError::InvariantViolation {
                     invariant: format!(
@@ -791,9 +795,7 @@ impl ProcedureTemplateValidator {
         // Validate portal configuration
         if stage.requires_portal && stage.portal_id.is_none() {
             return Err(DomainError::InvariantViolation {
-                invariant: format!(
-                    "stages[{index}] requires_portal=true but portal_id is not set"
-                ),
+                invariant: format!("stages[{index}] requires_portal=true but portal_id is not set"),
             });
         }
 
@@ -832,9 +834,15 @@ impl WorkSurfaceInstanceValidator {
             });
         }
 
-        if instance.procedure_template_ref.content_hash.as_str().is_empty() {
+        if instance
+            .procedure_template_ref
+            .content_hash
+            .as_str()
+            .is_empty()
+        {
             return Err(DomainError::InvariantViolation {
-                invariant: "WorkSurfaceInstance.procedure_template_ref.content_hash is required".to_string(),
+                invariant: "WorkSurfaceInstance.procedure_template_ref.content_hash is required"
+                    .to_string(),
             });
         }
 
@@ -1045,7 +1053,10 @@ mod tests {
 
         let result = template.validate();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("terminal_stage_id"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("terminal_stage_id"));
     }
 
     #[test]

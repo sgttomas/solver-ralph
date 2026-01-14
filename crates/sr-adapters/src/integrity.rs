@@ -25,7 +25,9 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::evidence::{EvidenceManifest, OracleResultStatus};
-use crate::oracle_runner::{EnvironmentConstraints, EnvironmentFingerprint, NetworkMode, OracleSuiteDefinition};
+use crate::oracle_runner::{
+    EnvironmentConstraints, EnvironmentFingerprint, NetworkMode, OracleSuiteDefinition,
+};
 use crate::oracle_suite::{IntegrityCondition, VerificationProfile};
 
 // ============================================================================
@@ -343,15 +345,16 @@ impl IntegrityChecker {
                 violations.push(IntegrityViolation {
                     condition: IntegrityCondition::OracleTamper,
                     severity: ViolationSeverity::Critical,
-                    message: format!(
-                        "Tamper detected: {}",
-                        tamper_result.findings.join("; ")
-                    ),
+                    message: format!("Tamper detected: {}", tamper_result.findings.join("; ")),
                     context: BTreeMap::from_iter([
-                        ("expected_manifest_hash".to_string(),
-                         serde_json::json!(tamper_result.expected_manifest_hash)),
-                        ("actual_manifest_hash".to_string(),
-                         serde_json::json!(tamper_result.actual_manifest_hash)),
+                        (
+                            "expected_manifest_hash".to_string(),
+                            serde_json::json!(tamper_result.expected_manifest_hash),
+                        ),
+                        (
+                            "actual_manifest_hash".to_string(),
+                            serde_json::json!(tamper_result.actual_manifest_hash),
+                        ),
                     ]),
                     detected_at: Utc::now(),
                 });
@@ -372,10 +375,14 @@ impl IntegrityChecker {
                         gap_result.missing_oracles
                     ),
                     context: BTreeMap::from_iter([
-                        ("missing_oracles".to_string(),
-                         serde_json::json!(gap_result.missing_oracles)),
-                        ("coverage_percentage".to_string(),
-                         serde_json::json!(gap_result.coverage_percentage)),
+                        (
+                            "missing_oracles".to_string(),
+                            serde_json::json!(gap_result.missing_oracles),
+                        ),
+                        (
+                            "coverage_percentage".to_string(),
+                            serde_json::json!(gap_result.coverage_percentage),
+                        ),
                     ]),
                     detected_at: Utc::now(),
                 });
@@ -388,14 +395,25 @@ impl IntegrityChecker {
             let env_result = self.check_environment(manifest, suite_def);
 
             if !env_result.passed {
-                let critical_violations: Vec<_> = env_result.violations.iter()
+                let critical_violations: Vec<_> = env_result
+                    .violations
+                    .iter()
                     .filter(|v| v.critical)
-                    .map(|v| format!("{}: expected {}, got {}", v.constraint, v.expected, v.actual))
+                    .map(|v| {
+                        format!(
+                            "{}: expected {}, got {}",
+                            v.constraint, v.expected, v.actual
+                        )
+                    })
                     .collect();
 
                 violations.push(IntegrityViolation {
                     condition: IntegrityCondition::OracleEnvMismatch,
-                    severity: if critical_violations.is_empty() { ViolationSeverity::High } else { ViolationSeverity::Critical },
+                    severity: if critical_violations.is_empty() {
+                        ViolationSeverity::High
+                    } else {
+                        ViolationSeverity::Critical
+                    },
                     message: format!(
                         "Environment mismatch: {}",
                         if critical_violations.is_empty() {
@@ -404,10 +422,10 @@ impl IntegrityChecker {
                             critical_violations.join("; ")
                         }
                     ),
-                    context: BTreeMap::from_iter([
-                        ("violations".to_string(),
-                         serde_json::to_value(&env_result.violations).unwrap_or_default()),
-                    ]),
+                    context: BTreeMap::from_iter([(
+                        "violations".to_string(),
+                        serde_json::to_value(&env_result.violations).unwrap_or_default(),
+                    )]),
                     detected_at: Utc::now(),
                 });
             }
@@ -426,10 +444,10 @@ impl IntegrityChecker {
                         "Flaky behavior detected in oracles: {:?}",
                         flake_result.flaky_oracles
                     ),
-                    context: BTreeMap::from_iter([
-                        ("flaky_oracles".to_string(),
-                         serde_json::json!(flake_result.flaky_oracles)),
-                    ]),
+                    context: BTreeMap::from_iter([(
+                        "flaky_oracles".to_string(),
+                        serde_json::json!(flake_result.flaky_oracles),
+                    )]),
                     detected_at: Utc::now(),
                 });
             }
@@ -458,8 +476,14 @@ impl IntegrityChecker {
                     manifest.verdict, expected_verdict
                 ),
                 context: BTreeMap::from_iter([
-                    ("declared_verdict".to_string(), serde_json::json!(manifest.verdict)),
-                    ("computed_verdict".to_string(), serde_json::json!(expected_verdict)),
+                    (
+                        "declared_verdict".to_string(),
+                        serde_json::json!(manifest.verdict),
+                    ),
+                    (
+                        "computed_verdict".to_string(),
+                        serde_json::json!(expected_verdict),
+                    ),
                 ]),
                 detected_at: Utc::now(),
             });
@@ -563,14 +587,19 @@ impl IntegrityChecker {
                         },
                     }
                 } else {
-                    findings.push(format!("Artifact '{}' not found for verification", artifact.name));
+                    findings.push(format!(
+                        "Artifact '{}' not found for verification",
+                        artifact.name
+                    ));
 
                     ArtifactHashCheck {
                         name: artifact.name.clone(),
                         expected_hash: artifact.content_hash.clone(),
                         actual_hash: None,
                         matched: false,
-                        mismatch_reason: Some("Artifact content not provided for verification".to_string()),
+                        mismatch_reason: Some(
+                            "Artifact content not provided for verification".to_string(),
+                        ),
                     }
                 };
 
@@ -599,26 +628,34 @@ impl IntegrityChecker {
         suite_def: &OracleSuiteDefinition,
     ) -> GapCheckResult {
         // Get required oracle IDs from suite definition
-        let required_oracles: BTreeSet<String> = suite_def.oracles.iter()
+        let required_oracles: BTreeSet<String> = suite_def
+            .oracles
+            .iter()
             .filter(|o| o.classification == crate::oracle_runner::OracleClassification::Required)
             .map(|o| o.oracle_id.clone())
             .collect();
 
         // Get executed oracle IDs from manifest
-        let executed_oracles: BTreeSet<String> = manifest.results.iter()
+        let executed_oracles: BTreeSet<String> = manifest
+            .results
+            .iter()
             .map(|r| r.oracle_id.clone())
             .collect();
 
         // Find missing and extra oracles
-        let missing_oracles: Vec<String> = required_oracles.difference(&executed_oracles)
+        let missing_oracles: Vec<String> = required_oracles
+            .difference(&executed_oracles)
             .cloned()
             .collect();
 
-        let all_suite_oracles: BTreeSet<String> = suite_def.oracles.iter()
+        let all_suite_oracles: BTreeSet<String> = suite_def
+            .oracles
+            .iter()
             .map(|o| o.oracle_id.clone())
             .collect();
 
-        let extra_oracles: Vec<String> = executed_oracles.difference(&all_suite_oracles)
+        let extra_oracles: Vec<String> = executed_oracles
+            .difference(&all_suite_oracles)
             .cloned()
             .collect();
 
@@ -652,37 +689,36 @@ impl IntegrityChecker {
         let mut violations = Vec::new();
 
         // Parse fingerprint from manifest
-        let fingerprint: EnvironmentFingerprint = match serde_json::from_value(
-            manifest.environment_fingerprint.clone()
-        ) {
-            Ok(fp) => fp,
-            Err(e) => {
-                // Cannot verify - return failed with parse error
-                return EnvironmentCheckResult {
-                    passed: false,
-                    expected_constraints: constraints.clone(),
-                    actual_fingerprint: EnvironmentFingerprint {
-                        container_image_digest: String::new(),
-                        runtime: "unknown".to_string(),
-                        runtime_version: String::new(),
-                        os: String::new(),
-                        arch: String::new(),
-                        network_mode: String::new(),
-                        workspace_readonly: false,
-                        scratch_writable: false,
-                        tool_versions: BTreeMap::new(),
-                        runner_id: String::new(),
-                        executed_at: Utc::now(),
-                    },
-                    violations: vec![ConstraintViolation {
-                        constraint: "fingerprint_parse".to_string(),
-                        expected: "valid fingerprint".to_string(),
-                        actual: format!("parse error: {}", e),
-                        critical: true,
-                    }],
-                };
-            }
-        };
+        let fingerprint: EnvironmentFingerprint =
+            match serde_json::from_value(manifest.environment_fingerprint.clone()) {
+                Ok(fp) => fp,
+                Err(e) => {
+                    // Cannot verify - return failed with parse error
+                    return EnvironmentCheckResult {
+                        passed: false,
+                        expected_constraints: constraints.clone(),
+                        actual_fingerprint: EnvironmentFingerprint {
+                            container_image_digest: String::new(),
+                            runtime: "unknown".to_string(),
+                            runtime_version: String::new(),
+                            os: String::new(),
+                            arch: String::new(),
+                            network_mode: String::new(),
+                            workspace_readonly: false,
+                            scratch_writable: false,
+                            tool_versions: BTreeMap::new(),
+                            runner_id: String::new(),
+                            executed_at: Utc::now(),
+                        },
+                        violations: vec![ConstraintViolation {
+                            constraint: "fingerprint_parse".to_string(),
+                            expected: "valid fingerprint".to_string(),
+                            actual: format!("parse error: {}", e),
+                            critical: true,
+                        }],
+                    };
+                }
+            };
 
         // Check runtime
         if constraints.runtime != fingerprint.runtime {
@@ -747,11 +783,7 @@ impl IntegrityChecker {
     }
 
     /// Check for flaky oracle behavior
-    async fn check_flakes(
-        &self,
-        manifest: &EvidenceManifest,
-        run_id: &str,
-    ) -> FlakeCheckResult {
+    async fn check_flakes(&self, manifest: &EvidenceManifest, run_id: &str) -> FlakeCheckResult {
         // Record current run results
         let mut history = self.flake_history.write().await;
 
@@ -836,13 +868,12 @@ impl IntegrityChecker {
         _profile: Option<&VerificationProfile>,
     ) -> StopTrigger {
         // Find most severe violation to determine trigger type
-        let most_severe = violations.iter()
-            .max_by_key(|v| match v.severity {
-                ViolationSeverity::Critical => 4,
-                ViolationSeverity::High => 3,
-                ViolationSeverity::Medium => 2,
-                ViolationSeverity::Low => 1,
-            });
+        let most_severe = violations.iter().max_by_key(|v| match v.severity {
+            ViolationSeverity::Critical => 4,
+            ViolationSeverity::High => 3,
+            ViolationSeverity::Medium => 2,
+            ViolationSeverity::Low => 1,
+        });
 
         let (trigger_type, recommended_portal) = if let Some(violation) = most_severe {
             match violation.condition {
@@ -872,10 +903,14 @@ impl IntegrityChecker {
                 ),
             }
         } else {
-            (StopTriggerType::EvidenceMissing, "GovernanceChangePortal".to_string())
+            (
+                StopTriggerType::EvidenceMissing,
+                "GovernanceChangePortal".to_string(),
+            )
         };
 
-        let reason = violations.iter()
+        let reason = violations
+            .iter()
             .map(|v| v.message.clone())
             .collect::<Vec<_>>()
             .join("; ");
@@ -1003,9 +1038,7 @@ impl FlakeHistoryTracker {
     fn get_oracle_stats(&self, oracle_id: &str, since: DateTime<Utc>) -> Option<OracleStats> {
         let records = self.results.get(oracle_id)?;
 
-        let filtered: Vec<_> = records.iter()
-            .filter(|r| r.recorded_at >= since)
-            .collect();
+        let filtered: Vec<_> = records.iter().filter(|r| r.recorded_at >= since).collect();
 
         if filtered.is_empty() {
             return None;
@@ -1081,7 +1114,7 @@ pub enum IntegrityError {
 mod tests {
     use super::*;
     use crate::evidence::{EvidenceArtifact, OracleResult};
-    use crate::oracle_runner::{OracleClassification, OracleDefinition, ExpectedOutput};
+    use crate::oracle_runner::{ExpectedOutput, OracleClassification, OracleDefinition};
 
     fn create_test_manifest() -> EvidenceManifest {
         EvidenceManifest {
@@ -1107,27 +1140,23 @@ mod tests {
                 "runner_id": "test_runner",
                 "executed_at": Utc::now().to_rfc3339()
             }),
-            results: vec![
-                OracleResult {
-                    oracle_id: "oracle:build".to_string(),
-                    oracle_name: "Build".to_string(),
-                    status: OracleResultStatus::Pass,
-                    duration_ms: 100,
-                    error_message: None,
-                    artifact_refs: vec!["abc123".to_string()],
-                    output: None,
-                },
-            ],
+            results: vec![OracleResult {
+                oracle_id: "oracle:build".to_string(),
+                oracle_name: "Build".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 100,
+                error_message: None,
+                artifact_refs: vec!["abc123".to_string()],
+                output: None,
+            }],
             verdict: OracleResultStatus::Pass,
-            artifacts: vec![
-                EvidenceArtifact {
-                    name: "build.json".to_string(),
-                    content_hash: "abc123".to_string(),
-                    content_type: "application/json".to_string(),
-                    size: 100,
-                    description: None,
-                },
-            ],
+            artifacts: vec![EvidenceArtifact {
+                name: "build.json".to_string(),
+                content_hash: "abc123".to_string(),
+                content_type: "application/json".to_string(),
+                size: 100,
+                description: None,
+            }],
             metadata: BTreeMap::new(),
         }
     }
@@ -1146,23 +1175,21 @@ mod tests {
                 workspace_readonly: true,
                 additional_constraints: vec![],
             },
-            oracles: vec![
-                OracleDefinition {
-                    oracle_id: "oracle:build".to_string(),
-                    oracle_name: "Build".to_string(),
-                    command: "make build".to_string(),
-                    args: vec![],
-                    timeout_seconds: 300,
-                    expected_outputs: vec![ExpectedOutput {
-                        path: "build.json".to_string(),
-                        content_type: "application/json".to_string(),
-                        required: true,
-                    }],
-                    classification: OracleClassification::Required,
-                    working_dir: None,
-                    env: BTreeMap::new(),
-                },
-            ],
+            oracles: vec![OracleDefinition {
+                oracle_id: "oracle:build".to_string(),
+                oracle_name: "Build".to_string(),
+                command: "make build".to_string(),
+                args: vec![],
+                timeout_seconds: 300,
+                expected_outputs: vec![ExpectedOutput {
+                    path: "build.json".to_string(),
+                    content_type: "application/json".to_string(),
+                    required: true,
+                }],
+                classification: OracleClassification::Required,
+                working_dir: None,
+                env: BTreeMap::new(),
+            }],
             metadata: BTreeMap::new(),
         }
     }
@@ -1173,18 +1200,24 @@ mod tests {
         let manifest = create_test_manifest();
         let suite = create_test_suite();
 
-        let result = checker.check_integrity(
-            "candidate_123",
-            "run_123",
-            &manifest,
-            &suite,
-            None,
-            None,
-            None,
-            None,
-        ).await;
+        let result = checker
+            .check_integrity(
+                "candidate_123",
+                "run_123",
+                &manifest,
+                &suite,
+                None,
+                None,
+                None,
+                None,
+            )
+            .await;
 
-        assert!(result.passed, "Expected integrity check to pass: {:?}", result.violations);
+        assert!(
+            result.passed,
+            "Expected integrity check to pass: {:?}",
+            result.violations
+        );
         assert!(result.violations.is_empty());
         assert!(result.stop_trigger.is_none());
     }
@@ -1196,19 +1229,24 @@ mod tests {
         let suite = create_test_suite();
 
         // Provide wrong expected hash
-        let result = checker.check_integrity(
-            "candidate_123",
-            "run_123",
-            &manifest,
-            &suite,
-            None,
-            None,
-            Some("wrong_hash"),
-            None,
-        ).await;
+        let result = checker
+            .check_integrity(
+                "candidate_123",
+                "run_123",
+                &manifest,
+                &suite,
+                None,
+                None,
+                Some("wrong_hash"),
+                None,
+            )
+            .await;
 
         assert!(!result.passed);
-        assert!(result.violations.iter().any(|v| v.condition == IntegrityCondition::OracleTamper));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| v.condition == IntegrityCondition::OracleTamper));
     }
 
     #[tokio::test]
@@ -1230,22 +1268,29 @@ mod tests {
             env: BTreeMap::new(),
         });
 
-        let result = checker.check_integrity(
-            "candidate_123",
-            "run_123",
-            &manifest,
-            &suite,
-            None,
-            None,
-            None,
-            None,
-        ).await;
+        let result = checker
+            .check_integrity(
+                "candidate_123",
+                "run_123",
+                &manifest,
+                &suite,
+                None,
+                None,
+                None,
+                None,
+            )
+            .await;
 
         assert!(!result.passed);
-        assert!(result.violations.iter().any(|v| v.condition == IntegrityCondition::OracleGap));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| v.condition == IntegrityCondition::OracleGap));
 
         let gap_check = result.check_results.gap_check.unwrap();
-        assert!(gap_check.missing_oracles.contains(&"oracle:test".to_string()));
+        assert!(gap_check
+            .missing_oracles
+            .contains(&"oracle:test".to_string()));
     }
 
     #[tokio::test]
@@ -1270,37 +1315,43 @@ mod tests {
 
         let suite = create_test_suite();
 
-        let result = checker.check_integrity(
-            "candidate_123",
-            "run_123",
-            &manifest,
-            &suite,
-            None,
-            None,
-            None,
-            None,
-        ).await;
+        let result = checker
+            .check_integrity(
+                "candidate_123",
+                "run_123",
+                &manifest,
+                &suite,
+                None,
+                None,
+                None,
+                None,
+            )
+            .await;
 
         assert!(!result.passed);
-        assert!(result.violations.iter().any(|v| v.condition == IntegrityCondition::OracleEnvMismatch));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| v.condition == IntegrityCondition::OracleEnvMismatch));
 
         let env_check = result.check_results.env_check.unwrap();
-        assert!(env_check.violations.iter().any(|v| v.constraint == "runtime"));
+        assert!(env_check
+            .violations
+            .iter()
+            .any(|v| v.constraint == "runtime"));
     }
 
     #[test]
     fn test_stop_trigger_generation() {
         let checker = IntegrityChecker::new(IntegrityCheckerConfig::default());
 
-        let violations = vec![
-            IntegrityViolation {
-                condition: IntegrityCondition::OracleTamper,
-                severity: ViolationSeverity::Critical,
-                message: "Tamper detected".to_string(),
-                context: BTreeMap::new(),
-                detected_at: Utc::now(),
-            },
-        ];
+        let violations = vec![IntegrityViolation {
+            condition: IntegrityCondition::OracleTamper,
+            severity: ViolationSeverity::Critical,
+            message: "Tamper detected".to_string(),
+            context: BTreeMap::new(),
+            detected_at: Utc::now(),
+        }];
 
         let trigger = checker.compute_stop_trigger(&violations, None);
 
@@ -1351,12 +1402,7 @@ mod tests {
 
         artifacts.insert("build.json".to_string(), content.to_vec());
 
-        let result = checker.check_tamper(
-            &test_manifest,
-            Some(&artifacts),
-            None,
-            None,
-        );
+        let result = checker.check_tamper(&test_manifest, Some(&artifacts), None, None);
 
         assert!(result.passed);
         assert!(result.artifact_checks[0].matched);
@@ -1372,15 +1418,13 @@ mod tests {
             run_id: "run_123".to_string(),
             suite_id: "suite:test".to_string(),
             passed: false,
-            violations: vec![
-                IntegrityViolation {
-                    condition: IntegrityCondition::OracleTamper,
-                    severity: ViolationSeverity::Critical,
-                    message: "Tamper detected".to_string(),
-                    context: BTreeMap::new(),
-                    detected_at: Utc::now(),
-                },
-            ],
+            violations: vec![IntegrityViolation {
+                condition: IntegrityCondition::OracleTamper,
+                severity: ViolationSeverity::Critical,
+                message: "Tamper detected".to_string(),
+                context: BTreeMap::new(),
+                detected_at: Utc::now(),
+            }],
             check_results: IntegrityCheckDetails::default(),
             checked_at: Utc::now(),
             stop_trigger: None,

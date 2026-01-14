@@ -233,7 +233,16 @@ impl GraphProjection {
 
     /// Get a node by ID
     pub async fn get_node(&self, node_id: &str) -> Result<Option<GraphNode>, GraphError> {
-        let result = sqlx::query_as::<_, (String, String, Option<String>, DateTime<Utc>, serde_json::Value)>(
+        let result = sqlx::query_as::<
+            _,
+            (
+                String,
+                String,
+                Option<String>,
+                DateTime<Utc>,
+                serde_json::Value,
+            ),
+        >(
             r#"
             SELECT node_id, node_type, label, created_at, meta
             FROM graph.nodes WHERE node_id = $1
@@ -243,13 +252,15 @@ impl GraphProjection {
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(result.map(|(node_id, node_type, label, created_at, meta)| GraphNode {
-            node_id,
-            node_type,
-            label,
-            created_at,
-            meta,
-        }))
+        Ok(
+            result.map(|(node_id, node_type, label, created_at, meta)| GraphNode {
+                node_id,
+                node_type,
+                label,
+                created_at,
+                meta,
+            }),
+        )
     }
 
     // ========================================================================
@@ -460,7 +471,10 @@ impl GraphProjection {
         .rows_affected();
 
         if rows_affected == 0 {
-            warn!(stale_id = stale_id, "Staleness marker not found or already resolved");
+            warn!(
+                stale_id = stale_id,
+                "Staleness marker not found or already resolved"
+            );
         } else {
             info!(stale_id = stale_id, "Staleness resolved");
         }
@@ -470,12 +484,10 @@ impl GraphProjection {
 
     /// Check if a node has unresolved staleness
     pub async fn has_unresolved_staleness(&self, node_id: &str) -> Result<bool, GraphError> {
-        let result = sqlx::query_scalar::<_, bool>(
-            r#"SELECT graph.has_unresolved_staleness($1)"#,
-        )
-        .bind(node_id)
-        .fetch_one(&self.pool)
-        .await?;
+        let result = sqlx::query_scalar::<_, bool>(r#"SELECT graph.has_unresolved_staleness($1)"#)
+            .bind(node_id)
+            .fetch_one(&self.pool)
+            .await?;
 
         Ok(result)
     }
@@ -485,7 +497,17 @@ impl GraphProjection {
         &self,
         node_id: &str,
     ) -> Result<Vec<StalenessMarker>, GraphError> {
-        let rows = sqlx::query_as::<_, (String, String, String, String, Option<String>, DateTime<Utc>)>(
+        let rows = sqlx::query_as::<
+            _,
+            (
+                String,
+                String,
+                String,
+                String,
+                Option<String>,
+                DateTime<Utc>,
+            ),
+        >(
             r#"
             SELECT stale_id, root_kind, root_id, reason_code, reason_detail, marked_at
             FROM graph.get_staleness_markers($1)
@@ -541,7 +563,9 @@ impl GraphProjection {
         for dep in dependents {
             // Get the node type for the dependent
             let node = self.get_node(&dep.src_id).await?;
-            let dependent_kind = node.map(|n| n.node_type).unwrap_or_else(|| "Unknown".to_string());
+            let dependent_kind = node
+                .map(|n| n.node_type)
+                .unwrap_or_else(|| "Unknown".to_string());
 
             let stale_id = self
                 .mark_stale(
@@ -614,8 +638,8 @@ impl GraphProjection {
                 let reason_code = payload["reason_code"].as_str().unwrap_or("MANUAL_MARK");
                 let reason_detail = payload["reason_detail"].as_str();
 
-                let reason = StalenessReason::from_str(reason_code)
-                    .unwrap_or(StalenessReason::ManualMark);
+                let reason =
+                    StalenessReason::from_str(reason_code).unwrap_or(StalenessReason::ManualMark);
 
                 self.mark_stale(
                     root_kind,
@@ -727,7 +751,9 @@ fn infer_node_type(event_type: &str, stream_id: &str) -> String {
         | "ExceptionResolved" | "ExceptionExpired" => "Exception".to_string(),
         "FreezeRecordCreated" => "Freeze".to_string(),
         "GovernedArtifactVersionRecorded" => "GovernedArtifact".to_string(),
-        "OracleSuiteRegistered" | "OracleSuiteUpdated" | "OracleSuitePinned"
+        "OracleSuiteRegistered"
+        | "OracleSuiteUpdated"
+        | "OracleSuitePinned"
         | "OracleSuiteRebased" => "OracleSuite".to_string(),
         "WorkSurfaceRecorded" => "WorkSurface".to_string(),
         "ProcedureTemplateSelected" => "ProcedureTemplate".to_string(),
@@ -787,10 +813,7 @@ mod tests {
     #[test]
     fn test_infer_node_type() {
         assert_eq!(infer_node_type("LoopCreated", "loop_123"), "Loop");
-        assert_eq!(
-            infer_node_type("IterationStarted", "iter_123"),
-            "Iteration"
-        );
+        assert_eq!(infer_node_type("IterationStarted", "iter_123"), "Iteration");
         assert_eq!(
             infer_node_type("CandidateMaterialized", "sha256:abc|cand_123"),
             "Candidate"

@@ -504,7 +504,8 @@ async fn run_refs_validate(
                     for line in refs_section.lines() {
                         if line.contains("to:") {
                             refs_checked += 1;
-                            let target = line.trim_start_matches(|c: char| c != ':')
+                            let target = line
+                                .trim_start_matches(|c: char| c != ':')
                                 .trim_start_matches(':')
                                 .trim();
 
@@ -624,8 +625,7 @@ async fn run_report_tests(
     let content = std::fs::read_to_string(log)?;
 
     // Parse test output
-    let passed = content.matches("test result: ok").count()
-        + content.matches(" ok").count();
+    let passed = content.matches("test result: ok").count() + content.matches(" ok").count();
     let failed = content.matches("FAILED").count();
     let ignored = content.matches("ignored").count();
 
@@ -740,7 +740,10 @@ async fn run_schema_validate(
                 let content = std::fs::read_to_string(&path)?;
 
                 // Basic SQL syntax check
-                if content.contains("CREATE") || content.contains("ALTER") || content.contains("INSERT") {
+                if content.contains("CREATE")
+                    || content.contains("ALTER")
+                    || content.contains("INSERT")
+                {
                     migrations_valid += 1;
                 } else {
                     errors.push(serde_json::json!({
@@ -799,7 +802,10 @@ async fn run_integrity_smoke(
 
     let pathways = vec![
         ("cargo_toml_exists", workspace.join("Cargo.toml").exists()),
-        ("src_exists", workspace.join("crates").exists() || workspace.join("src").exists()),
+        (
+            "src_exists",
+            workspace.join("crates").exists() || workspace.join("src").exists(),
+        ),
         ("docs_exists", workspace.join("docs").exists()),
     ];
 
@@ -858,8 +864,9 @@ async fn run_replay_verify(
     info!("Verifying event replay determinism");
 
     let db_url = database_url.unwrap_or_else(|| {
-        std::env::var("SR_DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/solver_ralph".to_string())
+        std::env::var("SR_DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://postgres:postgres@localhost:5432/solver_ralph".to_string()
+        })
     });
 
     // Connect to database and verify events can be replayed
@@ -879,14 +886,21 @@ async fn run_replay_verify(
             if full_check {
                 // Full determinism check would replay twice and compare checksums
                 // For now, just verify we can read events
-                (OracleStatus::Pass, format!("Verified {} events can be read", count.0))
+                (
+                    OracleStatus::Pass,
+                    format!("Verified {} events can be read", count.0),
+                )
             } else {
-                (OracleStatus::Pass, format!("Event store accessible with {} events", count.0))
+                (
+                    OracleStatus::Pass,
+                    format!("Event store accessible with {} events", count.0),
+                )
             }
         }
-        Err(e) => {
-            (OracleStatus::Error, format!("Database connection failed: {}", e))
-        }
+        Err(e) => (
+            OracleStatus::Error,
+            format!("Database connection failed: {}", e),
+        ),
     };
 
     let report = serde_json::json!({

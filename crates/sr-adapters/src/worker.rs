@@ -27,7 +27,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::nats::{MessageEnvelope, NatsConsumer, NatsMessageBus, streams, subjects};
+use crate::nats::{streams, subjects, MessageEnvelope, NatsConsumer, NatsMessageBus};
 
 // ============================================================================
 // Worker Configuration
@@ -169,7 +169,10 @@ impl ContentResolver {
     ///
     /// For the reference implementation, this returns a deterministic
     /// hash based on the ref ID.
-    pub fn resolve(&self, typed_ref: &TypedRef) -> Result<(ContentHash, ItemClassification), WorkerError> {
+    pub fn resolve(
+        &self,
+        typed_ref: &TypedRef,
+    ) -> Result<(ContentHash, ItemClassification), WorkerError> {
         // Check cache first
         if let Some(cached) = self.cache.get(&typed_ref.id) {
             return Ok(cached.clone());
@@ -231,10 +234,7 @@ pub struct ReferenceWorkerBridge {
 
 impl ReferenceWorkerBridge {
     /// Create a new reference worker bridge
-    pub fn new(
-        config: WorkerConfig,
-        message_bus: Arc<NatsMessageBus>,
-    ) -> Self {
+    pub fn new(config: WorkerConfig, message_bus: Arc<NatsMessageBus>) -> Self {
         Self {
             config,
             message_bus,
@@ -565,11 +565,13 @@ impl ReferenceWorkerBridge {
             });
         }
 
-        let body: serde_json::Value = response.json().await.map_err(|e| {
-            WorkerError::SerializationError {
-                message: e.to_string(),
-            }
-        })?;
+        let body: serde_json::Value =
+            response
+                .json()
+                .await
+                .map_err(|e| WorkerError::SerializationError {
+                    message: e.to_string(),
+                })?;
 
         let candidate_id = body
             .get("candidate_id")

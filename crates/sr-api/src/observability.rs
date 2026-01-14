@@ -201,10 +201,9 @@ pub async fn request_context_middleware(mut request: Request, next: Next) -> Res
     // Add request ID to response headers
     let mut response = response;
     if let Ok(header_value) = HeaderValue::from_str(&ctx.request_id) {
-        response.headers_mut().insert(
-            HeaderName::from_static(REQUEST_ID_HEADER),
-            header_value,
-        );
+        response
+            .headers_mut()
+            .insert(HeaderName::from_static(REQUEST_ID_HEADER), header_value);
     }
 
     response

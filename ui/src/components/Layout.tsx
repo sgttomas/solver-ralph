@@ -3,11 +3,14 @@
  *
  * Main layout with header, navigation, and authentication controls.
  * Per SR-SPEC §2, portal UI provides human review surface.
+ *
+ * Supports dev bypass mode via VITE_DEV_AUTH_BYPASS=true
  */
 
 import { ReactNode } from 'react';
-import { useAuth } from 'react-oidc-context';
+import { useAuth } from '../auth/AuthProvider';
 import { Link } from 'react-router-dom';
+import config from '../config';
 
 interface LayoutProps {
   children: ReactNode;
@@ -63,6 +66,14 @@ const styles = {
     fontSize: '0.875rem',
     color: 'rgba(255, 255, 255, 0.9)',
   },
+  devBadge: {
+    fontSize: '0.75rem',
+    backgroundColor: '#f59e0b',
+    color: '#000',
+    padding: '0.25rem 0.5rem',
+    borderRadius: '4px',
+    fontWeight: 600,
+  },
   button: {
     padding: '0.5rem 1rem',
     fontSize: '0.875rem',
@@ -94,7 +105,59 @@ const styles = {
   },
 };
 
-export function Layout({ children }: LayoutProps): JSX.Element {
+/**
+ * Layout for dev bypass mode - always shows as authenticated
+ */
+function DevLayout({ children }: LayoutProps): JSX.Element {
+  return (
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <Link to="/" style={styles.logo}>
+          <span style={{ fontSize: '1.5rem' }}>&#9670;</span>
+          <h1 style={styles.logoText}>SOLVER-Ralph</h1>
+        </Link>
+
+        <nav style={styles.nav}>
+          <Link to="/" style={styles.navLink}>
+            Dashboard
+          </Link>
+          <Link to="/loops" style={styles.navLink}>
+            Loops
+          </Link>
+          <Link to="/prompt" style={styles.navLink}>
+            Prompt Loop
+          </Link>
+          <Link to="/evidence" style={styles.navLink}>
+            Evidence
+          </Link>
+          <Link to="/approvals" style={styles.navLink}>
+            Approvals
+          </Link>
+        </nav>
+
+        <div style={styles.userSection}>
+          <span style={styles.devBadge}>DEV MODE</span>
+          <span style={styles.userInfo}>Dev User</span>
+        </div>
+      </header>
+
+      <main style={styles.main}>
+        {children}
+      </main>
+
+      <footer style={styles.footer}>
+        <p style={{ margin: 0 }}>
+          SOLVER-Ralph &middot; Governance-first platform for controlled agentic work
+        </p>
+      </footer>
+    </div>
+  );
+}
+
+/**
+ * Layout with OIDC authentication
+ */
+function OidcLayout({ children }: LayoutProps): JSX.Element {
   const auth = useAuth();
 
   const handleLogin = () => {
@@ -123,6 +186,9 @@ export function Layout({ children }: LayoutProps): JSX.Element {
             <>
               <Link to="/loops" style={styles.navLink}>
                 Loops
+              </Link>
+              <Link to="/prompt" style={styles.navLink}>
+                Prompt Loop
               </Link>
               <Link to="/evidence" style={styles.navLink}>
                 Evidence
@@ -171,6 +237,13 @@ export function Layout({ children }: LayoutProps): JSX.Element {
       </footer>
     </div>
   );
+}
+
+export function Layout({ children }: LayoutProps): JSX.Element {
+  if (config.devAuthBypass) {
+    return <DevLayout>{children}</DevLayout>;
+  }
+  return <OidcLayout>{children}</OidcLayout>;
 }
 
 export default Layout;

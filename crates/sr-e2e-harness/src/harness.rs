@@ -14,15 +14,11 @@
 //! - SYSTEM-only for iteration start
 //! - Evidence integrity verified
 
-use crate::client::{
-    ActionRequest, E2EClient, IterationSummaryRequest, TypedRefRequest,
-};
+use crate::client::{ActionRequest, E2EClient, IterationSummaryRequest, TypedRefRequest};
 use crate::transcript::{HarnessTranscript, TranscriptEntryKind};
 use chrono::Utc;
 use sha2::{Digest, Sha256};
-use sr_adapters::{
-    EvidenceArtifact, EvidenceManifestBuilder, OracleResult, OracleResultStatus,
-};
+use sr_adapters::{EvidenceArtifact, EvidenceManifestBuilder, OracleResult, OracleResultStatus};
 use std::collections::HashMap;
 use tracing::{error, info, instrument};
 
@@ -188,7 +184,10 @@ async fn execute_happy_path(
         Some(serde_json::json!({ "state": loop_response.state })),
     );
     transcript.produced_ids.loop_id = Some(loop_response.loop_id.clone());
-    transcript.produced_ids.event_ids.push(loop_response.event_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(loop_response.event_id.clone());
 
     let loop_id = loop_response.loop_id;
     info!(loop_id = %loop_id, "Loop created");
@@ -207,7 +206,10 @@ async fn execute_happy_path(
         Some(loop_id.clone()),
         Some(serde_json::json!({ "state": activate_response.state })),
     );
-    transcript.produced_ids.event_ids.push(activate_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(activate_response.event_id);
 
     // Invariant: Loop state should be ACTIVE
     let loop_state = client.get_loop(&loop_id).await?;
@@ -246,8 +248,14 @@ async fn execute_happy_path(
         Some(iteration_response.iteration_id.clone()),
         Some(serde_json::json!({ "state": iteration_response.state })),
     );
-    transcript.produced_ids.iteration_ids.push(iteration_response.iteration_id.clone());
-    transcript.produced_ids.event_ids.push(iteration_response.event_id);
+    transcript
+        .produced_ids
+        .iteration_ids
+        .push(iteration_response.iteration_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(iteration_response.event_id);
 
     let iteration_id = iteration_response.iteration_id;
     info!(iteration_id = %iteration_id, "Iteration started");
@@ -287,8 +295,14 @@ async fn execute_happy_path(
             "verification_status": candidate_response.verification_status
         })),
     );
-    transcript.produced_ids.candidate_ids.push(candidate_response.candidate_id.clone());
-    transcript.produced_ids.event_ids.push(candidate_response.event_id);
+    transcript
+        .produced_ids
+        .candidate_ids
+        .push(candidate_response.candidate_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(candidate_response.event_id);
 
     let candidate_id = candidate_response.candidate_id;
     info!(candidate_id = %candidate_id, "Candidate registered");
@@ -313,8 +327,14 @@ async fn execute_happy_path(
         Some(run_response.run_id.clone()),
         Some(serde_json::json!({ "state": run_response.state })),
     );
-    transcript.produced_ids.run_ids.push(run_response.run_id.clone());
-    transcript.produced_ids.event_ids.push(run_response.event_id);
+    transcript
+        .produced_ids
+        .run_ids
+        .push(run_response.run_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(run_response.event_id);
 
     let run_id = run_response.run_id;
     info!(run_id = %run_id, "Oracle run started");
@@ -322,7 +342,10 @@ async fn execute_happy_path(
     // =========================================================================
     // Step 6: Upload Evidence Bundle
     // =========================================================================
-    transcript.start_operation(TranscriptEntryKind::UploadEvidence, "Uploading evidence bundle");
+    transcript.start_operation(
+        TranscriptEntryKind::UploadEvidence,
+        "Uploading evidence bundle",
+    );
 
     // Create evidence manifest
     let evidence_manifest = create_evidence_manifest(
@@ -346,7 +369,10 @@ async fn execute_happy_path(
             "verdict": evidence_response.verdict
         })),
     );
-    transcript.produced_ids.evidence_hashes.push(evidence_response.content_hash.clone());
+    transcript
+        .produced_ids
+        .evidence_hashes
+        .push(evidence_response.content_hash.clone());
 
     let evidence_hash = evidence_response.content_hash;
     info!(evidence_hash = %evidence_hash, "Evidence uploaded");
@@ -360,7 +386,11 @@ async fn execute_happy_path(
             &format!(
                 "Evidence {} is {}",
                 evidence_hash,
-                if retrieved.is_ok() { "retrievable" } else { "not retrievable" }
+                if retrieved.is_ok() {
+                    "retrievable"
+                } else {
+                    "not retrievable"
+                }
             ),
         );
     }
@@ -381,7 +411,10 @@ async fn execute_happy_path(
         Some(run_id.clone()),
         Some(serde_json::json!({ "state": run_complete_response.state })),
     );
-    transcript.produced_ids.event_ids.push(run_complete_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(run_complete_response.event_id);
 
     info!(run_id = %run_id, "Oracle run completed");
 
@@ -431,7 +464,10 @@ async fn execute_happy_path(
         Some(iteration_id.clone()),
         Some(serde_json::json!({ "state": iteration_complete_response.state })),
     );
-    transcript.produced_ids.event_ids.push(iteration_complete_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(iteration_complete_response.event_id);
 
     info!(iteration_id = %iteration_id, "Iteration completed");
 
@@ -476,8 +512,14 @@ async fn execute_happy_path(
             "decision": approval_response.decision
         })),
     );
-    transcript.produced_ids.approval_ids.push(approval_response.approval_id.clone());
-    transcript.produced_ids.event_ids.push(approval_response.event_id);
+    transcript
+        .produced_ids
+        .approval_ids
+        .push(approval_response.approval_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(approval_response.event_id);
 
     let approval_id = approval_response.approval_id;
     info!(approval_id = %approval_id, "Approval recorded");
@@ -519,8 +561,14 @@ async fn execute_happy_path(
             "candidate_id": freeze_response.candidate_id
         })),
     );
-    transcript.produced_ids.freeze_ids.push(freeze_response.freeze_id.clone());
-    transcript.produced_ids.event_ids.push(freeze_response.event_id);
+    transcript
+        .produced_ids
+        .freeze_ids
+        .push(freeze_response.freeze_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(freeze_response.event_id);
 
     let freeze_id = freeze_response.freeze_id;
     info!(freeze_id = %freeze_id, baseline_id = %config.baseline_id, "Freeze record created");
@@ -560,7 +608,10 @@ async fn execute_happy_path(
         Some(loop_id.clone()),
         Some(serde_json::json!({ "state": close_response.state })),
     );
-    transcript.produced_ids.event_ids.push(close_response.event_id);
+    transcript
+        .produced_ids
+        .event_ids
+        .push(close_response.event_id);
 
     info!(loop_id = %loop_id, "Loop closed");
 
@@ -677,12 +728,8 @@ mod tests {
 
     #[test]
     fn test_evidence_manifest_creation() {
-        let manifest = create_evidence_manifest(
-            "run_123",
-            "cand_456",
-            "sr-core-suite",
-            &"0".repeat(64),
-        );
+        let manifest =
+            create_evidence_manifest("run_123", "cand_456", "sr-core-suite", &"0".repeat(64));
 
         assert_eq!(manifest.run_id, "run_123");
         assert_eq!(manifest.candidate_id, "cand_456");

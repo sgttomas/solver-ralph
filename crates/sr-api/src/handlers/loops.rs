@@ -11,8 +11,8 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sr_adapters::{LoopProjection, ProjectionBuilder};
 use sr_domain::{
-    ActorId, ActorKind, EventEnvelope, EventId, LoopBudgets, LoopId, LoopState,
-    LoopStateMachine, StreamKind, TypedRef,
+    ActorId, ActorKind, EventEnvelope, EventId, LoopBudgets, LoopId, LoopState, LoopStateMachine,
+    StreamKind, TypedRef,
 };
 use sr_ports::EventStore;
 use tracing::{debug, info, instrument};
@@ -154,7 +154,9 @@ pub async fn create_loop(
     let now = Utc::now();
 
     let budgets = body.budgets.unwrap_or_default();
-    let work_unit = body.work_unit.unwrap_or_else(|| loop_id.as_str().to_string());
+    let work_unit = body
+        .work_unit
+        .unwrap_or_else(|| loop_id.as_str().to_string());
 
     let directive_ref = TypedRef {
         kind: body.directive_ref.kind,
@@ -227,14 +229,15 @@ pub async fn get_loop(
     _user: AuthenticatedUser,
     Path(loop_id): Path<String>,
 ) -> ApiResult<Json<LoopResponse>> {
-    let projection = state
-        .projections
-        .get_loop(&loop_id)
-        .await?
-        .ok_or_else(|| ApiError::NotFound {
-            resource: "Loop".to_string(),
-            id: loop_id.clone(),
-        })?;
+    let projection =
+        state
+            .projections
+            .get_loop(&loop_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Loop".to_string(),
+                id: loop_id.clone(),
+            })?;
 
     Ok(Json(projection_to_response(projection)))
 }
@@ -248,9 +251,15 @@ pub async fn list_loops(
     _user: AuthenticatedUser,
     Query(query): Query<ListLoopsQuery>,
 ) -> ApiResult<Json<ListLoopsResponse>> {
-    let loops = state.projections.list_loops(&query.state, query.limit, query.offset).await?;
+    let loops = state
+        .projections
+        .list_loops(&query.state, query.limit, query.offset)
+        .await?;
 
-    let responses: Vec<LoopResponse> = loops.iter().map(|p| projection_to_response(p.clone())).collect();
+    let responses: Vec<LoopResponse> = loops
+        .iter()
+        .map(|p| projection_to_response(p.clone()))
+        .collect();
 
     Ok(Json(ListLoopsResponse {
         total: responses.len(),
@@ -270,7 +279,15 @@ pub async fn activate_loop(
     Path(loop_id): Path<String>,
     Json(_body): Json<TransitionLoopRequest>,
 ) -> ApiResult<Json<LoopActionResponse>> {
-    transition_loop(&state, &user, &loop_id, "CREATED", "ACTIVE", "LoopActivated").await
+    transition_loop(
+        &state,
+        &user,
+        &loop_id,
+        "CREATED",
+        "ACTIVE",
+        "LoopActivated",
+    )
+    .await
 }
 
 /// Pause a loop (ACTIVE -> PAUSED)
@@ -310,14 +327,15 @@ pub async fn close_loop(
     Json(_body): Json<TransitionLoopRequest>,
 ) -> ApiResult<Json<LoopActionResponse>> {
     // Close can happen from any state
-    let projection = state
-        .projections
-        .get_loop(&loop_id)
-        .await?
-        .ok_or_else(|| ApiError::NotFound {
-            resource: "Loop".to_string(),
-            id: loop_id.clone(),
-        })?;
+    let projection =
+        state
+            .projections
+            .get_loop(&loop_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Loop".to_string(),
+                id: loop_id.clone(),
+            })?;
 
     if projection.state == "CLOSED" {
         return Err(ApiError::InvalidTransition {
@@ -330,10 +348,7 @@ pub async fn close_loop(
     let now = Utc::now();
 
     // Read current stream to get version
-    let events = state
-        .event_store
-        .read_stream(&loop_id, 0, 1000)
-        .await?;
+    let events = state.event_store.read_stream(&loop_id, 0, 1000).await?;
     let current_version = events.len() as u64;
 
     let event = EventEnvelope {
@@ -385,14 +400,15 @@ async fn transition_loop(
     new_state: &str,
     event_type: &str,
 ) -> ApiResult<Json<LoopActionResponse>> {
-    let projection = state
-        .projections
-        .get_loop(loop_id)
-        .await?
-        .ok_or_else(|| ApiError::NotFound {
-            resource: "Loop".to_string(),
-            id: loop_id.to_string(),
-        })?;
+    let projection =
+        state
+            .projections
+            .get_loop(loop_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Loop".to_string(),
+                id: loop_id.to_string(),
+            })?;
 
     if projection.state != expected_state {
         return Err(ApiError::InvalidTransition {
@@ -405,10 +421,7 @@ async fn transition_loop(
     let now = Utc::now();
 
     // Read current stream to get version
-    let events = state
-        .event_store
-        .read_stream(loop_id, 0, 1000)
-        .await?;
+    let events = state.event_store.read_stream(loop_id, 0, 1000).await?;
     let current_version = events.len() as u64;
 
     let event = EventEnvelope {

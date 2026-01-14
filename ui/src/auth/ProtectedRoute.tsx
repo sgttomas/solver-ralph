@@ -3,10 +3,13 @@
  *
  * Requires authentication before rendering child routes.
  * Per SR-CONTRACT, portal operations require human authority.
+ *
+ * Supports dev bypass mode via VITE_DEV_AUTH_BYPASS=true
  */
 
 import { ReactNode } from 'react';
-import { useAuth } from 'react-oidc-context';
+import { useAuth } from './AuthProvider';
+import config from '../config';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -16,9 +19,15 @@ interface ProtectedRouteProps {
  * Route guard that requires authentication
  *
  * Shows loading state during auth check, redirects to login if not authenticated.
+ * In dev bypass mode, always allows access (useAuth returns mock authenticated state).
  */
 export function ProtectedRoute({ children }: ProtectedRouteProps): JSX.Element {
   const auth = useAuth();
+
+  // In dev bypass mode, auth.isAuthenticated is always true
+  if (config.devAuthBypass) {
+    return <>{children}</>;
+  }
 
   if (auth.isLoading) {
     return (

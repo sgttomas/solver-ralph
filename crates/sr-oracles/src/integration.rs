@@ -47,8 +47,9 @@ pub struct IntegrationConfig {
 impl Default for IntegrationConfig {
     fn default() -> Self {
         Self {
-            database_url: std::env::var("SR_DATABASE_URL")
-                .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/solver_ralph".to_string()),
+            database_url: std::env::var("SR_DATABASE_URL").unwrap_or_else(|_| {
+                "postgres://postgres:postgres@localhost:5432/solver_ralph".to_string()
+            }),
             minio_endpoint: std::env::var("SR_MINIO_ENDPOINT")
                 .unwrap_or_else(|_| "http://localhost:9000".to_string()),
             minio_access_key: std::env::var("SR_MINIO_ACCESS_KEY")
@@ -385,7 +386,7 @@ impl IntegrationRunner {
 
                 // Read recent events
                 let rows: Vec<(i64,)> = sqlx::query_as(
-                    "SELECT event_id FROM es.events ORDER BY event_id DESC LIMIT 10"
+                    "SELECT event_id FROM es.events ORDER BY event_id DESC LIMIT 10",
                 )
                 .fetch_all(&pool)
                 .await
@@ -500,11 +501,7 @@ impl IntegrationRunner {
         // Test: Upload object
         match self.test_minio_upload().await {
             Ok(duration) => {
-                result.add_test(TestResult::pass(
-                    "upload",
-                    "Object upload test",
-                    duration,
-                ));
+                result.add_test(TestResult::pass("upload", "Object upload test", duration));
             }
             Err(e) => {
                 result.add_test(TestResult::fail(
@@ -687,7 +684,10 @@ impl IntegrationRunner {
                     .await
                     .map_err(|e| format!("List failed: {}", e))?;
 
-                debug!(count = result.key_count(), "Listed integration test objects");
+                debug!(
+                    count = result.key_count(),
+                    "Listed integration test objects"
+                );
 
                 Ok::<(), String>(())
             })
@@ -712,11 +712,7 @@ impl IntegrationRunner {
             Ok(latency) => {
                 result.reachable = true;
                 result.latency_ms = Some(latency);
-                result.add_test(TestResult::pass(
-                    "connect",
-                    "NATS connection test",
-                    latency,
-                ));
+                result.add_test(TestResult::pass("connect", "NATS connection test", latency));
             }
             Err(e) => {
                 error!(error = %e, "NATS connection failed");
@@ -734,11 +730,7 @@ impl IntegrationRunner {
         // Test: Publish
         match self.test_nats_publish().await {
             Ok(duration) => {
-                result.add_test(TestResult::pass(
-                    "publish",
-                    "NATS publish test",
-                    duration,
-                ));
+                result.add_test(TestResult::pass("publish", "NATS publish test", duration));
             }
             Err(e) => {
                 result.add_test(TestResult::fail(
@@ -788,7 +780,10 @@ impl IntegrationRunner {
                     .map_err(|e| format!("Connection failed: {}", e))?;
 
                 // Verify connection is alive
-                client.flush().await.map_err(|e| format!("Flush failed: {}", e))?;
+                client
+                    .flush()
+                    .await
+                    .map_err(|e| format!("Flush failed: {}", e))?;
 
                 Ok::<(), String>(())
             })
@@ -813,7 +808,10 @@ impl IntegrationRunner {
                     .await
                     .map_err(|e| format!("Publish failed: {}", e))?;
 
-                client.flush().await.map_err(|e| format!("Flush failed: {}", e))?;
+                client
+                    .flush()
+                    .await
+                    .map_err(|e| format!("Flush failed: {}", e))?;
 
                 Ok::<(), String>(())
             })
@@ -864,11 +862,7 @@ impl IntegrationRunner {
             Ok(latency) => {
                 result.reachable = true;
                 result.latency_ms = Some(latency);
-                result.add_test(TestResult::pass(
-                    "health",
-                    "API health endpoint",
-                    latency,
-                ));
+                result.add_test(TestResult::pass("health", "API health endpoint", latency));
             }
             Err(e) => {
                 error!(error = %e, "API health check failed");
@@ -886,11 +880,7 @@ impl IntegrationRunner {
         // Test: Info endpoint
         match self.test_api_info().await {
             Ok(duration) => {
-                result.add_test(TestResult::pass(
-                    "info",
-                    "API info endpoint",
-                    duration,
-                ));
+                result.add_test(TestResult::pass("info", "API info endpoint", duration));
             }
             Err(e) => {
                 result.add_test(TestResult::fail(
@@ -1024,8 +1014,16 @@ impl IntegrationRunner {
 
     fn collect_environment_info(&self) -> EnvironmentInfo {
         EnvironmentInfo {
-            host: Some(hostname::get().map(|h| h.to_string_lossy().to_string()).unwrap_or_default()),
-            platform: Some(format!("{}/{}", std::env::consts::OS, std::env::consts::ARCH)),
+            host: Some(
+                hostname::get()
+                    .map(|h| h.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+            ),
+            platform: Some(format!(
+                "{}/{}",
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            )),
             stack_version: Some("1.0.0".to_string()),
             service_versions: Default::default(),
         }

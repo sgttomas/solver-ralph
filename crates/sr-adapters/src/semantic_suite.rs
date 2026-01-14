@@ -17,7 +17,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sr_domain::{
-    get_intake_admissibility_set, ContentHash, ConstraintSeverity, ConstraintViolation,
+    get_intake_admissibility_set, ConstraintSeverity, ConstraintViolation, ContentHash,
     CoverageMetrics, CoverageReport, DecisionStatus, EvalDecision, Intake, ResidualReport,
     ResidualVector, SemanticEvalResult, SemanticMetrics, SemanticSet, SemanticSetBinding,
     ViolationSummary, ViolationsReport,
@@ -56,9 +56,10 @@ pub const SEMANTIC_ORACLE_PREFIX: &str = "oracle:semantic";
 /// - Suite hash incorporates the semantic set hash
 pub fn create_intake_admissibility_suite() -> SemanticOracleSuiteDefinition {
     let semantic_set = get_intake_admissibility_set();
-    let semantic_set_hash = semantic_set.content_hash.clone().unwrap_or_else(|| {
-        semantic_set.compute_hash()
-    });
+    let semantic_set_hash = semantic_set
+        .content_hash
+        .clone()
+        .unwrap_or_else(|| semantic_set.compute_hash());
 
     let oracles = vec![
         // Schema validation oracle
@@ -101,24 +102,30 @@ pub fn create_intake_admissibility_suite() -> SemanticOracleSuiteDefinition {
 }
 
 /// Convert SemanticOracleSuiteDefinition to standard OracleSuiteDefinition
-pub fn to_oracle_suite_definition(semantic_suite: &SemanticOracleSuiteDefinition) -> OracleSuiteDefinition {
+pub fn to_oracle_suite_definition(
+    semantic_suite: &SemanticOracleSuiteDefinition,
+) -> OracleSuiteDefinition {
     OracleSuiteDefinition {
         suite_id: semantic_suite.suite_id.clone(),
         suite_hash: semantic_suite.suite_hash.clone(),
         oci_image: semantic_suite.oci_image.clone(),
         oci_image_digest: semantic_suite.oci_image_digest.clone(),
         environment_constraints: semantic_suite.environment_constraints.clone(),
-        oracles: semantic_suite.oracles.iter().map(|o| OracleDefinition {
-            oracle_id: o.oracle_id.clone(),
-            oracle_name: o.oracle_name.clone(),
-            command: o.command.clone(),
-            args: o.args.clone(),
-            timeout_seconds: o.timeout_seconds,
-            expected_outputs: o.expected_outputs.clone(),
-            classification: o.classification,
-            working_dir: o.working_dir.clone(),
-            env: o.env.clone(),
-        }).collect(),
+        oracles: semantic_suite
+            .oracles
+            .iter()
+            .map(|o| OracleDefinition {
+                oracle_id: o.oracle_id.clone(),
+                oracle_name: o.oracle_name.clone(),
+                command: o.command.clone(),
+                args: o.args.clone(),
+                timeout_seconds: o.timeout_seconds,
+                expected_outputs: o.expected_outputs.clone(),
+                classification: o.classification,
+                working_dir: o.working_dir.clone(),
+                env: o.env.clone(),
+            })
+            .collect(),
         metadata: BTreeMap::from_iter([
             (
                 "semantic_set_id".to_string(),
@@ -337,7 +344,10 @@ fn create_term_map_oracle() -> SemanticOracleDefinition {
 ///
 /// Per SR-SEMANTIC-ORACLE-SPEC §2, the suite_hash MUST incorporate all
 /// semantic set definitions that materially affect evaluation.
-fn compute_semantic_suite_hash(oracles: &[SemanticOracleDefinition], semantic_set_hash: &ContentHash) -> String {
+fn compute_semantic_suite_hash(
+    oracles: &[SemanticOracleDefinition],
+    semantic_set_hash: &ContentHash,
+) -> String {
     let mut hasher = Sha256::new();
 
     // Include semantic set hash first (critical for reproducibility)
@@ -395,7 +405,11 @@ impl IntakeAdmissibilityRunner {
     pub fn evaluate_intake(&self, candidate_id: &str, intake: &Intake) -> SemanticEvalResult {
         info!(candidate_id = %candidate_id, "Evaluating intake admissibility");
 
-        let semantic_set = self.suite.semantic_set.as_ref().expect("Semantic set required");
+        let semantic_set = self
+            .suite
+            .semantic_set
+            .as_ref()
+            .expect("Semantic set required");
         let decision_rule = &semantic_set.decision_rule;
 
         // Evaluate each axis
@@ -411,8 +425,7 @@ impl IntakeAdmissibilityRunner {
         violations.extend(schema_violations);
 
         // Traceability coverage
-        let (trace_residual, trace_coverage, trace_violations) =
-            self.evaluate_traceability(intake);
+        let (trace_residual, trace_coverage, trace_violations) = self.evaluate_traceability(intake);
         per_axis_residual.insert("traceability_coverage".to_string(), trace_residual);
         per_axis_coverage.insert("traceability_coverage".to_string(), trace_coverage);
         violations.extend(trace_violations);
@@ -425,22 +438,19 @@ impl IntakeAdmissibilityRunner {
         violations.extend(contra_violations);
 
         // Ambiguity check
-        let (ambig_residual, ambig_coverage, ambig_violations) =
-            self.evaluate_ambiguity(intake);
+        let (ambig_residual, ambig_coverage, ambig_violations) = self.evaluate_ambiguity(intake);
         per_axis_residual.insert("ambiguity_bounded".to_string(), ambig_residual);
         per_axis_coverage.insert("ambiguity_bounded".to_string(), ambig_coverage);
         violations.extend(ambig_violations);
 
         // Privacy check
-        let (priv_residual, priv_coverage, priv_violations) =
-            self.evaluate_privacy(intake);
+        let (priv_residual, priv_coverage, priv_violations) = self.evaluate_privacy(intake);
         per_axis_residual.insert("privacy_safe".to_string(), priv_residual);
         per_axis_coverage.insert("privacy_safe".to_string(), priv_coverage);
         violations.extend(priv_violations);
 
         // Term map alignment
-        let (term_residual, term_coverage, term_violations) =
-            self.evaluate_term_map(intake);
+        let (term_residual, term_coverage, term_violations) = self.evaluate_term_map(intake);
         per_axis_residual.insert("term_map_aligned".to_string(), term_residual);
         per_axis_coverage.insert("term_map_aligned".to_string(), term_coverage);
         violations.extend(term_violations);
@@ -713,7 +723,10 @@ impl IntakeAdmissibilityRunner {
                 code: "LOW_TRACEABILITY".to_string(),
                 constraint_id: "traceability_coverage".to_string(),
                 axis: Some("traceability_coverage".to_string()),
-                message: format!("Traceability coverage {:.0}% below 80% threshold", coverage * 100.0),
+                message: format!(
+                    "Traceability coverage {:.0}% below 80% threshold",
+                    coverage * 100.0
+                ),
                 severity: ConstraintSeverity::Warning,
                 context: BTreeMap::new(),
             }]
@@ -738,7 +751,11 @@ impl IntakeAdmissibilityRunner {
         let has_unknowns = !intake.unknowns.is_empty();
         let has_definitions = !intake.definitions.is_empty();
 
-        let coverage = if has_unknowns || has_definitions { 1.0 } else { 0.7 };
+        let coverage = if has_unknowns || has_definitions {
+            1.0
+        } else {
+            0.7
+        };
 
         let violations = if !has_unknowns && !has_definitions {
             vec![ConstraintViolation {
@@ -881,7 +898,11 @@ mod tests {
     fn test_suite_has_all_axes() {
         let suite = create_intake_admissibility_suite();
 
-        let target_axes: Vec<&str> = suite.oracles.iter().map(|o| o.target_axis.as_str()).collect();
+        let target_axes: Vec<&str> = suite
+            .oracles
+            .iter()
+            .map(|o| o.target_axis.as_str())
+            .collect();
 
         assert!(target_axes.contains(&"schema_compliance"));
         assert!(target_axes.contains(&"traceability_coverage"));
@@ -932,7 +953,10 @@ mod tests {
         });
 
         // Add definitions to meet ambiguity check
-        intake.definitions.insert("intake".to_string(), "A structured work unit specification".to_string());
+        intake.definitions.insert(
+            "intake".to_string(),
+            "A structured work unit specification".to_string(),
+        );
 
         let result = runner.evaluate_intake("candidate:test", &intake);
 
@@ -998,7 +1022,9 @@ mod tests {
 
         assert!(artifacts.iter().any(|(name, _)| name.contains("residual")));
         assert!(artifacts.iter().any(|(name, _)| name.contains("coverage")));
-        assert!(artifacts.iter().any(|(name, _)| name.contains("violations")));
+        assert!(artifacts
+            .iter()
+            .any(|(name, _)| name.contains("violations")));
     }
 
     #[test]

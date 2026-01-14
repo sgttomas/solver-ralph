@@ -25,12 +25,13 @@ use axum::{
 };
 use config::ApiConfig;
 use handlers::{
-    approvals, candidates, decisions, evidence, exceptions, freeze, iterations, loops, runs,
+    approvals, candidates, decisions, evidence, exceptions, freeze, iterations, loops,
+    prompt_loop::{prompt_loop, prompt_loop_stream}, runs,
 };
 use observability::{metrics_endpoint, request_context_middleware, Metrics, MetricsState};
 use serde::{Deserialize, Serialize};
-use sr_adapters::{MinioConfig, MinioEvidenceStore, PostgresEventStore, ProjectionBuilder};
 use sqlx::PgPool;
+use sr_adapters::{MinioConfig, MinioEvidenceStore, PostgresEventStore, ProjectionBuilder};
 use std::sync::Arc;
 use std::time::Instant;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
@@ -138,7 +139,10 @@ fn create_router(state: AppState, metrics_state: MetricsState) -> Router {
         .route("/api/v1/loops", post(loops::create_loop))
         .route("/api/v1/loops", get(loops::list_loops))
         .route("/api/v1/loops/:loop_id", get(loops::get_loop))
-        .route("/api/v1/loops/:loop_id/activate", post(loops::activate_loop))
+        .route(
+            "/api/v1/loops/:loop_id/activate",
+            post(loops::activate_loop),
+        )
         .route("/api/v1/loops/:loop_id/pause", post(loops::pause_loop))
         .route("/api/v1/loops/:loop_id/resume", post(loops::resume_loop))
         .route("/api/v1/loops/:loop_id/close", post(loops::close_loop))
@@ -224,10 +228,7 @@ fn create_router(state: AppState, metrics_state: MetricsState) -> Router {
 
     // Freeze record routes (D-19) - HUMAN-only per SR-CONTRACT C-SHIP-1
     let freeze_routes = Router::new()
-        .route(
-            "/api/v1/freeze-records",
-            post(freeze::create_freeze_record),
-        )
+        .route("/api/v1/freeze-records", post(freeze::create_freeze_record))
         .route("/api/v1/freeze-records", get(freeze::list_freeze_records))
         .route(
             "/api/v1/freeze-records/:freeze_id",
@@ -267,6 +268,11 @@ fn create_router(state: AppState, metrics_state: MetricsState) -> Router {
             get(evidence::list_evidence_for_candidate),
         );
 
+    // Prompt-driven loop orchestration
+    let prompt_routes = Router::new()
+        .route("/api/v1/prompt-loop", post(prompt_loop))
+        .route("/api/v1/prompt-loop/stream", post(prompt_loop_stream));
+
     // Combine all routes (D-33: request context middleware for correlation tracking)
     Router::new()
         .merge(public_routes)
@@ -280,6 +286,7 @@ fn create_router(state: AppState, metrics_state: MetricsState) -> Router {
         .merge(decision_routes)
         .merge(freeze_routes)
         .merge(evidence_routes)
+        .merge(prompt_routes)
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(request_context_middleware))
         .layer(TraceLayer::new_for_http())
@@ -292,14 +299,13 @@ fn create_router(state: AppState, metrics_state: MetricsState) -> Router {
 /// - JSON: Structured logging for production (SR_LOG_FORMAT=json)
 /// - Pretty: Human-readable logging for development (default)
 fn init_tracing(log_level: &str) {
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| {
-            format!(
-                "sr_api={},sr_adapters={},sr_domain={},tower_http=debug",
-                log_level, log_level, log_level
-            )
-            .into()
-        });
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        format!(
+            "sr_api={},sr_adapters={},sr_domain={},tower_http=debug",
+            log_level, log_level, log_level
+        )
+        .into()
+    });
 
     let use_json = std::env::var("SR_LOG_FORMAT")
         .map(|v| v.to_lowercase() == "json")

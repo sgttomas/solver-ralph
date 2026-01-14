@@ -38,8 +38,10 @@ impl InfisicalConfig {
         Ok(Self {
             api_endpoint: std::env::var("INFISICAL_API_ENDPOINT")
                 .unwrap_or_else(|_| "https://app.infisical.com".to_string()),
-            token: std::env::var("INFISICAL_TOKEN").map_err(|_| SecretProviderError::ProviderError {
-                message: "INFISICAL_TOKEN environment variable not set".to_string(),
+            token: std::env::var("INFISICAL_TOKEN").map_err(|_| {
+                SecretProviderError::ProviderError {
+                    message: "INFISICAL_TOKEN environment variable not set".to_string(),
+                }
             })?,
             environment: std::env::var("INFISICAL_ENVIRONMENT")
                 .unwrap_or_else(|_| "dev".to_string()),
@@ -139,10 +141,7 @@ impl InfisicalSecretProvider {
     /// Build the API URL for a secret
     fn secret_url(&self, path: &str) -> String {
         let (folder, key) = Self::parse_path(path);
-        let mut url = format!(
-            "{}/api/v3/secrets/raw/{}",
-            self.config.api_endpoint, key
-        );
+        let mut url = format!("{}/api/v3/secrets/raw/{}", self.config.api_endpoint, key);
 
         url.push_str(&format!(
             "?workspaceId={}&environment={}",
@@ -172,11 +171,12 @@ impl InfisicalSecretProvider {
 
         let status = response.status();
         if status.is_success() {
-            response.json::<T>().await.map_err(|e| {
-                SecretProviderError::ProviderError {
+            response
+                .json::<T>()
+                .await
+                .map_err(|e| SecretProviderError::ProviderError {
                     message: format!("Failed to parse response: {}", e),
-                }
-            })
+                })
         } else if status.as_u16() == 404 {
             Err(SecretProviderError::NotFound {
                 path: "unknown".to_string(),

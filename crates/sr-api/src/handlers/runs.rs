@@ -181,14 +181,15 @@ pub async fn get_run(
     _user: AuthenticatedUser,
     Path(run_id): Path<String>,
 ) -> ApiResult<Json<RunResponse>> {
-    let projection = state
-        .projections
-        .get_run(&run_id)
-        .await?
-        .ok_or_else(|| ApiError::NotFound {
-            resource: "Run".to_string(),
-            id: run_id.clone(),
-        })?;
+    let projection =
+        state
+            .projections
+            .get_run(&run_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Run".to_string(),
+                id: run_id.clone(),
+            })?;
 
     Ok(Json(projection_to_response(projection)))
 }
@@ -262,14 +263,15 @@ pub async fn complete_run(
     Path(run_id): Path<String>,
     Json(body): Json<CompleteRunRequest>,
 ) -> ApiResult<Json<RunActionResponse>> {
-    let projection = state
-        .projections
-        .get_run(&run_id)
-        .await?
-        .ok_or_else(|| ApiError::NotFound {
-            resource: "Run".to_string(),
-            id: run_id.clone(),
-        })?;
+    let projection =
+        state
+            .projections
+            .get_run(&run_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Run".to_string(),
+                id: run_id.clone(),
+            })?;
 
     // Can only complete from STARTED or RUNNING
     if !["STARTED", "RUNNING"].contains(&projection.state.as_str()) {

@@ -347,10 +347,8 @@ impl MinioEvidenceStore {
             .contents()
             .iter()
             .filter_map(|obj| {
-                obj.key().and_then(|key| {
-                    key.strip_prefix(&prefix)
-                        .map(|name| name.to_string())
-                })
+                obj.key()
+                    .and_then(|key| key.strip_prefix(&prefix).map(|name| name.to_string()))
             })
             .collect();
 
@@ -378,8 +376,7 @@ impl MinioEvidenceStore {
         }
 
         // Recompute hash
-        let blob_refs: Vec<(&str, &[u8])> =
-            blobs.iter().map(|(n, d)| (*n, d.as_slice())).collect();
+        let blob_refs: Vec<(&str, &[u8])> = blobs.iter().map(|(n, d)| (*n, d.as_slice())).collect();
         let computed_hash = Self::compute_bundle_hash(&manifest, &blob_refs);
 
         let valid = computed_hash == content_hash;
@@ -404,7 +401,10 @@ mod tests {
     #[test]
     fn test_compute_bundle_hash_determinism() {
         let manifest = br#"{"version": "v1", "type": "evidence.gate_packet"}"#;
-        let blobs = vec![("output.txt", b"hello world" as &[u8]), ("log.txt", b"log data")];
+        let blobs = vec![
+            ("output.txt", b"hello world" as &[u8]),
+            ("log.txt", b"log data"),
+        ];
 
         let hash1 = MinioEvidenceStore::compute_bundle_hash(manifest, &blobs);
         let hash2 = MinioEvidenceStore::compute_bundle_hash(manifest, &blobs);

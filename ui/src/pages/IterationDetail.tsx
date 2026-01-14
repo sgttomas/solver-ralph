@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useAuth } from 'react-oidc-context';
+import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
 
 interface TypedRef {

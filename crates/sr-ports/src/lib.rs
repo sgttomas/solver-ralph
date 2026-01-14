@@ -141,7 +141,10 @@ pub enum OracleRunnerError {
     ContainerExecutionFailed { reason: String },
 
     #[error("Execution timeout for oracle {oracle_id}: exceeded {timeout_secs} seconds")]
-    ExecutionTimeout { oracle_id: String, timeout_secs: u64 },
+    ExecutionTimeout {
+        oracle_id: String,
+        timeout_secs: u64,
+    },
 
     #[error("Output capture failed for {artifact}: {reason}")]
     OutputCaptureFailed { artifact: String, reason: String },
@@ -201,7 +204,10 @@ pub enum MessageBusError {
 /// Validates OIDC JWTs and derives actor identity.
 pub trait IdentityProvider: Send + Sync {
     /// Validate a token and return the actor identity
-    fn validate(&self, token: &str) -> impl Future<Output = Result<ActorIdentity, IdentityError>> + Send;
+    fn validate(
+        &self,
+        token: &str,
+    ) -> impl Future<Output = Result<ActorIdentity, IdentityError>> + Send;
 }
 
 /// Actor identity from validated token

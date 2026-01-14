@@ -607,7 +607,9 @@ impl PlanDecomposer {
                     .unwrap_or_else(|| {
                         // Fall back to a default procedure template reference
                         ProcedureTemplateWithRef {
-                            procedure_template_id: ProcedureTemplateId::new("GENERIC-KNOWLEDGE-WORK"),
+                            procedure_template_id: ProcedureTemplateId::new(
+                                "GENERIC-KNOWLEDGE-WORK",
+                            ),
                             procedure_template_ref: ContentAddressedRef {
                                 id: "proc:GENERIC-KNOWLEDGE-WORK".to_string(),
                                 content_hash: ContentHash::new("placeholder"),
@@ -645,7 +647,10 @@ impl PlanDecomposer {
 
         // Create source analysis for rationale
         let source_analysis = SourceAnalysis {
-            summary: source_ref.title.clone().unwrap_or_else(|| "Problem statement".to_string()),
+            summary: source_ref
+                .title
+                .clone()
+                .unwrap_or_else(|| "Problem statement".to_string()),
             objectives: Vec::new(),
             scope: Vec::new(),
             constraints: Vec::new(),
@@ -653,10 +658,8 @@ impl PlanDecomposer {
         };
 
         // Create decomposition rationale
-        let mut rationale = DecompositionRationale::new(
-            plan.plan_instance_id.clone(),
-            source_analysis,
-        );
+        let mut rationale =
+            DecompositionRationale::new(plan.plan_instance_id.clone(), source_analysis);
 
         // Add work unit rationale entries
         for wu in &plan.work_units {
@@ -964,8 +967,16 @@ pub fn compute_plan_instance_hash(plan: &PlanInstance) -> ContentHash {
     // Include dependency edges (sorted for determinism)
     let mut sorted_edges: Vec<_> = plan.dependency_edges.iter().collect();
     sorted_edges.sort_by(|a, b| {
-        let a_key = format!("{}:{}", a.from_work_unit_id.as_str(), a.to_work_unit_id.as_str());
-        let b_key = format!("{}:{}", b.from_work_unit_id.as_str(), b.to_work_unit_id.as_str());
+        let a_key = format!(
+            "{}:{}",
+            a.from_work_unit_id.as_str(),
+            a.to_work_unit_id.as_str()
+        );
+        let b_key = format!(
+            "{}:{}",
+            b.from_work_unit_id.as_str(),
+            b.to_work_unit_id.as_str()
+        );
         a_key.cmp(&b_key)
     });
 
@@ -1009,8 +1020,16 @@ pub fn compute_rationale_hash(rationale: &DecompositionRationale) -> ContentHash
     // Include dependency rationale (sorted for determinism)
     let mut sorted_dr: Vec<_> = rationale.dependency_rationale.iter().collect();
     sorted_dr.sort_by(|a, b| {
-        let a_key = format!("{}:{}", a.from_work_unit_id.as_str(), a.to_work_unit_id.as_str());
-        let b_key = format!("{}:{}", b.from_work_unit_id.as_str(), b.to_work_unit_id.as_str());
+        let a_key = format!(
+            "{}:{}",
+            a.from_work_unit_id.as_str(),
+            a.to_work_unit_id.as_str()
+        );
+        let b_key = format!(
+            "{}:{}",
+            b.from_work_unit_id.as_str(),
+            b.to_work_unit_id.as_str()
+        );
         a_key.cmp(&b_key)
     });
 
@@ -1320,12 +1339,8 @@ mod tests {
         let mut dep_spec = DependencySpec::new();
         dep_spec.add_dependency(WorkUnitId::new("002"), WorkUnitId::new("001"));
 
-        let result = PlanDecomposer::decompose(
-            source_ref,
-            vec![intake1, intake2],
-            procedure_refs,
-            dep_spec,
-        );
+        let result =
+            PlanDecomposer::decompose(source_ref, vec![intake1, intake2], procedure_refs, dep_spec);
 
         assert!(result.is_ok());
         let DecompositionResult { plan, rationale } = result.unwrap();
@@ -1413,10 +1428,8 @@ mod tests {
             unknowns: vec![],
         };
 
-        let mut rationale = DecompositionRationale::new(
-            plan.plan_instance_id.clone(),
-            source_analysis,
-        );
+        let mut rationale =
+            DecompositionRationale::new(plan.plan_instance_id.clone(), source_analysis);
         rationale.finalize();
 
         plan.attach_rationale(rationale.content_hash.clone().unwrap());

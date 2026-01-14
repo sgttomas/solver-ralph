@@ -218,7 +218,10 @@ impl E2EClient {
     }
 
     /// Get candidate by ID
-    pub async fn get_candidate(&self, candidate_id: &str) -> Result<CandidateResponse, ClientError> {
+    pub async fn get_candidate(
+        &self,
+        candidate_id: &str,
+    ) -> Result<CandidateResponse, ClientError> {
         let url = format!("{}/api/v1/candidates/{}", self.base_url, candidate_id);
 
         let response = self
@@ -520,7 +523,10 @@ impl E2EClient {
     }
 
     /// Get exception by ID
-    pub async fn get_exception(&self, exception_id: &str) -> Result<ExceptionResponse, ClientError> {
+    pub async fn get_exception(
+        &self,
+        exception_id: &str,
+    ) -> Result<ExceptionResponse, ClientError> {
         let url = format!("{}/api/v1/exceptions/{}", self.base_url, exception_id);
 
         let response = self

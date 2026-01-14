@@ -70,8 +70,14 @@ impl OracleSuiteRegistry {
 
         let mut profiles = BTreeMap::new();
         profiles.insert(PROFILE_GOV_CORE.to_string(), create_gov_core_profile());
-        profiles.insert(PROFILE_STRICT_CORE.to_string(), create_strict_core_profile());
-        profiles.insert(PROFILE_STRICT_FULL.to_string(), create_strict_full_profile());
+        profiles.insert(
+            PROFILE_STRICT_CORE.to_string(),
+            create_strict_core_profile(),
+        );
+        profiles.insert(
+            PROFILE_STRICT_FULL.to_string(),
+            create_strict_full_profile(),
+        );
 
         Self {
             suites: Arc::new(RwLock::new(suites)),
@@ -112,12 +118,18 @@ impl OracleSuiteRegistry {
     }
 
     /// Get profile for a deliverable
-    pub async fn get_profile_for_deliverable(&self, deliverable_id: &str) -> Option<VerificationProfile> {
+    pub async fn get_profile_for_deliverable(
+        &self,
+        deliverable_id: &str,
+    ) -> Option<VerificationProfile> {
         let profiles = self.profiles.read().await;
 
         // Check each profile's applicable deliverables
         for profile in profiles.values() {
-            if profile.applicable_deliverables.contains(&deliverable_id.to_string()) {
+            if profile
+                .applicable_deliverables
+                .contains(&deliverable_id.to_string())
+            {
                 return Some(profile.clone());
             }
         }
@@ -251,10 +263,7 @@ pub enum IntegrityCondition {
 
 /// Create the SR-SUITE-GOV (governance-only) suite
 pub fn create_gov_suite() -> OracleSuiteDefinition {
-    let oracles = vec![
-        create_meta_validate_oracle(),
-        create_refs_validate_oracle(),
-    ];
+    let oracles = vec![create_meta_validate_oracle(), create_refs_validate_oracle()];
 
     let suite_hash = compute_suite_hash(&oracles);
 
@@ -580,16 +589,16 @@ fn create_replay_verify_oracle() -> OracleDefinition {
     OracleDefinition {
         oracle_id: oracle_ids::REPLAY_VERIFY.to_string(),
         oracle_name: "Event Replay Verification".to_string(),
-        command: "sr-oracles replay-verify --workspace /workspace --output /scratch/reports/replay.json".to_string(),
+        command:
+            "sr-oracles replay-verify --workspace /workspace --output /scratch/reports/replay.json"
+                .to_string(),
         args: vec![],
         timeout_seconds: 600,
-        expected_outputs: vec![
-            ExpectedOutput {
-                path: "reports/replay.json".to_string(),
-                content_type: "application/json".to_string(),
-                required: true,
-            },
-        ],
+        expected_outputs: vec![ExpectedOutput {
+            path: "reports/replay.json".to_string(),
+            content_type: "application/json".to_string(),
+            required: true,
+        }],
         classification: OracleClassification::Required,
         working_dir: Some("/workspace".to_string()),
         env: BTreeMap::new(),
@@ -604,13 +613,11 @@ fn create_sbom_oracle() -> OracleDefinition {
         command: "cargo sbom --output-format json > /scratch/reports/sbom.json".to_string(),
         args: vec![],
         timeout_seconds: 300,
-        expected_outputs: vec![
-            ExpectedOutput {
-                path: "reports/sbom.json".to_string(),
-                content_type: "application/json".to_string(),
-                required: true,
-            },
-        ],
+        expected_outputs: vec![ExpectedOutput {
+            path: "reports/sbom.json".to_string(),
+            content_type: "application/json".to_string(),
+            required: true,
+        }],
         classification: OracleClassification::Advisory,
         working_dir: Some("/workspace".to_string()),
         env: BTreeMap::new(),
@@ -662,9 +669,7 @@ fn create_strict_core_profile() -> VerificationProfile {
             IntegrityCondition::EvidenceMissing,
             IntegrityCondition::ManifestInvalid,
         ],
-        applicable_deliverables: (2..=33)
-            .map(|i| format!("D-{:02}", i))
-            .collect(),
+        applicable_deliverables: (2..=33).map(|i| format!("D-{:02}", i)).collect(),
         metadata: BTreeMap::new(),
     }
 }
@@ -693,11 +698,7 @@ fn create_strict_full_profile() -> VerificationProfile {
             IntegrityCondition::EvidenceMissing,
             IntegrityCondition::ManifestInvalid,
         ],
-        applicable_deliverables: vec![
-            "D-34".to_string(),
-            "D-35".to_string(),
-            "D-36".to_string(),
-        ],
+        applicable_deliverables: vec!["D-34".to_string(), "D-35".to_string(), "D-36".to_string()],
         metadata: BTreeMap::new(),
     }
 }
@@ -945,9 +946,7 @@ mod tests {
         let registry = OracleSuiteRegistry::with_core_suites();
 
         // Should have 4 suites (GOV, CORE, FULL, and semantic intake_admissibility)
-        let suites = futures::executor::block_on(async {
-            registry.list_suites().await
-        });
+        let suites = futures::executor::block_on(async { registry.list_suites().await });
         assert_eq!(suites.len(), 4);
     }
 
@@ -967,10 +966,7 @@ mod tests {
 
     #[test]
     fn test_suite_hash_determinism() {
-        let oracles = vec![
-            create_meta_validate_oracle(),
-            create_build_oracle(),
-        ];
+        let oracles = vec![create_meta_validate_oracle(), create_build_oracle()];
 
         let hash1 = compute_suite_hash(&oracles);
         let hash2 = compute_suite_hash(&oracles);
@@ -1026,7 +1022,10 @@ mod tests {
 
         let result = validate_suite(&suite);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SuiteValidationError::InvalidSuiteId { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            SuiteValidationError::InvalidSuiteId { .. }
+        ));
     }
 
     #[test]
@@ -1036,7 +1035,10 @@ mod tests {
 
         let result = validate_suite(&suite);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SuiteValidationError::HashMismatch { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            SuiteValidationError::HashMismatch { .. }
+        ));
     }
 
     #[test]
@@ -1045,8 +1047,12 @@ mod tests {
 
         assert_eq!(profile.profile_id, PROFILE_STRICT_CORE);
         assert!(profile.required_suites.contains(&SUITE_CORE_ID.to_string()));
-        assert!(profile.waivable_failures.contains(&WaivableCondition::BuildFail));
-        assert!(profile.integrity_conditions.contains(&IntegrityCondition::OracleTamper));
+        assert!(profile
+            .waivable_failures
+            .contains(&WaivableCondition::BuildFail));
+        assert!(profile
+            .integrity_conditions
+            .contains(&IntegrityCondition::OracleTamper));
     }
 
     #[test]
@@ -1055,7 +1061,9 @@ mod tests {
 
         assert_eq!(profile.profile_id, PROFILE_STRICT_FULL);
         assert!(profile.required_suites.contains(&SUITE_FULL_ID.to_string()));
-        assert!(profile.applicable_deliverables.contains(&"D-34".to_string()));
+        assert!(profile
+            .applicable_deliverables
+            .contains(&"D-34".to_string()));
     }
 
     #[test]
@@ -1075,14 +1083,12 @@ mod tests {
             targets_failed: 0,
             warnings: 2,
             errors: vec![],
-            artifacts: vec![
-                BuildArtifact {
-                    name: "sr-api".to_string(),
-                    path: "target/release/sr-api".to_string(),
-                    size: 1024,
-                    hash: "sha256:abc123".to_string(),
-                },
-            ],
+            artifacts: vec![BuildArtifact {
+                name: "sr-api".to_string(),
+                path: "target/release/sr-api".to_string(),
+                size: 1024,
+                hash: "sha256:abc123".to_string(),
+            }],
             duration_ms: 5000,
             timestamp: Utc::now(),
         };

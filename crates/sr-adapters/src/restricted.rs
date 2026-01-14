@@ -197,10 +197,15 @@ impl<E: EvidenceStore, S: SecretProvider> RestrictedEvidenceStore<E, S> {
     }
 
     /// Encrypt data with AES-256-GCM
-    fn encrypt_data(key: &[u8], nonce: &[u8; 12], data: &[u8]) -> Result<Vec<u8>, EvidenceStoreError> {
-        let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| EvidenceStoreError::StorageError {
-            message: format!("Failed to create cipher: {}", e),
-        })?;
+    fn encrypt_data(
+        key: &[u8],
+        nonce: &[u8; 12],
+        data: &[u8],
+    ) -> Result<Vec<u8>, EvidenceStoreError> {
+        let cipher =
+            Aes256Gcm::new_from_slice(key).map_err(|e| EvidenceStoreError::StorageError {
+                message: format!("Failed to create cipher: {}", e),
+            })?;
 
         let nonce = Nonce::from_slice(nonce);
         cipher
@@ -211,10 +216,15 @@ impl<E: EvidenceStore, S: SecretProvider> RestrictedEvidenceStore<E, S> {
     }
 
     /// Decrypt data with AES-256-GCM
-    fn decrypt_data(key: &[u8], nonce: &[u8; 12], data: &[u8]) -> Result<Vec<u8>, EvidenceStoreError> {
-        let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| EvidenceStoreError::StorageError {
-            message: format!("Failed to create cipher: {}", e),
-        })?;
+    fn decrypt_data(
+        key: &[u8],
+        nonce: &[u8; 12],
+        data: &[u8],
+    ) -> Result<Vec<u8>, EvidenceStoreError> {
+        let cipher =
+            Aes256Gcm::new_from_slice(key).map_err(|e| EvidenceStoreError::StorageError {
+                message: format!("Failed to create cipher: {}", e),
+            })?;
 
         let nonce = Nonce::from_slice(nonce);
         cipher
@@ -259,11 +269,12 @@ impl<E: EvidenceStore, S: SecretProvider> RestrictedEvidenceStore<E, S> {
                 message: format!("Failed to get envelope key: {}", e),
             })?;
 
-        let nonce: [u8; 12] = encrypted_dek[..12]
-            .try_into()
-            .map_err(|_| EvidenceStoreError::StorageError {
-                message: "Invalid nonce".to_string(),
-            })?;
+        let nonce: [u8; 12] =
+            encrypted_dek[..12]
+                .try_into()
+                .map_err(|_| EvidenceStoreError::StorageError {
+                    message: "Invalid nonce".to_string(),
+                })?;
 
         Self::decrypt_data(&envelope_key.key_material, &nonce, &encrypted_dek[12..])
     }
@@ -354,7 +365,8 @@ impl<E: EvidenceStore, S: SecretProvider> RestrictedEvidenceStore<E, S> {
 
         // Step 6: Store encrypted bundle with metadata
         // Add metadata as a special blob
-        let mut all_blobs: Vec<(&str, &[u8])> = vec![("__encryption_metadata__.json", &metadata_json)];
+        let mut all_blobs: Vec<(&str, &[u8])> =
+            vec![("__encryption_metadata__.json", &metadata_json)];
 
         // Convert encrypted blobs back to refs
         let encrypted_blob_refs: Vec<(&str, &[u8])> = encrypted_blobs
@@ -398,11 +410,12 @@ impl<E: EvidenceStore, S: SecretProvider> RestrictedEvidenceStore<E, S> {
         // If we can't find metadata, this is likely unencrypted
         // This is a simplified check - in production we'd have a cleaner indicator
 
-        let nonce: [u8; 12] = encrypted_data[..12]
-            .try_into()
-            .map_err(|_| EvidenceStoreError::StorageError {
-                message: "Invalid nonce in encrypted manifest".to_string(),
-            })?;
+        let nonce: [u8; 12] =
+            encrypted_data[..12]
+                .try_into()
+                .map_err(|_| EvidenceStoreError::StorageError {
+                    message: "Invalid nonce in encrypted manifest".to_string(),
+                })?;
 
         // We need to retrieve the DEK path from metadata stored in the bundle
         // For this MVP, we'll construct the DEK path from content hash
@@ -421,7 +434,10 @@ impl<E: EvidenceStore, S: SecretProvider> RestrictedEvidenceStore<E, S> {
                     algorithm: "AES-256-GCM".to_string(),
                     kek_id: self.config.kek_id.clone(),
                     dek_path,
-                    nonce: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &nonce),
+                    nonce: base64::Engine::encode(
+                        &base64::engine::general_purpose::STANDARD,
+                        &nonce,
+                    ),
                     classification: EvidenceClassification::Restricted,
                     encrypted_at: chrono::Utc::now(),
                 };
@@ -746,9 +762,11 @@ impl SecretProvider for InMemorySecretProvider {
 
     async fn get_envelope_key(&self, key_id: &str) -> Result<EnvelopeKey, SecretProviderError> {
         let keys = self.envelope_keys.read().await;
-        keys.get(key_id).cloned().ok_or(SecretProviderError::NotFound {
-            path: key_id.to_string(),
-        })
+        keys.get(key_id)
+            .cloned()
+            .ok_or(SecretProviderError::NotFound {
+                path: key_id.to_string(),
+            })
     }
 }
 

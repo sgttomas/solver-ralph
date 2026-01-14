@@ -16,7 +16,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sr_adapters::{EvidenceArtifact, EvidenceManifest, OracleResult, OracleResultStatus};
 use sr_domain::{EventEnvelope, EventId, StreamKind};
-use sr_ports::{EvidenceStore, EventStore};
+use sr_ports::{EventStore, EvidenceStore};
 use tracing::{debug, info, instrument, warn};
 
 use crate::auth::AuthenticatedUser;
@@ -153,11 +153,9 @@ pub async fn upload_evidence(
     Json(body): Json<UploadEvidenceRequest>,
 ) -> ApiResult<Json<UploadEvidenceResponse>> {
     // Validate the manifest
-    body.manifest
-        .validate()
-        .map_err(|e| ApiError::BadRequest {
-            message: format!("Invalid evidence manifest: {}", e),
-        })?;
+    body.manifest.validate().map_err(|e| ApiError::BadRequest {
+        message: format!("Invalid evidence manifest: {}", e),
+    })?;
 
     // Serialize manifest to JSON
     let manifest_json = body
@@ -170,13 +168,11 @@ pub async fn upload_evidence(
     // Decode blobs from base64
     let mut blobs_decoded: Vec<(String, Vec<u8>)> = Vec::new();
     for (name, content_b64) in &body.blobs {
-        let decoded = base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD,
-            content_b64,
-        )
-        .map_err(|e| ApiError::BadRequest {
-            message: format!("Invalid base64 in blob '{}': {}", name, e),
-        })?;
+        let decoded =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, content_b64)
+                .map_err(|e| ApiError::BadRequest {
+                    message: format!("Invalid base64 in blob '{}': {}", name, e),
+                })?;
         blobs_decoded.push((name.clone(), decoded));
     }
 
@@ -256,11 +252,7 @@ pub async fn upload_evidence(
     }
 
     // Process projections
-    if let Err(e) = state
-        .projections
-        .process_events(&*state.event_store)
-        .await
-    {
+    if let Err(e) = state.projections.process_events(&*state.event_store).await {
         warn!(error = ?e, "Failed to process projections after evidence upload");
     }
 
@@ -638,7 +630,8 @@ pub async fn list_evidence_for_candidate(
         if let Some(ref evidence_hash) = run.evidence_bundle_hash {
             if seen_hashes.insert(evidence_hash.clone()) {
                 if let Ok(manifest_bytes) = state.evidence_store.retrieve(evidence_hash).await {
-                    if let Ok(manifest) = serde_json::from_slice::<EvidenceManifest>(&manifest_bytes)
+                    if let Ok(manifest) =
+                        serde_json::from_slice::<EvidenceManifest>(&manifest_bytes)
                     {
                         evidence.push(EvidenceSummary {
                             content_hash: evidence_hash.clone(),

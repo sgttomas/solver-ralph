@@ -399,30 +399,44 @@ impl EvidenceManifestBuilder {
     }
 
     pub fn build(self) -> Result<EvidenceManifest, ManifestValidationError> {
-        let bundle_id = self.bundle_id.ok_or(ManifestValidationError::MissingField {
-            field: "bundle_id".to_string(),
-        })?;
+        let bundle_id = self
+            .bundle_id
+            .ok_or(ManifestValidationError::MissingField {
+                field: "bundle_id".to_string(),
+            })?;
         let run_id = self.run_id.ok_or(ManifestValidationError::MissingField {
             field: "run_id".to_string(),
         })?;
-        let candidate_id = self.candidate_id.ok_or(ManifestValidationError::MissingField {
-            field: "candidate_id".to_string(),
-        })?;
-        let oracle_suite_id = self.oracle_suite_id.ok_or(ManifestValidationError::MissingField {
-            field: "oracle_suite_id".to_string(),
-        })?;
-        let oracle_suite_hash = self.oracle_suite_hash.ok_or(ManifestValidationError::MissingField {
-            field: "oracle_suite_hash".to_string(),
-        })?;
-        let run_started_at = self.run_started_at.ok_or(ManifestValidationError::MissingField {
-            field: "run_started_at".to_string(),
-        })?;
-        let run_completed_at = self.run_completed_at.ok_or(ManifestValidationError::MissingField {
-            field: "run_completed_at".to_string(),
-        })?;
-        let environment_fingerprint = self.environment_fingerprint.ok_or(ManifestValidationError::MissingField {
-            field: "environment_fingerprint".to_string(),
-        })?;
+        let candidate_id = self
+            .candidate_id
+            .ok_or(ManifestValidationError::MissingField {
+                field: "candidate_id".to_string(),
+            })?;
+        let oracle_suite_id =
+            self.oracle_suite_id
+                .ok_or(ManifestValidationError::MissingField {
+                    field: "oracle_suite_id".to_string(),
+                })?;
+        let oracle_suite_hash =
+            self.oracle_suite_hash
+                .ok_or(ManifestValidationError::MissingField {
+                    field: "oracle_suite_hash".to_string(),
+                })?;
+        let run_started_at = self
+            .run_started_at
+            .ok_or(ManifestValidationError::MissingField {
+                field: "run_started_at".to_string(),
+            })?;
+        let run_completed_at =
+            self.run_completed_at
+                .ok_or(ManifestValidationError::MissingField {
+                    field: "run_completed_at".to_string(),
+                })?;
+        let environment_fingerprint =
+            self.environment_fingerprint
+                .ok_or(ManifestValidationError::MissingField {
+                    field: "environment_fingerprint".to_string(),
+                })?;
 
         // Compute verdict from results
         let verdict = if self.results.is_empty() {
@@ -580,7 +594,10 @@ mod tests {
         let mut manifest = sample_manifest();
         manifest.version = "v2".to_string();
         let err = manifest.validate().unwrap_err();
-        assert!(matches!(err, ManifestValidationError::InvalidVersion { .. }));
+        assert!(matches!(
+            err,
+            ManifestValidationError::InvalidVersion { .. }
+        ));
     }
 
     #[test]
@@ -588,7 +605,10 @@ mod tests {
         let mut manifest = sample_manifest();
         manifest.artifact_type = "wrong.type".to_string();
         let err = manifest.validate().unwrap_err();
-        assert!(matches!(err, ManifestValidationError::InvalidArtifactType { .. }));
+        assert!(matches!(
+            err,
+            ManifestValidationError::InvalidArtifactType { .. }
+        ));
     }
 
     #[test]
@@ -657,7 +677,10 @@ mod tests {
         });
 
         let err = manifest.validate().unwrap_err();
-        assert!(matches!(err, ManifestValidationError::DuplicateArtifact { .. }));
+        assert!(matches!(
+            err,
+            ManifestValidationError::DuplicateArtifact { .. }
+        ));
     }
 
     #[test]

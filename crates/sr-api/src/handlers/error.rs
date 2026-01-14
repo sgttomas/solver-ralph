@@ -24,7 +24,10 @@ pub enum ApiError {
     /// Forbidden (insufficient permissions)
     Forbidden { message: String },
     /// Invalid state transition
-    InvalidTransition { current_state: String, action: String },
+    InvalidTransition {
+        current_state: String,
+        action: String,
+    },
     /// Internal server error
     Internal { message: String },
 }

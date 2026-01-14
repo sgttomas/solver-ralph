@@ -2,5 +2,5 @@
  * Authentication Module Exports (D-28)
  */
 
-export { AuthProvider } from './AuthProvider';
+export { AuthProvider, useAuth } from './AuthProvider';
 export { ProtectedRoute } from './ProtectedRoute';

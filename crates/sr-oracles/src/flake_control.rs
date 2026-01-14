@@ -157,9 +157,9 @@ impl FlakeControl {
 
                     // Apply jitter
                     let jitter = if self.retry_policy.jitter_factor > 0.0 {
-                        let jitter_range =
-                            (current_delay.as_millis() as f64 * self.retry_policy.jitter_factor)
-                                as u64;
+                        let jitter_range = (current_delay.as_millis() as f64
+                            * self.retry_policy.jitter_factor)
+                            as u64;
                         Duration::from_millis(rand::random::<u64>() % jitter_range.max(1))
                     } else {
                         Duration::ZERO

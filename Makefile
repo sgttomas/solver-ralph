@@ -105,6 +105,10 @@ dev: dev-api
 # Start API server in development mode
 dev-api:
 	@echo "Starting API server..."
+	SR_OIDC_ISSUER=http://localhost:8080 \
+	SR_OIDC_AUDIENCE=355454548799717382,solver-ralph \
+	SR_OIDC_JWKS_URI=http://localhost:8080/oauth/v2/keys \
+	SR_OIDC_SKIP_VALIDATION=false \
 	cargo run --bin sr-api
 
 # Start UI development server

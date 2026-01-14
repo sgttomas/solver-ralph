@@ -40,25 +40,49 @@ pub mod semantic_worker;
 pub mod worker;
 
 pub use config::*;
+pub use event_manager::{
+    BlockReason, BlockReasonType, CoarseStatus, DependencyGraphEdge, DependencyGraphNode,
+    DependencyGraphSnapshot, EligibleSet, EligibleSetEntry, EventManager, EventManagerError,
+    RunList, RunListEntry, StageStatus, StageStatusEntry, StalenessMarkerEntry, WorkUnitStatus,
+};
 pub use evidence::{
     compute_verdict, EvidenceArtifact, EvidenceManifest, EvidenceManifestBuilder,
     ManifestValidationError, OracleResult, OracleResultStatus,
 };
-pub use integrity::{
-    ArtifactHashCheck, ConstraintViolation, EnvironmentCheckResult, FlakeCheckResult,
-    FlakeEvidence, FlakeHistoryWindow, GapCheckResult, IntegrityCheckDetails,
-    IntegrityCheckResult, IntegrityChecker, IntegrityCheckerConfig, IntegrityError,
-    IntegrityViolation, ProfileVerificationResult, StopTrigger, StopTriggerType,
-    TamperCheckResult, ViolationSeverity,
+pub use governor::{
+    GovernorDecision, GovernorDecisionType, GovernorError, GovernorOutcome, IterationPreconditions,
+    LoopBudget, LoopGovernor, LoopTrackingState, PreconditionSnapshot, StopCondition,
 };
 pub use graph::{
     DependencyEdge, EdgeType, GraphError, GraphNode, GraphProjection, StalenessMarker,
     StalenessReason,
 };
-pub use minio::{MinioConfig, MinioEvidenceStore};
-pub use outbox::{
-    OutboxEntry, OutboxError, OutboxPublisher, OutboxPublisherConfig, OutboxWriter,
+pub use infisical::{InfisicalConfig, InfisicalSecretProvider};
+pub use integrity::{
+    ArtifactHashCheck, ConstraintViolation, EnvironmentCheckResult, FlakeCheckResult,
+    FlakeEvidence, FlakeHistoryWindow, GapCheckResult, IntegrityCheckDetails, IntegrityCheckResult,
+    IntegrityChecker, IntegrityCheckerConfig, IntegrityError, IntegrityViolation,
+    ProfileVerificationResult, StopTrigger, StopTriggerType, TamperCheckResult, ViolationSeverity,
 };
+pub use minio::{MinioConfig, MinioEvidenceStore};
+pub use nats::{
+    create_envelope, serialize_envelope, streams, subjects, MessageEnvelope, NatsConfig,
+    NatsConsumer, NatsMessage, NatsMessageBus, SCHEMA_VERSION,
+};
+pub use oracle_runner::{
+    CapturedArtifact, EnvironmentConstraints, EnvironmentFingerprint, ExpectedOutput, NetworkMode,
+    OracleClassification, OracleDefinition, OracleExecutionResult, OracleSuiteDefinition,
+    PodmanOracleRunner, PodmanOracleRunnerConfig,
+};
+pub use oracle_suite::{
+    create_core_suite, create_full_suite, create_gov_suite, oracle_ids, validate_suite,
+    BuildArtifact, BuildError, BuildReport, IntegrityCondition, IntegrityPathway,
+    IntegritySmokeReport, LintIssue, LintReport, MetaValidateReport, MetaValidationError,
+    OracleSuiteRegistry, SuiteValidationError, TestFailure, UnitTestReport, VerificationProfile,
+    WaivableCondition, PROFILE_GOV_CORE, PROFILE_STRICT_CORE, PROFILE_STRICT_FULL, SUITE_CORE_ID,
+    SUITE_FULL_ID, SUITE_GOV_ID,
+};
+pub use outbox::{OutboxEntry, OutboxError, OutboxPublisher, OutboxPublisherConfig, OutboxWriter};
 pub use postgres::PostgresEventStore;
 pub use projections::{
     ApprovalProjection, CandidateProjection, DecisionProjection, EvidenceProjection,
@@ -70,46 +94,18 @@ pub use restricted::{
     InMemorySecretProvider, RedactedContentType, RedactionEntry, RedactionManifest, RedactionRule,
     RestrictedEvidenceConfig, RestrictedEvidenceStore,
 };
-pub use infisical::{InfisicalConfig, InfisicalSecretProvider};
-pub use nats::{
-    create_envelope, serialize_envelope, streams, subjects, MessageEnvelope, NatsConfig,
-    NatsConsumer, NatsMessage, NatsMessageBus, SCHEMA_VERSION,
-};
-pub use governor::{
-    GovernorDecision, GovernorDecisionType, GovernorError, GovernorOutcome,
-    IterationPreconditions, LoopBudget, LoopGovernor, LoopTrackingState, PreconditionSnapshot,
-    StopCondition,
-};
-pub use worker::{
-    ContentResolver, ReferenceWorkerBridge, WorkAction, WorkResult, WorkerConfig, WorkerError,
-    run_worker,
-};
-pub use oracle_runner::{
-    CapturedArtifact, EnvironmentConstraints, EnvironmentFingerprint, ExpectedOutput,
-    NetworkMode, OracleClassification, OracleDefinition, OracleExecutionResult,
-    OracleSuiteDefinition, PodmanOracleRunner, PodmanOracleRunnerConfig,
-};
-pub use oracle_suite::{
-    create_core_suite, create_full_suite, create_gov_suite, oracle_ids, validate_suite,
-    BuildArtifact, BuildError, BuildReport, IntegrityCondition, IntegrityPathway,
-    IntegritySmokeReport, LintIssue, LintReport, MetaValidateReport, MetaValidationError,
-    OracleSuiteRegistry, SuiteValidationError, TestFailure, UnitTestReport,
-    VerificationProfile, WaivableCondition, PROFILE_GOV_CORE, PROFILE_STRICT_CORE,
-    PROFILE_STRICT_FULL, SUITE_CORE_ID, SUITE_FULL_ID, SUITE_GOV_ID,
-};
 pub use semantic_suite::{
     create_intake_admissibility_suite, to_oracle_suite_definition, IntakeAdmissibilityRunner,
     SemanticOracleDefinition, SemanticOracleSuiteDefinition, SemanticReportBundle,
     SemanticSetBindingRef, SEMANTIC_ORACLE_PREFIX, SUITE_INTAKE_ADMISSIBILITY_ID,
     SUITE_SEMANTIC_PREFIX,
 };
-pub use event_manager::{
-    BlockReason, BlockReasonType, CoarseStatus, DependencyGraphEdge, DependencyGraphNode,
-    DependencyGraphSnapshot, EligibleSet, EligibleSetEntry, EventManager, EventManagerError,
-    RunList, RunListEntry, StageStatus, StageStatusEntry, StalenessMarkerEntry, WorkUnitStatus,
-};
 pub use semantic_worker::{
     EvidenceBundlePayload, GateVerdict, IterationSummary, NextStepRecommendation,
     SelectionRationale, SemanticOracleResult, SemanticWorkerBridge, SemanticWorkerConfig,
     StageArtifact, StageExecutionResult, StopTriggerInfo, StopTriggerReason,
+};
+pub use worker::{
+    run_worker, ContentResolver, ReferenceWorkerBridge, WorkAction, WorkResult, WorkerConfig,
+    WorkerError,
 };

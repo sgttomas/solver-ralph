@@ -182,7 +182,10 @@ impl ProjectionBuilder {
             }
         }
 
-        info!(total_processed = total_processed, "Event processing complete");
+        info!(
+            total_processed = total_processed,
+            "Event processing complete"
+        );
         Ok(total_processed)
     }
 
@@ -209,7 +212,8 @@ impl ProjectionBuilder {
             // Candidate events
             "CandidateMaterialized" => self.apply_candidate_materialized(&mut tx, event).await,
             "CandidateVerificationComputed" => {
-                self.apply_candidate_verification_computed(&mut tx, event).await
+                self.apply_candidate_verification_computed(&mut tx, event)
+                    .await
             }
 
             // Run events
@@ -239,9 +243,7 @@ impl ProjectionBuilder {
             }
 
             // Evidence events (D-20)
-            "EvidenceBundleRecorded" => {
-                self.apply_evidence_bundle_recorded(&mut tx, event).await
-            }
+            "EvidenceBundleRecorded" => self.apply_evidence_bundle_recorded(&mut tx, event).await,
             "EvidenceAssociated" => self.apply_evidence_associated(&mut tx, event).await,
 
             // Events we acknowledge but don't project
@@ -300,17 +302,14 @@ impl ProjectionBuilder {
         // Process all events from the beginning
         let processed = self.process_events(event_store).await?;
 
-        info!(
-            processed = processed,
-            "Full projection rebuild complete"
-        );
+        info!(processed = processed, "Full projection rebuild complete");
         Ok(processed)
     }
 
     /// Truncate all projection tables for rebuild
     async fn truncate_projections(&self) -> Result<(), ProjectionError> {
         let tables = [
-            "proj.evidence_associations",  // Must truncate before evidence_bundles due to FK
+            "proj.evidence_associations", // Must truncate before evidence_bundles due to FK
             "proj.evidence_bundles",
             "proj.loops",
             "proj.iterations",
@@ -522,7 +521,13 @@ impl ProjectionBuilder {
         let payload = &event.payload;
         let state = payload["outcome"]
             .as_str()
-            .map(|s| if s == "SUCCESS" { "COMPLETED" } else { "FAILED" })
+            .map(|s| {
+                if s == "SUCCESS" {
+                    "COMPLETED"
+                } else {
+                    "FAILED"
+                }
+            })
             .unwrap_or("COMPLETED");
 
         sqlx::query(
@@ -681,7 +686,13 @@ impl ProjectionBuilder {
         let payload = &event.payload;
         let state = payload["outcome"]
             .as_str()
-            .map(|s| if s == "SUCCESS" { "COMPLETED" } else { "FAILED" })
+            .map(|s| {
+                if s == "SUCCESS" {
+                    "COMPLETED"
+                } else {
+                    "FAILED"
+                }
+            })
             .unwrap_or("COMPLETED");
         let evidence_hash = payload["evidence_bundle_hash"].as_str();
 
@@ -1031,7 +1042,9 @@ impl ProjectionBuilder {
         let version = payload["version"].as_str().unwrap_or("");
         let content_hash = payload["content_hash"].as_str().unwrap_or("");
         let status = payload["status"].as_str().unwrap_or("draft");
-        let normative_status = payload["normative_status"].as_str().unwrap_or("directional");
+        let normative_status = payload["normative_status"]
+            .as_str()
+            .unwrap_or("directional");
         let authority_kind = payload["authority_kind"].as_str().unwrap_or("content");
         let governed_by: Vec<&str> = payload["governed_by"]
             .as_array()
@@ -1163,7 +1176,7 @@ impl ProjectionBuilder {
             .get("verdict")
             .and_then(|v| v.as_str())
             .unwrap_or("PASS")
-            .to_string();
+            .to_uppercase();
 
         let artifact_count: i32 = event
             .payload
@@ -2338,7 +2351,10 @@ impl ProjectionBuilder {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|row| row.get("content_hash")).collect())
+        Ok(rows
+            .into_iter()
+            .map(|row| row.get("content_hash"))
+            .collect())
     }
 
     /// Get evidence for a candidate
@@ -2358,7 +2374,10 @@ impl ProjectionBuilder {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|row| row.get("content_hash")).collect())
+        Ok(rows
+            .into_iter()
+            .map(|row| row.get("content_hash"))
+            .collect())
     }
 
     /// Get evidence for an iteration
@@ -2378,7 +2397,10 @@ impl ProjectionBuilder {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|row| row.get("content_hash")).collect())
+        Ok(rows
+            .into_iter()
+            .map(|row| row.get("content_hash"))
+            .collect())
     }
 
     /// List all evidence bundles with optional filtering

@@ -239,10 +239,7 @@ impl E2ERunner {
 
         // Step 3: Verify loops endpoint works
         let step_start = Instant::now();
-        let loops_response = client
-            .get(format!("{}/api/v1/loops", api_url))
-            .send()
-            .await;
+        let loops_response = client.get(format!("{}/api/v1/loops", api_url)).send().await;
 
         match loops_response {
             Ok(resp) => {
@@ -333,11 +330,9 @@ impl E2ERunner {
         client: &reqwest::Client,
         api_url: &str,
     ) -> Result<String, E2EError> {
-        let token = self
-            .config
-            .system_token
-            .as_ref()
-            .ok_or_else(|| E2EError::MissingAuth("SYSTEM token required for loop creation".to_string()))?;
+        let token = self.config.system_token.as_ref().ok_or_else(|| {
+            E2EError::MissingAuth("SYSTEM token required for loop creation".to_string())
+        })?;
 
         let response = client
             .post(format!("{}/api/v1/loops", api_url))
@@ -481,7 +476,9 @@ impl E2ERunner {
             scenario.add_step(StepResult {
                 name: "replay_check".to_string(),
                 success: true,
-                error: Some("Database URL not configured - skipping replay verification".to_string()),
+                error: Some(
+                    "Database URL not configured - skipping replay verification".to_string(),
+                ),
                 duration_ms: 0,
                 produced_ids: Default::default(),
             });
@@ -522,8 +519,16 @@ impl E2ERunner {
 
     fn collect_environment_info(&self) -> EnvironmentInfo {
         EnvironmentInfo {
-            host: Some(hostname::get().map(|h| h.to_string_lossy().to_string()).unwrap_or_default()),
-            platform: Some(format!("{}/{}", std::env::consts::OS, std::env::consts::ARCH)),
+            host: Some(
+                hostname::get()
+                    .map(|h| h.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+            ),
+            platform: Some(format!(
+                "{}/{}",
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            )),
             stack_version: Some("1.0.0".to_string()),
             service_versions: Default::default(),
         }
@@ -604,7 +609,9 @@ mod tests {
         scenario.mark_passed(100);
         runner.report.add_scenario(scenario);
 
-        runner.report.add_invariant(InvariantCheck::passed("test", "Test invariant"));
+        runner
+            .report
+            .add_invariant(InvariantCheck::passed("test", "Test invariant"));
 
         runner.report.finalize();
 

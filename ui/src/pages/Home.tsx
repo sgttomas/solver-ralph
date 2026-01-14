@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useAuth } from 'react-oidc-context';
+import { useAuth } from '../auth/AuthProvider';
 import { Link } from 'react-router-dom';
 import config from '../config';
 
@@ -93,6 +93,8 @@ export function Home(): JSX.Element {
   const auth = useAuth();
   const [apiInfo, setApiInfo] = useState<ApiInfo | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const isDevMode = config.devAuthBypass;
+  const isAuthenticated = auth.isAuthenticated;
 
   useEffect(() => {
     fetch(`${config.apiUrl}/api/v1/info`)
@@ -108,8 +110,8 @@ export function Home(): JSX.Element {
     <div style={styles.container}>
       <div style={styles.hero}>
         <h1 style={styles.heroTitle}>
-          {auth.isAuthenticated
-            ? `Welcome back, ${auth.user?.profile?.name || 'User'}`
+          {isDevMode
+            ? 'Welcome, Dev User'
             : 'Welcome to SOLVER-Ralph'}
         </h1>
         <p style={styles.heroSubtitle}>
@@ -152,7 +154,29 @@ export function Home(): JSX.Element {
         {/* Authentication Card */}
         <div style={styles.card}>
           <h2 style={styles.cardTitle}>Authentication</h2>
-          {auth.isAuthenticated ? (
+          {isDevMode ? (
+            <>
+              <p style={styles.cardContent}>
+                <span style={{ ...styles.statusBadge, backgroundColor: '#fff3cd', color: '#856404' }}>
+                  Dev Bypass
+                </span>
+              </p>
+              <p style={styles.cardContent}>
+                <strong>Mode:</strong> Development<br />
+                <strong>User:</strong> Dev User<br />
+                <strong>Auth:</strong> Disabled
+              </p>
+            </>
+          ) : auth.isLoading ? (
+            <>
+              <p style={styles.cardContent}>
+                <span style={{ ...styles.statusBadge, backgroundColor: '#e2e3e5', color: '#383d41' }}>
+                  Checking...
+                </span>
+              </p>
+              <p style={styles.cardContent}>Verifying session with identity provider.</p>
+            </>
+          ) : isAuthenticated ? (
             <>
               <p style={styles.cardContent}>
                 <span style={{ ...styles.statusBadge, ...styles.statusOnline }}>
@@ -160,9 +184,8 @@ export function Home(): JSX.Element {
                 </span>
               </p>
               <p style={styles.cardContent}>
-                <strong>User:</strong> {auth.user?.profile?.name || 'N/A'}<br />
-                <strong>Email:</strong> {auth.user?.profile?.email || 'N/A'}<br />
-                <strong>Subject:</strong> {auth.user?.profile?.sub || 'N/A'}
+                <strong>User:</strong> {auth.user?.profile?.name || auth.user?.profile?.email || 'User'}<br />
+                <strong>Subject:</strong> {auth.user?.profile?.sub || 'n/a'}
               </p>
             </>
           ) : (
@@ -175,20 +198,6 @@ export function Home(): JSX.Element {
               <p style={styles.cardContent}>
                 Log in to access portal workflows and governance features.
               </p>
-              <button
-                onClick={() => auth.signinRedirect()}
-                style={{
-                  marginTop: '0.5rem',
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#0066cc',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                }}
-              >
-                Log In with Zitadel
-              </button>
             </>
           )}
         </div>
@@ -199,6 +208,9 @@ export function Home(): JSX.Element {
           <ul style={styles.list}>
             <li style={styles.listItem}>
               <Link to="/loops" style={styles.link}>View Loops</Link> - Active work units
+            </li>
+            <li style={styles.listItem}>
+              <Link to="/prompt" style={styles.link}>Prompt Loop</Link> - Run a prompt through the governed loop
             </li>
             <li style={styles.listItem}>
               <Link to="/evidence" style={styles.link}>Evidence</Link> - Oracle outputs

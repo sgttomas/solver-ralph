@@ -30,30 +30,6 @@ ALWAYS refer to the project docs/*/SR-* for the authoritative coding architectur
 
 When troubleshooting, refer to the appropriate SR-* documents.
 
-## Outstanding QC Findings
-
-All deliverables (D-02 through D-41) are complete. All unit tests now pass.
-
-### ~~4 Failing Unit Tests in `sr-adapters`~~ RESOLVED
-
-Fixed in commit `6f4a260`:
-- `integrity.rs`: Reordered `ViolationSeverity` enum so Critical > High > Medium > Low
-- `evidence.rs`: Used fixed timestamp in `sample_manifest()` for deterministic tests
-- `worker.rs`: Fixed hash length assertion to account for "sha256:" prefix (71 chars)
-- `restricted.rs`: Added `#[ignore]` to test requiring Infisical service
-
-### ~~1 TODO in Production Code~~ RESOLVED
-
-Implemented in this session:
-- `governor.rs`: Added `pending_portal_approvals` tracking to `LoopTrackingState`
-- `StopTriggered` events now extract `recommended_portal` and track pending approvals
-- `ApprovalRecorded` events clear pending portal approvals for the related loop
-- `approvals_satisfied` now checks `pending_portal_approvals.is_empty()`
-
-### D-01 (Governance Hygiene) Status
-
-D-01 was a **conditional deliverable**: "execute only if governance inconsistencies block implementation or introduce drift risk." No governance blockers were encountered during the build phase, so D-01 was correctly skipped.
-
 ---
 
 ## Canonical document paths
@@ -80,7 +56,81 @@ Canonical index for the SR-* document set.
 | SR-DIRECTIVE | `program/` | Execution policy |
 | SR-README | `charter/` | This index |
 
+
+
 ## Development History Summary for this Deliverable
+
+## Outstanding QC Findings
+
+All deliverables (D-02 through D-41) are complete. All unit tests now pass.
+
+### ~~4 Failing Unit Tests in `sr-adapters`~~ RESOLVED
+
+Fixed in commit `6f4a260`:
+- `integrity.rs`: Reordered `ViolationSeverity` enum so Critical > High > Medium > Low
+- `evidence.rs`: Used fixed timestamp in `sample_manifest()` for deterministic tests
+- `worker.rs`: Fixed hash length assertion to account for "sha256:" prefix (71 chars)
+- `restricted.rs`: Added `#[ignore]` to test requiring Infisical service
+
+### ~~1 TODO in Production Code~~ RESOLVED
+
+Implemented in this session:
+- `governor.rs`: Added `pending_portal_approvals` tracking to `LoopTrackingState`
+- `StopTriggered` events now extract `recommended_portal` and track pending approvals
+- `ApprovalRecorded` events clear pending portal approvals for the related loop
+- `approvals_satisfied` now checks `pending_portal_approvals.is_empty()`
+
+### D-01 (Governance Hygiene) Status
+
+D-01 was a **conditional deliverable**: "execute only if governance inconsistencies block implementation or introduce drift risk." No governance blockers were encountered during the build phase, so D-01 was correctly skipped.
+
+
+### Session 24 (2026-01-14)
+**Focus:** UI Prompt Loop + Streaming LLM Integration
+
+**What was done:**
+
+UI Prompt Loop Page (`/prompt` route):
+- Fixed blank white page issue when accessing `/prompt` in dev bypass mode
+- Created custom `useAuth` hook in `AuthProvider.tsx` that returns mock auth context when `VITE_DEV_AUTH_BYPASS=true`
+- Updated all page components to use custom hook instead of `react-oidc-context` directly
+- Files updated: `AuthProvider.tsx`, `ProtectedRoute.tsx`, `Layout.tsx`, all page files in `pages/`
+
+Streaming LLM Endpoint (Backend):
+- Added `POST /api/v1/prompt-loop/stream` SSE endpoint in `prompt_loop.rs`
+- Stream event types: `start` (loop/iteration IDs, hashes), `chunk` (content), `done` (candidate/run/evidence), `error`
+- Uses `axum::response::Sse` with `async-stream` for SSE generation
+- Consumes OpenAI-compatible streaming API with `reqwest` stream feature
+- Added `tokio-stream` and `async-stream` dependencies to `sr-api`
+
+Frontend Streaming:
+- Complete rewrite of `PromptLoop.tsx` for SSE consumption
+- Uses `fetch` with `ReadableStream` to consume SSE events
+- Progressive artifact display: loop/iteration first, then candidate/run/evidence on completion
+- Auto-scroll output, streaming indicator, cancel button support
+
+Configuration Fixes:
+- Fixed `config.rs` to recognize `SR_AUTH_TEST_MODE` env var (was only checking `SR_OIDC_SKIP_VALIDATION`)
+- Model field in UI properly flows through to LLM config with priority: UI > `SR_LLM_MODEL` env > default
+
+Error Handling Improvements:
+- Removed `temperature` parameter from LLM requests (not supported by o1 model family)
+- Added proper error body parsing for OpenAI responses to show actual error messages instead of generic "400 Bad Request"
+
+**Files modified:**
+- `crates/sr-api/src/config.rs` - Auth test mode recognition
+- `crates/sr-api/src/handlers/prompt_loop.rs` - Streaming endpoint, error handling
+- `crates/sr-api/src/handlers/mod.rs` - Export streaming handler
+- `crates/sr-api/src/main.rs` - Route wiring
+- `crates/sr-api/Cargo.toml` - tokio-stream, async-stream dependencies
+- `Cargo.toml` (workspace) - reqwest stream feature
+- `ui/src/auth/AuthProvider.tsx` - Custom useAuth hook with dev bypass support
+- `ui/src/auth/ProtectedRoute.tsx` - Updated import
+- `ui/src/components/Layout.tsx` - Updated import
+- `ui/src/pages/PromptLoop.tsx` - Full streaming UI implementation
+- Multiple page files updated for custom useAuth hook
+
+---
 
 ### Session 23 (2026-01-13)
 **Completed:** D-26

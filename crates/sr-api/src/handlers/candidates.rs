@@ -235,10 +235,8 @@ pub async fn list_candidates_for_iteration(
         .get_candidates_for_iteration(&iteration_id)
         .await?;
 
-    let responses: Vec<CandidateResponse> = candidates
-        .into_iter()
-        .map(projection_to_response)
-        .collect();
+    let responses: Vec<CandidateResponse> =
+        candidates.into_iter().map(projection_to_response).collect();
 
     Ok(Json(ListCandidatesResponse {
         total: responses.len(),
@@ -259,13 +257,15 @@ pub async fn list_candidates(
 ) -> ApiResult<Json<ListCandidatesResponse>> {
     let candidates = state
         .projections
-        .list_candidates(query.verification_status.as_deref(), query.limit, query.offset)
+        .list_candidates(
+            query.verification_status.as_deref(),
+            query.limit,
+            query.offset,
+        )
         .await?;
 
-    let responses: Vec<CandidateResponse> = candidates
-        .into_iter()
-        .map(projection_to_response)
-        .collect();
+    let responses: Vec<CandidateResponse> =
+        candidates.into_iter().map(projection_to_response).collect();
 
     Ok(Json(ListCandidatesResponse {
         total: responses.len(),

@@ -27,7 +27,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::event_manager::{EligibleSet, EventManager};
-use crate::nats::{MessageEnvelope, NatsConsumer, NatsMessageBus, streams, subjects};
+use crate::nats::{streams, subjects, MessageEnvelope, NatsConsumer, NatsMessageBus};
 use crate::worker::{ContentResolver, WorkerConfig, WorkerError};
 use sr_ports::MessageBusError;
 
@@ -513,12 +513,13 @@ impl SemanticWorkerBridge {
 
         // Per contract: choose first eligible (or apply priority)
         // In a real implementation, this might use more sophisticated selection
-        let selected = eligible_set
-            .entries
-            .first()
-            .ok_or_else(|| WorkerError::ContextCompilationError {
-                reason: "No eligible work units".to_string(),
-            })?;
+        let selected =
+            eligible_set
+                .entries
+                .first()
+                .ok_or_else(|| WorkerError::ContextCompilationError {
+                    reason: "No eligible work units".to_string(),
+                })?;
 
         let stage_id = selected
             .current_stage_id
@@ -654,9 +655,7 @@ impl SemanticWorkerBridge {
             stop_trigger,
             summary: format!(
                 "Executed stage {} for work unit {} with {} oracle checks",
-                selection.target_stage_id,
-                selection.selected_work_unit_id,
-                oracle_count
+                selection.target_stage_id, selection.selected_work_unit_id, oracle_count
             ),
         })
     }
@@ -799,10 +798,7 @@ impl SemanticWorkerBridge {
     }
 
     /// Emit iteration summary per SR-AGENT-WORKER-CONTRACT §4
-    async fn emit_iteration_summary(
-        &self,
-        summary: &IterationSummary,
-    ) -> Result<(), WorkerError> {
+    async fn emit_iteration_summary(&self, summary: &IterationSummary) -> Result<(), WorkerError> {
         info!(
             iteration_id = %summary.iteration_id,
             work_unit_id = %summary.work_unit_id,

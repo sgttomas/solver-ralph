@@ -11,3 +11,4 @@ export { CandidateDetail } from './CandidateDetail';
 export { Evidence } from './Evidence';
 export { EvidenceDetail } from './EvidenceDetail';
 export { Approvals } from './Approvals';
+export { PromptLoop } from './PromptLoop';

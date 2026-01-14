@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, FormEvent } from 'react';
-import { useAuth } from 'react-oidc-context';
+import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
 
 // ============================================================================

@@ -269,10 +269,7 @@ impl InvariantValidator {
     ) -> Result<(), DomainError> {
         if actor_kind != crate::entities::ActorKind::Human {
             return Err(DomainError::InvalidActor {
-                reason: format!(
-                    "{action} requires HUMAN actor, got {:?}",
-                    actor_kind
-                ),
+                reason: format!("{action} requires HUMAN actor, got {:?}", actor_kind),
             });
         }
         Ok(())
@@ -374,15 +371,21 @@ mod tests {
     fn test_iteration_state_machine() {
         // STARTED -> RUNNING
         assert_eq!(
-            IterationStateMachine::transition(IterationState::Started, IterationTransition::BeginWork)
-                .unwrap(),
+            IterationStateMachine::transition(
+                IterationState::Started,
+                IterationTransition::BeginWork
+            )
+            .unwrap(),
             IterationState::Running
         );
 
         // RUNNING -> COMPLETED
         assert_eq!(
-            IterationStateMachine::transition(IterationState::Running, IterationTransition::Complete)
-                .unwrap(),
+            IterationStateMachine::transition(
+                IterationState::Running,
+                IterationTransition::Complete
+            )
+            .unwrap(),
             IterationState::Completed
         );
 

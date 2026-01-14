@@ -346,9 +346,7 @@ impl EligibleSet {
 
     /// Check if a work unit is in the eligible set
     pub fn contains(&self, work_unit_id: &WorkUnitId) -> bool {
-        self.entries
-            .iter()
-            .any(|e| &e.work_unit_id == work_unit_id)
+        self.entries.iter().any(|e| &e.work_unit_id == work_unit_id)
     }
 
     /// Get the size of the eligible set
@@ -498,8 +496,11 @@ impl RunList {
             let entry = RunListEntry {
                 work_unit_id: wu.work_unit_id.clone(),
                 title: wu.title.clone(),
-                current_stage: status
-                    .and_then(|s| s.current_stage_id.as_ref().map(|id| id.as_str().to_string())),
+                current_stage: status.and_then(|s| {
+                    s.current_stage_id
+                        .as_ref()
+                        .map(|id| id.as_str().to_string())
+                }),
                 iteration_count,
                 last_activity: status.map(|s| s.last_updated_at),
             };
@@ -615,17 +616,15 @@ impl EventManager {
                 status.add_block_reason(BlockReason {
                     reason_type: BlockReasonType::DependencyUnsatisfied,
                     source_event_id: String::new(),
-                    description: format!(
-                        "Waiting for dependency: {}",
-                        dep_id.as_str()
-                    ),
+                    description: format!("Waiting for dependency: {}", dep_id.as_str()),
                     requires_portal: false,
                     portal_id: None,
                     recorded_at: Utc::now(),
                 });
             }
 
-            self.statuses.insert(wu.work_unit_id.as_str().to_string(), status);
+            self.statuses
+                .insert(wu.work_unit_id.as_str().to_string(), status);
         }
 
         self.plan_instance = Some(plan);
@@ -782,10 +781,7 @@ impl EventManager {
         if let Some(status) = self.get_status_mut(work_unit_id) {
             status.current_stage_id = Some(StageId::from_string(stage_id.to_string()));
 
-            let stage_entry = status
-                .stage_status
-                .entry(stage_id.to_string())
-                .or_default();
+            let stage_entry = status.stage_status.entry(stage_id.to_string()).or_default();
 
             stage_entry.status = StageStatus::Active;
             stage_entry.entered_at = Some(event.occurred_at);
@@ -813,10 +809,7 @@ impl EventManager {
         let is_terminal = event.payload["is_terminal"].as_bool().unwrap_or(false);
 
         if let Some(status) = self.get_status_mut(work_unit_id) {
-            let stage_entry = status
-                .stage_status
-                .entry(stage_id.to_string())
-                .or_default();
+            let stage_entry = status.stage_status.entry(stage_id.to_string()).or_default();
 
             stage_entry.status = if passed {
                 StageStatus::Passed
@@ -851,17 +844,15 @@ impl EventManager {
         let iteration_id = &event.stream_id;
 
         // Extract work_unit_id from refs or payload
-        let work_unit_id = event.payload["work_unit_id"]
-            .as_str()
-            .or_else(|| {
-                event.refs.iter().find_map(|r| {
-                    if r.kind == "WorkUnit" {
-                        Some(r.id.as_str())
-                    } else {
-                        None
-                    }
-                })
-            });
+        let work_unit_id = event.payload["work_unit_id"].as_str().or_else(|| {
+            event.refs.iter().find_map(|r| {
+                if r.kind == "WorkUnit" {
+                    Some(r.id.as_str())
+                } else {
+                    None
+                }
+            })
+        });
 
         if let Some(work_unit_id) = work_unit_id {
             if let Some(status) = self.get_status_mut(work_unit_id) {
@@ -888,17 +879,15 @@ impl EventManager {
         let iteration_id = &event.stream_id;
 
         // Extract work_unit_id from refs or payload
-        let work_unit_id = event.payload["work_unit_id"]
-            .as_str()
-            .or_else(|| {
-                event.refs.iter().find_map(|r| {
-                    if r.kind == "WorkUnit" {
-                        Some(r.id.as_str())
-                    } else {
-                        None
-                    }
-                })
-            });
+        let work_unit_id = event.payload["work_unit_id"].as_str().or_else(|| {
+            event.refs.iter().find_map(|r| {
+                if r.kind == "WorkUnit" {
+                    Some(r.id.as_str())
+                } else {
+                    None
+                }
+            })
+        });
 
         if let Some(work_unit_id) = work_unit_id {
             if let Some(status) = self.get_status_mut(work_unit_id) {
@@ -980,10 +969,7 @@ impl EventManager {
 
                 // Update stage status if stage_id is known
                 if let Some(stage_id) = stage_id {
-                    let stage_entry = status
-                        .stage_status
-                        .entry(stage_id.to_string())
-                        .or_default();
+                    let stage_entry = status.stage_status.entry(stage_id.to_string()).or_default();
                     stage_entry.last_evidence_bundle_ref = Some(bundle_id.clone());
                 }
 
@@ -1005,9 +991,7 @@ impl EventManager {
         let work_unit_id = event.payload["work_unit_id"]
             .as_str()
             .unwrap_or(&event.stream_id);
-        let stop_reason = event.payload["reason"]
-            .as_str()
-            .unwrap_or("Stop triggered");
+        let stop_reason = event.payload["reason"].as_str().unwrap_or("Stop triggered");
         let requires_portal = event.payload["requires_portal"].as_bool().unwrap_or(false);
         let portal_id = event.payload["portal_id"].as_str().map(String::from);
 
@@ -1090,10 +1074,7 @@ impl EventManager {
                 status.last_updated_at = event.occurred_at;
                 status.last_event_id = event.event_id.as_str().to_string();
 
-                debug!(
-                    work_unit_id = work_unit_id,
-                    "Semantic oracle evaluated"
-                );
+                debug!(work_unit_id = work_unit_id, "Semantic oracle evaluated");
             }
         }
 
@@ -1106,10 +1087,7 @@ impl EventManager {
             .unwrap_or(&event.stream_id);
 
         if let Some(status) = self.get_status_mut(dependent_id) {
-            let stale_id = event.payload["stale_id"]
-                .as_str()
-                .unwrap_or("")
-                .to_string();
+            let stale_id = event.payload["stale_id"].as_str().unwrap_or("").to_string();
             let root_kind = event.payload["root_kind"]
                 .as_str()
                 .unwrap_or("")
@@ -1132,16 +1110,16 @@ impl EventManager {
             status.last_updated_at = event.occurred_at;
             status.last_event_id = event.event_id.as_str().to_string();
 
-            warn!(
-                work_unit_id = dependent_id,
-                "Work unit marked as stale"
-            );
+            warn!(work_unit_id = dependent_id, "Work unit marked as stale");
         }
 
         Ok(())
     }
 
-    fn handle_staleness_resolved(&mut self, event: &EventEnvelope) -> Result<(), EventManagerError> {
+    fn handle_staleness_resolved(
+        &mut self,
+        event: &EventEnvelope,
+    ) -> Result<(), EventManagerError> {
         let stale_id = event.payload["stale_id"].as_str().unwrap_or("");
 
         // Find and mark the staleness as resolved in all affected work units
@@ -1201,11 +1179,10 @@ impl EventManager {
                             .unwrap_or(false);
 
                         if !dep_complete {
-                            let has_block =
-                                status.block_reasons.iter().any(|r| {
-                                    r.reason_type == BlockReasonType::DependencyUnsatisfied
-                                        && r.description.contains(dep_id.as_str())
-                                });
+                            let has_block = status.block_reasons.iter().any(|r| {
+                                r.reason_type == BlockReasonType::DependencyUnsatisfied
+                                    && r.description.contains(dep_id.as_str())
+                            });
 
                             if !has_block {
                                 status.add_block_reason(BlockReason {
@@ -1257,9 +1234,9 @@ impl EventManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sr_domain::entities::ContentHash;
     use sr_domain::plan_instance::{PlanInstance, SourceRef, SourceRefId, WorkUnitPlan};
     use sr_domain::work_surface::{ContentAddressedRef, ProcedureTemplateId, WorkKind};
-    use sr_domain::entities::ContentHash;
     use sr_domain::{ActorKind, EventId, StreamKind, TypedRef};
 
     fn create_test_plan() -> PlanInstance {
@@ -1489,7 +1466,8 @@ mod tests {
         for wu in &plan.work_units {
             let mut status = WorkUnitStatus::new(wu.work_unit_id.clone());
             status.deps_satisfied = wu.depends_on.is_empty();
-            em.statuses.insert(wu.work_unit_id.as_str().to_string(), status);
+            em.statuses
+                .insert(wu.work_unit_id.as_str().to_string(), status);
         }
         em.plan_instance = Some(plan.clone());
         em
@@ -1519,7 +1497,10 @@ mod tests {
         // Get state after applying event
         let status1 = em1.get_status("WU-001").unwrap();
         assert!(status1.has_work_surface);
-        assert_eq!(status1.current_stage_id.as_ref().map(|s| s.as_str()), Some("stage:FRAME"));
+        assert_eq!(
+            status1.current_stage_id.as_ref().map(|s| s.as_str()),
+            Some("stage:FRAME")
+        );
 
         // Create second event manager and replay
         let mut em2 = create_em_with_plan(&plan);
@@ -1600,7 +1581,8 @@ mod tests {
                 "work_unit_id": "WU-001",
                 "stage_id": "stage:FRAME"
             }),
-        )).unwrap();
+        ))
+        .unwrap();
 
         // Now wu1 should be eligible (has work surface, deps satisfied)
         let eligible2 = em.compute_eligible_set();
@@ -1618,7 +1600,8 @@ mod tests {
             status.deps_satisfied = wu.depends_on.is_empty();
             status.has_work_surface = true; // Pre-set work surface
             status.block_reasons.clear();
-            em.statuses.insert(wu.work_unit_id.as_str().to_string(), status);
+            em.statuses
+                .insert(wu.work_unit_id.as_str().to_string(), status);
         }
         em.plan_instance = Some(plan.clone());
         em
@@ -1643,7 +1626,8 @@ mod tests {
                 "requires_portal": true,
                 "portal_id": "portal_relief"
             }),
-        )).unwrap();
+        ))
+        .unwrap();
 
         // wu1 should now be blocked
         let status = em.get_status("WU-001").unwrap();
@@ -1670,7 +1654,8 @@ mod tests {
                 "requires_portal": true,
                 "portal_id": "portal_relief"
             }),
-        )).unwrap();
+        ))
+        .unwrap();
 
         assert!(em.get_status("WU-001").unwrap().is_blocked());
 
@@ -1687,7 +1672,8 @@ mod tests {
                 rel: "about".to_string(),
                 meta: serde_json::json!({}),
             }],
-        )).unwrap();
+        ))
+        .unwrap();
 
         // wu1 should no longer be blocked
         let status = em.get_status("WU-001").unwrap();
@@ -1711,7 +1697,8 @@ mod tests {
             "WorkSurfaceRecorded",
             "WU-001",
             serde_json::json!({ "work_unit_id": "WU-001", "stage_id": "stage:FRAME" }),
-        )).unwrap();
+        ))
+        .unwrap();
         em.apply_event(&create_test_event(
             "StageCompleted",
             "WU-001",
@@ -1721,7 +1708,8 @@ mod tests {
                 "passed": true,
                 "is_terminal": true
             }),
-        )).unwrap();
+        ))
+        .unwrap();
 
         // Run list should now show 1 complete, 1 blocked
         let run_list = em.compute_run_list().unwrap();

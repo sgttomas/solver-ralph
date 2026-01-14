@@ -64,8 +64,7 @@ impl NatsConfig {
     pub fn from_env() -> Self {
         Self {
             url: std::env::var("NATS_URL").unwrap_or_else(|_| "nats://localhost:4222".to_string()),
-            stream_prefix: std::env::var("NATS_STREAM_PREFIX")
-                .unwrap_or_else(|_| "sr".to_string()),
+            stream_prefix: std::env::var("NATS_STREAM_PREFIX").unwrap_or_else(|_| "sr".to_string()),
             consumer_prefix: std::env::var("NATS_CONSUMER_PREFIX")
                 .unwrap_or_else(|_| "sr-consumer".to_string()),
             message_ttl_secs: std::env::var("NATS_MESSAGE_TTL_SECS")
@@ -197,11 +196,11 @@ impl NatsMessageBus {
     pub async fn connect(config: NatsConfig) -> Result<Self, MessageBusError> {
         info!(url = %config.url, "Connecting to NATS");
 
-        let client = async_nats::connect(&config.url)
-            .await
-            .map_err(|e| MessageBusError::ConnectionError {
+        let client = async_nats::connect(&config.url).await.map_err(|e| {
+            MessageBusError::ConnectionError {
                 message: format!("Failed to connect to NATS: {}", e),
-            })?;
+            }
+        })?;
 
         let jetstream = jetstream::new(client.clone());
 
@@ -222,18 +221,12 @@ impl NatsMessageBus {
     /// Ensure required JetStream streams exist
     async fn ensure_streams(&self) -> Result<(), MessageBusError> {
         // Events stream
-        self.ensure_stream(
-            streams::EVENTS,
-            subjects::all_event_subjects(),
-        )
-        .await?;
+        self.ensure_stream(streams::EVENTS, subjects::all_event_subjects())
+            .await?;
 
         // Commands stream
-        self.ensure_stream(
-            streams::COMMANDS,
-            subjects::all_command_subjects(),
-        )
-        .await?;
+        self.ensure_stream(streams::COMMANDS, subjects::all_command_subjects())
+            .await?;
 
         Ok(())
     }
@@ -268,12 +261,11 @@ impl NatsMessageBus {
             }
             Err(_) => {
                 info!(stream = %stream_name, "Creating new stream");
-                self.jetstream
-                    .create_stream(config)
-                    .await
-                    .map_err(|e| MessageBusError::ConnectionError {
+                self.jetstream.create_stream(config).await.map_err(|e| {
+                    MessageBusError::ConnectionError {
                         message: format!("Failed to create stream: {}", e),
-                    })?;
+                    }
+                })?;
             }
         }
 
@@ -352,10 +344,7 @@ impl NatsMessageBus {
                 subject.to_string(),
                 {
                     let mut headers = async_nats::HeaderMap::new();
-                    headers.insert(
-                        "Nats-Msg-Id",
-                        idempotency_key.to_string(),
-                    );
+                    headers.insert("Nats-Msg-Id", idempotency_key.to_string());
                     headers
                 },
                 payload.to_vec().into(),

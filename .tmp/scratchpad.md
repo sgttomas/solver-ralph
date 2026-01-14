@@ -1,7 +1,18 @@
-When you receive a task:
+355454548799717382
 
-1) Identify your layer: during this build, you are in Layer 1.  
-2) Identify whether the task touches platform-definition or workflow.  
-3) Treat SR-CONTRACT/SR-SPEC/SR-TYPES as authoritative for meaning/mechanics.  
-4) Treat workflow docs as authoritative for process, within the constraints of platform-definition.  
-5) Treat outputs as proposals until promoted via recorded commitment objects and required approvals.
+TOKEN="355454548799717382"
+  API="http://localhost:3001"
+
+  curl -X POST "$API/api/v1/prompt-loop" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "prompt": "Explain semantic Ralph loops briefly"
+    }'
+
+
+curl -X POST http://localhost:8080/oauth/v2/token \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      -d
+  "grant_type=client_credentials&client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLI
+  ENT_SECRET&scope=openid profile"

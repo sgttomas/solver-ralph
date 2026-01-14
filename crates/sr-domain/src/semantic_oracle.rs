@@ -245,7 +245,11 @@ impl SemanticSet {
             hasher.update(b"constraint:");
             hasher.update(constraint.constraint_id.as_bytes());
             hasher.update(b":");
-            hasher.update(serde_json::to_string(&constraint.constraint_type).unwrap_or_default().as_bytes());
+            hasher.update(
+                serde_json::to_string(&constraint.constraint_type)
+                    .unwrap_or_default()
+                    .as_bytes(),
+            );
             hasher.update(b"\n");
         }
 
@@ -619,7 +623,8 @@ pub fn intake_admissibility_semantic_set() -> SemanticSet {
             SemanticAxis {
                 axis_id: "schema_compliance".to_string(),
                 name: "Schema Compliance".to_string(),
-                description: "Measures adherence to the Intake schema (required fields, types)".to_string(),
+                description: "Measures adherence to the Intake schema (required fields, types)"
+                    .to_string(),
                 weight: 1.0,
                 required: true,
                 min_coverage: Some(1.0), // Must be 100% compliant
@@ -628,7 +633,8 @@ pub fn intake_admissibility_semantic_set() -> SemanticSet {
             SemanticAxis {
                 axis_id: "traceability_coverage".to_string(),
                 name: "Traceability Coverage".to_string(),
-                description: "Measures coverage of inputs and deliverables with explicit refs".to_string(),
+                description: "Measures coverage of inputs and deliverables with explicit refs"
+                    .to_string(),
                 weight: 0.8,
                 required: true,
                 min_coverage: Some(0.8),
@@ -655,7 +661,8 @@ pub fn intake_admissibility_semantic_set() -> SemanticSet {
             SemanticAxis {
                 axis_id: "privacy_safe".to_string(),
                 name: "Privacy Safe".to_string(),
-                description: "Measures absence of PII or sensitive data in public fields".to_string(),
+                description: "Measures absence of PII or sensitive data in public fields"
+                    .to_string(),
                 weight: 1.0,
                 required: true,
                 min_coverage: Some(1.0),
@@ -664,7 +671,9 @@ pub fn intake_admissibility_semantic_set() -> SemanticSet {
             SemanticAxis {
                 axis_id: "term_map_aligned".to_string(),
                 name: "Term Map Aligned".to_string(),
-                description: "Measures alignment between definitions and usage in constraints/deliverables".to_string(),
+                description:
+                    "Measures alignment between definitions and usage in constraints/deliverables"
+                        .to_string(),
                 weight: 0.7,
                 required: false,
                 min_coverage: Some(0.8),
@@ -695,7 +704,8 @@ pub fn intake_admissibility_semantic_set() -> SemanticSet {
             },
             SemanticConstraint {
                 constraint_id: "ambiguities_inventoried".to_string(),
-                description: "Ambiguous terms should be listed in unknowns or definitions".to_string(),
+                description: "Ambiguous terms should be listed in unknowns or definitions"
+                    .to_string(),
                 constraint_type: ConstraintType::Preferred,
                 severity: ConstraintSeverity::Warning,
                 expression: None,
@@ -717,7 +727,8 @@ pub fn intake_admissibility_semantic_set() -> SemanticSet {
         ],
         decision_rule: DecisionRule {
             rule_id: "intake_admissibility_v1".to_string(),
-            description: "Pass if all required axes meet thresholds and no error violations".to_string(),
+            description: "Pass if all required axes meet thresholds and no error violations"
+                .to_string(),
             max_residual_norm: Some(0.2),
             min_coverage: Some(0.85),
             max_error_violations: 0,
@@ -879,16 +890,14 @@ mod tests {
                     composite: 0.6,
                     below_threshold: vec!["traceability_coverage".to_string()],
                 },
-                violations: vec![
-                    ConstraintViolation {
-                        code: "MISSING_FIELD".to_string(),
-                        constraint_id: "required_fields_present".to_string(),
-                        axis: Some("schema_compliance".to_string()),
-                        message: "Missing required field: objective".to_string(),
-                        severity: ConstraintSeverity::Error,
-                        context: BTreeMap::new(),
-                    },
-                ],
+                violations: vec![ConstraintViolation {
+                    code: "MISSING_FIELD".to_string(),
+                    constraint_id: "required_fields_present".to_string(),
+                    axis: Some("schema_compliance".to_string()),
+                    message: "Missing required field: objective".to_string(),
+                    severity: ConstraintSeverity::Error,
+                    context: BTreeMap::new(),
+                }],
                 additional: BTreeMap::new(),
             },
             decision: EvalDecision {
@@ -998,8 +1007,17 @@ mod tests {
 
     #[test]
     fn test_decision_status_serialization() {
-        assert_eq!(serde_json::to_string(&DecisionStatus::Pass).unwrap(), "\"PASS\"");
-        assert_eq!(serde_json::to_string(&DecisionStatus::Fail).unwrap(), "\"FAIL\"");
-        assert_eq!(serde_json::to_string(&DecisionStatus::Indeterminate).unwrap(), "\"INDETERMINATE\"");
+        assert_eq!(
+            serde_json::to_string(&DecisionStatus::Pass).unwrap(),
+            "\"PASS\""
+        );
+        assert_eq!(
+            serde_json::to_string(&DecisionStatus::Fail).unwrap(),
+            "\"FAIL\""
+        );
+        assert_eq!(
+            serde_json::to_string(&DecisionStatus::Indeterminate).unwrap(),
+            "\"INDETERMINATE\""
+        );
     }
 }

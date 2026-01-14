@@ -19,7 +19,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use sr_ports::{EvidenceStore, EvidenceStoreError, OracleRunner, OracleRunnerError, OracleRunResult, OracleStatus};
+use sr_ports::{
+    EvidenceStore, EvidenceStoreError, OracleRunResult, OracleRunner, OracleRunnerError,
+    OracleStatus,
+};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -30,7 +33,9 @@ use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::evidence::{EvidenceArtifact, EvidenceManifest, EvidenceManifestBuilder, OracleResult, OracleResultStatus};
+use crate::evidence::{
+    EvidenceArtifact, EvidenceManifest, EvidenceManifestBuilder, OracleResult, OracleResultStatus,
+};
 
 // ============================================================================
 // Configuration
@@ -60,8 +65,7 @@ pub struct PodmanOracleRunnerConfig {
 impl Default for PodmanOracleRunnerConfig {
     fn default() -> Self {
         Self {
-            podman_path: std::env::var("PODMAN_PATH")
-                .unwrap_or_else(|_| "podman".to_string()),
+            podman_path: std::env::var("PODMAN_PATH").unwrap_or_else(|_| "podman".to_string()),
             runsc_path: std::env::var("RUNSC_PATH")
                 .unwrap_or_else(|_| "/usr/local/bin/runsc".to_string()),
             default_timeout_secs: std::env::var("ORACLE_TIMEOUT_SECS")
@@ -352,11 +356,12 @@ impl<E: EvidenceStore> PodmanOracleRunner<E> {
         );
 
         // Get suite definition
-        let suite = self.get_suite(suite_id).await.ok_or_else(|| {
-            OracleRunnerError::SuiteNotFound {
-                suite_id: suite_id.to_string(),
-            }
-        })?;
+        let suite =
+            self.get_suite(suite_id)
+                .await
+                .ok_or_else(|| OracleRunnerError::SuiteNotFound {
+                    suite_id: suite_id.to_string(),
+                })?;
 
         // Verify suite hash
         if suite.suite_hash != suite_hash {
@@ -504,9 +509,10 @@ impl<E: EvidenceStore> PodmanOracleRunner<E> {
         }
 
         // Build Podman command
-        let scratch_dir = tempfile::tempdir().map_err(|e| OracleRunnerError::ContainerCreationFailed {
-            reason: format!("Failed to create scratch dir: {}", e),
-        })?;
+        let scratch_dir =
+            tempfile::tempdir().map_err(|e| OracleRunnerError::ContainerCreationFailed {
+                reason: format!("Failed to create scratch dir: {}", e),
+            })?;
 
         let mut cmd = Command::new(&self.config.podman_path);
 
@@ -514,11 +520,14 @@ impl<E: EvidenceStore> PodmanOracleRunner<E> {
             .arg("--rm")
             .arg("--runtime")
             .arg(&self.config.runsc_path)
-            .arg(format!("--network={}", match self.config.network_mode {
-                NetworkMode::Disabled => "none",
-                NetworkMode::Host => "host",
-                NetworkMode::Private => "private",
-            }))
+            .arg(format!(
+                "--network={}",
+                match self.config.network_mode {
+                    NetworkMode::Disabled => "none",
+                    NetworkMode::Host => "host",
+                    NetworkMode::Private => "private",
+                }
+            ))
             .arg("-v")
             .arg(format!(
                 "{}:{}:ro",
@@ -761,15 +770,20 @@ impl<E: EvidenceStore> PodmanOracleRunner<E> {
             builder = builder.add_artifact(artifact);
         }
 
-        builder.build().map_err(|e| OracleRunnerError::ManifestCreationFailed {
-            reason: e.to_string(),
-        })
+        builder
+            .build()
+            .map_err(|e| OracleRunnerError::ManifestCreationFailed {
+                reason: e.to_string(),
+            })
     }
 
     /// Compute overall status from oracle results
     fn compute_overall_status(&self, results: &[OracleResult]) -> OracleStatus {
         // Any error means overall error
-        if results.iter().any(|r| r.status == OracleResultStatus::Error) {
+        if results
+            .iter()
+            .any(|r| r.status == OracleResultStatus::Error)
+        {
             return OracleStatus::Error;
         }
 
@@ -794,8 +808,13 @@ impl<E: EvidenceStore + 'static> OracleRunner for PodmanOracleRunner<E> {
         // For now, use a placeholder path (would need actual candidate store integration)
         let candidate_path = PathBuf::from(format!("/tmp/candidates/{}", candidate_id));
 
-        self.execute_suite(candidate_id, oracle_suite_id, oracle_suite_hash, &candidate_path)
-            .await
+        self.execute_suite(
+            candidate_id,
+            oracle_suite_id,
+            oracle_suite_hash,
+            &candidate_path,
+        )
+        .await
     }
 }
 
@@ -990,9 +1009,15 @@ mod tests {
         ];
 
         // Test using manual computation (since we don't have runner instance in test)
-        let all_pass = results_pass.iter().all(|r| r.status == OracleResultStatus::Pass);
-        let any_error = results_error.iter().any(|r| r.status == OracleResultStatus::Error);
-        let any_fail = results_fail.iter().any(|r| r.status == OracleResultStatus::Fail);
+        let all_pass = results_pass
+            .iter()
+            .all(|r| r.status == OracleResultStatus::Pass);
+        let any_error = results_error
+            .iter()
+            .any(|r| r.status == OracleResultStatus::Error);
+        let any_fail = results_fail
+            .iter()
+            .any(|r| r.status == OracleResultStatus::Fail);
 
         assert!(all_pass);
         assert!(any_error);
