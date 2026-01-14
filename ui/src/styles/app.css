@@ -1,0 +1,40 @@
+.appBg {
+  min-height: 100vh;
+  position: relative;
+  background: linear-gradient(180deg, var(--paper) 0%, var(--paper2) 100%);
+}
+
+/* Paper texture layer */
+.appBg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  /* Put in /public/textures/paper.png (or .webp) */
+  background-image: url("/textures/paper.png");
+  background-size: 820px;
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+}
+
+/* Subtle "chiral" watermark */
+.appBg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  /* Put in /public/textures/chiral.svg */
+  background-image: url("/textures/chiral.svg");
+  background-repeat: no-repeat;
+  background-position: 12% 72%;
+  background-size: 950px;
+  opacity: 0.06;
+}
+
+/* a tiny helper for mono blocks */
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
