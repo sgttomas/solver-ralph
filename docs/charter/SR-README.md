@@ -54,6 +54,48 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 22 (2026-01-13)
+**Completed:** D-33
+
+**What was done:**
+
+D-33: Operational logging + minimal observability
+- Created observability module (sr-api/src/observability.rs) with:
+  - Request ID middleware for correlation tracking (x-request-id, x-correlation-id headers)
+  - RequestContext struct with request_id, correlation_id, started_at
+  - Metrics collection: requests_total, requests_success, requests_client_error, requests_server_error, avg_latency_ms
+  - MetricsState and metrics_endpoint handler for /api/v1/metrics
+  - ExtractRequestContext extractor for handlers
+  - 7 unit tests for metrics and request context
+
+- Updated main.rs with:
+  - Structured JSON logging (SR_LOG_FORMAT=json) for production environments
+  - Pretty logging (default) for development
+  - Request context middleware integration
+  - Metrics endpoint at /api/v1/metrics
+  - Service version and log format in startup logs
+
+- Fixed pre-existing compilation issues:
+  - Added base64 Engine import to infisical.rs, restricted.rs, evidence.rs
+  - Changed AppState to use concrete PostgresEventStore (trait object not dyn-compatible)
+  - Added Serialize derive to TokenClaims and various request structs
+  - Fixed borrow-after-move in auth.rs
+  - Added base64 dependency to sr-api
+
+Per SR-PLAN D-33 acceptance criteria:
+- Logs include request/trace identifiers (x-request-id, x-correlation-id headers)
+- Actor identity captured in spans via existing #[instrument] macros
+- Key state transitions logged with event IDs (existing pattern maintained)
+- Correlation IDs returned in response headers for distributed tracing
+
+**PKG-10 (Self-host instance) progress: D-31 ✓, D-32 ✓, D-33 ✓ - COMPLETE**
+
+**Next deliverables:**
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+
+
+---
+
 ### Session 21 (2026-01-13)
 **Completed:** D-35
 
