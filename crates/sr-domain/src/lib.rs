@@ -6,6 +6,7 @@
 //! - Invariants and validation rules
 //! - Event definitions
 //! - Context compilation for deterministic context bundles
+//! - Work surface schemas (Intake, ProcedureTemplate, WorkSurfaceInstance)
 //!
 //! Per SR-SPEC §4.1 (Hexagonal Architecture), this crate MUST NOT import
 //! DB clients, HTTP frameworks, container runtimes, or LLM SDKs.
@@ -15,11 +16,15 @@ pub mod context;
 pub mod entities;
 pub mod errors;
 pub mod events;
+pub mod procedure_templates;
 pub mod state_machines;
+pub mod work_surface;
 
 pub use commands::*;
 pub use context::*;
 pub use entities::*;
 pub use errors::*;
 pub use events::*;
+pub use procedure_templates::*;
 pub use state_machines::*;
+pub use work_surface::*;

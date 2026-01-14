@@ -54,6 +54,39 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 14 (2026-01-13)
+**Completed:** D-37
+
+**What was done:**
+
+D-37: Work surface schemas (Intake + Procedure Template) + validators
+- Created work_surface.rs module in sr-domain with core schemas:
+  - Intake schema (v1): work_unit_id, title, kind (WorkKind enum), objective, audience, deliverables, constraints, definitions, inputs, unknowns, completion_criteria
+  - ProcedureTemplate schema (v1): procedure_template_id, kind, stages with required_outputs, required_oracle_suites, gate_rule, transition_on_pass, portal configuration
+  - WorkSurfaceInstance schema (v1): work_unit_id, intake_ref, procedure_template_ref, stage_id, oracle_suites with content-addressed refs
+  - Identifier types: IntakeId, ProcedureTemplateId, StageId, WorkUnitId
+- Validators per SR-WORK-SURFACE:
+  - IntakeValidator: required fields (title, objective, audience, deliverables with paths)
+  - ProcedureTemplateValidator: stage validation, terminal stage exists, transition targets valid, portal config consistency
+  - WorkSurfaceInstanceValidator: refs integrity, content hashes required
+- Created procedure_templates.rs module with Branch 0 templates:
+  - Problem Statement Ingestion template: INGEST → VALIDATE → ACCEPT (with portal boundary)
+  - Generic Knowledge Work template: FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL
+  - Template registry with deterministic content hashing
+  - Intake admissibility oracle suite bindings
+- 53 unit tests passing covering all schemas, validators, and templates
+
+**PKG-12 (Semantic work surface) progress: D-37 done**
+
+**Next deliverables:**
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+- D-30: Portal workflows UI (approvals, exceptions) (PKG-09) - depends on D-29 ✓, D-19 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+- D-38: Intake and semantic set loading (PKG-12) - depends on D-37 ✓
+
+
+---
+
 ### Session 13 (2026-01-13)
 **Completed:** D-29
 
@@ -69,12 +102,6 @@ D-29: Loop/iteration/candidate views + evidence viewer
 - Added routes: /loops/:loopId, /iterations/:iterationId, /candidates/:candidateId, /evidence/:contentHash
 
 **PKG-09 (UI portals) progress: D-28 ✓, D-29 done**
-
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-- D-30: Portal workflows UI (approvals, exceptions) (PKG-09) - depends on D-29 ✓, D-19 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
-- D-37: Work surface schemas (PKG-12) - depends on D-08 ✓, D-05 ✓
 
 
 ---
