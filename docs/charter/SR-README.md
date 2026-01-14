@@ -54,6 +54,45 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 15 (2026-01-13)
+**Completed:** D-38
+
+**What was done:**
+
+D-38: Prompt → Plan Instance decomposition (semantic work unit generator)
+- Created plan_instance.rs module in sr-domain with:
+  - PlanInstance schema (v1): commitment object with work units, dependency edges, source reference, content hash
+  - WorkUnitPlan schema: individual work unit with intake_ref, procedure_template_ref, initial_stage_id, depends_on edges, status
+  - DecompositionRationale: non-binding rationale stored separately from binding dependency edges (per D-38 acceptance criteria)
+  - Identifier types: PlanInstanceId, SourceRefId
+  - Status enums: PlanStatus, WorkUnitPlanStatus, DependencyEdgeType
+- PlanDecomposer deterministic pipeline:
+  - decompose(): multi-intake decomposition with dependency spec
+  - decompose_single(): single intake decomposition
+  - IntakeWithRef, ProcedureTemplateWithRef, DependencySpec helper types
+  - DecompositionResult: plan + rationale pair
+- Validators per D-38 acceptance criteria:
+  - PlanInstanceValidator: acyclic graph validation, dependency target validation, required field validation
+  - Cycle detection in dependency graph
+  - Content hash computation for both PlanInstance and DecompositionRationale
+- Key features:
+  - Eligible set computation (get_eligible_work_units)
+  - Deterministic content hashing for commitment object semantics
+  - Separation of binding edges from non-binding rationale
+- Added Hash derive to WorkKind for HashMap support
+- 66 unit tests passing (14 new tests for plan_instance module)
+
+**PKG-12 (Semantic work surface) progress: D-37 ✓, D-38 done**
+
+**Next deliverables:**
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+- D-30: Portal workflows UI (approvals, exceptions) (PKG-09) - depends on D-29 ✓, D-19 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+- D-39: Semantic oracle runner integration (PKG-12) - depends on D-15 ✓, D-27 ✓, D-37 ✓
+
+
+---
+
 ### Session 14 (2026-01-13)
 **Completed:** D-37
 
@@ -77,12 +116,6 @@ D-37: Work surface schemas (Intake + Procedure Template) + validators
 - 53 unit tests passing covering all schemas, validators, and templates
 
 **PKG-12 (Semantic work surface) progress: D-37 done**
-
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-- D-30: Portal workflows UI (approvals, exceptions) (PKG-09) - depends on D-29 ✓, D-19 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
-- D-38: Intake and semantic set loading (PKG-12) - depends on D-37 ✓
 
 
 ---
