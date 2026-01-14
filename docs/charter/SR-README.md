@@ -54,6 +54,31 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 13 (2026-01-13)
+**Completed:** D-29
+
+**What was done:**
+
+D-29: Loop/iteration/candidate views + evidence viewer
+- LoopDetail page: Single loop view with iterations list, budgets/usage stats, directive ref
+- IterationDetail page: Single iteration view with candidates list, context refs, summary (rationale, actions, blockers, next steps)
+- CandidateDetail page: Tabbed interface with oracle runs, evidence bundles, freeze records
+- EvidenceDetail page: Full manifest viewer with oracle results (pass/fail/error counts), artifacts with download links, raw JSON toggle
+- Updated Loops.tsx with navigation links to loop details
+- Updated Evidence.tsx with navigation links to evidence details
+- Added routes: /loops/:loopId, /iterations/:iterationId, /candidates/:candidateId, /evidence/:contentHash
+
+**PKG-09 (UI portals) progress: D-28 ✓, D-29 done**
+
+**Next deliverables:**
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+- D-30: Portal workflows UI (approvals, exceptions) (PKG-09) - depends on D-29 ✓, D-19 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+- D-37: Work surface schemas (PKG-12) - depends on D-08 ✓, D-05 ✓
+
+
+---
+
 ### Session 12 (2026-01-13)
 **Completed:** D-28
 
@@ -69,12 +94,6 @@ D-28: UI scaffold (React) + OIDC login
 - Pages: Home, Callback, Loops, Evidence, Approvals (scaffolds)
 
 **PKG-09 (UI portals) progress: D-28 done**
-
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-- D-29: Loop/iteration/candidate views + evidence viewer (PKG-09) - depends on D-28 ✓, D-20 ✓, D-18 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
-- D-37: Work surface schemas (PKG-12) - depends on D-08 ✓, D-05 ✓
 
 
 ---
