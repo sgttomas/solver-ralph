@@ -1,4 +1,4 @@
-//! SOLVER-Ralph E2E Harness CLI (D-34, D-36)
+//! SOLVER-Ralph E2E Harness CLI (D-34, D-35, D-36)
 //!
 //! Command-line tool for running the end-to-end harness and replay verification.
 //!
@@ -6,9 +6,12 @@
 //!   sr-e2e-harness [OPTIONS]
 //!
 //! Commands:
-//!   (default)           Run E2E happy path flow
-//!   --replay            Replay event stream and verify determinism
-//!   --verify-determinism  Run replay twice and verify identical checksums
+//!   (default)              Run E2E happy path flow
+//!   --replay               Replay event stream and verify determinism
+//!   --verify-determinism   Run replay twice and verify identical checksums
+//!   --oracle-failure       Run oracle failure scenario (D-35)
+//!   --integrity-tamper     Run integrity tamper detection scenario (D-35)
+//!   --exception-waiver     Run exception/waiver flow scenario (D-35)
 //!
 //! Options:
 //!   --api-url URL       API base URL (default: http://localhost:3000)
@@ -19,7 +22,10 @@
 //!   --json              Output JSON transcript
 //!   --help              Show help
 
-use sr_e2e_harness::{run_happy_path, HarnessConfig, ReplayConfig, ReplayRunner};
+use sr_e2e_harness::{
+    run_exception_waiver, run_happy_path, run_integrity_tamper, run_oracle_failure,
+    FailureMode, FailureModeConfig, HarnessConfig, ReplayConfig, ReplayRunner,
+};
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -50,6 +56,28 @@ async fn main() {
     // Check for determinism verification mode
     if args.iter().any(|a| a == "--verify-determinism") {
         run_determinism_mode(&args).await;
+        return;
+    }
+
+    // =========================================================================
+    // D-35: Failure mode scenarios
+    // =========================================================================
+
+    // Check for oracle failure mode
+    if args.iter().any(|a| a == "--oracle-failure") {
+        run_failure_mode(&args, FailureMode::OracleFailure).await;
+        return;
+    }
+
+    // Check for integrity tamper mode
+    if args.iter().any(|a| a == "--integrity-tamper") {
+        run_failure_mode(&args, FailureMode::IntegrityTamper).await;
+        return;
+    }
+
+    // Check for exception/waiver mode
+    if args.iter().any(|a| a == "--exception-waiver") {
+        run_failure_mode(&args, FailureMode::ExceptionWaiver).await;
         return;
     }
 
@@ -437,19 +465,216 @@ async fn run_determinism_mode(args: &[String]) {
     }
 }
 
+// =============================================================================
+// D-35: Failure Mode Scenarios
+// =============================================================================
+
+/// Run failure mode scenario
+async fn run_failure_mode(args: &[String], failure_mode: FailureMode) {
+    let mut base_config = HarnessConfig::default();
+    let mut output_file: Option<String> = None;
+    let mut json_output = false;
+
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--api-url" => {
+                if i + 1 < args.len() {
+                    base_config.api_base_url = args[i + 1].clone();
+                    i += 1;
+                }
+            }
+            "--system-token" => {
+                if i + 1 < args.len() {
+                    base_config.system_token = args[i + 1].clone();
+                    i += 1;
+                }
+            }
+            "--human-token" => {
+                if i + 1 < args.len() {
+                    base_config.human_token = args[i + 1].clone();
+                    i += 1;
+                }
+            }
+            "--output" => {
+                if i + 1 < args.len() {
+                    output_file = Some(args[i + 1].clone());
+                    i += 1;
+                }
+            }
+            "--json" => {
+                json_output = true;
+            }
+            "--baseline-id" => {
+                if i + 1 < args.len() {
+                    base_config.baseline_id = args[i + 1].clone();
+                    i += 1;
+                }
+            }
+            "--oracle-suite-id" => {
+                if i + 1 < args.len() {
+                    base_config.oracle_suite_id = args[i + 1].clone();
+                    i += 1;
+                }
+            }
+            "--oracle-suite-hash" => {
+                if i + 1 < args.len() {
+                    base_config.oracle_suite_hash = args[i + 1].clone();
+                    i += 1;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    let config = FailureModeConfig {
+        base: base_config,
+        failure_mode,
+    };
+
+    let mode_name = match failure_mode {
+        FailureMode::OracleFailure => "Oracle Failure",
+        FailureMode::IntegrityTamper => "Integrity Tamper Detection",
+        FailureMode::IntegrityGap => "Integrity Coverage Gap",
+        FailureMode::ExceptionWaiver => "Exception/Waiver Flow",
+    };
+
+    println!("==============================================");
+    println!("  SOLVER-Ralph E2E Failure Mode (D-35)");
+    println!("==============================================");
+    println!();
+    println!("Mode: {}", mode_name);
+    println!("API URL: {}", config.base.api_base_url);
+    println!();
+
+    // Run the appropriate failure mode
+    let result = match failure_mode {
+        FailureMode::OracleFailure => run_oracle_failure(config).await,
+        FailureMode::IntegrityTamper => run_integrity_tamper(config).await,
+        FailureMode::IntegrityGap => {
+            // Gap detection uses same flow as tamper for now
+            run_integrity_tamper(config).await
+        }
+        FailureMode::ExceptionWaiver => run_exception_waiver(config).await,
+    };
+
+    // Output transcript
+    if json_output || output_file.is_some() {
+        let transcript_json = result
+            .transcript
+            .to_deterministic_json()
+            .expect("Failed to serialize transcript");
+
+        if let Some(ref file_path) = output_file {
+            let mut file = File::create(file_path).expect("Failed to create output file");
+            file.write_all(transcript_json.as_bytes())
+                .expect("Failed to write transcript");
+            println!("Transcript written to: {}", file_path);
+        }
+
+        if json_output {
+            println!("\n=== TRANSCRIPT ===\n");
+            println!("{}", transcript_json);
+        }
+    }
+
+    // Print summary
+    println!("\n==============================================");
+    println!("  FAILURE MODE RESULT");
+    println!("==============================================");
+    println!();
+    println!(
+        "Status: {}",
+        if result.success { "SUCCESS" } else { "FAILED" }
+    );
+    println!("Transcript ID: {}", result.transcript.transcript_id);
+    println!(
+        "Content Hash: {}",
+        result.transcript.content_hash.as_deref().unwrap_or("N/A")
+    );
+    println!();
+
+    // Print produced entities
+    println!("Produced Entities:");
+    if let Some(ref loop_id) = result.transcript.produced_ids.loop_id {
+        println!("  Loop: {}", loop_id);
+    }
+    for iter_id in &result.transcript.produced_ids.iteration_ids {
+        println!("  Iteration: {}", iter_id);
+    }
+    for cand_id in &result.transcript.produced_ids.candidate_ids {
+        println!("  Candidate: {}", cand_id);
+    }
+    for run_id in &result.transcript.produced_ids.run_ids {
+        println!("  Run: {}", run_id);
+    }
+    for evidence_hash in &result.transcript.produced_ids.evidence_hashes {
+        println!("  Evidence: {}", evidence_hash);
+    }
+    for exception_id in &result.transcript.produced_ids.exception_ids {
+        println!("  Exception: {}", exception_id);
+    }
+    for waiver_id in &result.transcript.produced_ids.waiver_ids {
+        println!("  Waiver: {}", waiver_id);
+    }
+    for approval_id in &result.transcript.produced_ids.approval_ids {
+        println!("  Approval: {}", approval_id);
+    }
+    for freeze_id in &result.transcript.produced_ids.freeze_ids {
+        println!("  Freeze: {}", freeze_id);
+    }
+    println!();
+
+    // Print invariant checks
+    println!("Invariant Checks:");
+    for check in &result.transcript.invariants_checked {
+        let status = if check.passed { "[PASS]" } else { "[FAIL]" };
+        println!("  {} {}: {}", status, check.name, check.message);
+    }
+    println!();
+
+    // Print events count
+    println!(
+        "Total Events: {}",
+        result.transcript.produced_ids.event_ids.len()
+    );
+    println!();
+
+    if let Some(ref error) = result.error {
+        eprintln!("Error: {}", error);
+        std::process::exit(1);
+    }
+
+    if !result.transcript.all_invariants_passed() {
+        eprintln!("Some invariants failed!");
+        std::process::exit(1);
+    }
+
+    println!("{} scenario completed successfully!", mode_name);
+}
+
 fn print_help() {
     println!(
-        r#"SOLVER-Ralph E2E Harness (D-34, D-36)
+        r#"SOLVER-Ralph E2E Harness (D-34, D-35, D-36)
 
 Usage:
   sr-e2e-harness [OPTIONS]
   sr-e2e-harness --replay [OPTIONS]
   sr-e2e-harness --verify-determinism [OPTIONS]
+  sr-e2e-harness --oracle-failure [OPTIONS]
+  sr-e2e-harness --integrity-tamper [OPTIONS]
+  sr-e2e-harness --exception-waiver [OPTIONS]
 
 Commands:
   (default)              Run E2E happy path flow
   --replay               Replay event stream and rebuild projections
   --verify-determinism   Replay twice and verify identical checksums
+
+Failure Mode Commands (D-35):
+  --oracle-failure       Run oracle failure scenario (oracles fail, stop triggered)
+  --integrity-tamper     Run integrity tamper detection scenario
+  --exception-waiver     Run exception/waiver flow (create, activate, approve with waiver)
 
 E2E Options:
   --api-url URL           API base URL (default: http://localhost:3000)
@@ -525,6 +750,33 @@ Replay Description (D-36):
   The determinism verification mode runs replay twice and verifies that
   both runs produce identical state checksums, proving that projection
   rebuild is deterministic.
+
+Failure Mode Scenarios (D-35):
+  Per SR-CONTRACT, failure cases must be recorded as explicit events and
+  route to the correct portal touchpoints (no silent overrides).
+
+  --oracle-failure:
+    1. Runs oracles that produce FAIL verdict
+    2. Records run completion with FAILURE outcome
+    3. Triggers stop condition (routes to Release Portal)
+    4. Closes loop without freeze (approval blocked)
+
+  --integrity-tamper:
+    1. Creates evidence with tampered artifact hashes
+    2. Detects ORACLE_TAMPER integrity violation
+    3. Routes to Security Review Portal (non-waivable)
+    4. Records explicit integrity failure
+
+  --exception-waiver:
+    1. Runs oracles with waivable failure (e.g., lint fails)
+    2. Creates WAIVER exception (HUMAN-only)
+    3. Activates the waiver
+    4. Records approval with waiver acknowledgment
+    5. Creates freeze as Verified-with-Exceptions
+    6. Resolves waiver after freeze
+
+  Per SR-CONTRACT C-EXC-4: Waivers MUST NOT target integrity conditions.
+  Integrity conditions (ORACLE_TAMPER, ORACLE_GAP, etc.) are non-waivable.
 "#
     );
 }

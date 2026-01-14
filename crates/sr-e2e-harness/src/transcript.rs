@@ -276,6 +276,36 @@ pub enum TranscriptEntryKind {
     // Meta
     HarnessStart,
     HarnessComplete,
+
+    // =========================================================================
+    // Failure Mode Entry Kinds (D-35)
+    // =========================================================================
+
+    // Oracle failure flow
+    OracleFailure,
+
+    // Integrity conditions
+    IntegrityCheck,
+    TamperDetected,
+    CoverageGapDetected,
+    EnvironmentMismatchDetected,
+    FlakeDetected,
+
+    // Exception flow
+    CreateException,
+    ActivateException,
+    ResolveException,
+
+    // Waiver flow
+    CreateWaiver,
+    ApprovalWithWaiver,
+
+    // Stop triggers
+    StopTriggered,
+    PortalSubmission,
+
+    // Verified-with-exceptions
+    VerifiedWithExceptions,
 }
 
 /// Produced entity IDs
@@ -289,6 +319,10 @@ pub struct ProducedIds {
     pub approval_ids: Vec<String>,
     pub freeze_ids: Vec<String>,
     pub event_ids: Vec<String>,
+    /// Exception IDs (D-35)
+    pub exception_ids: Vec<String>,
+    /// Waiver IDs (D-35)
+    pub waiver_ids: Vec<String>,
 }
 
 /// Invariant check result

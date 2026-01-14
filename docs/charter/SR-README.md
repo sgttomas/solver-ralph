@@ -54,6 +54,63 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 21 (2026-01-13)
+**Completed:** D-35
+
+**What was done:**
+
+D-35: End-to-end harness failure modes (integrity + exception)
+- Created failure_modes.rs module in sr-e2e-harness implementing three failure scenarios:
+
+  1. Oracle Failure Flow (run_oracle_failure):
+     - Creates loop/iteration/candidate/run
+     - Uploads evidence with failing oracle results (FAIL verdict)
+     - Records run completion with FAILURE outcome
+     - Triggers stop condition (routes to Release Portal)
+     - Closes loop without freeze (approval blocked)
+     - Invariant: No silent progression (no approval/freeze created)
+
+  2. Integrity Tamper Detection Flow (run_integrity_tamper):
+     - Creates evidence with tampered artifact hashes
+     - Detects ORACLE_TAMPER integrity violation
+     - Records explicit integrity failure event
+     - Routes to Security Review Portal (non-waivable)
+     - Per SR-CONTRACT: Integrity conditions are non-waivable
+
+  3. Exception/Waiver Flow (run_exception_waiver):
+     - Creates loop with waivable failure (lint fails, build passes)
+     - Creates WAIVER exception (HUMAN-only per SR-CONTRACT C-EXC-4)
+     - Activates the waiver
+     - Records approval with waiver acknowledgment
+     - Creates freeze as Verified-with-Exceptions
+     - Resolves waiver after freeze completion
+     - Full waiver lifecycle: CREATED → ACTIVE → RESOLVED
+
+- Added client methods for exception operations:
+  - create_exception(), activate_exception(), resolve_exception(), get_exception()
+
+- Added transcript entry kinds for failure modes:
+  - OracleFailure, IntegrityCheck, TamperDetected, CoverageGapDetected
+  - CreateException, ActivateException, ResolveException
+  - CreateWaiver, ApprovalWithWaiver, VerifiedWithExceptions
+  - StopTriggered, PortalSubmission
+
+- CLI commands added:
+  - `--oracle-failure`: Run oracle failure scenario
+  - `--integrity-tamper`: Run integrity tamper detection scenario
+  - `--exception-waiver`: Run exception/waiver flow scenario
+
+- 4 unit tests for failure mode manifests and config
+
+**PKG-11 (End-to-end demonstration and determinism proof) progress: D-34 ✓, D-35 ✓, D-36 ✓**
+
+**Next deliverables:**
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+
+
+---
+
 ### Session 20 (2026-01-13)
 **Completed:** D-40, D-41
 

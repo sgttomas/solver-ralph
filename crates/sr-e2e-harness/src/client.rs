@@ -441,6 +441,99 @@ impl E2EClient {
     }
 
     // =========================================================================
+    // Exception Operations (D-35)
+    // =========================================================================
+
+    /// Create an exception (HUMAN-only)
+    pub async fn create_exception(
+        &self,
+        kind: &str,
+        scope: ExceptionScopeRequest,
+        rationale: &str,
+        target_description: &str,
+        expires_at: Option<&str>,
+    ) -> Result<ExceptionActionResponse, ClientError> {
+        let url = format!("{}/api/v1/exceptions", self.base_url);
+        let body = CreateExceptionRequest {
+            kind: kind.to_string(),
+            scope,
+            rationale: rationale.to_string(),
+            target_description: target_description.to_string(),
+            expires_at: expires_at.map(String::from),
+        };
+
+        let response = self
+            .http_client
+            .post(&url)
+            .headers(self.auth_headers(ActorKind::Human))
+            .json(&body)
+            .send()
+            .await?;
+
+        self.handle_response(response).await
+    }
+
+    /// Activate an exception
+    pub async fn activate_exception(
+        &self,
+        exception_id: &str,
+    ) -> Result<ExceptionActionResponse, ClientError> {
+        let url = format!(
+            "{}/api/v1/exceptions/{}/activate",
+            self.base_url, exception_id
+        );
+
+        let response = self
+            .http_client
+            .post(&url)
+            .headers(self.auth_headers(ActorKind::Human))
+            .json(&serde_json::json!({}))
+            .send()
+            .await?;
+
+        self.handle_response(response).await
+    }
+
+    /// Resolve an exception
+    pub async fn resolve_exception(
+        &self,
+        exception_id: &str,
+        resolution_notes: Option<&str>,
+    ) -> Result<ExceptionActionResponse, ClientError> {
+        let url = format!(
+            "{}/api/v1/exceptions/{}/resolve",
+            self.base_url, exception_id
+        );
+        let body = ResolveExceptionRequest {
+            resolution_notes: resolution_notes.map(String::from),
+        };
+
+        let response = self
+            .http_client
+            .post(&url)
+            .headers(self.auth_headers(ActorKind::Human))
+            .json(&body)
+            .send()
+            .await?;
+
+        self.handle_response(response).await
+    }
+
+    /// Get exception by ID
+    pub async fn get_exception(&self, exception_id: &str) -> Result<ExceptionResponse, ClientError> {
+        let url = format!("{}/api/v1/exceptions/{}", self.base_url, exception_id);
+
+        let response = self
+            .http_client
+            .get(&url)
+            .headers(self.auth_headers(ActorKind::Human))
+            .send()
+            .await?;
+
+        self.handle_response(response).await
+    }
+
+    // =========================================================================
     // Response Handling
     // =========================================================================
 
@@ -778,4 +871,68 @@ pub struct FreezeRecordResponse {
     pub evidence_bundle_refs: Vec<String>,
     pub release_approval_id: String,
     pub frozen_at: String,
+}
+
+// =============================================================================
+// Exception Types (D-35)
+// =============================================================================
+
+#[derive(Debug, Serialize)]
+pub struct CreateExceptionRequest {
+    pub kind: String,
+    pub scope: ExceptionScopeRequest,
+    pub rationale: String,
+    pub target_description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExceptionScopeRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loop_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub candidate_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oracle_id: Option<String>,
+    #[serde(default)]
+    pub artifact_refs: Vec<TypedRefRequest>,
+}
+
+impl Default for ExceptionScopeRequest {
+    fn default() -> Self {
+        Self {
+            loop_id: None,
+            candidate_id: None,
+            oracle_id: None,
+            artifact_refs: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ResolveExceptionRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolution_notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExceptionActionResponse {
+    pub exception_id: String,
+    pub kind: String,
+    pub status: String,
+    pub event_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExceptionResponse {
+    pub exception_id: String,
+    pub kind: String,
+    pub status: String,
+    pub scope: serde_json::Value,
+    pub rationale: String,
+    pub target_description: String,
+    pub created_at: String,
+    pub expires_at: Option<String>,
+    pub resolved_at: Option<String>,
 }
