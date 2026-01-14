@@ -18,7 +18,7 @@ use sr_domain::{
     ActorKind, EventEnvelope, EventId, IterationState, LoopState, StreamKind, TypedRef,
 };
 use sr_ports::{EvidenceStoreError, EventStore, EventStoreError};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, warn};
@@ -140,6 +140,9 @@ pub struct LoopTrackingState {
     pub last_iteration_at: Option<DateTime<Utc>>,
     /// Active stop triggers
     pub stop_triggers: Vec<StopCondition>,
+    /// Pending portal approvals required before iteration can proceed
+    /// Maps portal_id to the reason (stop trigger type) requiring approval
+    pub pending_portal_approvals: HashSet<String>,
     /// Cost units consumed
     pub cost_consumed: u64,
 }
@@ -156,6 +159,7 @@ impl LoopTrackingState {
             created_at,
             last_iteration_at: None,
             stop_triggers: Vec::new(),
+            pending_portal_approvals: HashSet::new(),
             cost_consumed: 0,
         }
     }
@@ -205,6 +209,7 @@ pub struct PreconditionSnapshot {
     pub budget_remaining_secs: i64,
     pub has_incomplete_iteration: bool,
     pub stop_triggers: Vec<String>,
+    pub pending_portal_approvals: Vec<String>,
 }
 
 /// Governor decision outcome
@@ -379,11 +384,70 @@ impl<E: EventStore> LoopGovernor<E> {
                         .and_then(|c| serde_json::from_value(c.clone()).ok())
                         .unwrap_or(StopCondition::HumanStop);
                     state.stop_triggers.push(condition);
+
+                    // Track pending portal approval if recommended_portal is specified
+                    if let Some(portal) = event
+                        .payload
+                        .get("recommended_portal")
+                        .and_then(|p| p.as_str())
+                    {
+                        state.pending_portal_approvals.insert(portal.to_string());
+                        debug!(
+                            loop_id = %event.stream_id,
+                            portal = %portal,
+                            "Pending portal approval added"
+                        );
+                    }
+
                     debug!(
                         loop_id = %event.stream_id,
                         condition = ?condition,
                         "Stop triggered"
                     );
+                }
+            }
+            "ApprovalRecorded" => {
+                // Extract portal_id and loop reference from approval
+                if let Some(portal_id) = event
+                    .payload
+                    .get("portal_id")
+                    .and_then(|p| p.as_str())
+                {
+                    // Find the loop this approval relates to
+                    // Approvals can reference loops via subject_refs
+                    let related_loop_id = event
+                        .payload
+                        .get("subject_refs")
+                        .and_then(|refs| refs.as_array())
+                        .and_then(|refs| {
+                            refs.iter().find_map(|r| {
+                                if r.get("kind")?.as_str()? == "Loop" {
+                                    r.get("id")?.as_str().map(|s| s.to_string())
+                                } else {
+                                    None
+                                }
+                            })
+                        })
+                        .or_else(|| {
+                            // Fall back to stream_id if it's a loop stream
+                            if event.stream_id.starts_with("loop_") {
+                                Some(event.stream_id.clone())
+                            } else {
+                                None
+                            }
+                        });
+
+                    if let Some(loop_id) = related_loop_id {
+                        if let Some(state) = loops.get_mut(&loop_id) {
+                            if state.pending_portal_approvals.remove(portal_id) {
+                                debug!(
+                                    loop_id = %loop_id,
+                                    portal_id = %portal_id,
+                                    "Portal approval satisfied"
+                                );
+                            }
+                        }
+                    }
                 }
             }
             _ => {}
@@ -433,7 +497,7 @@ impl<E: EventStore> LoopGovernor<E> {
             budget_available: iterations_remaining > 0 && duration_remaining > 0,
             delay_elapsed,
             no_stop_triggers: state.stop_triggers.is_empty(),
-            approvals_satisfied: true, // TODO: Check pending approvals
+            approvals_satisfied: state.pending_portal_approvals.is_empty(),
         })
     }
 
@@ -480,6 +544,11 @@ impl<E: EventStore> LoopGovernor<E> {
                     .stop_triggers
                     .iter()
                     .map(|s| format!("{:?}", s))
+                    .collect(),
+                pending_portal_approvals: state
+                    .pending_portal_approvals
+                    .iter()
+                    .cloned()
                     .collect(),
             }
         };
@@ -661,6 +730,7 @@ impl<E: EventStore> LoopGovernor<E> {
                 budget_remaining_secs: 0,
                 has_incomplete_iteration: false,
                 stop_triggers: state.stop_triggers.iter().map(|s| format!("{:?}", s)).collect(),
+                pending_portal_approvals: state.pending_portal_approvals.iter().cloned().collect(),
             },
             outcome: GovernorOutcome::Executed,
             decided_at: Utc::now(),
@@ -751,6 +821,7 @@ mod tests {
                 budget_remaining_secs: 3000,
                 has_incomplete_iteration: false,
                 stop_triggers: vec![],
+                pending_portal_approvals: vec![],
             },
             outcome: GovernorOutcome::Executed,
             decided_at: Utc::now(),

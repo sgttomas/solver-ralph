@@ -42,11 +42,13 @@ Fixed in commit `6f4a260`:
 - `worker.rs`: Fixed hash length assertion to account for "sha256:" prefix (71 chars)
 - `restricted.rs`: Added `#[ignore]` to test requiring Infisical service
 
-### 1 TODO in Production Code
+### ~~1 TODO in Production Code~~ RESOLVED
 
-| File:Line | Code | Impact |
-|-----------|------|--------|
-| `governor.rs:436` | `approvals_satisfied: true, // TODO: Check pending approvals` | `IterationPreconditions.approvals_satisfied` always returns `true`. Doesn't actually query for pending portal approvals. Low priority - works for MVP but should be implemented for full portal integration. |
+Implemented in this session:
+- `governor.rs`: Added `pending_portal_approvals` tracking to `LoopTrackingState`
+- `StopTriggered` events now extract `recommended_portal` and track pending approvals
+- `ApprovalRecorded` events clear pending portal approvals for the related loop
+- `approvals_satisfied` now checks `pending_portal_approvals.is_empty()`
 
 ### D-01 (Governance Hygiene) Status
 
