@@ -1,0 +1,75 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/sr-domain",
+    "crates/sr-ports",
+    "crates/sr-adapters",
+    "crates/sr-api",
+    "crates/sr-e2e-harness",
+    "crates/sr-oracles",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/your-org/solver-ralph"
+
+[workspace.dependencies]
+# Core domain
+ulid = "1.1"
+sha2 = "0.10"
+hex = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP/API
+axum = "0.7"
+tower = "0.5"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid", "json"] }
+
+# Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Object storage (MinIO/S3)
+aws-config = { version = "1.5", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1.77"
+aws-credential-types = "1.2"
+
+# HTTP client for S3
+bytes = "1.9"
+
+# Auth/OIDC
+jsonwebtoken = "9.3"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# General utils
+once_cell = "1.20"
+
+# Encryption (D-16: Restricted evidence)
+aes-gcm = "0.10"
+rand = "0.8"
+base64 = "0.22"
+
+# Pattern matching
+regex = "1.11"
+glob = "0.3"
+
+# Messaging (D-21: NATS/JetStream)
+async-nats = "0.38"
+futures = "0.3"
+
+# Testing utilities (D-24: Oracle runner)
+tempfile = "3.15"
+
+# System info (D-26: Oracle reports)
+hostname = "0.4"

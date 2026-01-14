@@ -1,0 +1,479 @@
+//! SOLVER-Ralph HTTP API Service (D-17, D-18, D-19, D-20, D-33)
+//!
+//! This is the main entry point for the SOLVER-Ralph API server.
+//! Per SR-SPEC §2, it provides HTTP endpoints for:
+//! - Loops, Iterations, Candidates, Runs (D-18)
+//! - Approvals, Exceptions, Decisions, Freeze Records (D-19)
+//! - Evidence upload, retrieval, and association (D-20)
+//! - Operational logging and observability (D-33)
+//! - Staleness management
+//!
+//! Authentication is handled via OIDC (Zitadel) with JWT validation.
+
+pub mod auth;
+pub mod config;
+pub mod handlers;
+pub mod observability;
+
+use auth::{init_oidc, AuthenticatedUser, OptionalAuth};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    middleware,
+    routing::{get, post},
+    Json, Router,
+};
+use config::ApiConfig;
+use handlers::{
+    approvals, candidates, decisions, evidence, exceptions, freeze, iterations, loops, runs,
+};
+use observability::{metrics_endpoint, request_context_middleware, Metrics, MetricsState};
+use serde::{Deserialize, Serialize};
+use sr_adapters::{MinioConfig, MinioEvidenceStore, PostgresEventStore, ProjectionBuilder};
+use sqlx::PgPool;
+use std::sync::Arc;
+use std::time::Instant;
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tracing::{info, warn};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
+
+/// Application state shared across handlers
+#[derive(Clone)]
+pub struct AppState {
+    pub config: ApiConfig,
+    pub event_store: Arc<PostgresEventStore>,
+    pub projections: Arc<ProjectionBuilder>,
+    pub evidence_store: Arc<MinioEvidenceStore>,
+}
+
+/// Health check response
+#[derive(Serialize)]
+struct HealthResponse {
+    status: &'static str,
+    version: &'static str,
+}
+
+/// API info response
+#[derive(Serialize)]
+struct InfoResponse {
+    name: &'static str,
+    version: &'static str,
+    description: &'static str,
+}
+
+/// Whoami response (current user info)
+#[derive(Serialize)]
+struct WhoamiResponse {
+    authenticated: bool,
+    actor_kind: Option<String>,
+    actor_id: Option<String>,
+    email: Option<String>,
+    name: Option<String>,
+    roles: Vec<String>,
+}
+
+/// Health check endpoint (unauthenticated)
+async fn health() -> Json<HealthResponse> {
+    Json(HealthResponse {
+        status: "healthy",
+        version: env!("CARGO_PKG_VERSION"),
+    })
+}
+
+/// API info endpoint (unauthenticated)
+async fn info() -> Json<InfoResponse> {
+    Json(InfoResponse {
+        name: "SOLVER-Ralph API",
+        version: env!("CARGO_PKG_VERSION"),
+        description: "Governance-first, event-sourced platform for controlled agentic work",
+    })
+}
+
+/// Whoami endpoint (returns current user info, or anonymous if not authenticated)
+async fn whoami(OptionalAuth(user): OptionalAuth) -> Json<WhoamiResponse> {
+    match user {
+        Some(u) => Json(WhoamiResponse {
+            authenticated: true,
+            actor_kind: Some(format!("{:?}", u.actor_kind)),
+            actor_id: Some(u.actor_id),
+            email: u.email,
+            name: u.name,
+            roles: u.roles,
+        }),
+        None => Json(WhoamiResponse {
+            authenticated: false,
+            actor_kind: None,
+            actor_id: None,
+            email: None,
+            name: None,
+            roles: vec![],
+        }),
+    }
+}
+
+/// Protected endpoint example (requires authentication)
+async fn protected_info(user: AuthenticatedUser) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "message": "You have access to protected resources",
+        "actor_kind": format!("{:?}", user.actor_kind),
+        "actor_id": user.actor_id,
+    }))
+}
+
+/// Create the API router with all routes (D-33: includes metrics and observability)
+fn create_router(state: AppState, metrics_state: MetricsState) -> Router {
+    // Public routes (no authentication required)
+    let public_routes = Router::new()
+        .route("/health", get(health))
+        .route("/api/v1/info", get(info))
+        .route("/api/v1/whoami", get(whoami))
+        .route("/api/v1/metrics", get(metrics_endpoint))
+        .with_state(metrics_state);
+
+    // Protected routes (authentication required)
+    let protected_routes = Router::new().route("/api/v1/protected", get(protected_info));
+
+    // Loop routes (D-18)
+    let loop_routes = Router::new()
+        .route("/api/v1/loops", post(loops::create_loop))
+        .route("/api/v1/loops", get(loops::list_loops))
+        .route("/api/v1/loops/:loop_id", get(loops::get_loop))
+        .route("/api/v1/loops/:loop_id/activate", post(loops::activate_loop))
+        .route("/api/v1/loops/:loop_id/pause", post(loops::pause_loop))
+        .route("/api/v1/loops/:loop_id/resume", post(loops::resume_loop))
+        .route("/api/v1/loops/:loop_id/close", post(loops::close_loop))
+        .route(
+            "/api/v1/loops/:loop_id/iterations",
+            get(iterations::list_iterations_for_loop),
+        );
+
+    // Iteration routes (D-18)
+    let iteration_routes = Router::new()
+        .route("/api/v1/iterations", post(iterations::start_iteration))
+        .route(
+            "/api/v1/iterations/:iteration_id",
+            get(iterations::get_iteration),
+        )
+        .route(
+            "/api/v1/iterations/:iteration_id/complete",
+            post(iterations::complete_iteration),
+        )
+        .route(
+            "/api/v1/iterations/:iteration_id/candidates",
+            get(candidates::list_candidates_for_iteration),
+        );
+
+    // Candidate routes (D-18)
+    let candidate_routes = Router::new()
+        .route("/api/v1/candidates", post(candidates::register_candidate))
+        .route("/api/v1/candidates", get(candidates::list_candidates))
+        .route(
+            "/api/v1/candidates/:candidate_id",
+            get(candidates::get_candidate),
+        )
+        .route(
+            "/api/v1/candidates/:candidate_id/runs",
+            get(runs::list_runs_for_candidate),
+        );
+
+    // Run routes (D-18)
+    let run_routes = Router::new()
+        .route("/api/v1/runs", post(runs::start_run))
+        .route("/api/v1/runs", get(runs::list_runs))
+        .route("/api/v1/runs/:run_id", get(runs::get_run))
+        .route("/api/v1/runs/:run_id/complete", post(runs::complete_run));
+
+    // Approval routes (D-19) - HUMAN-only per SR-CONTRACT C-TB-3
+    let approval_routes = Router::new()
+        .route("/api/v1/approvals", post(approvals::record_approval))
+        .route("/api/v1/approvals", get(approvals::list_approvals))
+        .route(
+            "/api/v1/approvals/:approval_id",
+            get(approvals::get_approval),
+        )
+        .route(
+            "/api/v1/portals/:portal_id/approvals",
+            get(approvals::list_approvals_for_portal),
+        );
+
+    // Exception routes (D-19) - HUMAN-only per SR-SPEC §1.8
+    let exception_routes = Router::new()
+        .route("/api/v1/exceptions", post(exceptions::create_exception))
+        .route("/api/v1/exceptions", get(exceptions::list_exceptions))
+        .route(
+            "/api/v1/exceptions/:exception_id",
+            get(exceptions::get_exception),
+        )
+        .route(
+            "/api/v1/exceptions/:exception_id/activate",
+            post(exceptions::activate_exception),
+        )
+        .route(
+            "/api/v1/exceptions/:exception_id/resolve",
+            post(exceptions::resolve_exception),
+        );
+
+    // Decision routes (D-19) - HUMAN-only per SR-CONTRACT C-DEC-1
+    let decision_routes = Router::new()
+        .route("/api/v1/decisions", post(decisions::record_decision))
+        .route("/api/v1/decisions", get(decisions::list_decisions))
+        .route(
+            "/api/v1/decisions/:decision_id",
+            get(decisions::get_decision),
+        );
+
+    // Freeze record routes (D-19) - HUMAN-only per SR-CONTRACT C-SHIP-1
+    let freeze_routes = Router::new()
+        .route(
+            "/api/v1/freeze-records",
+            post(freeze::create_freeze_record),
+        )
+        .route("/api/v1/freeze-records", get(freeze::list_freeze_records))
+        .route(
+            "/api/v1/freeze-records/:freeze_id",
+            get(freeze::get_freeze_record),
+        )
+        .route(
+            "/api/v1/candidates/:candidate_id/freeze-records",
+            get(freeze::list_freeze_records_for_candidate),
+        );
+
+    // Evidence routes (D-20) - Per SR-SPEC §1.9 and SR-CONTRACT §7
+    let evidence_routes = Router::new()
+        .route("/api/v1/evidence", post(evidence::upload_evidence))
+        .route("/api/v1/evidence", get(evidence::list_evidence))
+        .route(
+            "/api/v1/evidence/:content_hash",
+            get(evidence::get_evidence),
+        )
+        .route(
+            "/api/v1/evidence/:content_hash/associate",
+            post(evidence::associate_evidence),
+        )
+        .route(
+            "/api/v1/evidence/:content_hash/verify",
+            post(evidence::verify_evidence),
+        )
+        .route(
+            "/api/v1/evidence/:content_hash/blobs/:blob_name",
+            get(evidence::get_evidence_blob),
+        )
+        .route(
+            "/api/v1/runs/:run_id/evidence",
+            get(evidence::list_evidence_for_run),
+        )
+        .route(
+            "/api/v1/candidates/:candidate_id/evidence",
+            get(evidence::list_evidence_for_candidate),
+        );
+
+    // Combine all routes (D-33: request context middleware for correlation tracking)
+    Router::new()
+        .merge(public_routes)
+        .merge(protected_routes)
+        .merge(loop_routes)
+        .merge(iteration_routes)
+        .merge(candidate_routes)
+        .merge(run_routes)
+        .merge(approval_routes)
+        .merge(exception_routes)
+        .merge(decision_routes)
+        .merge(freeze_routes)
+        .merge(evidence_routes)
+        .layer(CorsLayer::permissive())
+        .layer(middleware::from_fn(request_context_middleware))
+        .layer(TraceLayer::new_for_http())
+        .with_state(state)
+}
+
+/// Initialize tracing/logging (D-33)
+///
+/// Supports two output modes:
+/// - JSON: Structured logging for production (SR_LOG_FORMAT=json)
+/// - Pretty: Human-readable logging for development (default)
+fn init_tracing(log_level: &str) {
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| {
+            format!(
+                "sr_api={},sr_adapters={},sr_domain={},tower_http=debug",
+                log_level, log_level, log_level
+            )
+            .into()
+        });
+
+    let use_json = std::env::var("SR_LOG_FORMAT")
+        .map(|v| v.to_lowercase() == "json")
+        .unwrap_or(false);
+
+    if use_json {
+        // JSON output for production: structured, machine-parseable
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(
+                fmt::layer()
+                    .json()
+                    .with_current_span(true)
+                    .with_span_list(true)
+                    .with_file(true)
+                    .with_line_number(true)
+                    .with_thread_ids(true)
+                    .with_target(true)
+                    .flatten_event(false),
+            )
+            .init();
+    } else {
+        // Pretty output for development: human-readable
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(
+                fmt::layer()
+                    .with_target(true)
+                    .with_level(true)
+                    .with_thread_ids(false)
+                    .with_file(false)
+                    .with_line_number(false),
+            )
+            .init();
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    // Record startup time for uptime metrics (D-33)
+    let start_time = Instant::now();
+
+    // Load configuration
+    let config = ApiConfig::from_env();
+
+    // Initialize tracing (D-33)
+    init_tracing(&config.log_level);
+
+    // Log startup with structured fields (D-33)
+    info!(
+        host = %config.host,
+        port = %config.port,
+        version = %env!("CARGO_PKG_VERSION"),
+        log_format = %std::env::var("SR_LOG_FORMAT").unwrap_or_else(|_| "pretty".to_string()),
+        "Starting SOLVER-Ralph API"
+    );
+
+    // Initialize OIDC provider
+    match init_oidc(config.oidc.clone()).await {
+        Ok(_) => info!("OIDC provider initialized"),
+        Err(e) => {
+            warn!(error = ?e, "Failed to initialize OIDC provider - auth may not work");
+        }
+    }
+
+    // Connect to database
+    let pool = PgPool::connect(&config.database_url)
+        .await
+        .expect("Failed to connect to database");
+
+    info!("Database connection established");
+
+    // Create adapters
+    let event_store = Arc::new(PostgresEventStore::new(pool.clone()));
+    let projections = Arc::new(ProjectionBuilder::new(pool.clone()));
+
+    // Create evidence store (MinIO)
+    let minio_config = MinioConfig {
+        endpoint: std::env::var("MINIO_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:9000".to_string()),
+        region: std::env::var("MINIO_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
+        access_key_id: std::env::var("MINIO_ACCESS_KEY")
+            .unwrap_or_else(|_| "minioadmin".to_string()),
+        secret_access_key: std::env::var("MINIO_SECRET_KEY")
+            .unwrap_or_else(|_| "minioadmin".to_string()),
+        bucket: std::env::var("MINIO_BUCKET").unwrap_or_else(|_| "evidence".to_string()),
+        force_path_style: true,
+    };
+
+    let evidence_store = Arc::new(
+        MinioEvidenceStore::new(minio_config)
+            .await
+            .expect("Failed to initialize MinIO evidence store"),
+    );
+
+    info!("MinIO evidence store initialized");
+
+    // Create application state
+    let state = AppState {
+        config: config.clone(),
+        event_store,
+        projections,
+        evidence_store,
+    };
+
+    // Create metrics state (D-33)
+    let metrics = Arc::new(Metrics::new());
+    let metrics_state = MetricsState {
+        metrics: metrics.clone(),
+        start_time,
+    };
+
+    info!("Metrics collection initialized");
+
+    // Create router (D-33: includes metrics endpoint and request tracing)
+    let app = create_router(state, metrics_state);
+
+    // Start server
+    let bind_addr = config.bind_addr();
+    let listener = tokio::net::TcpListener::bind(&bind_addr)
+        .await
+        .expect(&format!("Failed to bind to {}", bind_addr));
+
+    info!(address = %bind_addr, "SOLVER-Ralph API listening");
+
+    axum::serve(listener, app)
+        .await
+        .expect("Failed to start server");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use tower::ServiceExt;
+
+    // Note: Tests that require database are skipped in this module.
+    // Full integration tests will be in a separate test crate or require
+    // a test database setup.
+
+    #[tokio::test]
+    async fn test_health_endpoint_format() {
+        // This test just checks the response format is valid JSON
+        let response = HealthResponse {
+            status: "healthy",
+            version: "0.1.0",
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("healthy"));
+    }
+
+    #[tokio::test]
+    async fn test_info_endpoint_format() {
+        let response = InfoResponse {
+            name: "SOLVER-Ralph API",
+            version: "0.1.0",
+            description: "Test",
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("SOLVER-Ralph API"));
+    }
+
+    #[tokio::test]
+    async fn test_whoami_response_unauthenticated() {
+        let response = WhoamiResponse {
+            authenticated: false,
+            actor_kind: None,
+            actor_id: None,
+            email: None,
+            name: None,
+            roles: vec![],
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"authenticated\":false"));
+    }
+}

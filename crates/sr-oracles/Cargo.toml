@@ -1,0 +1,60 @@
+[package]
+name = "sr-oracles"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Oracle command implementations for SOLVER-Ralph (D-26)"
+
+[[bin]]
+name = "sr-oracles"
+path = "src/main.rs"
+
+[dependencies]
+# Internal crates
+sr-domain = { path = "../sr-domain" }
+sr-ports = { path = "../sr-ports" }
+sr-adapters = { path = "../sr-adapters" }
+sr-e2e-harness = { path = "../sr-e2e-harness" }
+
+# Core
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+futures = { workspace = true }
+
+# HTTP client
+reqwest = { workspace = true }
+
+# Database
+sqlx = { workspace = true }
+
+# Object storage
+aws-sdk-s3 = { workspace = true }
+aws-config = { workspace = true }
+aws-credential-types = { workspace = true }
+bytes = { workspace = true }
+
+# Messaging
+async-nats = { workspace = true }
+
+# CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# Tracing
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Testing utilities
+tempfile = { workspace = true }
+
+# System info
+hostname = { workspace = true }
+
+# Random (for jitter in retries)
+rand = { workspace = true }

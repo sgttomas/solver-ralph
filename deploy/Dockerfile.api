@@ -1,0 +1,73 @@
+# SOLVER-Ralph API Dockerfile
+#
+# Multi-stage build for the Rust API service.
+# Produces a minimal runtime image with just the binary.
+
+# Build stage
+FROM rust:1.83-bookworm AS builder
+
+WORKDIR /app
+
+# Copy manifests first for dependency caching
+COPY Cargo.toml Cargo.lock ./
+COPY crates/sr-domain/Cargo.toml crates/sr-domain/
+COPY crates/sr-ports/Cargo.toml crates/sr-ports/
+COPY crates/sr-adapters/Cargo.toml crates/sr-adapters/
+COPY crates/sr-api/Cargo.toml crates/sr-api/
+
+# Create dummy source files for dependency compilation
+RUN mkdir -p crates/sr-domain/src && echo "pub fn dummy() {}" > crates/sr-domain/src/lib.rs && \
+    mkdir -p crates/sr-ports/src && echo "pub fn dummy() {}" > crates/sr-ports/src/lib.rs && \
+    mkdir -p crates/sr-adapters/src && echo "pub fn dummy() {}" > crates/sr-adapters/src/lib.rs && \
+    mkdir -p crates/sr-api/src && echo "fn main() {}" > crates/sr-api/src/main.rs
+
+# Build dependencies only (this layer will be cached)
+RUN cargo build --release --package sr-api && rm -rf crates/*/src
+
+# Copy actual source code
+COPY crates/sr-domain/src crates/sr-domain/src
+COPY crates/sr-ports/src crates/sr-ports/src
+COPY crates/sr-adapters/src crates/sr-adapters/src
+COPY crates/sr-api/src crates/sr-api/src
+
+# Touch the main files to ensure they rebuild
+RUN touch crates/sr-domain/src/lib.rs && \
+    touch crates/sr-ports/src/lib.rs && \
+    touch crates/sr-adapters/src/lib.rs && \
+    touch crates/sr-api/src/main.rs
+
+# Build the release binary
+RUN cargo build --release --package sr-api
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1000 sr-user
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/target/release/sr-api /app/sr-api
+
+# Set ownership
+RUN chown -R sr-user:sr-user /app
+
+# Switch to non-root user
+USER sr-user
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Run the API
+CMD ["/app/sr-api"]

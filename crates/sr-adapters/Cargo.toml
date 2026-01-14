@@ -1,0 +1,44 @@
+[package]
+name = "sr-adapters"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SOLVER-Ralph adapter implementations: PostgreSQL, MinIO, NATS, Zitadel, etc."
+
+[dependencies]
+sr-domain = { path = "../sr-domain" }
+sr-ports = { path = "../sr-ports" }
+tokio.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+sqlx.workspace = true
+tracing.workspace = true
+ulid.workspace = true
+sha2.workspace = true
+hex.workspace = true
+aws-config.workspace = true
+aws-sdk-s3.workspace = true
+aws-credential-types.workspace = true
+bytes.workspace = true
+
+# D-16: Restricted evidence handling
+aes-gcm.workspace = true
+rand.workspace = true
+base64.workspace = true
+regex.workspace = true
+glob.workspace = true
+
+# D-21: NATS/JetStream messaging
+async-nats.workspace = true
+futures.workspace = true
+
+# D-23: Reference worker bridge
+reqwest.workspace = true
+
+# D-24: Oracle runner service
+tempfile.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "rt", "macros"] }

@@ -1,3 +1,38 @@
-.env.txt
+# Environment
 .env
+.env.txt
 *.env
+.env.local
+.env.*.local
+
+# Rust
+/target/
+Cargo.lock
+
+# Node.js
+node_modules/
+ui/dist/
+.npm
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+coverage/
+*.lcov
