@@ -1,11 +1,12 @@
 /**
- * Candidate Detail Page (D-29)
+ * Candidate Detail Page (D-29, D-30)
  *
  * Displays a single candidate with its oracle runs, evidence bundles, and freeze records.
  * Per SR-SPEC, candidates are content-addressed artifacts produced by iterations.
+ * D-30 adds freeze record creation from candidate context.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from 'react-oidc-context';
 import config from '../config';
@@ -195,6 +196,89 @@ const styles = {
     color: '#0066cc',
     borderBottomColor: '#0066cc',
   },
+  form: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '1rem',
+    marginBottom: '1.5rem',
+    padding: '1rem',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '4px',
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.5rem',
+  },
+  formRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '1rem',
+  },
+  label: {
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    color: '#333',
+  },
+  input: {
+    padding: '0.5rem 0.75rem',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    fontSize: '0.875rem',
+  },
+  select: {
+    padding: '0.5rem 0.75rem',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    fontSize: '0.875rem',
+    backgroundColor: 'white',
+  },
+  button: {
+    padding: '0.5rem 1rem',
+    border: 'none',
+    borderRadius: '4px',
+    fontSize: '0.875rem',
+    cursor: 'pointer',
+  },
+  buttonPrimary: {
+    backgroundColor: '#1a1a2e',
+    color: 'white',
+  },
+  buttonSecondary: {
+    backgroundColor: '#e5e5e5',
+    color: '#333',
+  },
+  buttonSmall: {
+    padding: '0.25rem 0.5rem',
+    fontSize: '0.75rem',
+  },
+  buttonRow: {
+    display: 'flex',
+    gap: '0.5rem',
+    justifyContent: 'flex-end',
+  },
+  error: {
+    color: '#dc3545',
+    fontSize: '0.875rem',
+    padding: '0.5rem',
+    backgroundColor: '#f8d7da',
+    borderRadius: '4px',
+    marginBottom: '1rem',
+  },
+  success: {
+    color: '#155724',
+    fontSize: '0.875rem',
+    padding: '0.5rem',
+    backgroundColor: '#d4edda',
+    borderRadius: '4px',
+    marginBottom: '1rem',
+  },
+  cardTitleRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1rem',
+  },
 };
 
 const stateColors: Record<string, { bg: string; color: string }> = {
@@ -224,25 +308,116 @@ export function CandidateDetail(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'runs' | 'evidence' | 'freeze'>('runs');
 
+  // Freeze record form states (D-30)
+  const [showFreezeForm, setShowFreezeForm] = useState(false);
+  const [freezeFormError, setFreezeFormError] = useState<string | null>(null);
+  const [freezeFormSuccess, setFreezeFormSuccess] = useState<string | null>(null);
+  const [freezeBaselineId, setFreezeBaselineId] = useState('');
+  const [freezeVerificationMode, setFreezeVerificationMode] = useState('STRICT');
+  const [freezeOracleSuiteId, setFreezeOracleSuiteId] = useState('');
+  const [freezeOracleSuiteHash, setFreezeOracleSuiteHash] = useState('');
+  const [freezeEvidenceBundleRefs, setFreezeEvidenceBundleRefs] = useState('');
+  const [freezeApprovalId, setFreezeApprovalId] = useState('');
+
+  const getHeaders = (): Record<string, string> => {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (auth.user?.access_token) {
+      h.Authorization = `Bearer ${auth.user.access_token}`;
+    }
+    return h;
+  };
+
+  const fetchFreezeRecords = async () => {
+    if (!auth.user?.access_token || !candidateId) return;
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/api/v1/candidates/${candidateId}/freeze-records`,
+        { headers: getHeaders() }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setFreezeRecords(data.freeze_records || []);
+    } catch (err) {
+      console.error('Failed to fetch freeze records:', err);
+    }
+  };
+
+  const resetFreezeForm = () => {
+    setFreezeBaselineId('');
+    setFreezeVerificationMode('STRICT');
+    setFreezeOracleSuiteId('');
+    setFreezeOracleSuiteHash('');
+    setFreezeEvidenceBundleRefs('');
+    setFreezeApprovalId('');
+    setShowFreezeForm(false);
+    setFreezeFormError(null);
+    setFreezeFormSuccess(null);
+  };
+
+  const handleSubmitFreeze = async (e: FormEvent) => {
+    e.preventDefault();
+    setFreezeFormError(null);
+    setFreezeFormSuccess(null);
+
+    if (!freezeBaselineId || !freezeOracleSuiteId || !freezeApprovalId) {
+      setFreezeFormError('Baseline ID, Oracle Suite ID, and Approval ID are required');
+      return;
+    }
+
+    const evidenceBundleRefs = freezeEvidenceBundleRefs
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    try {
+      const res = await fetch(`${config.apiUrl}/api/v1/freeze-records`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          baseline_id: freezeBaselineId,
+          candidate_id: candidateId,
+          verification_mode: freezeVerificationMode,
+          oracle_suite_id: freezeOracleSuiteId,
+          oracle_suite_hash: freezeOracleSuiteHash || 'sha256:pending',
+          evidence_bundle_refs: evidenceBundleRefs,
+          waiver_refs: [],
+          release_approval_id: freezeApprovalId,
+          artifact_manifest: [],
+          active_exceptions: [],
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      setFreezeFormSuccess(`Freeze record ${data.freeze_id} created successfully`);
+      resetFreezeForm();
+      fetchFreezeRecords();
+    } catch (err) {
+      setFreezeFormError(err instanceof Error ? err.message : 'Failed to create freeze record');
+    }
+  };
+
   useEffect(() => {
     if (!auth.user?.access_token || !candidateId) return;
 
-    const headers = { Authorization: `Bearer ${auth.user.access_token}` };
-
     Promise.all([
-      fetch(`${config.apiUrl}/api/v1/candidates/${candidateId}`, { headers }).then(res => {
+      fetch(`${config.apiUrl}/api/v1/candidates/${candidateId}`, { headers: getHeaders() }).then(res => {
         if (!res.ok) throw new Error(`Candidate fetch failed: HTTP ${res.status}`);
         return res.json();
       }),
-      fetch(`${config.apiUrl}/api/v1/candidates/${candidateId}/runs`, { headers }).then(res => {
+      fetch(`${config.apiUrl}/api/v1/candidates/${candidateId}/runs`, { headers: getHeaders() }).then(res => {
         if (!res.ok) throw new Error(`Runs fetch failed: HTTP ${res.status}`);
         return res.json();
       }),
-      fetch(`${config.apiUrl}/api/v1/candidates/${candidateId}/evidence`, { headers }).then(res => {
+      fetch(`${config.apiUrl}/api/v1/candidates/${candidateId}/evidence`, { headers: getHeaders() }).then(res => {
         if (!res.ok) throw new Error(`Evidence fetch failed: HTTP ${res.status}`);
         return res.json();
       }),
-      fetch(`${config.apiUrl}/api/v1/candidates/${candidateId}/freeze-records`, { headers }).then(res => {
+      fetch(`${config.apiUrl}/api/v1/candidates/${candidateId}/freeze-records`, { headers: getHeaders() }).then(res => {
         if (!res.ok) throw new Error(`Freeze records fetch failed: HTTP ${res.status}`);
         return res.json();
       }),
@@ -536,14 +711,117 @@ export function CandidateDetail(): JSX.Element {
         {/* Freeze Records Tab */}
         {activeTab === 'freeze' && (
           <>
-            {freezeRecords.length === 0 ? (
+            {/* Create Freeze Form (D-30) */}
+            <div style={styles.cardTitleRow}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Freeze Records</span>
+              <button
+                style={{ ...styles.button, ...styles.buttonSecondary, ...styles.buttonSmall }}
+                onClick={() => setShowFreezeForm(!showFreezeForm)}
+              >
+                {showFreezeForm ? 'Cancel' : 'Create Freeze'}
+              </button>
+            </div>
+
+            {freezeFormError && <div style={styles.error}>{freezeFormError}</div>}
+            {freezeFormSuccess && <div style={styles.success}>{freezeFormSuccess}</div>}
+
+            {showFreezeForm && (
+              <form style={styles.form} onSubmit={handleSubmitFreeze}>
+                <div style={styles.formRow}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Baseline ID *</label>
+                    <input
+                      style={styles.input}
+                      type="text"
+                      placeholder="e.g., v1.0.0"
+                      value={freezeBaselineId}
+                      onChange={e => setFreezeBaselineId(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Verification Mode *</label>
+                    <select
+                      style={styles.select}
+                      value={freezeVerificationMode}
+                      onChange={e => setFreezeVerificationMode(e.target.value)}
+                    >
+                      <option value="STRICT">STRICT</option>
+                      <option value="WITH_EXCEPTIONS">WITH_EXCEPTIONS</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={styles.formRow}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Oracle Suite ID *</label>
+                    <input
+                      style={styles.input}
+                      type="text"
+                      placeholder="e.g., suite:SR-SUITE-CORE"
+                      value={freezeOracleSuiteId}
+                      onChange={e => setFreezeOracleSuiteId(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Oracle Suite Hash</label>
+                    <input
+                      style={styles.input}
+                      type="text"
+                      placeholder="sha256:..."
+                      value={freezeOracleSuiteHash}
+                      onChange={e => setFreezeOracleSuiteHash(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Release Approval ID *</label>
+                  <input
+                    style={styles.input}
+                    type="text"
+                    placeholder="appr_..."
+                    value={freezeApprovalId}
+                    onChange={e => setFreezeApprovalId(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Evidence Bundle Refs (comma-separated)</label>
+                  <input
+                    style={styles.input}
+                    type="text"
+                    placeholder="sha256:abc123, sha256:def456"
+                    value={freezeEvidenceBundleRefs}
+                    onChange={e => setFreezeEvidenceBundleRefs(e.target.value)}
+                  />
+                </div>
+
+                <div style={styles.buttonRow}>
+                  <button
+                    type="button"
+                    style={{ ...styles.button, ...styles.buttonSecondary }}
+                    onClick={resetFreezeForm}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" style={{ ...styles.button, ...styles.buttonPrimary }}>
+                    Create Freeze Record
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {freezeRecords.length === 0 && !showFreezeForm ? (
               <div style={styles.placeholder}>
                 <p>No freeze records for this candidate.</p>
                 <p style={{ fontSize: '0.875rem', color: '#999' }}>
                   Freeze records are created when a human authority approves a candidate baseline.
                 </p>
               </div>
-            ) : (
+            ) : freezeRecords.length > 0 ? (
               <table style={styles.table}>
                 <thead>
                   <tr>
@@ -583,7 +861,7 @@ export function CandidateDetail(): JSX.Element {
                   })}
                 </tbody>
               </table>
-            )}
+            ) : null}
           </>
         )}
       </div>
