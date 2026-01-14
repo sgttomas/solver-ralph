@@ -1,11 +1,12 @@
 /**
- * Loops Page (D-28 scaffold)
+ * Loops Page (D-29)
  *
- * Placeholder for Loop/Iteration/Candidate views (D-29).
- * Will display active work units and their status.
+ * Displays active work units (loops) and their status.
+ * Links to individual loop detail views with iterations.
  */
 
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from 'react-oidc-context';
 import config from '../config';
 
@@ -66,6 +67,10 @@ const styles = {
     textAlign: 'center' as const,
     padding: '3rem',
     color: '#666',
+  },
+  link: {
+    color: '#0066cc',
+    textDecoration: 'none',
   },
 };
 
@@ -142,7 +147,11 @@ export function Loops(): JSX.Element {
                 const statusStyle = statusColors[loop.status] || statusColors.Pending;
                 return (
                   <tr key={loop.id}>
-                    <td style={styles.td}>{loop.id}</td>
+                    <td style={styles.td}>
+                      <Link to={`/loops/${loop.id}`} style={styles.link}>
+                        {loop.id}
+                      </Link>
+                    </td>
                     <td style={styles.td}>{loop.name}</td>
                     <td style={styles.td}>
                       <span

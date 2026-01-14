@@ -1,11 +1,12 @@
 /**
- * Evidence Page (D-28 scaffold)
+ * Evidence Page (D-29)
  *
- * Placeholder for Evidence Bundle viewer (D-29).
- * Will display oracle outputs and verification artifacts.
+ * Displays evidence bundles (oracle outputs and verification artifacts).
+ * Links to individual evidence detail views with manifest inspection.
  */
 
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from 'react-oidc-context';
 import config from '../config';
 
@@ -67,6 +68,10 @@ const styles = {
     textAlign: 'center' as const,
     padding: '3rem',
     color: '#666',
+  },
+  link: {
+    color: '#0066cc',
+    textDecoration: 'none',
   },
 };
 
@@ -134,9 +139,11 @@ export function Evidence(): JSX.Element {
               {evidence.map(bundle => (
                 <tr key={bundle.content_hash}>
                   <td style={styles.td}>
-                    <code style={styles.hash}>
-                      {bundle.content_hash.substring(0, 16)}...
-                    </code>
+                    <Link to={`/evidence/${bundle.content_hash}`} style={styles.link}>
+                      <code style={styles.hash}>
+                        {bundle.content_hash.substring(0, 16)}...
+                      </code>
+                    </Link>
                   </td>
                   <td style={styles.td}>{bundle.manifest.artifact_type}</td>
                   <td style={styles.td}>
