@@ -54,6 +54,40 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 19 (2026-01-14)
+**Completed:** D-36
+
+**What was done:**
+
+D-36: Replayability demonstration (event stream → reconstructed state)
+- Created replay module in sr-e2e-harness with:
+  - ReplayRunner: executes event stream replay and projection rebuild
+  - ReplayConfig: configurable database URL, batch size, full/incremental mode
+  - StateChecksum: deterministic SHA-256 of all projection state
+  - TableChecksum: per-table row count and content hash
+  - ReplayTranscript: audit trail of replay execution
+  - DeterminismResult: verification that replays produce identical state
+- CLI commands added to sr-e2e-harness:
+  - `--replay`: Replay event stream, rebuild projections, compute state checksum
+  - `--verify-determinism`: Run replay twice and verify identical checksums
+  - `--database-url`: Database connection for replay mode
+  - `--batch-size`: Event processing batch size
+  - `--incremental`: Incremental update instead of full rebuild
+- Per SR-SPEC §1.7 requirement implemented:
+  - All projections rebuildable from es.events alone
+  - Deterministic state checksum computation
+  - Component-level checksums for debugging
+
+**PKG-11 (Harness) progress: D-34 ✓, D-36 ✓**
+
+**Next deliverables:**
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+- D-41: Reference semantic worker (PKG-12) - depends on D-23 ✓, D-38 ✓, D-39 ✓, D-40
+
+
+---
+
 ### Session 18 (2026-01-13)
 **Completed:** D-34
 
@@ -85,12 +119,6 @@ D-34: End-to-end harness (happy path)
   - Invariant check reporting
 
 **PKG-11 (Harness) progress: D-34 done**
-
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
-- D-36: Replayability demonstration (PKG-11) - depends on D-10 ✓, D-11 ✓, D-34 ✓
-- D-41: Reference semantic worker (PKG-12) - depends on D-23 ✓, D-38 ✓, D-39 ✓, D-40
 
 
 ---
