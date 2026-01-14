@@ -11,6 +11,7 @@ use axum::{
     extract::{Path, Query, State},
     Json,
 };
+use base64::Engine;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sr_adapters::{EvidenceArtifact, EvidenceManifest, OracleResult, OracleResultStatus};
@@ -188,7 +189,7 @@ pub async fn upload_evidence(
     // Store in evidence store
     let content_hash = state
         .evidence_store
-        .store(manifest_json.as_bytes(), blobs_refs)
+        .store(&manifest_json, blobs_refs)
         .await
         .map_err(|e| ApiError::Internal {
             message: format!("Failed to store evidence: {}", e),

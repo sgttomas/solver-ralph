@@ -49,7 +49,7 @@ pub struct CompleteIterationRequest {
     pub summary: Option<IterationSummaryRequest>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct IterationSummaryRequest {
     pub intent: String,
     #[serde(default)]
@@ -66,7 +66,7 @@ pub struct IterationSummaryRequest {
     pub open_risks: Vec<OpenRiskRequest>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ActionRequest {
     pub kind: String,
     pub summary: String,
@@ -74,7 +74,7 @@ pub struct ActionRequest {
     pub artifacts: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct NextStepRequest {
     pub kind: String,
     pub description: String,
@@ -82,7 +82,7 @@ pub struct NextStepRequest {
     pub blocking: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct OpenRiskRequest {
     pub severity: String,
     pub description: String,

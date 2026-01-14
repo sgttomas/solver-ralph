@@ -51,14 +51,14 @@ pub struct CreateFreezeRequest {
     pub active_exceptions: Vec<ActiveExceptionEntryRequest>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ArtifactManifestEntryRequest {
     pub artifact_id: String,
     pub version: String,
     pub content_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ActiveExceptionEntryRequest {
     pub exception_id: String,
     pub kind: String,

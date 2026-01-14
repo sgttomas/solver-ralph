@@ -195,6 +195,9 @@ impl OidcProvider {
             ActorKind::Human
         };
 
+        // Serialize claims before moving fields
+        let claims_value = serde_json::to_value(&claims).unwrap_or_default();
+
         Ok(AuthenticatedUser {
             actor_kind,
             actor_id: claims.sub.clone(),
@@ -202,13 +205,13 @@ impl OidcProvider {
             email: claims.email,
             name: claims.name,
             roles: claims.roles,
-            claims: serde_json::to_value(&claims).unwrap_or_default(),
+            claims: claims_value,
         })
     }
 }
 
 /// JWT token claims (Zitadel format)
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct TokenClaims {
     /// Subject (user ID)
     sub: String,

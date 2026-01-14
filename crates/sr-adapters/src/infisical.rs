@@ -8,6 +8,7 @@
 //!
 //! Infisical API reference: https://infisical.com/docs/api-reference
 
+use base64::Engine;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sr_ports::{EnvelopeKey, SecretMetadata, SecretProvider, SecretProviderError, SecretValue};

@@ -1,10 +1,11 @@
-//! SOLVER-Ralph HTTP API Service (D-17, D-18, D-19, D-20)
+//! SOLVER-Ralph HTTP API Service (D-17, D-18, D-19, D-20, D-33)
 //!
 //! This is the main entry point for the SOLVER-Ralph API server.
 //! Per SR-SPEC §2, it provides HTTP endpoints for:
 //! - Loops, Iterations, Candidates, Runs (D-18)
 //! - Approvals, Exceptions, Decisions, Freeze Records (D-19)
 //! - Evidence upload, retrieval, and association (D-20)
+//! - Operational logging and observability (D-33)
 //! - Staleness management
 //!
 //! Authentication is handled via OIDC (Zitadel) with JWT validation.
@@ -12,11 +13,13 @@
 pub mod auth;
 pub mod config;
 pub mod handlers;
+pub mod observability;
 
 use auth::{init_oidc, AuthenticatedUser, OptionalAuth};
 use axum::{
     extract::State,
     http::StatusCode,
+    middleware,
     routing::{get, post},
     Json, Router,
 };
@@ -24,20 +27,21 @@ use config::ApiConfig;
 use handlers::{
     approvals, candidates, decisions, evidence, exceptions, freeze, iterations, loops, runs,
 };
+use observability::{metrics_endpoint, request_context_middleware, Metrics, MetricsState};
 use serde::{Deserialize, Serialize};
 use sr_adapters::{MinioConfig, MinioEvidenceStore, PostgresEventStore, ProjectionBuilder};
-use sr_ports::EventStore;
 use sqlx::PgPool;
 use std::sync::Arc;
+use std::time::Instant;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::{info, warn};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Application state shared across handlers
 #[derive(Clone)]
 pub struct AppState {
     pub config: ApiConfig,
-    pub event_store: Arc<dyn EventStore>,
+    pub event_store: Arc<PostgresEventStore>,
     pub projections: Arc<ProjectionBuilder>,
     pub evidence_store: Arc<MinioEvidenceStore>,
 }
@@ -116,13 +120,15 @@ async fn protected_info(user: AuthenticatedUser) -> Json<serde_json::Value> {
     }))
 }
 
-/// Create the API router with all routes
-fn create_router(state: AppState) -> Router {
+/// Create the API router with all routes (D-33: includes metrics and observability)
+fn create_router(state: AppState, metrics_state: MetricsState) -> Router {
     // Public routes (no authentication required)
     let public_routes = Router::new()
         .route("/health", get(health))
         .route("/api/v1/info", get(info))
-        .route("/api/v1/whoami", get(whoami));
+        .route("/api/v1/whoami", get(whoami))
+        .route("/api/v1/metrics", get(metrics_endpoint))
+        .with_state(metrics_state);
 
     // Protected routes (authentication required)
     let protected_routes = Router::new().route("/api/v1/protected", get(protected_info));
@@ -261,7 +267,7 @@ fn create_router(state: AppState) -> Router {
             get(evidence::list_evidence_for_candidate),
         );
 
-    // Combine all routes
+    // Combine all routes (D-33: request context middleware for correlation tracking)
     Router::new()
         .merge(public_routes)
         .merge(protected_routes)
@@ -275,32 +281,79 @@ fn create_router(state: AppState) -> Router {
         .merge(freeze_routes)
         .merge(evidence_routes)
         .layer(CorsLayer::permissive())
+        .layer(middleware::from_fn(request_context_middleware))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
 
-/// Initialize tracing/logging
+/// Initialize tracing/logging (D-33)
+///
+/// Supports two output modes:
+/// - JSON: Structured logging for production (SR_LOG_FORMAT=json)
+/// - Pretty: Human-readable logging for development (default)
 fn init_tracing(log_level: &str) {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| format!("sr_api={},tower_http=debug", log_level).into());
+        .unwrap_or_else(|_| {
+            format!(
+                "sr_api={},sr_adapters={},sr_domain={},tower_http=debug",
+                log_level, log_level, log_level
+            )
+            .into()
+        });
 
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    let use_json = std::env::var("SR_LOG_FORMAT")
+        .map(|v| v.to_lowercase() == "json")
+        .unwrap_or(false);
+
+    if use_json {
+        // JSON output for production: structured, machine-parseable
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(
+                fmt::layer()
+                    .json()
+                    .with_current_span(true)
+                    .with_span_list(true)
+                    .with_file(true)
+                    .with_line_number(true)
+                    .with_thread_ids(true)
+                    .with_target(true)
+                    .flatten_event(false),
+            )
+            .init();
+    } else {
+        // Pretty output for development: human-readable
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(
+                fmt::layer()
+                    .with_target(true)
+                    .with_level(true)
+                    .with_thread_ids(false)
+                    .with_file(false)
+                    .with_line_number(false),
+            )
+            .init();
+    }
 }
 
 #[tokio::main]
 async fn main() {
+    // Record startup time for uptime metrics (D-33)
+    let start_time = Instant::now();
+
     // Load configuration
     let config = ApiConfig::from_env();
 
-    // Initialize tracing
+    // Initialize tracing (D-33)
     init_tracing(&config.log_level);
 
+    // Log startup with structured fields (D-33)
     info!(
         host = %config.host,
         port = %config.port,
+        version = %env!("CARGO_PKG_VERSION"),
+        log_format = %std::env::var("SR_LOG_FORMAT").unwrap_or_else(|_| "pretty".to_string()),
         "Starting SOLVER-Ralph API"
     );
 
@@ -352,8 +405,17 @@ async fn main() {
         evidence_store,
     };
 
-    // Create router
-    let app = create_router(state);
+    // Create metrics state (D-33)
+    let metrics = Arc::new(Metrics::new());
+    let metrics_state = MetricsState {
+        metrics: metrics.clone(),
+        start_time,
+    };
+
+    info!("Metrics collection initialized");
+
+    // Create router (D-33: includes metrics endpoint and request tracing)
+    let app = create_router(state, metrics_state);
 
     // Start server
     let bind_addr = config.bind_addr();
