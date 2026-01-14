@@ -12,7 +12,7 @@ refs:
 
 # SR-README
 
-Canonical index for the SR-* document set. 
+Tasks are no longer assigned by SR-PLAN because the build out phase is complete.  We are now in auditing, quality control, and implementation testing.
 
 Begin your task assignment by reading SR-CHARTER.  The project documentation constitutes a total development plan and specification with detailed instructions on types and contracts.  Always read the SR-* files that appear related to the task before going to read the code files.  Documentation leads development for this project.  Documentation is how you know your ontology, epistemology, and semantics.
 
@@ -30,7 +30,36 @@ ALWAYS refer to the project docs/*/SR-* for the authoritative coding architectur
 
 When troubleshooting, refer to the appropriate SR-* documents.
 
+## Outstanding QC Findings
+
+All deliverables (D-02 through D-41) are complete. The following issues remain from the auditing phase:
+
+### 4 Failing Unit Tests in `sr-adapters`
+
+Run `cargo test --workspace` to reproduce. All failures are in `crates/sr-adapters/src/`.
+
+| Test | File:Line | Root Cause | Fix |
+|------|-----------|------------|-----|
+| `test_violation_severity_ordering` | `integrity.rs:1313` | `ViolationSeverity` enum discriminants are inverted. Variants are `Critical=0, High=1, Medium=2, Low=3` but test asserts `Critical > High > Medium > Low`. | Reorder enum to `Low=0, Medium=1, High=2, Critical=3` OR change test to compare with `<` instead of `>`. |
+| `test_deterministic_serialization` | `evidence.rs:699` | `sample_manifest()` helper calls `Utc::now()` which produces different timestamps on each invocation. Two calls produce non-identical manifests. | Use a fixed `DateTime<Utc>` constant (e.g., `DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")`) instead of `Utc::now()`. |
+| `test_content_resolver` | `worker.rs:702` | Test asserts `hash.as_str().len() == 64` expecting raw SHA-256 hex. But `ContentHash::new()` in `sr-domain/src/entities.rs:106` prepends `"sha256:"` making the result 71 chars. | Change assertion to `== 71` OR use `hash.as_str().strip_prefix("sha256:").unwrap().len() == 64`. |
+| `test_restricted_store_encryption_flow` | `restricted.rs` | Async test requires Infisical secret management service to be running. Fails in unit test context without external service. | Add `#[ignore]` attribute to skip in CI, or mock `InfisicalSecretProvider`. |
+
+### 1 TODO in Production Code
+
+| File:Line | Code | Impact |
+|-----------|------|--------|
+| `governor.rs:436` | `approvals_satisfied: true, // TODO: Check pending approvals` | `IterationPreconditions.approvals_satisfied` always returns `true`. Doesn't actually query for pending portal approvals. Low priority - works for MVP but should be implemented for full portal integration. |
+
+### D-01 (Governance Hygiene) Status
+
+D-01 was a **conditional deliverable**: "execute only if governance inconsistencies block implementation or introduce drift risk." No governance blockers were encountered during the build phase, so D-01 was correctly skipped.
+
+---
+
 ## Canonical document paths
+
+Canonical index for the SR-* document set. 
 
 | doc_id | Folder | Purpose |
 |--------|--------|---------|
