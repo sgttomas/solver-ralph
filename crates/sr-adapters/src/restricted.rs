@@ -937,6 +937,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "requires Infisical secret management service"]
     async fn test_restricted_store_encryption_flow() {
         // Set up in-memory stores
         let evidence_store = Arc::new(InMemoryEvidenceStore::new());

@@ -710,7 +710,8 @@ mod tests {
         };
 
         let (hash, classification) = resolver.resolve(&typed_ref).unwrap();
-        assert_eq!(hash.as_str().len(), 64); // SHA-256 hex
+        // ContentHash includes "sha256:" prefix (7 chars) + 64 hex chars = 71
+        assert_eq!(hash.as_str().len(), 71);
         assert_eq!(classification, ItemClassification::Public);
     }
 

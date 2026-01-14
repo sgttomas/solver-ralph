@@ -535,7 +535,10 @@ mod tests {
     use chrono::Duration;
 
     fn sample_manifest() -> EvidenceManifest {
-        let now = Utc::now();
+        // Use fixed timestamp for deterministic tests
+        let now = DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
         EvidenceManifestBuilder::new()
             .bundle_id("bundle-001")
             .run_id("run-001")

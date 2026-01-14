@@ -87,14 +87,14 @@ pub struct IntegrityViolation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ViolationSeverity {
-    /// Critical - blocks all progress
-    Critical,
-    /// High - requires immediate attention
-    High,
-    /// Medium - notable but may have workarounds
-    Medium,
     /// Low - informational
     Low,
+    /// Medium - notable but may have workarounds
+    Medium,
+    /// High - requires immediate attention
+    High,
+    /// Critical - blocks all progress
+    Critical,
 }
 
 /// Stop trigger recommendation
