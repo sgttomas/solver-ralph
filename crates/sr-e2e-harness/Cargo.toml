@@ -38,3 +38,6 @@ thiserror.workspace = true
 
 # Base64 encoding
 base64.workspace = true
+
+# Database (for D-36 replay)
+sqlx.workspace = true
