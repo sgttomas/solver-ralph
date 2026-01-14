@@ -3,7 +3,7 @@
 # Per D-02/D-04, provides a single documented command to build/test the project.
 # Run `make help` to see available targets.
 
-.PHONY: help build build-rust build-ui test test-rust test-ui lint clean dev dev-api dev-ui deploy deploy-up deploy-down deploy-logs
+.PHONY: help build build-rust build-ui test test-rust test-ui test-integration test-e2e lint clean dev dev-api dev-ui deploy deploy-up deploy-down deploy-logs
 
 # Default target
 help:
@@ -17,9 +17,11 @@ help:
 	@echo "  build-ui    - Build UI (requires npm install first)"
 	@echo ""
 	@echo "Test targets:"
-	@echo "  test        - Run all tests"
-	@echo "  test-rust   - Run Rust tests"
-	@echo "  test-ui     - Run UI tests"
+	@echo "  test            - Run all tests"
+	@echo "  test-rust       - Run Rust tests"
+	@echo "  test-ui         - Run UI tests"
+	@echo "  test-integration - Run integration tests (DB/MinIO/NATS/API)"
+	@echo "  test-e2e        - Run end-to-end tests"
 	@echo ""
 	@echo "Development targets:"
 	@echo "  dev         - Start development environment"
@@ -62,6 +64,20 @@ test-rust:
 test-ui:
 	@echo "Running UI tests..."
 	cd ui && npm run type-check
+
+# Run integration tests (D-26)
+# Requires: deploy (infrastructure must be running)
+test-integration:
+	@echo "Running integration tests..."
+	cargo run --bin sr-oracles -- integration --output /tmp/integration-report.json
+	@echo "Integration report: /tmp/integration-report.json"
+
+# Run end-to-end tests (D-26)
+# Requires: deploy-up (full stack must be running)
+test-e2e:
+	@echo "Running end-to-end tests..."
+	cargo run --bin sr-oracles -- e2e --output /tmp/e2e-report.json
+	@echo "E2E report: /tmp/e2e-report.json"
 
 # Run linters
 lint:
