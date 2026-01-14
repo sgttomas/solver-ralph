@@ -5,6 +5,7 @@ members = [
     "crates/sr-ports",
     "crates/sr-adapters",
     "crates/sr-api",
+    "crates/sr-e2e-harness",
 ]
 
 [workspace.package]

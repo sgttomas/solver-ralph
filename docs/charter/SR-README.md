@@ -54,6 +54,47 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Development History Summary for this Deliverable
 
+### Session 18 (2026-01-13)
+**Completed:** D-34
+
+**What was done:**
+
+D-34: End-to-end harness (happy path)
+- Created sr-e2e-harness crate with full e2e test automation:
+  - E2EClient: HTTP client for all API endpoints (loops, iterations, candidates, runs, evidence, approvals, freeze)
+  - HarnessTranscript: Deterministic event+evidence transcript for audit
+  - run_happy_path(): Complete flow execution with invariant checks
+- Happy path flow implemented:
+  1. Create loop → Activate loop
+  2. Start iteration (SYSTEM actor)
+  3. Register candidate (worker submission)
+  4. Start oracle run → Upload evidence bundle → Complete run
+  5. Record approval (HUMAN at Release Portal)
+  6. Create freeze record (HUMAN-only, establishing baseline)
+  7. Close loop
+- Key invariants asserted:
+  - no_approval_without_evidence: Approvals must have evidence refs
+  - loop_active_after_activation: Loop state validation
+  - run_has_evidence: Runs must have evidence bundle hash
+  - freeze_has_approval: Freeze records must reference approval
+  - freeze_has_evidence: Freeze records must have evidence refs
+- CLI tool (sr-e2e-harness) with:
+  - Configurable API URL, tokens, oracle suite
+  - JSON transcript output option
+  - Entity and event ID tracking
+  - Invariant check reporting
+
+**PKG-11 (Harness) progress: D-34 done**
+
+**Next deliverables:**
+- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
+- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
+- D-36: Replayability demonstration (PKG-11) - depends on D-10 ✓, D-11 ✓, D-34 ✓
+- D-41: Reference semantic worker (PKG-12) - depends on D-23 ✓, D-38 ✓, D-39 ✓, D-40
+
+
+---
+
 ### Session 17 (2026-01-13)
 **Completed:** D-30
 

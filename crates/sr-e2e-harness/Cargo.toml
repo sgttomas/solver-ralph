@@ -1,0 +1,40 @@
+[package]
+name = "sr-e2e-harness"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Domain and adapters
+sr-domain = { path = "../sr-domain" }
+sr-ports = { path = "../sr-ports" }
+sr-adapters = { path = "../sr-adapters" }
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Async runtime
+tokio.workspace = true
+
+# HTTP client
+reqwest.workspace = true
+
+# Time
+chrono.workspace = true
+
+# Hashing
+sha2.workspace = true
+hex.workspace = true
+
+# ID generation
+ulid.workspace = true
+
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Error handling
+thiserror.workspace = true
+
+# Base64 encoding
+base64.workspace = true
