@@ -88,6 +88,10 @@ export function Context(): JSX.Element {
       },
     })
       .then(res => {
+        // Treat 404 as "no data yet" rather than an error
+        if (res.status === 404) {
+          return { documents: [], intakes: [], bundles: [] };
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })

@@ -1,7 +1,7 @@
 //! API Handlers for D-18, D-19, D-20: Core, Governance, and Evidence API Endpoints
 //!
 //! Per SR-SPEC §2: HTTP endpoints for loops, iterations, candidates, runs,
-//! approvals, exceptions, decisions, freeze records, and evidence.
+//! approvals, exceptions, decisions, freeze records, evidence, and oracles.
 //! Enforces domain transition rules and HUMAN-only actions where required.
 
 pub mod approvals;
@@ -13,6 +13,7 @@ pub mod exceptions;
 pub mod freeze;
 pub mod iterations;
 pub mod loops;
+pub mod oracles;
 pub mod prompt_loop;
 pub mod runs;
 

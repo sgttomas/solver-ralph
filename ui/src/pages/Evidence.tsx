@@ -84,7 +84,7 @@ export function Evidence(): JSX.Element {
               {evidence.map(bundle => (
                 <tr key={bundle.content_hash}>
                   <td className={styles.td}>
-                    <Link to={`/evidence/${bundle.content_hash}`} className={styles.link}>
+                    <Link to={`/artifacts/${bundle.content_hash}`} className={styles.link}>
                       <code className={styles.mono}>
                         {truncateHash(bundle.content_hash, 16)}
                       </code>

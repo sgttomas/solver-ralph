@@ -97,6 +97,10 @@ export function Audit(): JSX.Element {
       },
     })
       .then(res => {
+        // Treat 404 as "no data yet" rather than an error
+        if (res.status === 404) {
+          return { events: [], total_count: 0, has_more: false };
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
@@ -147,7 +151,7 @@ export function Audit(): JSX.Element {
       case 'Loop': return `/loops/${ref.id}`;
       case 'Iteration': return `/iterations/${ref.id}`;
       case 'Candidate': return `/candidates/${ref.id}`;
-      case 'EvidenceBundle': return `/evidence/${ref.id}`;
+      case 'EvidenceBundle': return `/artifacts/${ref.id}`;
       case 'Approval': return `/approvals`;
       default: return null;
     }

@@ -67,7 +67,7 @@ function App(): JSX.Element {
             }
           />
           <Route
-            path="/evidence"
+            path="/artifacts"
             element={
               <ProtectedRoute>
                 <Evidence />
@@ -75,7 +75,7 @@ function App(): JSX.Element {
             }
           />
           <Route
-            path="/evidence/:contentHash"
+            path="/artifacts/:contentHash"
             element={
               <ProtectedRoute>
                 <EvidenceDetail />
@@ -91,7 +91,7 @@ function App(): JSX.Element {
             }
           />
           <Route
-            path="/prompt"
+            path="/prompts"
             element={
               <ProtectedRoute>
                 <PromptLoop />

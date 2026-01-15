@@ -95,7 +95,7 @@ export function IterationDetail(): JSX.Element {
       <div className={styles.container}>
         <div className={styles.placeholder}>
           <p className={styles.error}>Error: {error || 'Iteration not found'}</p>
-          <Link to="/loops" className={styles.link}>Back to Workflows</Link>
+          <Link to="/loops" className={styles.link}>Back to Loops</Link>
         </div>
       </div>
     );
@@ -105,7 +105,7 @@ export function IterationDetail(): JSX.Element {
     <div className={styles.container}>
       {/* Breadcrumb */}
       <div className={styles.breadcrumb}>
-        <Link to="/loops" className={styles.breadcrumbLink}>Workflows</Link>
+        <Link to="/loops" className={styles.breadcrumbLink}>Loops</Link>
         <span className={styles.breadcrumbSeparator}>/</span>
         <Link to={`/loops/${iteration.loop_id}`} className={styles.breadcrumbLink}>
           {iteration.loop_id}
@@ -131,7 +131,7 @@ export function IterationDetail(): JSX.Element {
       {/* Overview Card */}
       <Card title="Overview" className={styles.cardSpacing}>
         <div className={styles.infoRow}>
-          <span className={styles.infoLabel}>Workflow</span>
+          <span className={styles.infoLabel}>Loop</span>
           <Link to={`/loops/${iteration.loop_id}`} className={styles.link}>
             {iteration.loop_id}
           </Link>

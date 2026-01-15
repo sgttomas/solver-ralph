@@ -1,5 +1,5 @@
 /**
- * Task Page
+ * Prompts Page
  *
  * Minimal UI to call POST /api/v1/prompt-loop/stream with SSE streaming.
  * Uses OIDC token when available; in dev bypass mode a placeholder token is sent.
@@ -230,7 +230,7 @@ export function PromptLoop(): JSX.Element {
 
       <div className={styles.header}>
         <h1 className={styles.title}>
-          Task
+          Prompts
           {streaming && (
             <span style={{
               display: 'inline-block',
@@ -245,7 +245,7 @@ export function PromptLoop(): JSX.Element {
         </h1>
       </div>
       <p style={{ color: 'var(--muted)', marginBottom: 'var(--space5)' }}>
-        Materialize a governed work surface from a free-form prompt, run a task iteration, and capture candidate + artifacts with streaming output.
+        Materialize a governed work surface from a free-form prompt, run a loop iteration, and capture candidate + artifacts with streaming output.
       </p>
 
       <Card className={styles.cardSpacing}>
@@ -357,7 +357,7 @@ export function PromptLoop(): JSX.Element {
 
           {error && <div className={styles.error}>Error: {error}</div>}
           {loading && !streaming && (
-            <div className={styles.note}>Initializing task...</div>
+            <div className={styles.note}>Initializing prompt...</div>
           )}
 
           <div className={styles.buttonRow}>
@@ -365,7 +365,7 @@ export function PromptLoop(): JSX.Element {
               {streaming ? 'Cancel' : 'Reset'}
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Running...' : 'Run Task'}
+              {loading ? 'Running...' : 'Run Prompt'}
             </Button>
           </div>
         </form>
@@ -376,7 +376,7 @@ export function PromptLoop(): JSX.Element {
           {artifacts && (
             <div className={styles.statsGrid} style={{ marginBottom: 'var(--space4)' }}>
               <div className={styles.stat}>
-                <div className={styles.statLabel}>Task</div>
+                <div className={styles.statLabel}>Loop</div>
                 <code className={styles.mono} style={{ fontSize: '0.7rem' }}>{artifacts.loop_id}</code>
               </div>
               <div className={styles.stat}>

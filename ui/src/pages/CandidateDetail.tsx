@@ -219,7 +219,7 @@ export function CandidateDetail(): JSX.Element {
       <div className={styles.container}>
         <div className={styles.placeholder}>
           <p className={styles.error}>Error: {error || 'Candidate not found'}</p>
-          <Link to="/loops" className={styles.link}>Back to Workflows</Link>
+          <Link to="/loops" className={styles.link}>Back to Loops</Link>
         </div>
       </div>
     );
@@ -229,7 +229,7 @@ export function CandidateDetail(): JSX.Element {
     <div className={styles.container}>
       {/* Breadcrumb */}
       <div className={styles.breadcrumb}>
-        <Link to="/loops" className={styles.breadcrumbLink}>Workflows</Link>
+        <Link to="/loops" className={styles.breadcrumbLink}>Loops</Link>
         {candidate.produced_by_iteration_id && (
           <>
             <span className={styles.breadcrumbSeparator}>/</span>
@@ -361,7 +361,7 @@ export function CandidateDetail(): JSX.Element {
                       <td className={styles.td}>
                         {run.evidence_bundle_hash ? (
                           <Link
-                            to={`/evidence/${run.evidence_bundle_hash}`}
+                            to={`/artifacts/${run.evidence_bundle_hash}`}
                             className={styles.link}
                           >
                             <code className={styles.mono}>
@@ -406,7 +406,7 @@ export function CandidateDetail(): JSX.Element {
                     <tr key={bundle.content_hash}>
                       <td className={styles.td}>
                         <Link
-                          to={`/evidence/${bundle.content_hash}`}
+                          to={`/artifacts/${bundle.content_hash}`}
                           className={styles.link}
                         >
                           <code className={styles.mono}>

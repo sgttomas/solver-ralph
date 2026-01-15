@@ -124,10 +124,10 @@ function DevLayout({ children }: LayoutProps): JSX.Element {
           <Link to="/loops" style={styles.navLink}>
             Loops
           </Link>
-          <Link to="/prompt" style={styles.navLink}>
-            Prompt Loop
+          <Link to="/prompts" style={styles.navLink}>
+            Prompts
           </Link>
-          <Link to="/evidence" style={styles.navLink}>
+          <Link to="/artifacts" style={styles.navLink}>
             Artifacts
           </Link>
           <Link to="/approvals" style={styles.navLink}>
@@ -187,10 +187,10 @@ function OidcLayout({ children }: LayoutProps): JSX.Element {
               <Link to="/loops" style={styles.navLink}>
                 Loops
               </Link>
-              <Link to="/prompt" style={styles.navLink}>
-                Prompt Loop
+              <Link to="/prompts" style={styles.navLink}>
+                Prompts
               </Link>
-              <Link to="/evidence" style={styles.navLink}>
+              <Link to="/artifacts" style={styles.navLink}>
                 Artifacts
               </Link>
               <Link to="/approvals" style={styles.navLink}>

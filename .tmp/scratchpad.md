@@ -1,68 +1,25 @@
-⏺ UI Codebase Summary
+ Read and internalized key SR-* documents:
+  - SR-README - Project status, recent sessions
+  - SR-CHARTER - Platform scope, authority model, milestones
+  - SR-TYPES - Type registry, domain types, configuration types
+  - SR-AGENTS - Agent constraints, actor kinds, work envelopes
+  - SR-WORK-SURFACE - Intake schema, procedure templates, work surface instances
+  - SR-SPEC - Event model, state machines, API endpoints, DB schemas
+  - SR-EVENT-MANAGER - Projection computation, eligibility predicates
+  - SR-PROCEDURE-KIT - Stage-gated procedure templates
 
-  Tech Stack: React 18 + React Router 6 + Vite + TypeScript + OIDC (Zitadel)
 
-  Directory Structure
 
-  ui/src/
-  ├── auth/          # OIDC authentication (AuthProvider, ProtectedRoute)
-  ├── components/    # Reusable components
-  ├── layout/        # AppLayout, Sidebar, Topbar
-  ├── pages/         # Functional pages with API integration
-  ├── screens/       # Placeholder/wireframe screens
-  ├── styles/        # Global CSS + theme variables
-  ├── ui/            # UI primitives (Button, Card, Pill)
-  ├── routes.tsx     # Router config
-  └── config.ts      # Environment config
+ Loops are the core component of this platform.  They are the thing upon which all the adapters and ports are    
+  operating.  They need to be specified in detail.  Read the project documents SR-* as appropriate and then       
+  create a comprehensive and detailed plan to create a fully functional "loops" page that gives the user          
+  visibility to and configuration of where possible all the attributes that make up a loop and that are produced  
+  by a loop. 
+  
+  Workflows are a special type of context that's provided by the user to the agent to
+  tell it what it's going to do.  Protocols are a special type of context that's provided by the user to the agent
+  to tell it how it's going to approach the problem.  They are exemplified in the SR-PLAN and SR-DIRECTIVE
+  governance documents that you have access to in docs/program/ . Your task is to review those SR- 
 
-  Page Implementation Status
-  ┌─────────────────┬─────────────────┬─────────────────────────────┐
-  │      Route      │      Page       │           Status            │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /overview       │ OverviewScreen  │ ✅ Dashboard with metrics   │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /loops          │ Loops           │ ✅ Lists work units         │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /loops/:id      │ LoopDetail      │ ✅ Loop + iterations        │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /iterations/:id │ IterationDetail │ ✅ Context refs, candidates │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /candidates/:id │ CandidateDetail │ ✅ Runs, evidence, freeze   │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /evidence       │ Evidence        │ ✅ Lists artifacts          │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /evidence/:hash │ EvidenceDetail  │ ✅ Oracle results           │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /approvals      │ Approvals       │ ✅ Portal workflows         │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /prompt-loop    │ PromptLoop      │ ✅ SSE streaming            │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /agents         │ Placeholder     │ 🔶 Future                   │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /protocols      │ Placeholder     │ 🔶 Future                   │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /documents      │ Placeholder     │ 🔶 Future                   │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /audit          │ Placeholder     │ 🔶 Future                   │
-  ├─────────────────┼─────────────────┼─────────────────────────────┤
-  │ /settings       │ Placeholder     │ 🔶 Future                   │
-  └─────────────────┴─────────────────┴─────────────────────────────┘
-  Key Observations
 
-  1. Styling inconsistency: Functional pages use inline styles; there's a nicer component library (Button, Card, Pill) in ui/src/ui/ that isn't being used
-  2. No global state: Each page manages its own state with useState/useEffect
-  3. Direct fetch calls: No API client abstraction - each page calls fetch() directly
-  4. Design system exists: CSS variables theme in styles/theme.css with warm beige palette
-
-  Previous Session Notes
-
-  From SR-README, the last session noted:
-  "The existing functional pages use inline styles; they work but don't match the new Chirality design aesthetic. Future work: Port existing pages to use Card/Pill/Button primitives."
-
-  ---
-  What would you like me to focus on? Options include:
-  - A) Port existing pages to use the Card/Pill/Button component library
-  - B) Implement one of the placeholder screens (Agents, Protocols, etc.)
-  - C) Add new features to existing pages
-  - D) Fix specific bugs or issues
-  - E) Something else
+are any of the templates created yet?  Such as for protocols, or workflows, or oracles

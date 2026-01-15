@@ -3,7 +3,6 @@ import { AppLayout } from "./layout/AppLayout";
 
 // New wireframe screens
 import { OverviewScreen } from "./screens/OverviewScreen";
-import { PlaceholderScreen } from "./screens/PlaceholderScreen";
 import { NotFoundScreen } from "./screens/NotFoundScreen";
 
 // Existing functional pages
@@ -17,8 +16,17 @@ import { EvidenceDetail } from "./pages/EvidenceDetail";
 import { Approvals } from "./pages/Approvals";
 import { PromptLoop } from "./pages/PromptLoop";
 import { Agents } from "./pages/Agents";
+import { AgentDetail } from "./pages/AgentDetail";
 import { Protocols } from "./pages/Protocols";
+import { ProtocolDetail } from "./pages/ProtocolDetail";
+import { Oracles } from "./pages/Oracles";
+import { OracleSuiteDetail } from "./pages/OracleSuiteDetail";
+import { VerificationProfileDetail } from "./pages/VerificationProfileDetail";
+import { Workflows } from "./pages/Workflows";
 import { Context } from "./pages/Context";
+import { ContextDocumentDetail } from "./pages/ContextDocumentDetail";
+import { IntakeDetail } from "./pages/IntakeDetail";
+import { ContextBundleDetail } from "./pages/ContextBundleDetail";
 import { Audit } from "./pages/Audit";
 import { Settings } from "./pages/Settings";
 
@@ -39,24 +47,32 @@ export const router = createBrowserRouter([
       { path: "/loops/:loopId", element: <LoopDetail /> },
       { path: "/iterations/:iterationId", element: <IterationDetail /> },
       { path: "/candidates/:candidateId", element: <CandidateDetail /> },
-      { path: "/evidence", element: <Evidence /> },
-      { path: "/evidence/:contentHash", element: <EvidenceDetail /> },
+      { path: "/artifacts", element: <Evidence /> },
+      { path: "/artifacts/:contentHash", element: <EvidenceDetail /> },
       { path: "/approvals", element: <Approvals /> },
-      { path: "/prompt-loop", element: <PromptLoop /> },
+      { path: "/prompts", element: <PromptLoop /> },
 
       // Agents
       { path: "/agents", element: <Agents /> },
-      { path: "/agents/:agentId", element: <PlaceholderScreen title="Agent Detail" /> },
+      { path: "/agents/:agentId", element: <AgentDetail /> },
 
       // Protocols
       { path: "/protocols", element: <Protocols /> },
-      { path: "/protocols/:templateId", element: <PlaceholderScreen title="Protocol Detail" /> },
+      { path: "/protocols/:templateId", element: <ProtocolDetail /> },
+
+      // Oracles
+      { path: "/oracles", element: <Oracles /> },
+      { path: "/oracles/suites/:suiteId", element: <OracleSuiteDetail /> },
+      { path: "/oracles/profiles/:profileId", element: <VerificationProfileDetail /> },
+
+      // Workflows
+      { path: "/workflows", element: <Workflows /> },
 
       // Context (documents/intakes/bundles)
-      { path: "/documents", element: <Context /> },
-      { path: "/context/:documentId", element: <PlaceholderScreen title="Document Detail" /> },
-      { path: "/context/intakes/:intakeId", element: <PlaceholderScreen title="Intake Detail" /> },
-      { path: "/context/bundles/:bundleId", element: <PlaceholderScreen title="Bundle Detail" /> },
+      { path: "/context", element: <Context /> },
+      { path: "/context/:documentId", element: <ContextDocumentDetail /> },
+      { path: "/context/intakes/:intakeId", element: <IntakeDetail /> },
+      { path: "/context/bundles/:bundleId", element: <ContextBundleDetail /> },
 
       // Audit Log
       { path: "/audit", element: <Audit /> },

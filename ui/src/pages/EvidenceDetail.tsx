@@ -103,7 +103,7 @@ export function EvidenceDetail(): JSX.Element {
       <div className={styles.container}>
         <div className={styles.placeholder}>
           <p className={styles.error}>Error: {error || 'Artifact not found'}</p>
-          <Link to="/evidence" className={styles.link}>Back to Artifacts</Link>
+          <Link to="/artifacts" className={styles.link}>Back to Artifacts</Link>
         </div>
       </div>
     );
@@ -124,7 +124,7 @@ export function EvidenceDetail(): JSX.Element {
     <div className={styles.container}>
       {/* Breadcrumb */}
       <div className={styles.breadcrumb}>
-        <Link to="/evidence" className={styles.breadcrumbLink}>Artifacts</Link>
+        <Link to="/artifacts" className={styles.breadcrumbLink}>Artifacts</Link>
         <span className={styles.breadcrumbSeparator}>/</span>
         <span>{truncateHash(bundle.content_hash, 16)}</span>
       </div>

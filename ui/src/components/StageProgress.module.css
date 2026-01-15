@@ -1,0 +1,284 @@
+/* StageProgress Component Styles */
+
+/* Compact mode (for list view) */
+.compactContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--space1);
+  flex-wrap: wrap;
+}
+
+.compactItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space1);
+}
+
+.compactStage {
+  display: flex;
+  align-items: center;
+  gap: var(--space1);
+  padding: var(--space1) var(--space2);
+  border: 1px solid var(--border);
+  border-radius: var(--radiusSm);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.6875rem;
+  transition: all 150ms ease;
+}
+
+.compactStage:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.compactStage.completed {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.compactStage.in_progress {
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+.compactStage.failed {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.compactStage.terminal {
+  font-weight: 600;
+}
+
+.compactIcon {
+  font-size: 0.625rem;
+}
+
+.compactName {
+  white-space: nowrap;
+}
+
+.compactArrow {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* Full mode */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space4);
+}
+
+.flow {
+  display: flex;
+  align-items: center;
+  gap: var(--space2);
+  flex-wrap: wrap;
+  padding: var(--space3) 0;
+}
+
+.flowItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space2);
+}
+
+.stageButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space2);
+  padding: var(--space2) var(--space3);
+  border: 2px solid var(--border);
+  border-radius: var(--radiusSm);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: all 150ms ease;
+  color: var(--muted);
+}
+
+.stageButton:hover {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: var(--ink);
+}
+
+.stageButton.pending {
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+.stageButton.completed {
+  color: var(--success);
+  border-color: var(--success);
+  background-color: color-mix(in srgb, var(--success) 8%, transparent);
+}
+
+.stageButton.in_progress {
+  color: var(--accent);
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.stageButton.current {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.stageButton.failed {
+  color: var(--danger);
+  border-color: var(--danger);
+  background-color: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.stageButton.terminal {
+  font-weight: 600;
+}
+
+.icon {
+  font-size: 0.875rem;
+}
+
+.name {
+  white-space: nowrap;
+}
+
+.arrow {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+/* Details panel */
+.details {
+  margin-top: var(--space2);
+}
+
+.detailCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radiusSm);
+  padding: var(--space4);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.detailHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space3);
+}
+
+.detailTitle {
+  margin: 0 0 var(--space1) 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.stageId {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.statusBadge {
+  padding: var(--space1) var(--space2);
+  border-radius: var(--radiusSm);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.statusBadge.pending {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--muted);
+}
+
+.statusBadge.completed {
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
+}
+
+.statusBadge.in_progress {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
+.statusBadge.failed {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+}
+
+.purpose {
+  margin: 0 0 var(--space4) 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.detailSection {
+  margin-bottom: var(--space3);
+}
+
+.sectionLabel {
+  margin: 0 0 var(--space1) 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.none {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.outputList {
+  margin: 0;
+  padding-left: var(--space4);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.outputList li {
+  margin-bottom: var(--space1);
+}
+
+.suiteList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space1);
+}
+
+.suite {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: var(--space1) var(--space2);
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: var(--radiusSm);
+  width: fit-content;
+}
+
+.detailRow {
+  display: flex;
+  gap: var(--space5);
+}
+
+.gateRule {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--ink);
+}
+
+.evidenceLink {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.evidenceLink:hover {
+  text-decoration: underline;
+}

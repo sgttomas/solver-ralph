@@ -110,6 +110,21 @@ export function Settings(): JSX.Element {
       },
     })
       .then(res => {
+        // Treat 404 as "no data yet" rather than an error
+        if (res.status === 404) {
+          return {
+            portals: [],
+            oracle_suites: [],
+            gating_policies: [],
+            directive: null,
+            user_preferences: {
+              theme: 'light' as const,
+              notifications_enabled: true,
+              default_page_size: 50,
+              timezone: 'UTC',
+            },
+          };
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })

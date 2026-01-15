@@ -1,7 +1,7 @@
 :root {
-  /* Warm paper + ink */
-  --paper:  #fbf7f2;
-  --paper2: #f5efe6;
+  /* Warm paper + ink (matched to chirality.ai cream beige) */
+  --paper:  #ede4d4;
+  --paper2: #e5dac8;
   --ink:    #1a110d;
   --muted:  #47382f;
   --border: #e7ded2;

@@ -11,7 +11,7 @@ export function OverviewScreen() {
       </header>
 
       <section className={styles.metrics}>
-        <Card title="Active Workflows" right={<Pill>Live</Pill>}>
+        <Card title="Active Loops" right={<Pill>Live</Pill>}>
           <div className={styles.big}>4,025</div>
           <div className={styles.sub}>Running across environments</div>
         </Card>
