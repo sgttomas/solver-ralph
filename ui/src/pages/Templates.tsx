@@ -221,25 +221,15 @@ export function Templates(): JSX.Element {
     const categoryKey = activeTab === 'gates' ? null : activeTab;
     if (!categoryKey) return { reference: [], user: [] };
 
-    // Debug: log templates and active tab
-    console.log('Templates:', templates);
-    console.log('Active tab:', activeTab, 'categoryKey:', categoryKey);
-
     const filtered = templates.filter(t => {
       // The backend returns category in kebab-case (e.g., "work-surface")
       const templateCategory = String(t.category).toLowerCase().replace(/_/g, '-');
-      console.log(`Template ${t.id}: category="${t.category}" -> "${templateCategory}", matches=${templateCategory === categoryKey}`);
       return templateCategory === categoryKey;
     });
-
-    console.log('Filtered templates:', filtered);
 
     // Split into reference and user-created templates
     const reference = filtered.filter(t => t.status === 'reference').sort((a, b) => a.name.localeCompare(b.name));
     const user = filtered.filter(t => t.status !== 'reference').sort((a, b) => a.name.localeCompare(b.name));
-
-    console.log('Reference templates:', reference);
-    console.log('User templates:', user);
 
     return { reference, user };
   };
@@ -479,22 +469,6 @@ export function Templates(): JSX.Element {
               ))}
             </tbody>
           </table>
-        )}
-      </Card>
-
-      {/* Debug: Show template counts */}
-      <Card title="Debug Info">
-        <p>Total templates loaded: {templates.length}</p>
-        <p>Active tab: {activeTab}</p>
-        <p>Reference templates for tab: {referenceTemplates.length}</p>
-        <p>User templates for tab: {userTemplates.length}</p>
-        {templates.length > 0 && (
-          <details>
-            <summary>All templates</summary>
-            <pre style={{ fontSize: '0.75rem', maxHeight: '200px', overflow: 'auto' }}>
-              {JSON.stringify(templates.map(t => ({ id: t.id, category: t.category, status: t.status })), null, 2)}
-            </pre>
-          </details>
         )}
       </Card>
 

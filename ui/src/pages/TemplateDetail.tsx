@@ -314,13 +314,21 @@ export function TemplateDetail(): JSX.Element {
             padding: '1rem',
             marginBottom: '1rem',
             color: 'var(--info)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem',
           }}
         >
-          <strong>Reference Template</strong>
-          <p style={{ margin: '0.5rem 0 0', fontSize: '0.875rem' }}>
-            This is a system-provided reference template demonstrating correct schema usage.
-            Clone it to create your own editable copy.
-          </p>
+          <div>
+            <strong>Reference Template</strong>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.875rem' }}>
+              This is a system-provided reference template. Clone it to create your own editable copy.
+            </p>
+          </div>
+          <Button variant="primary" onClick={handleClone}>
+            Clone Template
+          </Button>
         </div>
       )}
 
