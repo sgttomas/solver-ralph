@@ -16,6 +16,11 @@ import { Evidence } from "./pages/Evidence";
 import { EvidenceDetail } from "./pages/EvidenceDetail";
 import { Approvals } from "./pages/Approvals";
 import { PromptLoop } from "./pages/PromptLoop";
+import { Agents } from "./pages/Agents";
+import { Protocols } from "./pages/Protocols";
+import { Context } from "./pages/Context";
+import { Audit } from "./pages/Audit";
+import { Settings } from "./pages/Settings";
 
 export const router = createBrowserRouter([
   // Callback outside layout (OIDC redirect)
@@ -39,12 +44,25 @@ export const router = createBrowserRouter([
       { path: "/approvals", element: <Approvals /> },
       { path: "/prompt-loop", element: <PromptLoop /> },
 
-      // Placeholders for future
-      { path: "/agents", element: <PlaceholderScreen title="Agents" /> },
-      { path: "/protocols", element: <PlaceholderScreen title="Protocols" /> },
-      { path: "/documents", element: <PlaceholderScreen title="Context" /> },
-      { path: "/audit", element: <PlaceholderScreen title="Audit Log" /> },
-      { path: "/settings", element: <PlaceholderScreen title="Settings" /> },
+      // Agents
+      { path: "/agents", element: <Agents /> },
+      { path: "/agents/:agentId", element: <PlaceholderScreen title="Agent Detail" /> },
+
+      // Protocols
+      { path: "/protocols", element: <Protocols /> },
+      { path: "/protocols/:templateId", element: <PlaceholderScreen title="Protocol Detail" /> },
+
+      // Context (documents/intakes/bundles)
+      { path: "/documents", element: <Context /> },
+      { path: "/context/:documentId", element: <PlaceholderScreen title="Document Detail" /> },
+      { path: "/context/intakes/:intakeId", element: <PlaceholderScreen title="Intake Detail" /> },
+      { path: "/context/bundles/:bundleId", element: <PlaceholderScreen title="Bundle Detail" /> },
+
+      // Audit Log
+      { path: "/audit", element: <Audit /> },
+
+      // Settings
+      { path: "/settings", element: <Settings /> },
 
       { path: "*", element: <NotFoundScreen /> },
     ],

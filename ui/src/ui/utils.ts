@@ -8,7 +8,8 @@ import type { PillTone } from './Pill';
  * Danger: FAILURE, REJECTED, CLOSED, ERROR, FAIL, WAIVER, EXPIRED
  * Neutral: everything else
  */
-export function getStatusTone(status: string): PillTone {
+export function getStatusTone(status: string | undefined | null): PillTone {
+  if (!status) return 'neutral';
   const upper = status.toUpperCase();
 
   // Success states
@@ -32,7 +33,8 @@ export function getStatusTone(status: string): PillTone {
 /**
  * Truncates a string to a maximum length with ellipsis.
  */
-export function truncate(str: string, maxLength: number): string {
+export function truncate(str: string | undefined | null, maxLength: number): string {
+  if (!str) return '';
   if (str.length <= maxLength) return str;
   return str.substring(0, maxLength) + '...';
 }
@@ -40,7 +42,8 @@ export function truncate(str: string, maxLength: number): string {
 /**
  * Truncates a hash string for display (e.g., "sha256:abc123..." → "abc123...")
  */
-export function truncateHash(hash: string, prefixLength = 12): string {
+export function truncateHash(hash: string | undefined | null, prefixLength = 12): string {
+  if (!hash) return '';
   // Remove common prefixes like "sha256:" for display
   const withoutPrefix = hash.replace(/^(sha256:|git:)/, '');
   if (withoutPrefix.length <= prefixLength) return withoutPrefix;

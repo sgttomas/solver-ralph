@@ -14,9 +14,9 @@ import styles from '../styles/pages.module.css';
 
 interface EvidenceBundle {
   content_hash: string;
-  manifest: {
-    artifact_type: string;
-    created_at: string;
+  manifest?: {
+    artifact_type?: string;
+    created_at?: string;
   };
 }
 
@@ -90,9 +90,11 @@ export function Evidence(): JSX.Element {
                       </code>
                     </Link>
                   </td>
-                  <td className={styles.td}>{bundle.manifest.artifact_type}</td>
+                  <td className={styles.td}>{bundle.manifest?.artifact_type || '—'}</td>
                   <td className={styles.td}>
-                    {new Date(bundle.manifest.created_at).toLocaleString()}
+                    {bundle.manifest?.created_at
+                      ? new Date(bundle.manifest.created_at).toLocaleString()
+                      : '—'}
                   </td>
                 </tr>
               ))}
