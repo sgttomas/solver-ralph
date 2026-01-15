@@ -22,6 +22,8 @@ import { ProtocolDetail } from "./pages/ProtocolDetail";
 import { Oracles } from "./pages/Oracles";
 import { OracleSuiteDetail } from "./pages/OracleSuiteDetail";
 import { VerificationProfileDetail } from "./pages/VerificationProfileDetail";
+import { Templates } from "./pages/Templates";
+import { TemplateDetail } from "./pages/TemplateDetail";
 import { Workflows } from "./pages/Workflows";
 import { Context } from "./pages/Context";
 import { ContextDocumentDetail } from "./pages/ContextDocumentDetail";
@@ -64,6 +66,10 @@ export const router = createBrowserRouter([
       { path: "/oracles", element: <Oracles /> },
       { path: "/oracles/suites/:suiteId", element: <OracleSuiteDetail /> },
       { path: "/oracles/profiles/:profileId", element: <VerificationProfileDetail /> },
+
+      // Templates
+      { path: "/templates", element: <Templates /> },
+      { path: "/templates/:category/:templateId", element: <TemplateDetail /> },
 
       // Workflows
       { path: "/workflows", element: <Workflows /> },

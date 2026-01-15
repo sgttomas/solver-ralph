@@ -19,6 +19,8 @@ export { ProtocolDetail } from './ProtocolDetail';
 export { Oracles } from './Oracles';
 export { OracleSuiteDetail } from './OracleSuiteDetail';
 export { VerificationProfileDetail } from './VerificationProfileDetail';
+export { Templates } from './Templates';
+export { TemplateDetail } from './TemplateDetail';
 export { Workflows } from './Workflows';
 export { Context } from './Context';
 export { ContextDocumentDetail } from './ContextDocumentDetail';

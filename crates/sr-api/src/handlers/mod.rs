@@ -16,5 +16,6 @@ pub mod loops;
 pub mod oracles;
 pub mod prompt_loop;
 pub mod runs;
+pub mod templates;
 
 pub use error::{ApiError, ApiResult};

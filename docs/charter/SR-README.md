@@ -54,7 +54,10 @@ Canonical index for the SR-* document set.
 | SR-EXCEPTIONS | `build-governance/` | Exception ledger |
 | SR-PLAN | `program/` | Build plan instance |
 | SR-DIRECTIVE | `program/` | Execution policy |
+| SR-TEMPLATES | `platform/` | User configuration registry |
 | SR-README | `charter/` | This index |
+
+
 
 
 ## Development Session Summary (2026-01-14)
@@ -122,347 +125,169 @@ Final sidebar order (top to bottom):
 
 ---
 
-## Development Session Summary (2026-01-14, Session 2)
-
-**Branch:** `solver-ralph-2`
-
-### Completed Work
-
-#### UI Component Library Port
-Ported all functional pages from inline styles to use the shared component library (`Card`, `Pill`, `Button`) and CSS module for consistent Chirality design aesthetic.
-
-**New Files Created:**
-| File | Purpose |
-|------|---------|
-| `ui/src/styles/pages.module.css` | Shared CSS module with common patterns (tables, forms, tabs, breadcrumbs, etc.) |
-| `ui/src/ui/utils.ts` | Utility functions: `getStatusTone()`, `truncate()`, `truncateHash()` |
-| `ui/src/ui/index.ts` | Export barrel for UI primitives |
-
-**Pages Ported (8 total):**
-| Page | Key Changes |
-|------|-------------|
-| `Loops.tsx` | Card wrapper, Pill for status badges, shared table styles |
-| `Evidence.tsx` | Card wrapper, truncateHash for content hashes |
-| `LoopDetail.tsx` | Breadcrumbs, info rows, stats grid, iteration table |
-| `IterationDetail.tsx` | Context refs list, summary sections, candidate table |
-| `CandidateDetail.tsx` | Tabbed content (Runs/Artifacts/Freeze), Button for forms |
-| `EvidenceDetail.tsx` | Oracle results cards, artifact download buttons, raw manifest viewer |
-| `Approvals.tsx` | Three-tab layout (Approvals/Exceptions/Decisions), all forms ported |
-| `PromptLoop.tsx` | Task form, streaming output display, artifact stats grid |
-
-**Design System Applied:**
-- Replaced hardcoded colors (`#1a1a2e`, `#0066cc`, etc.) with CSS variables (`var(--ink)`, `var(--accent)`, etc.)
-- Replaced inline style objects with CSS module classes
-- Used `getStatusTone()` utility to map status strings to Pill tones (success/warning/danger/neutral)
-- Consistent typography using `var(--font)` and `var(--mono)`
-
-### Quality Status
-- TypeScript type-check: PASS
-- ESLint: PASS
-- Vite build: PASS (642ms)
-
-### Architecture Notes
-The UI now follows a consistent pattern:
-```
-ui/src/
-├── ui/           # Primitives (Button, Card, Pill) + utils
-├── styles/       # pages.module.css (shared page patterns)
-├── pages/        # Functional pages using primitives + shared styles
-├── screens/      # Wireframe placeholders (can be deprecated)
-└── layout/       # AppLayout, Sidebar, Topbar
-```
-
-### What's Next
-- Wire up remaining placeholder screens (Agents, Protocols, Context, Audit, Settings)
-- Add real data fetching to OverviewScreen dashboard
-- Remove deprecated `src/screens/` wireframes once replaced
-
----
-
-## Development Session Summary (2026-01-14, Session 3)
-
-**Branch:** `solver-ralph-2`
-
-### Completed Work
-
-#### 1. Fixed Placeholder Page 404 Errors
-Pages that were showing "Error: HTTP 404" (Agents, Protocols, Context, Audit, Settings) now gracefully handle missing backend endpoints by displaying empty state instead of errors.
-
-#### 2. URL Path Updates
-Updated internal URLs to match renamed page labels:
-| Old Path | New Path | Page |
-|----------|----------|------|
-| `/loops` | `/workflows` | Workflows list |
-| `/evidence` | `/artifacts` | Artifacts list |
-| `/prompt-loop` | `/loops` | Loops (prompt interface) |
-| `/documents` | `/context` | Context documents |
-
-#### 3. Background Color Fix
-Updated theme to match chirality.ai's creamy beige:
-- `--paper`: `#ede4d4` (was `#fbf7f2`)
-- `--paper2`: `#e5dac8`
-
-#### 4. Detail Page Implementations
-Replaced 5 `PlaceholderScreen` stubs with fully functional detail pages:
-
-| Page | Route | Features |
-|------|-------|----------|
-| `AgentDetail.tsx` | `/agents/:agentId` | Overview, Capabilities, Work Envelope, Trust Constraints, Recent Proposals |
-| `ProtocolDetail.tsx` | `/protocols/:templateId` | Stage Flow visualization, Expandable stages, Active Work Units |
-| `ContextDocumentDetail.tsx` | `/context/:documentId` | Metadata, Tags, Content Preview, Download, References |
-| `IntakeDetail.tsx` | `/context/intakes/:intakeId` | Objective, Deliverables, Constraints (grouped), Inputs, Non-Goals |
-| `ContextBundleDetail.tsx` | `/context/bundles/:bundleId` | Linked Entities, Context References, Raw JSON |
-
-#### 5. Terminology Revert
-Reverted "Tasks" back to "Loops" throughout the UI (sidebar, routes, App.tsx).
-
-#### 6. Comprehensive Loops Page Implementation
-Major enhancement to the core Loops functionality per SR-SPEC domain model:
-
-**New Files Created:**
-| File | Purpose |
-|------|---------|
-| `hooks/useLoops.ts` | Data fetching with filtering, pagination, sorting, state transitions |
-| `hooks/index.ts` | Hooks module exports |
-| `components/BudgetProgress.tsx` | Progress bars with warning/danger thresholds |
-| `components/BudgetProgress.module.css` | Budget component styles |
-| `components/StageProgress.tsx` | Visual stage flow with expandable details |
-| `components/StageProgress.module.css` | Stage component styles |
-| `components/StateTransitionButton.tsx` | State actions with confirmation dialogs |
-| `components/StateTransitionButton.module.css` | Button styles |
-| `components/LoopCreateModal.tsx` | Loop creation with full Work Surface binding |
-| `components/LoopEditModal.tsx` | Loop editing (when CREATED/PAUSED) |
-| `components/LoopModal.module.css` | Shared modal styles |
-| `styles/loops.module.css` | Loops page specific styles |
-
-**Enhanced Pages:**
-
-**Loops.tsx (List Page):**
-- Search by goal, work unit, or ID
-- State filter dropdown (All, CREATED, ACTIVE, PAUSED, CLOSED)
-- Sortable columns (Progress, Created)
-- Pagination with page size selector (10, 25, 50)
-- Quick action buttons per row (Activate/Pause/Resume)
-- "Create Loop" button with modal
-- Progress bar visualization (iterations used / max)
-
-**LoopDetail.tsx (Detail Page):**
-- State transition buttons in header (Activate/Pause/Resume/Close)
-- Edit button with modal
-- **Work Surface Card**: Intake link, Procedure Template link, Current Stage, Oracle Suite
-- **Stage Progress Card**: Visual flow with completion status, expandable stage details
-- **Budgets Card**: Progress bars for Iterations, Oracle Runs, Wallclock Hours
-- **Stop Triggers Card**: Table of fired triggers with resolution status
-- **Active Exceptions Card**: Table of DEVIATION/DEFERRAL/WAIVER records
-- **Enhanced Iterations Table**: Candidates count, Duration column
-- **Governed Artifacts Card**: List of SR-CONTRACT, SR-SPEC, etc. with version/hash
-
-**LoopCreateModal Features:**
-- Goal (required), Work Unit
-- Procedure Template dropdown with quick-select buttons
-- Stage dropdown (populated from selected template)
-- Oracle Suite dropdown
-- Budget configuration (max iterations, oracle runs, wallclock hours)
-- "Activate after create" checkbox
-
-### Quality Status
-- TypeScript type-check: PASS
-- ESLint: PASS
-- Vite build: PASS (92 modules, 465KB bundle)
-
-### Architecture Notes
-New component structure follows SR-SPEC domain model:
-```
-ui/src/
-├── hooks/
-│   ├── useLoops.ts      # Loop data + state transitions
-│   └── index.ts
-├── components/
-│   ├── BudgetProgress.tsx
-│   ├── StageProgress.tsx
-│   ├── StateTransitionButton.tsx
-│   ├── LoopCreateModal.tsx
-│   ├── LoopEditModal.tsx
-│   └── index.ts
-├── pages/
-│   ├── Loops.tsx        # Enhanced list page
-│   └── LoopDetail.tsx   # Enhanced detail page
-└── styles/
-    └── loops.module.css
-```
-
-### Domain Model Alignment
-The Loops implementation now reflects SR-SPEC concepts:
-- **Loop States**: CREATED → ACTIVE ↔ PAUSED → CLOSED
-- **Work Surface**: Intake + Procedure Template + Stage + Oracle Suite
-- **Budgets**: max_iterations, max_oracle_runs, max_wallclock_hours
-- **Stop Triggers**: ORACLE_GAP, BUDGET_EXHAUSTED, REPEATED_FAILURE, etc.
-- **Exceptions**: DEVIATION, DEFERRAL, WAIVER with status tracking
-- **Stage Progress**: Visual representation of procedure template flow
-
-### What's Next
-- Wire real-time updates (WebSocket/polling) for loop status
-- Add audit log entries for state transitions
-- Connect Overview dashboard to loop statistics
-- Implement bulk operations on list page
-
----
-
-## Development Session Summary (2026-01-14, Session 4)
-
-**Branch:** `solver-ralph-2`
-
-### Completed Work
-
-#### 1. URL Corrections: Loops at `/loops`
-Corrected the URL structure so that Loops (the core platform component) are at `/loops`:
-
-| Route | Page | Change |
-|-------|------|--------|
-| `/loops` | Loops list | Was `/workflows` |
-| `/loops/:loopId` | Loop detail | Was `/workflows/:loopId` |
-| `/prompts` | Prompts | Was `/prompt`, then `/loops` |
-
-**Files Updated (20+ files):**
-- `routes.tsx`, `App.tsx` - Route definitions
-- `Sidebar.tsx`, `Layout.tsx`, `Home.tsx` - Navigation links
-- `Loops.tsx`, `LoopDetail.tsx` - Breadcrumbs, back links
-- `IterationDetail.tsx`, `CandidateDetail.tsx` - Loop references
-- `IntakeDetail.tsx`, `ProtocolDetail.tsx` - Work unit links
-- `ContextBundleDetail.tsx`, `ContextDocumentDetail.tsx` - Loop links
-- `Context.tsx`, `Audit.tsx` - Reference links
-- `Agents.tsx`, `AgentDetail.tsx` - Work unit links
-- `OverviewScreen.tsx` - "Active Loops" label
-
-**Labels Updated:**
-- "Workflows" → "Loops" (page title, breadcrumbs, error messages, placeholders)
-- "Active Workflows" → "Active Loops" (OverviewScreen)
-
-#### 2. New Workflows Page
-Created a new basic Workflows page for higher-level orchestrations:
-
-**New File:** `ui/src/pages/Workflows.tsx`
-- Route: `/workflows`
-- Purpose: Orchestrated sequences of loops and procedures
-- Features: Stats overview, info note, workflows table
-- Handles 404 gracefully with empty state
-
-**Sidebar Position:** Between Protocols and Loops
-
-#### 3. Prompts Page Updates
-Renamed and relocated the prompt interface page:
-
-| Aspect | Before | After |
-|--------|--------|-------|
-| URL | `/prompt` | `/prompts` |
-| Page Title | "Task" | "Prompts" |
-| Sidebar Label | "Prompt" | "Prompts" |
-| Button | "Run Task" | "Run Prompt" |
-| Loading Text | "Initializing task..." | "Initializing prompt..." |
-| Artifact Label | "Task" | "Loop" |
-
-### Current Sidebar Order
-1. Overview
-2. Agents
-3. Protocols
-4. **Oracles** (new - oracle suites and verification profiles)
-5. Workflows
-6. Loops
-7. Prompts
-8. Context
-9. Artifacts
-10. Approvals
-11. Audit Log
-12. Settings
-
-### Quality Status
-- TypeScript type-check: PASS
-- ESLint: PASS
-- Vite build: PASS (93 modules, 468KB bundle)
-
-### Architecture Notes
-The URL structure now correctly reflects the domain model:
-- `/workflows` - Higher-level orchestrations (new)
-- `/loops` - Core work units (the primary platform component)
-- `/prompts` - Quick prompt-to-loop interface
-
-### Terminology Clarification
-| Term | Definition | URL |
-|------|------------|-----|
-| **Workflows** | Higher-level orchestrations containing multiple loops | `/workflows` |
-| **Loops** | Bounded work units with iterations (core platform component) | `/loops` |
-| **Prompts** | Interface to quickly create and run governed loops | `/prompts` |
-
----
-
 ## Development Session Summary (2026-01-15)
 
 **Branch:** `solver-ralph-2`
 
-### Completed Work: Oracles Management Page
+### Completed Work: Templates UI (Phase 1)
 
-Implemented a complete Oracles management page per SR-SEMANTIC-ORACLE-SPEC for viewing and registering oracle suites and verification profiles.
+Implemented the Templates management page per SR-TEMPLATES.md, enabling users to browse, view, and instantiate templates from the 11 template categories.
 
 #### 1. Backend API (Rust)
 
-Created new Oracle Registry API endpoints in `crates/sr-api/src/handlers/oracles.rs`:
+Created new Template Registry API in `crates/sr-api/src/handlers/templates.rs`:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/oracles/suites` | List all registered oracle suites |
-| GET | `/api/v1/oracles/suites/:suite_id` | Get suite detail with oracles |
-| POST | `/api/v1/oracles/suites` | Register a new oracle suite |
-| GET | `/api/v1/oracles/profiles` | List verification profiles |
-| GET | `/api/v1/oracles/profiles/:profile_id` | Get profile detail |
-| POST | `/api/v1/oracles/profiles` | Register a new verification profile |
+| GET | `/api/v1/templates` | List all template instances (filterable by category) |
+| GET | `/api/v1/templates/:id` | Get template instance detail with schema |
+| POST | `/api/v1/templates` | Create new template instance |
+| GET | `/api/v1/templates/schemas` | List all template schemas |
+| GET | `/api/v1/templates/schemas/:type_key` | Get schema detail |
 
-**Key Implementation Details:**
-- Added `OracleRegistryState` to main.rs with `OracleSuiteRegistry::with_core_suites()`
-- Pre-registered 4 core suites: SR-SUITE-GOV, SR-SUITE-CORE, SR-SUITE-FULL, intake_admissibility
-- Pre-registered 3 profiles: GOV-CORE, STRICT-CORE, STRICT-FULL
-- Suite hash computed deterministically from oracle definitions
+**Template Categories (7 user-facing tabs):**
+1. **Work Surface** - Intakes, Procedure Templates, Work Surface Instances
+2. **Execution** - Budget Configs, Gating Policies
+3. **Oracle** - Oracle Suite Definitions
+4. **Verification** - Verification Profiles
+5. **Semantic** - Semantic Sets
+6. **Context** - Iteration Context Refs
+7. **Exceptions** - Waivers, Deviations, Deferrals
 
 #### 2. Frontend UI (React/TypeScript)
 
-Created three new pages in `ui/src/pages/`:
+| Page | Route | Features |
+|------|-------|----------|
+| `Templates.tsx` | `/templates` | Category tabs, schema browser with expandable fields, instance list |
+| `TemplateDetail.tsx` | `/templates/:category/:templateId` | Full schema info, field tables, references, raw JSON viewer |
 
-| Page | Description |
-|------|-------------|
-| `Oracles.tsx` | Main page with tabs for Suites and Profiles, stats cards, core suites reference table |
-| `OracleSuiteDetail.tsx` | Detailed view showing environment constraints, OCI image, expandable oracles table |
-| `VerificationProfileDetail.tsx` | Shows required/optional suites, waivable failures, integrity conditions, applicable deliverables |
+#### 3. Files Created/Modified
 
-**Navigation Updates:**
-- Added "Oracles" to sidebar between "Protocols" and "Workflows"
-- Added routes: `/oracles`, `/oracles/suites/:suiteId`, `/oracles/profiles/:profileId`
-
-#### 3. Documentation Updates
-
-- **SR-SPEC §2.3.11**: Added Oracle Registry API section documenting all 6 endpoints
-- **SR-README**: Updated sidebar order to include Oracles
-
-### Files Created
-| File | Purpose |
-|------|---------|
-| `crates/sr-api/src/handlers/oracles.rs` | Backend API handlers (580 lines) |
-| `ui/src/pages/Oracles.tsx` | Main oracles list page |
-| `ui/src/pages/OracleSuiteDetail.tsx` | Suite detail page |
-| `ui/src/pages/VerificationProfileDetail.tsx` | Profile detail page |
-
-### Files Modified
 | File | Change |
 |------|--------|
-| `crates/sr-api/src/handlers/mod.rs` | Export oracles module |
-| `crates/sr-api/src/main.rs` | Add OracleRegistryState, wire oracle routes |
-| `ui/src/layout/Sidebar.tsx` | Add Oracles nav item |
-| `ui/src/routes.tsx` | Add oracle routes |
+| `crates/sr-api/src/handlers/templates.rs` | NEW - Template registry (~600 lines) |
+| `crates/sr-api/src/handlers/mod.rs` | Export templates module |
+| `crates/sr-api/src/main.rs` | Add TemplateRegistryState, wire routes |
+| `ui/src/pages/Templates.tsx` | NEW - Templates list page |
+| `ui/src/pages/TemplateDetail.tsx` | NEW - Template detail page |
 | `ui/src/pages/index.ts` | Export new pages |
-| `docs/platform/SR-SPEC.md` | Add §2.3.11 Oracle Registry API |
+| `ui/src/routes.tsx` | Add template routes |
+| `ui/src/layout/Sidebar.tsx` | Add Templates nav item |
 
 ### Quality Status
-- Backend tests: 17 passed (including 2 new oracle tests)
-- Frontend build: PASS
-- TypeScript type-check: PASS
+- Backend: `cargo build` PASS, 22 tests pass
+- Frontend: `npm run type-check && npm run build` PASS
 
-### Remaining Work (Optional)
-- Registration modals for creating suites/profiles via UI forms (API already supports this)
+---
+
+## Phase 2 Plan: Starter Templates
+
+### Overview
+
+Seed the Templates registry with comprehensive starter template instances for each user-instantiable type. These serve as reference implementations demonstrating correct schema usage.
+
+### Starter Instances to Create
+
+#### Category 1: Work Surface (Self-Service)
+
+**1.1 Intake (`record.intake`)** - `Standard Research Memo Intake`
+```json
+{
+  "work_unit_id": "WU-TEMPLATE-001",
+  "title": "API Rate Limiting Analysis",
+  "kind": "research_memo",
+  "objective": "Evaluate rate limiting strategies for the public API...",
+  "deliverables": ["Analysis of current implementation", "Comparison of 3+ strategies", "Recommendation with approach"],
+  "constraints": ["Maximum 2000 words", "Must include performance impact"],
+  "completion_criteria": ["All strategies evaluated", "Recommendation includes migration path"]
+}
+```
+
+**1.2 Procedure Template (`config.procedure_template`)** - `Research Memo Procedure`
+```json
+{
+  "procedure_template_id": "proc:RESEARCH-MEMO",
+  "kind": ["research_memo"],
+  "stages": [
+    {"stage_id": "stage:FRAME", "stage_name": "Frame", "required_oracle_suites": ["suite:SR-SUITE-GOV"]},
+    {"stage_id": "stage:OPTIONS", "stage_name": "Options Analysis", "required_oracle_suites": ["suite:SR-SUITE-GOV", "suite:SR-SUITE-CORE"]},
+    {"stage_id": "stage:DRAFT", "stage_name": "Draft", "required_oracle_suites": ["suite:SR-SUITE-CORE"]},
+    {"stage_id": "stage:FINAL", "stage_name": "Final", "required_oracle_suites": ["suite:SR-SUITE-CORE", "suite:SR-SUITE-FULL"]}
+  ]
+}
+```
+
+**1.3 Work Surface Instance (`domain.work_surface`)** - `Example Work Surface Binding`
+
+#### Category 2: Execution Policy (Self-Service)
+
+**2.1 Budget Configuration (`budget_config`)** - `Standard Budget Policy`
+```json
+{
+  "policy_id": "budget:STANDARD",
+  "max_iterations": 5,
+  "max_oracle_runs": 25,
+  "max_wallclock_hours": 16,
+  "on_exhaustion": {"stop_trigger": "BUDGET_EXHAUSTED", "routing_portal": "HumanAuthorityExceptionProcess"}
+}
+```
+
+**2.2 Gating Policy (`config.gating_policy`)** - `Hybrid Gating Policy`
+
+#### Category 3: Oracle (Portal Required)
+
+**3.1 Oracle Suite (`oracle_suite`)** - `Custom Verification Suite`
+
+#### Category 4: Verification (Portal Required)
+
+**4.1 Verification Profile (`verification_profile`)** - `Project Standard Profile`
+
+#### Category 5: Semantic Sets (Portal Required)
+
+**5.1 Semantic Set (`config.semantic_set`)** - `Research Memo Quality Set`
+
+#### Category 6: Exceptions (Portal Required)
+
+**6.1 Waiver (`record.waiver`)** - `Example Waiver Template`
+**6.2 Deviation (`record.deviation`)** - `Example Deviation Template`
+**6.3 Deferral (`record.deferral`)** - `Example Deferral Template`
+
+### Implementation Approach
+
+1. **Backend**: Add `build_starter_instances()` to `TemplateRegistry` in `templates.rs`
+2. **Frontend**: Show starter templates with "Reference" badge, add "Clone" button
+3. **Status**: Reference templates use `status: "reference"` and are read-only
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `crates/sr-api/src/handlers/templates.rs` | Add `build_starter_instances()`, `seed_starter_templates()` |
+| `ui/src/pages/Templates.tsx` | Add reference template section, clone functionality |
+| `ui/src/pages/TemplateDetail.tsx` | Add read-only mode for reference templates |
+
+---
+
+## Next Instance Prompt
+
+```
+read docs/charter/SR-README.md and then docs/charter/SR-CHARTER.md and then docs/platform/SR-TEMPLATES.md. Your task is to implement Phase 2 of the Templates UI: Starter Templates.
+
+The Phase 1 Templates UI is complete (see SR-README.md "Development Session Summary 2026-01-15"). Now implement Phase 2:
+
+1. In `crates/sr-api/src/handlers/templates.rs`:
+   - Add `build_starter_instances()` method that creates 11 starter template instances (see Phase 2 Plan in SR-README.md for the JSON structures)
+   - Add `seed_starter_templates()` to call this during `TemplateRegistry::new()`
+   - Use ID prefix `tmpl_starter_` and status `"reference"` for these templates
+
+2. In `ui/src/pages/Templates.tsx`:
+   - Show starter templates at top of each category tab with "Reference" badge
+   - Add "Clone" button to create editable copy from reference
+
+3. In `ui/src/pages/TemplateDetail.tsx`:
+   - Add read-only mode when viewing reference templates (hide edit buttons)
+
+Verify with: `cargo build` and `cd ui && npm run type-check && npm run build`
+
+Full starter template JSON examples are in the plan file: /Users/ryan/.claude/plans/whimsical-drifting-island.md
+```

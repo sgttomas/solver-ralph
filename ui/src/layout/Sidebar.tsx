@@ -6,6 +6,7 @@ const items = [
   { to: "/agents", label: "Agents" },
   { to: "/protocols", label: "Protocols" },
   { to: "/oracles", label: "Oracles" },
+  { to: "/templates", label: "Templates" },
   { to: "/workflows", label: "Workflows" },
   { to: "/loops", label: "Loops" },
   { to: "/prompts", label: "Prompts" },

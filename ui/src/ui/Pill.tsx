@@ -1,6 +1,6 @@
 import styles from "./Pill.module.css";
 
-export type PillTone = "neutral" | "success" | "warning" | "danger";
+export type PillTone = "neutral" | "success" | "warning" | "danger" | "info";
 
 export function Pill({
   tone = "neutral",
