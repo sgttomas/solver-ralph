@@ -1,0 +1,284 @@
+{
+  "overrides": {
+    "problem statement": {
+      "station": "problem statement",
+      "matrix_id": "C",
+      "rows": [
+        "normative",
+        "operative",
+        "iterative"
+      ],
+      "cols": [
+        "necessity (vs contingency)",
+        "sufficiency",
+        "completeness",
+        "consistency"
+      ],
+      "lenses": [
+        [
+          "auto_problem_statement_lens_0_0",
+          "auto_problem_statement_lens_0_1",
+          "auto_problem_statement_lens_0_2",
+          "auto_problem_statement_lens_0_3"
+        ],
+        [
+          "auto_problem_statement_lens_1_0",
+          "auto_problem_statement_lens_1_1",
+          "auto_problem_statement_lens_1_2",
+          "auto_problem_statement_lens_1_3"
+        ],
+        [
+          "auto_problem_statement_lens_2_0",
+          "auto_problem_statement_lens_2_1",
+          "auto_problem_statement_lens_2_2",
+          "auto_problem_statement_lens_2_3"
+        ]
+      ],
+      "meta": {
+        "source": "auto",
+        "system_sha": "f9de7a6b0312eca3",
+        "normative_sha": "2859ee01b8e04dc2",
+        "asset_sha": "unknown",
+        "model": "gpt-4o-mini",
+        "params": {},
+        "generated_at": "2025-09-10T03:41:40.845487",
+        "override_reason": "Generated via auto mode"
+      }
+    },
+    "requirements": {
+      "station": "requirements",
+      "matrix_id": "F",
+      "rows": [
+        "data",
+        "information",
+        "knowledge"
+      ],
+      "cols": [
+        "necessity (vs contingency)",
+        "sufficiency",
+        "completeness",
+        "consistency"
+      ],
+      "lenses": [
+        [
+          "auto_requirements_lens_0_0",
+          "auto_requirements_lens_0_1",
+          "auto_requirements_lens_0_2",
+          "auto_requirements_lens_0_3"
+        ],
+        [
+          "auto_requirements_lens_1_0",
+          "auto_requirements_lens_1_1",
+          "auto_requirements_lens_1_2",
+          "auto_requirements_lens_1_3"
+        ],
+        [
+          "auto_requirements_lens_2_0",
+          "auto_requirements_lens_2_1",
+          "auto_requirements_lens_2_2",
+          "auto_requirements_lens_2_3"
+        ]
+      ],
+      "meta": {
+        "source": "auto",
+        "system_sha": "f9de7a6b0312eca3",
+        "normative_sha": "2859ee01b8e04dc2",
+        "asset_sha": "unknown",
+        "model": "gpt-4o-mini",
+        "params": {},
+        "generated_at": "2025-09-10T03:41:40.846641",
+        "override_reason": "Generated via auto mode"
+      }
+    },
+    "objectives": {
+      "station": "objectives",
+      "matrix_id": "D",
+      "rows": [
+        "normative",
+        "operative",
+        "iterative"
+      ],
+      "cols": [
+        "guiding",
+        "applying",
+        "judging",
+        "reflecting"
+      ],
+      "lenses": [
+        [
+          "auto_objectives_lens_0_0",
+          "auto_objectives_lens_0_1",
+          "auto_objectives_lens_0_2",
+          "auto_objectives_lens_0_3"
+        ],
+        [
+          "auto_objectives_lens_1_0",
+          "auto_objectives_lens_1_1",
+          "auto_objectives_lens_1_2",
+          "auto_objectives_lens_1_3"
+        ],
+        [
+          "auto_objectives_lens_2_0",
+          "auto_objectives_lens_2_1",
+          "auto_objectives_lens_2_2",
+          "auto_objectives_lens_2_3"
+        ]
+      ],
+      "meta": {
+        "source": "auto",
+        "system_sha": "f9de7a6b0312eca3",
+        "normative_sha": "2859ee01b8e04dc2",
+        "asset_sha": "unknown",
+        "model": "gpt-4o-mini",
+        "params": {},
+        "generated_at": "2025-09-10T03:41:40.848089",
+        "override_reason": "Generated via auto mode"
+      }
+    },
+    "verification": {
+      "station": "verification",
+      "matrix_id": "X",
+      "rows": [
+        "guiding",
+        "applying",
+        "judging",
+        "reflecting"
+      ],
+      "cols": [
+        "necessity (vs contingency)",
+        "sufficiency",
+        "completeness",
+        "consistency"
+      ],
+      "lenses": [
+        [
+          "auto_verification_lens_0_0",
+          "auto_verification_lens_0_1",
+          "auto_verification_lens_0_2",
+          "auto_verification_lens_0_3"
+        ],
+        [
+          "auto_verification_lens_1_0",
+          "auto_verification_lens_1_1",
+          "auto_verification_lens_1_2",
+          "auto_verification_lens_1_3"
+        ],
+        [
+          "auto_verification_lens_2_0",
+          "auto_verification_lens_2_1",
+          "auto_verification_lens_2_2",
+          "auto_verification_lens_2_3"
+        ],
+        [
+          "auto_verification_lens_3_0",
+          "auto_verification_lens_3_1",
+          "auto_verification_lens_3_2",
+          "auto_verification_lens_3_3"
+        ]
+      ],
+      "meta": {
+        "source": "auto",
+        "system_sha": "f9de7a6b0312eca3",
+        "normative_sha": "2859ee01b8e04dc2",
+        "asset_sha": "unknown",
+        "model": "gpt-4o-mini",
+        "params": {},
+        "generated_at": "2025-09-10T03:41:40.849151",
+        "override_reason": "Generated via auto mode"
+      }
+    },
+    "validation": {
+      "station": "validation",
+      "matrix_id": "Z",
+      "rows": [
+        "guiding",
+        "applying",
+        "judging",
+        "reflecting"
+      ],
+      "cols": [
+        "necessity (vs contingency)",
+        "sufficiency",
+        "completeness",
+        "consistency"
+      ],
+      "lenses": [
+        [
+          "auto_validation_lens_0_0",
+          "auto_validation_lens_0_1",
+          "auto_validation_lens_0_2",
+          "auto_validation_lens_0_3"
+        ],
+        [
+          "auto_validation_lens_1_0",
+          "auto_validation_lens_1_1",
+          "auto_validation_lens_1_2",
+          "auto_validation_lens_1_3"
+        ],
+        [
+          "auto_validation_lens_2_0",
+          "auto_validation_lens_2_1",
+          "auto_validation_lens_2_2",
+          "auto_validation_lens_2_3"
+        ],
+        [
+          "auto_validation_lens_3_0",
+          "auto_validation_lens_3_1",
+          "auto_validation_lens_3_2",
+          "auto_validation_lens_3_3"
+        ]
+      ],
+      "meta": {
+        "source": "auto",
+        "system_sha": "f9de7a6b0312eca3",
+        "normative_sha": "2859ee01b8e04dc2",
+        "asset_sha": "unknown",
+        "model": "gpt-4o-mini",
+        "params": {},
+        "generated_at": "2025-09-10T03:41:40.849751",
+        "override_reason": "Generated via auto mode"
+      }
+    },
+    "evaluation": {
+      "station": "evaluation",
+      "matrix_id": "E",
+      "rows": [
+        "guiding",
+        "applying",
+        "judging"
+      ],
+      "cols": [
+        "data",
+        "information",
+        "knowledge"
+      ],
+      "lenses": [
+        [
+          "auto_evaluation_lens_0_0",
+          "auto_evaluation_lens_0_1",
+          "auto_evaluation_lens_0_2"
+        ],
+        [
+          "auto_evaluation_lens_1_0",
+          "auto_evaluation_lens_1_1",
+          "auto_evaluation_lens_1_2"
+        ],
+        [
+          "auto_evaluation_lens_2_0",
+          "auto_evaluation_lens_2_1",
+          "auto_evaluation_lens_2_2"
+        ]
+      ],
+      "meta": {
+        "source": "auto",
+        "system_sha": "f9de7a6b0312eca3",
+        "normative_sha": "2859ee01b8e04dc2",
+        "asset_sha": "unknown",
+        "model": "gpt-4o-mini",
+        "params": {},
+        "generated_at": "2025-09-10T03:41:40.851130",
+        "override_reason": "Generated via auto mode"
+      }
+    }
+  }
+}

@@ -1,0 +1,224 @@
+assets:
+- id: normative_spec
+  last_modified: '2025-09-10T23:45:00.000000+00:00'
+  path: ../../../normative_spec.txt
+  sha256: e3a9a5b51d66919be3582b4498f3792944eb67b690d335b218cd18a09bb423ed
+  size_bytes: 35315
+  version: 1.0.0
+- id: system
+  last_modified: '2025-09-11T02:48:00.000000+00:00'
+  path: system.md
+  sha256: d248b822c70e32a3be0a0cfde66d1ce38f726a8eb3c3521748047238595fbbf5
+  size_bytes: 373
+  version: 1.0.0
+- description: Stage 0 initialization for Matrix C semantic operations
+  id: phase1_c_initialize
+  last_modified: '2025-09-11T02:48:00.000000+00:00'
+  path: phase1/C/initialize.md
+  sha256: d689cab33e8322210b8c7eba317e0c28e27b65e71dce3ff5de8707ab0f92ad20
+  size_bytes: 32924
+  version: 1.0.0
+- description: Stage 1 mechanical construction for Matrix C
+  id: phase1_c_mechanical
+  last_modified: '2025-09-10T19:21:13.198976+00:00'
+  path: phase1/C/mechanical.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 2 semantic interpretation for Matrix C
+  id: phase1_c_interpreted
+  last_modified: '2025-09-10T19:21:28.277480+00:00'
+  path: phase1/C/interpreted.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 3 lens application for Matrix C
+  id: phase1_c_lensed
+  last_modified: '2025-09-10T19:21:21.412116+00:00'
+  path: phase1/C/lensed.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 1 mechanical construction for Matrix F
+  id: phase1_f_mechanical
+  last_modified: '2025-09-10T19:16:04.043572+00:00'
+  path: phase1/F/mechanical.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 2 semantic interpretation for Matrix F
+  id: phase1_f_interpreted
+  last_modified: '2025-09-10T19:19:45.448816+00:00'
+  path: phase1/F/interpreted.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 3 lens application for Matrix F
+  id: phase1_f_lensed
+  last_modified: '2025-09-10T19:19:37.207686+00:00'
+  path: phase1/F/lensed.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 1 mechanical construction for Matrix D (concatenation recipe)
+  id: phase1_d_mechanical
+  last_modified: '2025-09-10T19:20:34.446363+00:00'
+  path: phase1/D/mechanical.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 2 addition resolution for Matrix D (no multiplication)
+  id: phase1_d_interpreted
+  last_modified: '2025-09-10T19:20:51.753138+00:00'
+  path: phase1/D/interpreted.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 3 lens application for Matrix D
+  id: phase1_d_lensed
+  last_modified: '2025-09-10T19:20:43.538063+00:00'
+  path: phase1/D/lensed.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 1 mechanical construction for Matrix X
+  id: phase1_x_mechanical
+  last_modified: '2025-09-10T19:15:33.915021+00:00'
+  path: phase1/X/mechanical.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 2 semantic interpretation for Matrix X
+  id: phase1_x_interpreted
+  last_modified: '2025-09-10T19:16:40.456328+00:00'
+  path: phase1/X/interpreted.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 3 lens application for Matrix X
+  id: phase1_x_lensed
+  last_modified: '2025-09-10T19:18:53.693623+00:00'
+  path: phase1/X/lensed.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 1 mechanical construction for Matrix E
+  id: phase1_e_mechanical
+  last_modified: '2025-09-10T19:20:00.966231+00:00'
+  path: phase1/E/mechanical.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 2 semantic interpretation for Matrix E
+  id: phase1_e_interpreted
+  last_modified: '2025-09-10T19:20:17.471404+00:00'
+  path: phase1/E/interpreted.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Stage 3 lens application for Matrix E
+  id: phase1_e_lensed
+  last_modified: '2025-09-10T19:20:09.179404+00:00'
+  path: phase1/E/lensed.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Station shift and lens application for Matrix Z (no interpreted stage)
+  id: phase1_z_lensed
+  last_modified: '2025-09-10T19:17:10.057646+00:00'
+  path: phase1/Z/lensed.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Principles extraction from Matrix Z
+  id: phase1_z_principles
+  last_modified: '2025-09-10T19:17:56.924837+00:00'
+  path: phase1/Z/principles.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Template for generating lens catalog for all stations
+  id: phase1_lens_catalog_generation
+  last_modified: '2025-09-10T19:21:57.547849+00:00'
+  path: phase1/lens_catalog_generation.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.1.0
+- description: On-the-fly lens generation for Matrix C (Problem Statement)
+  id: phase1_c_generate_lenses
+  last_modified: '2025-09-10T19:21:34.623574+00:00'
+  path: phase1/C/generate_lenses.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: On-the-fly lens generation for Matrix D (Objectives)
+  id: phase1_d_generate_lenses
+  last_modified: '2025-09-10T19:20:58.618320+00:00'
+  path: phase1/D/generate_lenses.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: On-the-fly lens generation for Matrix F (Requirements)
+  id: phase1_f_generate_lenses
+  last_modified: '2025-09-10T19:19:52.140373+00:00'
+  path: phase1/F/generate_lenses.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: On-the-fly lens generation for Matrix X (Verification)
+  id: phase1_x_generate_lenses
+  last_modified: '2025-09-10T19:16:49.555533+00:00'
+  path: phase1/X/generate_lenses.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: On-the-fly lens generation for Matrix E (Evaluation)
+  id: phase1_e_generate_lenses
+  last_modified: '2025-09-10T19:20:24.810283+00:00'
+  path: phase1/E/generate_lenses.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: On-the-fly lens generation for Matrix Z (Validation)
+  id: phase1_z_generate_lenses
+  last_modified: '2025-09-10T19:18:32.200480+00:00'
+  path: phase1/Z/generate_lenses.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Extract Matrix J from Matrix B (remove wisdom row)
+  id: phase1_j_extract
+  last_modified: '2025-09-10T21:00:00.000000+00:00'
+  path: phase1/J/extract.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Transform Matrix D to Matrix K via transpose
+  id: phase1_k_transform
+  last_modified: '2025-09-10T21:00:00.000000+00:00'
+  path: phase1/K/transform.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Extract Matrix G from Matrix Z (first 3 rows)
+  id: phase1_g_extract
+  last_modified: '2025-09-10T21:00:00.000000+00:00'
+  path: phase1/G/extract.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Extract Matrix P from Matrix Z (fourth row)
+  id: phase1_p_extract
+  last_modified: '2025-09-10T21:00:00.000000+00:00'
+  path: phase1/P/extract.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+- description: Transform Matrix J to Matrix T via transpose
+  id: phase1_t_transform
+  last_modified: '2025-09-10T21:00:00.000000+00:00'
+  path: phase1/T/transform.md
+  sha256: pending_user_authoring
+  size_bytes: null
+  version: 1.0.0
+registry_version: '1.0'
