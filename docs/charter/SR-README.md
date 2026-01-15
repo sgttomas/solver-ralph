@@ -230,15 +230,87 @@ Seeded the Templates registry with 11 starter reference templates demonstrating 
 - Backend: `cargo build` PASS, 24 tests pass
 - Frontend: `npm run type-check && npm run build` PASS
 
-### Commit
+---
+
+## Completed Work: Templates UI (Phase 3) - Clone & Edit Workflow
+
+### Overview
+
+Enhanced the Templates UI with full clone and edit capabilities, allowing users to create customized instances from reference templates.
+
+### New API Endpoint
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| PUT | `/api/v1/templates/:id` | Update template name and/or content |
+
+**Constraints:**
+- Reference templates (`status: "reference"`) cannot be updated directly
+- Must clone first to create editable copy
+
+### Frontend Enhancements
+
+**Templates.tsx - Starter Templates Section:**
+- Dedicated card-based layout for reference templates
+- Each card shows template name, type key, and "Reference" badge
+- **View** button → opens detail page
+- **Use Template** button → clones and opens edit mode
+
+**Templates.tsx - Your Templates Section:**
+- Table view for user-created template instances
+- Shows ID, name, type, status, hash, and created date
+
+**TemplateDetail.tsx - Clone & Edit:**
+- **Clone Template** button in reference banner (prominent placement)
+- **Use Template** button in header for reference templates
+- **Edit** button in header for user templates
+- Edit mode with:
+  - Template name input field
+  - JSON content textarea with syntax highlighting
+  - Save/Cancel buttons
+  - JSON validation before save
+- Auto-opens edit mode after cloning (`?edit=true` query param)
+
+### User Workflow
+
+1. Navigate to **Templates** in sidebar
+2. Select category tab (Work Surface, Oracle, etc.)
+3. View **Starter Templates** cards
+4. Click **Use Template** or **Clone Template**
+5. Customize name and JSON content for specific use case
+6. Click **Save Changes**
+7. New template appears in **Your Templates** section
+
+### Quality Status
+- Backend: `cargo build` PASS, 26 tests pass
+- Frontend: `npm run type-check && npm run build` PASS
+
+### Commits (2026-01-15 continued)
 - `75edc76` - Implement Templates UI with starter reference templates (Phase 1+2)
+- `2d4bc59` - Update SR-README.md with Phase 2 completion summary
+- `b1eb5aa` - Add starter templates visibility and user clone/edit workflow
+- `1658b78` - Add debug info card to Templates page for troubleshooting
+- `b286520` - Add Clone Template button to reference banner, remove debug code
 
 ---
 
-## Next Steps
+## Implementation Status
 
-The Templates UI is complete (Phase 1 + Phase 2). Possible future enhancements:
-- Template editing UI
-- Template versioning
-- Portal approval workflow integration
-- Template search/filtering
+### Templates UI - COMPLETE
+
+| Feature | Status |
+|---------|--------|
+| Template schemas (14 types) | ✅ Implemented |
+| Starter reference templates (11) | ✅ Implemented |
+| List/browse by category | ✅ Implemented |
+| View template details | ✅ Implemented |
+| Clone reference templates | ✅ Implemented |
+| Edit user templates | ✅ Implemented |
+| Create from schema | ⏳ Future |
+| Template versioning | ⏳ Future |
+| Portal approval integration | ⏳ Future |
+
+### Notes
+- Backend auth bypass: `SR_AUTH_TEST_MODE=true`
+- Frontend auth bypass: `VITE_DEV_AUTH_BYPASS=true`
+- Templates nav item added to sidebar
