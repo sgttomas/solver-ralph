@@ -1,5 +1,5 @@
 /**
- * Prompt Loop Page
+ * Task Page
  *
  * Minimal UI to call POST /api/v1/prompt-loop/stream with SSE streaming.
  * Uses OIDC token when available; in dev bypass mode a placeholder token is sent.
@@ -381,12 +381,12 @@ export function PromptLoop(): JSX.Element {
       <div style={styles.card}>
         <div style={styles.titleRow}>
           <h1 style={styles.title}>
-            Prompt Loop
+            Task
             {streaming && <span style={styles.streamingIndicator} />}
           </h1>
         </div>
         <p style={styles.subtitle}>
-          Materialize a governed work surface from a free-form prompt, run a loop/iteration, and capture candidate + evidence with streaming output.
+          Materialize a governed work surface from a free-form prompt, run a task iteration, and capture candidate + evidence with streaming output.
         </p>
 
         <form onSubmit={submit}>
@@ -394,7 +394,7 @@ export function PromptLoop(): JSX.Element {
             <label style={styles.label}>Prompt *</label>
             <textarea
               style={styles.textarea}
-              placeholder="What do you want the loop to answer?"
+              placeholder="What do you want the task to answer?"
               value={form.prompt}
               onChange={handleChange('prompt')}
               disabled={loading}
@@ -477,14 +477,14 @@ export function PromptLoop(): JSX.Element {
           </div>
 
           {error && <div style={styles.status}>Error: {error}</div>}
-          {loading && !streaming && <div style={styles.status}>Initializing prompt loop...</div>}
+          {loading && !streaming && <div style={styles.status}>Initializing task...</div>}
 
           <div style={styles.actions}>
             <button type="button" style={styles.buttonGhost} onClick={handleReset} disabled={loading && !streaming}>
               {streaming ? 'Cancel' : 'Reset'}
             </button>
             <button type="submit" style={styles.buttonPrimary} disabled={loading}>
-              {loading ? 'Running…' : 'Run Prompt Loop'}
+              {loading ? 'Running…' : 'Run Task'}
             </button>
           </div>
         </form>
@@ -499,7 +499,7 @@ export function PromptLoop(): JSX.Element {
           {artifacts && (
             <div style={styles.resultGrid}>
               <div style={styles.resultCard}>
-                <strong>Loop</strong>
+                <strong>Task</strong>
                 <p style={styles.code}>{artifacts.loop_id}</p>
               </div>
               <div style={styles.resultCard}>
