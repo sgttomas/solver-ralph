@@ -1681,4 +1681,36 @@ mod tests {
         let exc_templates = registry.list_templates(Some(TemplateCategory::Exceptions)).await;
         assert_eq!(exc_templates.len(), 3);
     }
+
+    #[test]
+    fn test_category_serialization() {
+        // Verify that TemplateCategory serializes to kebab-case
+        let work_surface = serde_json::to_string(&TemplateCategory::WorkSurface).unwrap();
+        assert_eq!(work_surface, "\"work-surface\"");
+
+        let semantic_sets = serde_json::to_string(&TemplateCategory::SemanticSets).unwrap();
+        assert_eq!(semantic_sets, "\"semantic-sets\"");
+
+        let oracle = serde_json::to_string(&TemplateCategory::Oracle).unwrap();
+        assert_eq!(oracle, "\"oracle\"");
+    }
+
+    #[test]
+    fn test_template_summary_serialization() {
+        let summary = TemplateSummary {
+            id: "test".to_string(),
+            type_key: "record.intake".to_string(),
+            name: "Test".to_string(),
+            category: TemplateCategory::WorkSurface,
+            status: "reference".to_string(),
+            content_hash: "sha256:test".to_string(),
+            created_at: "2026-01-15T00:00:00Z".to_string(),
+            updated_at: "2026-01-15T00:00:00Z".to_string(),
+            requires_portal: false,
+        };
+
+        let json = serde_json::to_value(&summary).unwrap();
+        assert_eq!(json["category"], "work-surface");
+        assert_eq!(json["status"], "reference");
+    }
 }
