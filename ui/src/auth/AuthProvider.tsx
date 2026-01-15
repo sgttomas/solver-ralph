@@ -76,7 +76,8 @@ export function useAuth(): AuthContextProps {
   }
 
   // In real mode, use the OIDC hook
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // Conditionally calling hook is intentional - dev bypass returns early
+  // eslint-disable-next-line
   return useOidcAuth();
 }
 

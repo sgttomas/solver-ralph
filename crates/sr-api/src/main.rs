@@ -25,13 +25,14 @@ use axum::{
 };
 use config::ApiConfig;
 use handlers::{
-    approvals, candidates, decisions, evidence, exceptions, freeze, iterations, loops,
-    prompt_loop::{prompt_loop, prompt_loop_stream}, runs,
+    approvals, candidates, decisions, evidence, exceptions, freeze, iterations, loops, oracles,
+    prompt_loop::{prompt_loop, prompt_loop_stream}, runs, templates,
 };
 use observability::{metrics_endpoint, request_context_middleware, Metrics, MetricsState};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use sr_adapters::{MinioConfig, MinioEvidenceStore, PostgresEventStore, ProjectionBuilder};
+use sr_adapters::oracle_suite::OracleSuiteRegistry;
 use std::sync::Arc;
 use std::time::Instant;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
@@ -46,6 +47,15 @@ pub struct AppState {
     pub projections: Arc<ProjectionBuilder>,
     pub evidence_store: Arc<MinioEvidenceStore>,
 }
+
+/// Oracle registry state for oracle-related endpoints
+#[derive(Clone)]
+pub struct OracleRegistryState {
+    pub registry: Arc<OracleSuiteRegistry>,
+}
+
+/// Template registry state for template-related endpoints
+pub use templates::{TemplateRegistry, TemplateRegistryState};
 
 /// Health check response
 #[derive(Serialize)]
@@ -122,7 +132,12 @@ async fn protected_info(user: AuthenticatedUser) -> Json<serde_json::Value> {
 }
 
 /// Create the API router with all routes (D-33: includes metrics and observability)
-fn create_router(state: AppState, metrics_state: MetricsState) -> Router {
+fn create_router(
+    state: AppState,
+    metrics_state: MetricsState,
+    oracle_state: OracleRegistryState,
+    template_state: TemplateRegistryState,
+) -> Router {
     // Public routes (no authentication required)
     let public_routes = Router::new()
         .route("/health", get(health))
@@ -273,6 +288,43 @@ fn create_router(state: AppState, metrics_state: MetricsState) -> Router {
         .route("/api/v1/prompt-loop", post(prompt_loop))
         .route("/api/v1/prompt-loop/stream", post(prompt_loop_stream));
 
+    // Oracle registry routes - Per SR-SEMANTIC-ORACLE-SPEC
+    let oracle_routes = Router::new()
+        .route(
+            "/api/v1/oracles/suites",
+            get(oracles::list_suites).post(oracles::register_suite),
+        )
+        .route("/api/v1/oracles/suites/:suite_id", get(oracles::get_suite))
+        .route(
+            "/api/v1/oracles/profiles",
+            get(oracles::list_profiles).post(oracles::register_profile),
+        )
+        .route(
+            "/api/v1/oracles/profiles/:profile_id",
+            get(oracles::get_profile),
+        )
+        .with_state(oracle_state);
+
+    // Template registry routes - Per SR-TEMPLATES
+    let template_routes = Router::new()
+        .route(
+            "/api/v1/templates",
+            get(templates::list_templates).post(templates::create_template),
+        )
+        .route(
+            "/api/v1/templates/schemas",
+            get(templates::list_schemas),
+        )
+        .route(
+            "/api/v1/templates/schemas/:type_key",
+            get(templates::get_schema),
+        )
+        .route(
+            "/api/v1/templates/:template_id",
+            get(templates::get_template).put(templates::update_template),
+        )
+        .with_state(template_state);
+
     // Combine all routes (D-33: request context middleware for correlation tracking)
     Router::new()
         .merge(public_routes)
@@ -287,6 +339,8 @@ fn create_router(state: AppState, metrics_state: MetricsState) -> Router {
         .merge(freeze_routes)
         .merge(evidence_routes)
         .merge(prompt_routes)
+        .merge(oracle_routes)
+        .merge(template_routes)
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(request_context_middleware))
         .layer(TraceLayer::new_for_http())
@@ -420,8 +474,24 @@ async fn main() {
 
     info!("Metrics collection initialized");
 
+    // Create oracle registry state (SR-SEMANTIC-ORACLE-SPEC)
+    let oracle_registry = Arc::new(OracleSuiteRegistry::with_core_suites());
+    let oracle_state = OracleRegistryState {
+        registry: oracle_registry,
+    };
+
+    info!("Oracle registry initialized with core suites");
+
+    // Create template registry state (SR-TEMPLATES)
+    let template_registry = Arc::new(TemplateRegistry::new());
+    let template_state = TemplateRegistryState {
+        registry: template_registry,
+    };
+
+    info!("Template registry initialized with schemas");
+
     // Create router (D-33: includes metrics endpoint and request tracing)
-    let app = create_router(state, metrics_state);
+    let app = create_router(state, metrics_state, oracle_state, template_state);
 
     // Start server
     let bind_addr = config.bind_addr();

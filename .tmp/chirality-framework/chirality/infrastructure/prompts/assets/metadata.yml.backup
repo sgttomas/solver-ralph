@@ -1,0 +1,182 @@
+registry_version: '1.0'
+assets:
+- id: normative_spec
+  path: ../../../normative_spec.txt
+  sha256: 1c15222e13dc12c0238f6c7d112ba2a655c3c44fab593018d597e6a244fdfd23
+  version: 1.0.0
+  size_bytes: 35313
+  last_modified: '2025-09-09T05:15:45.000000+00:00'
+- id: system
+  path: system.md
+  sha256: f03798651fafdea094e3774d9491c9806074c9f61e05fdf5690f7b774378aba5
+  version: 1.0.0
+  size_bytes: 32925
+  last_modified: '2025-09-09T20:59:05.878077+00:00'
+- id: phase1_c_mechanical
+  path: phase1/C/mechanical.md
+  sha256: 42e1c35c1ef714d0c5cb9b75a2e9513328186e88ac2033e98a950617f056d6f7
+  version: 1.0.0
+  description: Stage 1 mechanical construction for Matrix C
+  size_bytes: 5913
+  last_modified: '2025-09-10T16:03:14.212973+00:00'
+- id: phase1_c_interpreted
+  path: phase1/C/interpreted.md
+  sha256: 5f97e10e9654fc7b7e8002026aefb2ac3f0c492c5e535666209cf3436b89050c
+  version: 1.0.0
+  description: Stage 2 semantic interpretation for Matrix C
+  size_bytes: 541
+  last_modified: '2025-09-10T16:03:14.213128+00:00'
+- id: phase1_c_lensed
+  path: phase1/C/lensed.md
+  sha256: 0609bb963bb3df5b6d867ef0c99449a56dcaaad8879837482a9646482f93031d
+  version: 1.0.0
+  description: Stage 3 lens application for Matrix C
+  size_bytes: 698
+  last_modified: '2025-09-10T16:03:14.213241+00:00'
+- id: phase1_f_mechanical
+  path: phase1/F/mechanical.md
+  sha256: d9df10de00b742eb1baa78138d377c735e0c3eeff24c1507357201d5790f85f8
+  version: 1.0.0
+  description: Stage 1 mechanical construction for Matrix F
+  size_bytes: 909
+  last_modified: '2025-09-10T16:03:14.213655+00:00'
+- id: phase1_f_interpreted
+  path: phase1/F/interpreted.md
+  sha256: 5f97e10e9654fc7b7e8002026aefb2ac3f0c492c5e535666209cf3436b89050c
+  version: 1.0.0
+  description: Stage 2 semantic interpretation for Matrix F
+  size_bytes: 541
+  last_modified: '2025-09-10T16:03:14.213726+00:00'
+- id: phase1_f_lensed
+  path: phase1/F/lensed.md
+  sha256: 0609bb963bb3df5b6d867ef0c99449a56dcaaad8879837482a9646482f93031d
+  version: 1.0.0
+  description: Stage 3 lens application for Matrix F
+  size_bytes: 698
+  last_modified: '2025-09-10T16:03:14.213776+00:00'
+- id: phase1_d_mechanical
+  path: phase1/D/mechanical.md
+  sha256: 40444e1065e1910983dd665ae8c77b4a36b21fe81b2ffa5c3c3564f56a224f0b
+  version: 1.0.0
+  description: Stage 1 mechanical construction for Matrix D (concatenation recipe)
+  size_bytes: 649
+  last_modified: '2025-09-10T16:03:14.213827+00:00'
+- id: phase1_d_interpreted
+  path: phase1/D/interpreted.md
+  sha256: d603ce449eccc8687b72897130ab508d14c2a539de91afce72b4152551dd8af9
+  version: 1.0.0
+  description: Stage 2 addition resolution for Matrix D (no multiplication)
+  size_bytes: 532
+  last_modified: '2025-09-10T16:03:14.213876+00:00'
+- id: phase1_d_lensed
+  path: phase1/D/lensed.md
+  sha256: 0609bb963bb3df5b6d867ef0c99449a56dcaaad8879837482a9646482f93031d
+  version: 1.0.0
+  description: Stage 3 lens application for Matrix D
+  size_bytes: 698
+  last_modified: '2025-09-10T16:03:14.213924+00:00'
+- id: phase1_x_mechanical
+  path: phase1/X/mechanical.md
+  sha256: f78893be6080ad3772dbbafce8620949e37f8afcb5bd95b84110972819e5267b
+  version: 1.0.0
+  description: Stage 1 mechanical construction for Matrix X
+  size_bytes: 687
+  last_modified: '2025-09-10T16:03:14.213974+00:00'
+- id: phase1_x_interpreted
+  path: phase1/X/interpreted.md
+  sha256: 5f97e10e9654fc7b7e8002026aefb2ac3f0c492c5e535666209cf3436b89050c
+  version: 1.0.0
+  description: Stage 2 semantic interpretation for Matrix X
+  size_bytes: 541
+  last_modified: '2025-09-10T16:03:14.214023+00:00'
+- id: phase1_x_lensed
+  path: phase1/X/lensed.md
+  sha256: 0609bb963bb3df5b6d867ef0c99449a56dcaaad8879837482a9646482f93031d
+  version: 1.0.0
+  description: Stage 3 lens application for Matrix X
+  size_bytes: 698
+  last_modified: '2025-09-10T16:03:14.214074+00:00'
+- id: phase1_e_mechanical
+  path: phase1/E/mechanical.md
+  sha256: ce9a6fe4e756c4b0298d58b79feaa5fe5ec0d729024fcdb491415f0180992fea
+  version: 1.0.0
+  description: Stage 1 mechanical construction for Matrix E
+  size_bytes: 598
+  last_modified: '2025-09-10T16:03:14.214122+00:00'
+- id: phase1_e_interpreted
+  path: phase1/E/interpreted.md
+  sha256: 5f97e10e9654fc7b7e8002026aefb2ac3f0c492c5e535666209cf3436b89050c
+  version: 1.0.0
+  description: Stage 2 semantic interpretation for Matrix E
+  size_bytes: 541
+  last_modified: '2025-09-10T16:03:14.214166+00:00'
+- id: phase1_e_lensed
+  path: phase1/E/lensed.md
+  sha256: 0609bb963bb3df5b6d867ef0c99449a56dcaaad8879837482a9646482f93031d
+  version: 1.0.0
+  description: Stage 3 lens application for Matrix E
+  size_bytes: 698
+  last_modified: '2025-09-10T16:03:14.214210+00:00'
+- id: phase1_z_lensed
+  path: phase1/Z/lensed.md
+  sha256: 2cb805273abd870363dd75bf60e05070ef2c945bd98cfbe6480dd6b6dc2cb0fe
+  version: 1.0.0
+  description: Station shift and lens application for Matrix Z (no interpreted stage)
+  size_bytes: 1106
+  last_modified: '2025-09-10T16:03:14.214273+00:00'
+- id: phase1_z_principles
+  path: phase1/Z/principles.md
+  sha256: e416b04f08b4ed124fa6827ce62c7031614a3b5bc4e7e3a4e747281c9bd428ee
+  version: 1.0.0
+  description: Principles extraction from Matrix Z
+  size_bytes: 527
+  last_modified: '2025-09-10T16:03:14.214319+00:00'
+- id: phase1_lens_catalog_generation
+  path: phase1/lens_catalog_generation.md
+  sha256: 6c53b0b2d6f7461bd18e741f8d8156d1cebdd1095259a833ec9540dd084c4dc1
+  version: 1.1.0
+  size_bytes: 933
+  last_modified: '2025-09-09T12:00:00.000000+00:00'
+  description: Template for generating lens catalog for all stations
+- id: phase1_c_generate_lenses
+  path: phase1/C/generate_lenses.md
+  sha256: 0fe2f9535bf2bf89d02c77a9c62af52f744ede3c436b0eb405c19429241c2086
+  version: 1.0.0
+  description: On-the-fly lens generation for Matrix C (Problem Statement)
+  size_bytes: 920
+  last_modified: '2025-09-10T16:03:14.214411+00:00'
+- id: phase1_d_generate_lenses
+  path: phase1/D/generate_lenses.md
+  sha256: 0fe2f9535bf2bf89d02c77a9c62af52f744ede3c436b0eb405c19429241c2086
+  version: 1.0.0
+  description: On-the-fly lens generation for Matrix D (Objectives)
+  size_bytes: 920
+  last_modified: '2025-09-10T16:03:14.214456+00:00'
+- id: phase1_f_generate_lenses
+  path: phase1/F/generate_lenses.md
+  sha256: 0fe2f9535bf2bf89d02c77a9c62af52f744ede3c436b0eb405c19429241c2086
+  version: 1.0.0
+  description: On-the-fly lens generation for Matrix F (Requirements)
+  size_bytes: 920
+  last_modified: '2025-09-10T16:03:14.214498+00:00'
+- id: phase1_x_generate_lenses
+  path: phase1/X/generate_lenses.md
+  sha256: 0fe2f9535bf2bf89d02c77a9c62af52f744ede3c436b0eb405c19429241c2086
+  version: 1.0.0
+  description: On-the-fly lens generation for Matrix X (Verification)
+  size_bytes: 920
+  last_modified: '2025-09-10T16:03:14.214542+00:00'
+- id: phase1_e_generate_lenses
+  path: phase1/E/generate_lenses.md
+  sha256: 0fe2f9535bf2bf89d02c77a9c62af52f744ede3c436b0eb405c19429241c2086
+  version: 1.0.0
+  description: On-the-fly lens generation for Matrix E (Evaluation)
+  size_bytes: 920
+  last_modified: '2025-09-10T16:03:14.214587+00:00'
+- id: phase1_z_generate_lenses
+  path: phase1/Z/generate_lenses.md
+  sha256: 0fe2f9535bf2bf89d02c77a9c62af52f744ede3c436b0eb405c19429241c2086
+  version: 1.0.0
+  description: On-the-fly lens generation for Matrix Z (Validation)
+  size_bytes: 920
+  last_modified: '2025-09-10T16:03:14.214632+00:00'

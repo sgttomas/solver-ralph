@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chirality-framework"
+version = "19.4.0"
+description = "A semantic calculator for executing a canonical, multi-stage pipeline for structured problem-solving and knowledge generation."
+readme = "README.md"
+keywords = ["llm", "ontology", "semantic computing", "pipeline orchestration", "static site generator", "knowledge generation"]
+license = "MIT"
+authors = [
+    {name = "Chirality Framework Team"}
+]
+maintainers = [
+    {name = "Chirality Framework Team"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13"
+]
+requires-python = ">=3.9"
+dependencies = [
+    "click>=8.0.0",
+    "python-dotenv>=1.0.0",
+    "PyYAML>=6.0",
+    "pydantic>=2.0.0"
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.50.0"]
+neo4j = ["neo4j>=5.0.0"]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.4.0"
+]
+all = [
+    "openai>=1.42.0",
+    "neo4j>=5.0.0"
+]
+
+[project.scripts]
+chirality = "chirality.interfaces.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/sgttomas/chirality-framework"
+Repository = "https://github.com/sgttomas/chirality-framework.git"
+Issues = "https://github.com/sgttomas/chirality-framework/issues"
+Documentation = "https://github.com/sgttomas/chirality-framework/blob/main/README.md"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["chirality*"]
+exclude = ["tests*", "docs*", "scripts*"]
+
+[tool.setuptools.package-data]
+chirality = [
+    "normative_spec.txt",
+    "infrastructure/prompts/assets/metadata.yml",
+    "infrastructure/prompts/assets/*.md",
+    "infrastructure/prompts/assets/ops/operators/*.md",
+    "infrastructure/prompts/assets/ops/lensing/*.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+
+[tool.mypy]
+python_version = "3.9"
+strict = false
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true

@@ -1,0 +1,181 @@
+/* Loops Page Specific Styles */
+
+/* Filter bar */
+.filterBar {
+  display: flex;
+  gap: var(--space3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space2);
+}
+
+.searchInput {
+  width: 300px;
+  padding: var(--space2) var(--space3);
+  border: 1px solid var(--border);
+  border-radius: var(--radiusSm);
+  font-size: 0.875rem;
+  font-family: var(--font);
+  background: white;
+  color: var(--ink);
+  transition: border-color 150ms ease;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.searchInput::placeholder {
+  color: var(--muted);
+}
+
+.filterSelect {
+  padding: var(--space2) var(--space3);
+  border: 1px solid var(--border);
+  border-radius: var(--radiusSm);
+  font-size: 0.875rem;
+  font-family: var(--font);
+  background: white;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Sortable columns */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable:hover {
+  color: var(--ink);
+}
+
+/* Loop ID in table */
+.loopId {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--muted);
+  margin-top: var(--space1);
+}
+
+/* Muted text */
+.muted {
+  color: var(--muted);
+}
+
+/* Progress cell */
+.progressCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space2);
+}
+
+.progressBar {
+  width: 60px;
+  height: 6px;
+  background-color: rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background-color: var(--accent);
+  border-radius: 3px;
+  transition: width 300ms ease;
+}
+
+.progressText {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Stage code */
+.stageCode {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  padding: var(--space1) var(--space2);
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: var(--radiusSm);
+}
+
+/* Action buttons */
+.actionButtons {
+  display: flex;
+  gap: var(--space1);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space4);
+  border-top: 1px solid var(--border);
+  margin-top: var(--space2);
+}
+
+.pageInfo {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.pageControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space3);
+}
+
+.pageSizeSelect {
+  padding: var(--space1) var(--space2);
+  border: 1px solid var(--border);
+  border-radius: var(--radiusSm);
+  font-size: 0.8125rem;
+  background: white;
+  cursor: pointer;
+}
+
+.pageButtons {
+  display: flex;
+  align-items: center;
+  gap: var(--space1);
+}
+
+.pageButton {
+  padding: var(--space1) var(--space2);
+  border: 1px solid var(--border);
+  border-radius: var(--radiusSm);
+  background: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--ink);
+  transition: all 150ms ease;
+}
+
+.pageButton:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: var(--ink);
+}
+
+.pageButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pageNumber {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  padding: 0 var(--space2);
+}

@@ -210,10 +210,10 @@ export function Home(): JSX.Element {
               <Link to="/loops" style={styles.link}>View Loops</Link> - Active work units
             </li>
             <li style={styles.listItem}>
-              <Link to="/prompt" style={styles.link}>Prompt Loop</Link> - Run a prompt through the governed loop
+              <Link to="/prompts" style={styles.link}>Prompts</Link> - Run a prompt through a governed loop
             </li>
             <li style={styles.listItem}>
-              <Link to="/evidence" style={styles.link}>Evidence</Link> - Oracle outputs
+              <Link to="/artifacts" style={styles.link}>Artifacts</Link> - Oracle outputs
             </li>
             <li style={styles.listItem}>
               <Link to="/approvals" style={styles.link}>Approvals</Link> - Portal decisions

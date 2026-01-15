@@ -1,0 +1,46 @@
+# Additional assets to add to metadata.yml for support matrices
+
+# Matrix J - Extraction from B
+- id: phase1_j_extract
+  path: phase1/J/extract.md
+  sha256: pending_user_authoring
+  version: "1.0.0"
+  size_bytes: null
+  last_modified: "2024-01-10"
+  description: "Extract Matrix J from Matrix B (remove wisdom row)"
+
+# Matrix K - Transpose of D  
+- id: phase1_k_transform
+  path: phase1/K/transform.md
+  sha256: pending_user_authoring
+  version: "1.0.0"
+  size_bytes: null
+  last_modified: "2024-01-10"
+  description: "Transform Matrix D to Matrix K via transpose"
+
+# Matrix G - Extract from Z
+- id: phase1_g_extract
+  path: phase1/G/extract.md
+  sha256: pending_user_authoring
+  version: "1.0.0"
+  size_bytes: null
+  last_modified: "2024-01-10"
+  description: "Extract Matrix G from Matrix Z (first 3 rows)"
+
+# Matrix P - Extract from Z
+- id: phase1_p_extract
+  path: phase1/P/extract.md
+  sha256: pending_user_authoring
+  version: "1.0.0"
+  size_bytes: null
+  last_modified: "2024-01-10"
+  description: "Extract Matrix P from Matrix Z (fourth row)"
+
+# Matrix T - Transpose of J
+- id: phase1_t_transform
+  path: phase1/T/transform.md
+  sha256: pending_user_authoring
+  version: "1.0.0"
+  size_bytes: null
+  last_modified: "2024-01-10"
+  description: "Transform Matrix J to Matrix T via transpose"

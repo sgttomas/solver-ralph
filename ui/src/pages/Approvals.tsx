@@ -3,13 +3,15 @@
  *
  * Full portal workflows UI for human governance decisions:
  * - Approvals: binding decisions at portal touchpoints (HUMAN-only per SR-CONTRACT C-TB-3)
- * - Exceptions: deviations, deferrals, waivers (HUMAN-only per SR-SPEC §1.8)
+ * - Exceptions: deviations, deferrals, waivers (HUMAN-only per SR-SPEC 1.8)
  * - Decisions: precedent-setting judgments (HUMAN-only per SR-CONTRACT C-DEC-1)
  */
 
 import { useState, useEffect, useCallback, FormEvent } from 'react';
 import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
+import { Card, Pill, Button, getStatusTone, truncate } from '../ui';
+import styles from '../styles/pages.module.css';
 
 // ============================================================================
 // Types
@@ -57,215 +59,6 @@ interface Decision {
   decided_by: ActorInfo;
   decided_at: string;
 }
-
-// ============================================================================
-// Styles
-// ============================================================================
-
-const styles = {
-  container: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1.5rem',
-  },
-  title: {
-    margin: 0,
-    fontSize: '1.5rem',
-    color: '#1a1a2e',
-  },
-  tabs: {
-    display: 'flex',
-    gap: '0.5rem',
-    marginBottom: '1.5rem',
-  },
-  tab: {
-    padding: '0.5rem 1rem',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    transition: 'background-color 0.2s',
-  },
-  tabActive: {
-    backgroundColor: '#1a1a2e',
-    color: 'white',
-  },
-  tabInactive: {
-    backgroundColor: '#e5e5e5',
-    color: '#333',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    marginBottom: '1.5rem',
-  },
-  cardTitle: {
-    margin: '0 0 1rem 0',
-    fontSize: '1rem',
-    color: '#1a1a2e',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-  },
-  th: {
-    textAlign: 'left' as const,
-    padding: '0.75rem',
-    borderBottom: '2px solid #e5e5e5',
-    color: '#666',
-    fontSize: '0.75rem',
-    textTransform: 'uppercase' as const,
-  },
-  td: {
-    padding: '0.75rem',
-    borderBottom: '1px solid #e5e5e5',
-    fontSize: '0.875rem',
-  },
-  statusBadge: {
-    display: 'inline-block',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.75rem',
-    fontWeight: 500,
-  },
-  placeholder: {
-    textAlign: 'center' as const,
-    padding: '3rem',
-    color: '#666',
-  },
-  note: {
-    backgroundColor: '#fff3cd',
-    padding: '1rem',
-    borderRadius: '4px',
-    marginBottom: '1.5rem',
-    fontSize: '0.875rem',
-    color: '#856404',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '1rem',
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '0.5rem',
-  },
-  formRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1rem',
-  },
-  label: {
-    fontSize: '0.875rem',
-    fontWeight: 500,
-    color: '#333',
-  },
-  input: {
-    padding: '0.5rem 0.75rem',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    fontSize: '0.875rem',
-  },
-  select: {
-    padding: '0.5rem 0.75rem',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    fontSize: '0.875rem',
-    backgroundColor: 'white',
-  },
-  textarea: {
-    padding: '0.5rem 0.75rem',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    fontSize: '0.875rem',
-    minHeight: '100px',
-    resize: 'vertical' as const,
-    fontFamily: 'inherit',
-  },
-  button: {
-    padding: '0.75rem 1.5rem',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '0.875rem',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  buttonPrimary: {
-    backgroundColor: '#1a1a2e',
-    color: 'white',
-  },
-  buttonSecondary: {
-    backgroundColor: '#e5e5e5',
-    color: '#333',
-  },
-  buttonDanger: {
-    backgroundColor: '#dc3545',
-    color: 'white',
-  },
-  buttonSmall: {
-    padding: '0.25rem 0.5rem',
-    fontSize: '0.75rem',
-  },
-  buttonRow: {
-    display: 'flex',
-    gap: '0.5rem',
-    justifyContent: 'flex-end',
-  },
-  error: {
-    color: '#dc3545',
-    fontSize: '0.875rem',
-    padding: '0.5rem',
-    backgroundColor: '#f8d7da',
-    borderRadius: '4px',
-  },
-  success: {
-    color: '#155724',
-    fontSize: '0.875rem',
-    padding: '0.5rem',
-    backgroundColor: '#d4edda',
-    borderRadius: '4px',
-  },
-  monospace: {
-    fontFamily: 'monospace',
-    fontSize: '0.75rem',
-    backgroundColor: '#f5f5f5',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-  },
-  actionLink: {
-    color: '#0066cc',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '0.75rem',
-    padding: '0.25rem 0.5rem',
-    textDecoration: 'underline',
-  },
-};
-
-const statusColors: Record<string, { bg: string; color: string }> = {
-  APPROVED: { bg: '#d4edda', color: '#155724' },
-  REJECTED: { bg: '#f8d7da', color: '#721c24' },
-  DEFERRED: { bg: '#fff3cd', color: '#856404' },
-  CREATED: { bg: '#e2e3e5', color: '#383d41' },
-  ACTIVE: { bg: '#cce5ff', color: '#004085' },
-  RESOLVED: { bg: '#d4edda', color: '#155724' },
-  EXPIRED: { bg: '#e2e3e5', color: '#383d41' },
-  DEVIATION: { bg: '#fff3cd', color: '#856404' },
-  DEFERRAL: { bg: '#cce5ff', color: '#004085' },
-  WAIVER: { bg: '#f8d7da', color: '#721c24' },
-};
 
 // ============================================================================
 // Tab Types
@@ -584,35 +377,24 @@ export function Approvals(): JSX.Element {
   // Render Helpers
   // ============================================================================
 
-  const renderStatusBadge = (status: string) => {
-    const style = statusColors[status] || { bg: '#e2e3e5', color: '#383d41' };
-    return (
-      <span style={{ ...styles.statusBadge, backgroundColor: style.bg, color: style.color }}>
-        {status}
-      </span>
-    );
-  };
-
   const renderApprovalsTab = () => (
     <>
-      <div style={styles.card}>
-        <div style={styles.cardTitle}>
-          <span>Record Approval</span>
-          <button
-            style={{ ...styles.button, ...styles.buttonSecondary, ...styles.buttonSmall }}
-            onClick={() => setShowApprovalForm(!showApprovalForm)}
-          >
+      <Card
+        title="Record Approval"
+        right={
+          <Button variant="secondary" onClick={() => setShowApprovalForm(!showApprovalForm)}>
             {showApprovalForm ? 'Cancel' : 'New Approval'}
-          </button>
-        </div>
-
+          </Button>
+        }
+        className={styles.cardSpacing}
+      >
         {showApprovalForm && (
-          <form style={styles.form} onSubmit={handleSubmitApproval}>
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Portal ID *</label>
+          <form className={styles.form} onSubmit={handleSubmitApproval}>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Portal ID *</label>
                 <input
-                  style={styles.input}
+                  className={styles.input}
                   type="text"
                   placeholder="e.g., portal:intake-acceptance"
                   value={approvalPortalId}
@@ -620,10 +402,10 @@ export function Approvals(): JSX.Element {
                   required
                 />
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Decision *</label>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Decision *</label>
                 <select
-                  style={styles.select}
+                  className={styles.select}
                   value={approvalDecision}
                   onChange={e => setApprovalDecision(e.target.value)}
                 >
@@ -634,21 +416,21 @@ export function Approvals(): JSX.Element {
               </div>
             </div>
 
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Subject Type</label>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Subject Type</label>
                 <input
-                  style={styles.input}
+                  className={styles.input}
                   type="text"
                   placeholder="e.g., Candidate, Intake"
                   value={approvalSubjectKind}
                   onChange={e => setApprovalSubjectKind(e.target.value)}
                 />
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Subject ID</label>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Subject ID</label>
                 <input
-                  style={styles.input}
+                  className={styles.input}
                   type="text"
                   placeholder="e.g., cand_abc123"
                   value={approvalSubjectId}
@@ -657,10 +439,10 @@ export function Approvals(): JSX.Element {
               </div>
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Evidence Refs (comma-separated hashes)</label>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Artifact Refs (comma-separated hashes)</label>
               <input
-                style={styles.input}
+                className={styles.input}
                 type="text"
                 placeholder="sha256:abc123, sha256:def456"
                 value={approvalEvidenceRefs}
@@ -668,10 +450,10 @@ export function Approvals(): JSX.Element {
               />
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Rationale *</label>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Rationale *</label>
               <textarea
-                style={styles.textarea}
+                className={styles.textarea}
                 placeholder="Explain the decision rationale..."
                 value={approvalRationale}
                 onChange={e => setApprovalRationale(e.target.value)}
@@ -679,94 +461,85 @@ export function Approvals(): JSX.Element {
               />
             </div>
 
-            <div style={styles.buttonRow}>
-              <button
-                type="button"
-                style={{ ...styles.button, ...styles.buttonSecondary }}
-                onClick={resetApprovalForm}
-              >
+            <div className={styles.buttonRow}>
+              <Button variant="secondary" type="button" onClick={resetApprovalForm}>
                 Cancel
-              </button>
-              <button type="submit" style={{ ...styles.button, ...styles.buttonPrimary }}>
+              </Button>
+              <Button variant="primary" type="submit">
                 Record Approval
-              </button>
+              </Button>
             </div>
           </form>
         )}
-      </div>
+      </Card>
 
-      <div style={styles.card}>
-        <h2 style={styles.cardTitle}>Recorded Approvals</h2>
+      <Card title="Recorded Approvals">
         {approvals.length === 0 ? (
-          <div style={styles.placeholder}>
-            <p>No approvals recorded.</p>
-            <p style={{ fontSize: '0.875rem', color: '#999' }}>
+          <div className={styles.placeholder}>
+            <p className={styles.placeholderText}>No approvals recorded.</p>
+            <p className={styles.placeholderHint}>
               Approvals bind candidates to freeze baselines at portal touchpoints.
             </p>
           </div>
         ) : (
-          <table style={styles.table}>
+          <table className={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>ID</th>
-                <th style={styles.th}>Portal</th>
-                <th style={styles.th}>Decision</th>
-                <th style={styles.th}>Actor</th>
-                <th style={styles.th}>Rationale</th>
-                <th style={styles.th}>Recorded</th>
+                <th className={styles.th}>ID</th>
+                <th className={styles.th}>Portal</th>
+                <th className={styles.th}>Decision</th>
+                <th className={styles.th}>Actor</th>
+                <th className={styles.th}>Rationale</th>
+                <th className={styles.th}>Recorded</th>
               </tr>
             </thead>
             <tbody>
               {approvals.map(approval => (
                 <tr key={approval.approval_id}>
-                  <td style={styles.td}>
-                    <code style={styles.monospace}>{approval.approval_id.substring(0, 12)}...</code>
+                  <td className={styles.td}>
+                    <code className={styles.mono}>{approval.approval_id.substring(0, 12)}...</code>
                   </td>
-                  <td style={styles.td}>{approval.portal_id}</td>
-                  <td style={styles.td}>{renderStatusBadge(approval.decision)}</td>
-                  <td style={styles.td}>
-                    <span style={{ fontSize: '0.75rem', color: '#666' }}>
+                  <td className={styles.td}>{approval.portal_id}</td>
+                  <td className={styles.td}>
+                    <Pill tone={getStatusTone(approval.decision)}>{approval.decision}</Pill>
+                  </td>
+                  <td className={styles.td}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                       [{approval.approved_by.kind}]
                     </span>{' '}
                     {approval.approved_by.id.substring(0, 12)}...
                   </td>
-                  <td style={styles.td}>
-                    {approval.rationale
-                      ? approval.rationale.length > 50
-                        ? `${approval.rationale.substring(0, 50)}...`
-                        : approval.rationale
-                      : '-'}
+                  <td className={styles.td}>
+                    {approval.rationale ? truncate(approval.rationale, 50) : '-'}
                   </td>
-                  <td style={styles.td}>{new Date(approval.approved_at).toLocaleString()}</td>
+                  <td className={styles.td}>{new Date(approval.approved_at).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
     </>
   );
 
   const renderExceptionsTab = () => (
     <>
-      <div style={styles.card}>
-        <div style={styles.cardTitle}>
-          <span>Create Exception</span>
-          <button
-            style={{ ...styles.button, ...styles.buttonSecondary, ...styles.buttonSmall }}
-            onClick={() => setShowExceptionForm(!showExceptionForm)}
-          >
+      <Card
+        title="Create Exception"
+        right={
+          <Button variant="secondary" onClick={() => setShowExceptionForm(!showExceptionForm)}>
             {showExceptionForm ? 'Cancel' : 'New Exception'}
-          </button>
-        </div>
-
+          </Button>
+        }
+        className={styles.cardSpacing}
+      >
         {showExceptionForm && (
-          <form style={styles.form} onSubmit={handleSubmitException}>
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Exception Kind *</label>
+          <form className={styles.form} onSubmit={handleSubmitException}>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Exception Kind *</label>
                 <select
-                  style={styles.select}
+                  className={styles.select}
                   value={exceptionKind}
                   onChange={e => setExceptionKind(e.target.value)}
                 >
@@ -775,10 +548,10 @@ export function Approvals(): JSX.Element {
                   <option value="WAIVER">WAIVER - Bypassed oracle check (non-integrity)</option>
                 </select>
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Target Description</label>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Target Description</label>
                 <input
-                  style={styles.input}
+                  className={styles.input}
                   type="text"
                   placeholder="What is being excepted..."
                   value={exceptionTarget}
@@ -787,21 +560,21 @@ export function Approvals(): JSX.Element {
               </div>
             </div>
 
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Loop ID (optional)</label>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Loop ID (optional)</label>
                 <input
-                  style={styles.input}
+                  className={styles.input}
                   type="text"
                   placeholder="loop_abc123"
                   value={exceptionLoopId}
                   onChange={e => setExceptionLoopId(e.target.value)}
                 />
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Candidate ID (optional)</label>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Candidate ID (optional)</label>
                 <input
-                  style={styles.input}
+                  className={styles.input}
                   type="text"
                   placeholder="cand_abc123"
                   value={exceptionCandidateId}
@@ -810,21 +583,21 @@ export function Approvals(): JSX.Element {
               </div>
             </div>
 
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Oracle ID (optional)</label>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Oracle ID (optional)</label>
                 <input
-                  style={styles.input}
+                  className={styles.input}
                   type="text"
                   placeholder="oracle:schema_compliance"
                   value={exceptionOracleId}
                   onChange={e => setExceptionOracleId(e.target.value)}
                 />
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Expires At (optional)</label>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Expires At (optional)</label>
                 <input
-                  style={styles.input}
+                  className={styles.input}
                   type="datetime-local"
                   value={exceptionExpiresAt}
                   onChange={e => setExceptionExpiresAt(e.target.value)}
@@ -832,10 +605,10 @@ export function Approvals(): JSX.Element {
               </div>
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Rationale *</label>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Rationale *</label>
               <textarea
-                style={styles.textarea}
+                className={styles.textarea}
                 placeholder="Explain why this exception is necessary..."
                 value={exceptionRationale}
                 onChange={e => setExceptionRationale(e.target.value)}
@@ -843,73 +616,72 @@ export function Approvals(): JSX.Element {
               />
             </div>
 
-            <div style={{ ...styles.note, marginTop: '0.5rem' }}>
+            <div className={styles.note}>
               <strong>Warning:</strong> Waivers cannot target integrity conditions (ORACLE_TAMPER,
               ORACLE_GAP, ORACLE_ENV_MISMATCH, ORACLE_FLAKE, EVIDENCE_MISSING).
             </div>
 
-            <div style={styles.buttonRow}>
-              <button
-                type="button"
-                style={{ ...styles.button, ...styles.buttonSecondary }}
-                onClick={resetExceptionForm}
-              >
+            <div className={styles.buttonRow}>
+              <Button variant="secondary" type="button" onClick={resetExceptionForm}>
                 Cancel
-              </button>
-              <button type="submit" style={{ ...styles.button, ...styles.buttonPrimary }}>
+              </Button>
+              <Button variant="primary" type="submit">
                 Create Exception
-              </button>
+              </Button>
             </div>
           </form>
         )}
-      </div>
+      </Card>
 
-      <div style={styles.card}>
-        <h2 style={styles.cardTitle}>Exceptions</h2>
+      <Card title="Exceptions">
         {exceptions.length === 0 ? (
-          <div style={styles.placeholder}>
-            <p>No exceptions recorded.</p>
-            <p style={{ fontSize: '0.875rem', color: '#999' }}>
-              Exceptions are narrowly scoped permissions to deviate from governing documents.
+          <div className={styles.placeholder}>
+            <p className={styles.placeholderText}>No exceptions recorded.</p>
+            <p className={styles.placeholderHint}>
+              Exceptions are narrowly scoped permissions to deviate from governing context.
             </p>
           </div>
         ) : (
-          <table style={styles.table}>
+          <table className={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>ID</th>
-                <th style={styles.th}>Kind</th>
-                <th style={styles.th}>Status</th>
-                <th style={styles.th}>Target</th>
-                <th style={styles.th}>Created By</th>
-                <th style={styles.th}>Created</th>
-                <th style={styles.th}>Actions</th>
+                <th className={styles.th}>ID</th>
+                <th className={styles.th}>Kind</th>
+                <th className={styles.th}>Status</th>
+                <th className={styles.th}>Target</th>
+                <th className={styles.th}>Created By</th>
+                <th className={styles.th}>Created</th>
+                <th className={styles.th}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {exceptions.map(exception => (
                 <tr key={exception.exception_id}>
-                  <td style={styles.td}>
-                    <code style={styles.monospace}>
+                  <td className={styles.td}>
+                    <code className={styles.mono}>
                       {exception.exception_id.substring(0, 12)}...
                     </code>
                   </td>
-                  <td style={styles.td}>{renderStatusBadge(exception.kind)}</td>
-                  <td style={styles.td}>{renderStatusBadge(exception.status)}</td>
-                  <td style={styles.td}>
+                  <td className={styles.td}>
+                    <Pill tone={getStatusTone(exception.kind)}>{exception.kind}</Pill>
+                  </td>
+                  <td className={styles.td}>
+                    <Pill tone={getStatusTone(exception.status)}>{exception.status}</Pill>
+                  </td>
+                  <td className={styles.td}>
                     {exception.target_description || '-'}
                   </td>
-                  <td style={styles.td}>
-                    <span style={{ fontSize: '0.75rem', color: '#666' }}>
+                  <td className={styles.td}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                       [{exception.created_by.kind}]
                     </span>{' '}
                     {exception.created_by.id.substring(0, 12)}...
                   </td>
-                  <td style={styles.td}>{new Date(exception.created_at).toLocaleString()}</td>
-                  <td style={styles.td}>
+                  <td className={styles.td}>{new Date(exception.created_at).toLocaleString()}</td>
+                  <td className={styles.td}>
                     {exception.status === 'CREATED' && (
                       <button
-                        style={styles.actionLink}
+                        className={styles.actionLink}
                         onClick={() => handleActivateException(exception.exception_id)}
                       >
                         Activate
@@ -917,7 +689,7 @@ export function Approvals(): JSX.Element {
                     )}
                     {exception.status === 'ACTIVE' && (
                       <button
-                        style={styles.actionLink}
+                        className={styles.actionLink}
                         onClick={() => handleResolveException(exception.exception_id)}
                       >
                         Resolve
@@ -929,29 +701,27 @@ export function Approvals(): JSX.Element {
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
     </>
   );
 
   const renderDecisionsTab = () => (
     <>
-      <div style={styles.card}>
-        <div style={styles.cardTitle}>
-          <span>Record Decision</span>
-          <button
-            style={{ ...styles.button, ...styles.buttonSecondary, ...styles.buttonSmall }}
-            onClick={() => setShowDecisionForm(!showDecisionForm)}
-          >
+      <Card
+        title="Record Decision"
+        right={
+          <Button variant="secondary" onClick={() => setShowDecisionForm(!showDecisionForm)}>
             {showDecisionForm ? 'Cancel' : 'New Decision'}
-          </button>
-        </div>
-
+          </Button>
+        }
+        className={styles.cardSpacing}
+      >
         {showDecisionForm && (
-          <form style={styles.form} onSubmit={handleSubmitDecision}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Trigger *</label>
+          <form className={styles.form} onSubmit={handleSubmitDecision}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Trigger *</label>
               <input
-                style={styles.input}
+                className={styles.input}
                 type="text"
                 placeholder="What triggered this decision point..."
                 value={decisionTrigger}
@@ -960,10 +730,10 @@ export function Approvals(): JSX.Element {
               />
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Decision *</label>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Decision *</label>
               <input
-                style={styles.input}
+                className={styles.input}
                 type="text"
                 placeholder="The decision made..."
                 value={decisionValue}
@@ -972,10 +742,10 @@ export function Approvals(): JSX.Element {
               />
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Rationale *</label>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Rationale *</label>
               <textarea
-                style={styles.textarea}
+                className={styles.textarea}
                 placeholder="Explain the reasoning behind this decision..."
                 value={decisionRationale}
                 onChange={e => setDecisionRationale(e.target.value)}
@@ -983,25 +753,22 @@ export function Approvals(): JSX.Element {
               />
             </div>
 
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  <input
-                    type="checkbox"
-                    checked={decisionIsPrecedent}
-                    onChange={e => setDecisionIsPrecedent(e.target.checked)}
-                    style={{ marginRight: '0.5rem' }}
-                  />
-                  This decision sets precedent
-                </label>
-              </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space2)' }}>
+                <input
+                  type="checkbox"
+                  checked={decisionIsPrecedent}
+                  onChange={e => setDecisionIsPrecedent(e.target.checked)}
+                />
+                This decision sets precedent
+              </label>
             </div>
 
             {decisionIsPrecedent && (
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Applicability Clause</label>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Applicability Clause</label>
                 <textarea
-                  style={styles.textarea}
+                  className={styles.textarea}
                   placeholder="When does this precedent apply..."
                   value={decisionApplicability}
                   onChange={e => setDecisionApplicability(e.target.value)}
@@ -1009,89 +776,68 @@ export function Approvals(): JSX.Element {
               </div>
             )}
 
-            <div style={styles.buttonRow}>
-              <button
-                type="button"
-                style={{ ...styles.button, ...styles.buttonSecondary }}
-                onClick={resetDecisionForm}
-              >
+            <div className={styles.buttonRow}>
+              <Button variant="secondary" type="button" onClick={resetDecisionForm}>
                 Cancel
-              </button>
-              <button type="submit" style={{ ...styles.button, ...styles.buttonPrimary }}>
+              </Button>
+              <Button variant="primary" type="submit">
                 Record Decision
-              </button>
+              </Button>
             </div>
           </form>
         )}
-      </div>
+      </Card>
 
-      <div style={styles.card}>
-        <h2 style={styles.cardTitle}>Recorded Decisions</h2>
+      <Card title="Recorded Decisions">
         {decisions.length === 0 ? (
-          <div style={styles.placeholder}>
-            <p>No decisions recorded.</p>
-            <p style={{ fontSize: '0.875rem', color: '#999' }}>
+          <div className={styles.placeholder}>
+            <p className={styles.placeholderText}>No decisions recorded.</p>
+            <p className={styles.placeholderHint}>
               Decisions record binding human judgments and may set precedent for future governance.
             </p>
           </div>
         ) : (
-          <table style={styles.table}>
+          <table className={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>ID</th>
-                <th style={styles.th}>Trigger</th>
-                <th style={styles.th}>Decision</th>
-                <th style={styles.th}>Precedent</th>
-                <th style={styles.th}>Decided By</th>
-                <th style={styles.th}>Date</th>
+                <th className={styles.th}>ID</th>
+                <th className={styles.th}>Trigger</th>
+                <th className={styles.th}>Decision</th>
+                <th className={styles.th}>Precedent</th>
+                <th className={styles.th}>Decided By</th>
+                <th className={styles.th}>Date</th>
               </tr>
             </thead>
             <tbody>
               {decisions.map(decision => (
                 <tr key={decision.decision_id}>
-                  <td style={styles.td}>
-                    <code style={styles.monospace}>
+                  <td className={styles.td}>
+                    <code className={styles.mono}>
                       {decision.decision_id.substring(0, 12)}...
                     </code>
                   </td>
-                  <td style={styles.td}>
-                    {decision.trigger.length > 30
-                      ? `${decision.trigger.substring(0, 30)}...`
-                      : decision.trigger}
-                  </td>
-                  <td style={styles.td}>
-                    {decision.decision.length > 30
-                      ? `${decision.decision.substring(0, 30)}...`
-                      : decision.decision}
-                  </td>
-                  <td style={styles.td}>
+                  <td className={styles.td}>{truncate(decision.trigger, 30)}</td>
+                  <td className={styles.td}>{truncate(decision.decision, 30)}</td>
+                  <td className={styles.td}>
                     {decision.is_precedent ? (
-                      <span
-                        style={{
-                          ...styles.statusBadge,
-                          backgroundColor: '#cce5ff',
-                          color: '#004085',
-                        }}
-                      >
-                        Yes
-                      </span>
+                      <Pill tone="success">Yes</Pill>
                     ) : (
                       '-'
                     )}
                   </td>
-                  <td style={styles.td}>
-                    <span style={{ fontSize: '0.75rem', color: '#666' }}>
+                  <td className={styles.td}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                       [{decision.decided_by.kind}]
                     </span>{' '}
                     {decision.decided_by.id.substring(0, 12)}...
                   </td>
-                  <td style={styles.td}>{new Date(decision.decided_at).toLocaleString()}</td>
+                  <td className={styles.td}>{new Date(decision.decided_at).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
     </>
   );
 
@@ -1100,26 +846,23 @@ export function Approvals(): JSX.Element {
   // ============================================================================
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Portal Workflows</h1>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h1 className={styles.title}>Portal Workflows</h1>
       </div>
 
-      <div style={styles.note}>
+      <div className={styles.note}>
         <strong>Governance Note:</strong> Per SR-CONTRACT, all portal actions require HUMAN actor
-        kind. Approvals (C-TB-3), exceptions (§1.8), and decisions (C-DEC-1) are binding records.
+        kind. Approvals (C-TB-3), exceptions (1.8), and decisions (C-DEC-1) are binding records.
         Waivers cannot target integrity conditions.
       </div>
 
-      {error && <div style={styles.error}>{error}</div>}
-      {success && <div style={styles.success}>{success}</div>}
+      {error && <div className={styles.error}>{error}</div>}
+      {success && <div className={styles.success}>{success}</div>}
 
-      <div style={styles.tabs}>
+      <div className={styles.tabs}>
         <button
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'approvals' ? styles.tabActive : styles.tabInactive),
-          }}
+          className={`${styles.tab} ${activeTab === 'approvals' ? styles.tabActive : ''}`}
           onClick={() => {
             setActiveTab('approvals');
             clearMessages();
@@ -1128,10 +871,7 @@ export function Approvals(): JSX.Element {
           Approvals ({approvals.length})
         </button>
         <button
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'exceptions' ? styles.tabActive : styles.tabInactive),
-          }}
+          className={`${styles.tab} ${activeTab === 'exceptions' ? styles.tabActive : ''}`}
           onClick={() => {
             setActiveTab('exceptions');
             clearMessages();
@@ -1140,10 +880,7 @@ export function Approvals(): JSX.Element {
           Exceptions ({exceptions.length})
         </button>
         <button
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'decisions' ? styles.tabActive : styles.tabInactive),
-          }}
+          className={`${styles.tab} ${activeTab === 'decisions' ? styles.tabActive : ''}`}
           onClick={() => {
             setActiveTab('decisions');
             clearMessages();
@@ -1154,11 +891,11 @@ export function Approvals(): JSX.Element {
       </div>
 
       {loading ? (
-        <div style={styles.card}>
-          <div style={styles.placeholder}>
-            <p>Loading portal data...</p>
+        <Card>
+          <div className={styles.placeholder}>
+            <p className={styles.placeholderText}>Loading portal data...</p>
           </div>
-        </div>
+        </Card>
       ) : (
         <>
           {activeTab === 'approvals' && renderApprovalsTab()}

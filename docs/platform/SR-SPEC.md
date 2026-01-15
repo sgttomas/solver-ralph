@@ -1269,6 +1269,31 @@ All endpoints are under `/api/v1`.
 
 - `GET /records/{record_id}` → Query record
 
+#### 2.3.11 Oracle Registry
+
+Per SR-SEMANTIC-ORACLE-SPEC: Oracle suites emit structured semantic measurements about Candidates. Suite hashes incorporate all oracle definitions for deterministic evidence binding.
+
+- `GET /oracles/suites` → List registered oracle suites
+  Returns: `{ suites: [{ suite_id, suite_hash, oracle_count, oci_image, network_mode, runtime, semantic_set_id? }], total }`
+
+- `GET /oracles/suites/{suite_id}` → Get suite detail with oracles
+  Returns full `OracleSuiteDefinition` including environment constraints and oracle list
+
+- `POST /oracles/suites` → Register a new oracle suite
+  Body: `{ suite_id, oci_image, oci_image_digest, environment_constraints, oracles[], metadata? }`
+  **Constraint:** `suite_id` MUST start with `suite:`
+  **Constraint:** Suite hash is computed deterministically from oracle definitions
+
+- `GET /oracles/profiles` → List verification profiles
+  Returns: `{ profiles: [{ profile_id, name, description, required_suite_count, applicable_deliverable_count }], total }`
+
+- `GET /oracles/profiles/{profile_id}` → Get profile detail
+  Returns: `{ profile_id, name, description, required_suites[], optional_suites[], waivable_failures[], integrity_conditions[], applicable_deliverables[], metadata }`
+
+- `POST /oracles/profiles` → Register a new verification profile
+  Body: `{ profile_id, name, description, required_suites[], optional_suites?, waivable_failures?, integrity_conditions?, applicable_deliverables[], metadata? }`
+  **Constraint:** `profile_id` MUST start with `profile:`
+
 
 ### 2.4 API response conventions
 

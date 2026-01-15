@@ -1,0 +1,96 @@
+/* StateTransitionButton Component Styles */
+
+.container {
+  position: relative;
+}
+
+.buttons {
+  display: flex;
+  gap: var(--space2);
+}
+
+.compactButtons {
+  display: flex;
+  gap: var(--space1);
+}
+
+.compactButton {
+  padding: var(--space1) var(--space2);
+  font-size: 0.75rem;
+}
+
+.smallButton {
+  padding: var(--space1) var(--space2);
+  font-size: 0.6875rem;
+}
+
+.noActions {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Overlay */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Dialog */
+.dialog {
+  background: white;
+  border-radius: var(--radiusMd);
+  padding: var(--space5);
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.dialogTitle {
+  margin: 0 0 var(--space3) 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.dialogMessage {
+  margin: 0 0 var(--space3) 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.dialogWarning {
+  margin: 0 0 var(--space3) 0;
+  padding: var(--space3);
+  background: color-mix(in srgb, var(--danger) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+  border-radius: var(--radiusSm);
+  font-size: 0.8125rem;
+  color: var(--danger);
+}
+
+.dialogError {
+  margin: 0 0 var(--space3) 0;
+  padding: var(--space3);
+  background: color-mix(in srgb, var(--danger) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+  border-radius: var(--radiusSm);
+  font-size: 0.8125rem;
+  color: var(--danger);
+}
+
+.dialogButtons {
+  display: flex;
+  gap: var(--space2);
+  justify-content: flex-end;
+  margin-top: var(--space4);
+}

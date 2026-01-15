@@ -54,880 +54,263 @@ Canonical index for the SR-* document set.
 | SR-EXCEPTIONS | `build-governance/` | Exception ledger |
 | SR-PLAN | `program/` | Build plan instance |
 | SR-DIRECTIVE | `program/` | Execution policy |
+| SR-TEMPLATES | `platform/` | User configuration registry |
 | SR-README | `charter/` | This index |
 
 
 
-## Development History Summary for this Deliverable
 
-## Outstanding QC Findings
+## Development Session Summary (2026-01-14)
 
-All deliverables (D-02 through D-41) are complete. All unit tests now pass.
+**Branch:** `solver-ralph-2`
 
-### ~~4 Failing Unit Tests in `sr-adapters`~~ RESOLVED
+### Completed Work
 
-Fixed in commit `6f4a260`:
-- `integrity.rs`: Reordered `ViolationSeverity` enum so Critical > High > Medium > Low
-- `evidence.rs`: Used fixed timestamp in `sample_manifest()` for deterministic tests
-- `worker.rs`: Fixed hash length assertion to account for "sha256:" prefix (71 chars)
-- `restricted.rs`: Added `#[ignore]` to test requiring Infisical service
+#### 1. UI Redesign Integration
+Integrated the Chirality AI governance console UI with existing functional pages:
+- Restored `AuthProvider` wrapper in `main.tsx`
+- Added auth check and loading state in `AppLayout.tsx`
+- Connected all functional pages in `routes.tsx` (Loops, LoopDetail, IterationDetail, CandidateDetail, Evidence, EvidenceDetail, Approvals, PromptLoop)
+- Added user info display and logout button to `Topbar.tsx`
+- Fixed ESLint errors in `AuthProvider.tsx` and `PromptLoop.tsx`
 
-### ~~1 TODO in Production Code~~ RESOLVED
+#### 2. Custom Logo
+- Added custom logo image (`ui/public/logo.png`) to replace the orange square placeholder in the sidebar
 
-Implemented in this session:
-- `governor.rs`: Added `pending_portal_approvals` tracking to `LoopTrackingState`
-- `StopTriggered` events now extract `recommended_portal` and track pending approvals
-- `ApprovalRecorded` events clear pending portal approvals for the related loop
-- `approvals_satisfied` now checks `pending_portal_approvals.is_empty()`
+#### 3. UI Terminology Updates
+Renamed user-facing labels throughout the UI to better reflect the platform's concepts:
 
-### D-01 (Governance Hygiene) Status
+| Old Term | New Term | Rationale |
+|----------|----------|-----------|
+| Loops | Workflows | Clearer terminology for workflow collections |
+| Prompt Loop | Tasks | Simplified name for the task interface |
+| Evidence | Artifacts | More general term for oracle outputs |
+| Documents | Context | Better reflects the purpose |
 
-D-01 was a **conditional deliverable**: "execute only if governance inconsistencies block implementation or introduce drift risk." No governance blockers were encountered during the build phase, so D-01 was correctly skipped.
+#### 4. Sidebar Navigation Reordering
+Final sidebar order (top to bottom):
+1. Overview
+2. Agents
+3. Protocols
+4. Workflows
+5. Tasks
+6. Context
+7. Artifacts
+8. Approvals
+9. Audit Log
+10. Settings
 
+### Quality Status
+- TypeScript type-check: PASS
+- ESLint: PASS
+- UI build: PASS
+- Rust tests: 27 passed, 0 failed
+- E2E harness tests: 16 passed, 0 failed
 
-### Session 24 (2026-01-14)
-**Focus:** UI Prompt Loop + Streaming LLM Integration
+### Commits (chronological)
+1. `1151fa1` - Integrate Chirality AI UI with functional pages and auth
+2. `917fbc8` - Fix ESLint errors in AuthProvider and PromptLoop
+3. `989362d` - Add custom logo to sidebar
+4. `abfbb63` - Rename UI labels: Loops→Workflows, Prompt Loop→Tasks
+5. `bedf193` - Rename loop references to task on Task page
+6. `07a6ae7` - Update search placeholder: loops → workflows
+7. `6668e22` - Rename Evidence to Artifacts throughout UI
+8. `6627184` - Rename Documents to Context in UI
+9. `3befa4e` - Reorder sidebar navigation items
 
-**What was done:**
-
-UI Prompt Loop Page (`/prompt` route):
-- Fixed blank white page issue when accessing `/prompt` in dev bypass mode
-- Created custom `useAuth` hook in `AuthProvider.tsx` that returns mock auth context when `VITE_DEV_AUTH_BYPASS=true`
-- Updated all page components to use custom hook instead of `react-oidc-context` directly
-- Files updated: `AuthProvider.tsx`, `ProtectedRoute.tsx`, `Layout.tsx`, all page files in `pages/`
-
-Streaming LLM Endpoint (Backend):
-- Added `POST /api/v1/prompt-loop/stream` SSE endpoint in `prompt_loop.rs`
-- Stream event types: `start` (loop/iteration IDs, hashes), `chunk` (content), `done` (candidate/run/evidence), `error`
-- Uses `axum::response::Sse` with `async-stream` for SSE generation
-- Consumes OpenAI-compatible streaming API with `reqwest` stream feature
-- Added `tokio-stream` and `async-stream` dependencies to `sr-api`
-
-Frontend Streaming:
-- Complete rewrite of `PromptLoop.tsx` for SSE consumption
-- Uses `fetch` with `ReadableStream` to consume SSE events
-- Progressive artifact display: loop/iteration first, then candidate/run/evidence on completion
-- Auto-scroll output, streaming indicator, cancel button support
-
-Configuration Fixes:
-- Fixed `config.rs` to recognize `SR_AUTH_TEST_MODE` env var (was only checking `SR_OIDC_SKIP_VALIDATION`)
-- Model field in UI properly flows through to LLM config with priority: UI > `SR_LLM_MODEL` env > default
-
-Error Handling Improvements:
-- Removed `temperature` parameter from LLM requests (not supported by o1 model family)
-- Added proper error body parsing for OpenAI responses to show actual error messages instead of generic "400 Bad Request"
-
-**Files modified:**
-- `crates/sr-api/src/config.rs` - Auth test mode recognition
-- `crates/sr-api/src/handlers/prompt_loop.rs` - Streaming endpoint, error handling
-- `crates/sr-api/src/handlers/mod.rs` - Export streaming handler
-- `crates/sr-api/src/main.rs` - Route wiring
-- `crates/sr-api/Cargo.toml` - tokio-stream, async-stream dependencies
-- `Cargo.toml` (workspace) - reqwest stream feature
-- `ui/src/auth/AuthProvider.tsx` - Custom useAuth hook with dev bypass support
-- `ui/src/auth/ProtectedRoute.tsx` - Updated import
-- `ui/src/components/Layout.tsx` - Updated import
-- `ui/src/pages/PromptLoop.tsx` - Full streaming UI implementation
-- Multiple page files updated for custom useAuth hook
+### Notes
+- Dev auth bypass: `VITE_DEV_AUTH_BYPASS=true`
+- Backend auth bypass: `SR_AUTH_TEST_MODE=true`
+- The `src/pages/PromptLoop.tsx` is the FUNCTIONAL one with SSE streaming; `src/screens/PromptLoopScreen.tsx` is a wireframe (can be removed)
 
 ---
 
-### Session 23 (2026-01-13)
-**Completed:** D-26
+## Development Session Summary (2026-01-15)
 
-**What was done:**
+**Branch:** `solver-ralph-2`
 
-D-26: Integration/e2e oracle suite (DB/MinIO/NATS/API/UI)
-- Created sr-oracles crate with full oracle command implementations:
-  - integration command: Tests DB/MinIO/NATS/API connectivity with retries
-  - e2e command: Full end-to-end stack verification using sr-e2e-harness patterns
-  - Additional commands: meta-validate, refs-validate, report-build, report-tests, report-lint, schema-validate, integrity-smoke, replay-verify
+### Completed Work: Templates UI (Phase 1)
 
-- Flake control module (flake_control.rs):
-  - Configurable retry policies with exponential backoff
-  - Timeout policies per service type (database, object storage, message bus, API)
-  - Recording of all retry attempts for evidence bundles
-  - Per SR-PLAN D-26 acceptance criteria: "Flake controls exist (timeouts, retries policy) and are recorded"
+Implemented the Templates management page per SR-TEMPLATES.md, enabling users to browse, view, and instantiate templates from the 11 template categories.
 
-- Report structures (report.rs):
-  - IntegrationReport: Service-level test results with health status
-  - E2EReport: Scenario results with invariant checks and produced IDs
-  - ServiceTestResult, TestResult, ScenarioResult, StepResult, InvariantCheck
-  - Deterministic content hashing for evidence bundle compatibility
+#### 1. Backend API (Rust)
 
-- Integration test runner (integration.rs):
-  - PostgreSQL tests: connect, schema_exists, event_append, event_read, projection_query
-  - MinIO tests: connect, bucket_exists, upload, download
-  - NATS tests: connect, publish, jetstream
-  - API tests: health, info, loops_list
+Created new Template Registry API in `crates/sr-api/src/handlers/templates.rs`:
 
-- E2E test runner (e2e.rs):
-  - Happy path scenario (loop lifecycle)
-  - Failure mode scenarios (oracle failure, integrity tamper, exception waiver)
-  - Determinism verification via replay
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/templates` | List all template instances (filterable by category) |
+| GET | `/api/v1/templates/:id` | Get template instance detail with schema |
+| POST | `/api/v1/templates` | Create new template instance |
+| GET | `/api/v1/templates/schemas` | List all template schemas |
+| GET | `/api/v1/templates/schemas/:type_key` | Get schema detail |
 
-- Makefile targets: test-integration, test-e2e
+**Template Categories (7 user-facing tabs):**
+1. **Work Surface** - Intakes, Procedure Templates, Work Surface Instances
+2. **Execution** - Budget Configs, Gating Policies
+3. **Oracle** - Oracle Suite Definitions
+4. **Verification** - Verification Profiles
+5. **Semantic** - Semantic Sets
+6. **Context** - Iteration Context Refs
+7. **Exceptions** - Waivers, Deviations, Deferrals
 
-Per SR-PLAN D-26 acceptance criteria:
-- Suite can stand up the full stack and run e2e flows deterministically within tolerance ✓
-- Flake controls exist (timeouts, retries policy) and are recorded ✓
+#### 2. Frontend UI (React/TypeScript)
 
-**PKG-08 (Oracle suites) progress: D-24 ✓, D-25 ✓, D-26 ✓, D-27 ✓ - COMPLETE**
+| Page | Route | Features |
+|------|-------|----------|
+| `Templates.tsx` | `/templates` | Category tabs, schema browser with expandable fields, instance list |
+| `TemplateDetail.tsx` | `/templates/:category/:templateId` | Full schema info, field tables, references, raw JSON viewer |
 
-**Next deliverables:**
-- All Branch 0 MVP deliverables complete
-- Ready for integration testing with live stack
+#### 3. Files Created/Modified
 
----
+| File | Change |
+|------|--------|
+| `crates/sr-api/src/handlers/templates.rs` | NEW - Template registry (~600 lines) |
+| `crates/sr-api/src/handlers/mod.rs` | Export templates module |
+| `crates/sr-api/src/main.rs` | Add TemplateRegistryState, wire routes |
+| `ui/src/pages/Templates.tsx` | NEW - Templates list page |
+| `ui/src/pages/TemplateDetail.tsx` | NEW - Template detail page |
+| `ui/src/pages/index.ts` | Export new pages |
+| `ui/src/routes.tsx` | Add template routes |
+| `ui/src/layout/Sidebar.tsx` | Add Templates nav item |
 
-### Session 22 (2026-01-13)
-**Completed:** D-33
-
-**What was done:**
-
-D-33: Operational logging + minimal observability
-- Created observability module (sr-api/src/observability.rs) with:
-  - Request ID middleware for correlation tracking (x-request-id, x-correlation-id headers)
-  - RequestContext struct with request_id, correlation_id, started_at
-  - Metrics collection: requests_total, requests_success, requests_client_error, requests_server_error, avg_latency_ms
-  - MetricsState and metrics_endpoint handler for /api/v1/metrics
-  - ExtractRequestContext extractor for handlers
-  - 7 unit tests for metrics and request context
-
-- Updated main.rs with:
-  - Structured JSON logging (SR_LOG_FORMAT=json) for production environments
-  - Pretty logging (default) for development
-  - Request context middleware integration
-  - Metrics endpoint at /api/v1/metrics
-  - Service version and log format in startup logs
-
-- Fixed pre-existing compilation issues:
-  - Added base64 Engine import to infisical.rs, restricted.rs, evidence.rs
-  - Changed AppState to use concrete PostgresEventStore (trait object not dyn-compatible)
-  - Added Serialize derive to TokenClaims and various request structs
-  - Fixed borrow-after-move in auth.rs
-  - Added base64 dependency to sr-api
-
-Per SR-PLAN D-33 acceptance criteria:
-- Logs include request/trace identifiers (x-request-id, x-correlation-id headers)
-- Actor identity captured in spans via existing #[instrument] macros
-- Key state transitions logged with event IDs (existing pattern maintained)
-- Correlation IDs returned in response headers for distributed tracing
-
-**PKG-10 (Self-host instance) progress: D-31 ✓, D-32 ✓, D-33 ✓ - COMPLETE**
-
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-
+### Quality Status
+- Backend: `cargo build` PASS, 22 tests pass
+- Frontend: `npm run type-check && npm run build` PASS
 
 ---
 
-### Session 21 (2026-01-13)
-**Completed:** D-35
+## Completed Work: Templates UI (Phase 2) - Starter Templates
 
-**What was done:**
+### Overview
 
-D-35: End-to-end harness failure modes (integrity + exception)
-- Created failure_modes.rs module in sr-e2e-harness implementing three failure scenarios:
+Seeded the Templates registry with 11 starter reference templates demonstrating correct schema usage per SR-TEMPLATES. These are read-only examples users can clone.
 
-  1. Oracle Failure Flow (run_oracle_failure):
-     - Creates loop/iteration/candidate/run
-     - Uploads evidence with failing oracle results (FAIL verdict)
-     - Records run completion with FAILURE outcome
-     - Triggers stop condition (routes to Release Portal)
-     - Closes loop without freeze (approval blocked)
-     - Invariant: No silent progression (no approval/freeze created)
+### Starter Templates Created
 
-  2. Integrity Tamper Detection Flow (run_integrity_tamper):
-     - Creates evidence with tampered artifact hashes
-     - Detects ORACLE_TAMPER integrity violation
-     - Records explicit integrity failure event
-     - Routes to Security Review Portal (non-waivable)
-     - Per SR-CONTRACT: Integrity conditions are non-waivable
+| # | Type Key | Name | Category |
+|---|----------|------|----------|
+| 1 | `record.intake` | Standard Research Memo Intake | WorkSurface |
+| 2 | `config.procedure_template` | Research Memo Procedure | WorkSurface |
+| 3 | `domain.work_surface` | Example Work Surface Binding | WorkSurface |
+| 4 | `budget_config` | Standard Budget Policy | Execution |
+| 5 | `config.gating_policy` | Hybrid Gating Policy | Execution |
+| 6 | `verification_profile` | Project Standard Profile | Verification |
+| 7 | `config.semantic_set` | Research Memo Quality Set | SemanticSets |
+| 8 | `record.waiver` | Example Waiver Template | Exceptions |
+| 9 | `record.deviation` | Example Deviation Template | Exceptions |
+| 10 | `record.deferral` | Example Deferral Template | Exceptions |
+| 11 | `oracle_suite` | Custom Verification Suite | Oracle |
 
-  3. Exception/Waiver Flow (run_exception_waiver):
-     - Creates loop with waivable failure (lint fails, build passes)
-     - Creates WAIVER exception (HUMAN-only per SR-CONTRACT C-EXC-4)
-     - Activates the waiver
-     - Records approval with waiver acknowledgment
-     - Creates freeze as Verified-with-Exceptions
-     - Resolves waiver after freeze completion
-     - Full waiver lifecycle: CREATED → ACTIVE → RESOLVED
+### Implementation Details
 
-- Added client methods for exception operations:
-  - create_exception(), activate_exception(), resolve_exception(), get_exception()
+**Backend (`templates.rs`):**
+- Added `build_starter_instances()` method creating 11 templates
+- ID format: `tmpl_starter_{type_key_suffix}` (e.g., `tmpl_starter_intake`)
+- Status: `"reference"` (read-only)
+- Created by: `"system"`
+- Seeded on `TemplateRegistry::new()`
 
-- Added transcript entry kinds for failure modes:
-  - OracleFailure, IntegrityCheck, TamperDetected, CoverageGapDetected
-  - CreateException, ActivateException, ResolveException
-  - CreateWaiver, ApprovalWithWaiver, VerifiedWithExceptions
-  - StopTriggered, PortalSubmission
+**Frontend (Templates.tsx):**
+- Reference templates sorted first in each category
+- "Reference" badge (info tone - blue) on status pill
+- Clone button for reference templates
+- Clone creates editable copy with "(Copy)" suffix
 
-- CLI commands added:
-  - `--oracle-failure`: Run oracle failure scenario
-  - `--integrity-tamper`: Run integrity tamper detection scenario
-  - `--exception-waiver`: Run exception/waiver flow scenario
+**Frontend (TemplateDetail.tsx):**
+- Read-only banner for reference templates
+- Clone Template button in header
+- Info banner explaining reference templates
 
-- 4 unit tests for failure mode manifests and config
+**UI Components:**
+- Added `--info` CSS variable (#2e5b8c) to theme.css
+- Added `info` tone to Pill component
 
-**PKG-11 (End-to-end demonstration and determinism proof) progress: D-34 ✓, D-35 ✓, D-36 ✓**
-
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
-
+### Quality Status
+- Backend: `cargo build` PASS, 24 tests pass
+- Frontend: `npm run type-check && npm run build` PASS
 
 ---
 
-### Session 20 (2026-01-13)
-**Completed:** D-40, D-41
+## Completed Work: Templates UI (Phase 3) - Clone & Edit Workflow
 
-**What was done:**
+### Overview
 
-D-40: Event Manager: work-unit + stage state projection + eligible-set computation
-- Created event_manager module in sr-adapters implementing SR-EVENT-MANAGER spec:
-  - WorkUnitStatus: Coarse status (TODO/ELIGIBLE/IN_PROGRESS/BLOCKED/COMPLETE), stage tracking, block reasons
-  - StageStatusEntry: Per-stage status (PENDING/ACTIVE/PASSED/FAILED/BLOCKED), evidence refs
-  - BlockReason: Stop triggers, portal requirements, dependency unsatisfied, integrity conditions
-  - StalenessMarkerEntry: Staleness tracking with resolution
-  - EligibleSet: Computation of work units eligible for scheduling
-  - DependencyGraphSnapshot: Nodes, edges, satisfaction annotations
-  - RunList: Human-friendly view grouped by coarse status with completion percentage
-  - EventManager: Projection builder that consumes events and produces derived state
-- Event handlers implemented for all key events:
-  - WorkSurfaceRecorded, StageEntered, StageCompleted
-  - IterationStarted, IterationCompleted, CandidateMaterialized
-  - EvidenceBundleRecorded, StopTriggered, ApprovalRecorded
-  - SemanticOracleEvaluated, NodeMarkedStale, StalenessResolved
-- 14 unit tests including deterministic replay verification
+Enhanced the Templates UI with full clone and edit capabilities, allowing users to create customized instances from reference templates.
 
-D-41: Reference semantic worker (Work Surface executor)
-- Created semantic_worker module implementing SR-AGENT-WORKER-CONTRACT:
-  - SemanticWorkerBridge: Main worker that consumes IterationStarted events
-  - SelectionRationale: Documents work unit selection per §2.1 (eligible set snapshot hash)
-  - StageExecutionResult: Captures stage execution with artifacts and oracle results
-  - EvidenceBundlePayload: Evidence emission per §2.4 with gate verdict
-  - IterationSummary: Full iteration record with next step recommendation
-  - StopTriggerInfo: Stop conditions per §3 (oracle unavailable, thrashing, budget)
-- Contract compliance:
-  - Obtains eligible set from Event Manager (D-40)
-  - Chooses one eligible work unit with documented rationale
-  - Executes procedure stage and runs semantic oracle suites
-  - Emits EvidenceBundleRecorded + iteration summaries
-  - Thrashing detection (max iterations per work unit)
-- 8 unit tests for serialization and variant coverage
+### New API Endpoint
 
-**PKG-12 (Semantic Worker Foundation) COMPLETE: D-37 ✓, D-38 ✓, D-39 ✓, D-40 ✓, D-41 ✓**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| PUT | `/api/v1/templates/:id` | Update template name and/or content |
 
-**Branch 0 MVP spine now complete!**
+**Constraints:**
+- Reference templates (`status: "reference"`) cannot be updated directly
+- Must clone first to create editable copy
 
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
-- D-35: End-to-end harness failure modes (PKG-11) - depends on D-34 ✓, D-27 ✓
+### Frontend Enhancements
 
+**Templates.tsx - Starter Templates Section:**
+- Dedicated card-based layout for reference templates
+- Each card shows template name, type key, and "Reference" badge
+- **View** button → opens detail page
+- **Use Template** button → clones and opens edit mode
 
----
+**Templates.tsx - Your Templates Section:**
+- Table view for user-created template instances
+- Shows ID, name, type, status, hash, and created date
 
-### Session 19 (2026-01-14)
-**Completed:** D-36
+**TemplateDetail.tsx - Clone & Edit:**
+- **Clone Template** button in reference banner (prominent placement)
+- **Use Template** button in header for reference templates
+- **Edit** button in header for user templates
+- Edit mode with:
+  - Template name input field
+  - JSON content textarea with syntax highlighting
+  - Save/Cancel buttons
+  - JSON validation before save
+- Auto-opens edit mode after cloning (`?edit=true` query param)
 
-**What was done:**
+### User Workflow
 
-D-36: Replayability demonstration (event stream → reconstructed state)
-- Created replay module in sr-e2e-harness with:
-  - ReplayRunner: executes event stream replay and projection rebuild
-  - ReplayConfig: configurable database URL, batch size, full/incremental mode
-  - StateChecksum: deterministic SHA-256 of all projection state
-  - TableChecksum: per-table row count and content hash
-  - ReplayTranscript: audit trail of replay execution
-  - DeterminismResult: verification that replays produce identical state
-- CLI commands added to sr-e2e-harness:
-  - `--replay`: Replay event stream, rebuild projections, compute state checksum
-  - `--verify-determinism`: Run replay twice and verify identical checksums
-  - `--database-url`: Database connection for replay mode
-  - `--batch-size`: Event processing batch size
-  - `--incremental`: Incremental update instead of full rebuild
-- Per SR-SPEC §1.7 requirement implemented:
-  - All projections rebuildable from es.events alone
-  - Deterministic state checksum computation
-  - Component-level checksums for debugging
+1. Navigate to **Templates** in sidebar
+2. Select category tab (Work Surface, Oracle, etc.)
+3. View **Starter Templates** cards
+4. Click **Use Template** or **Clone Template**
+5. Customize name and JSON content for specific use case
+6. Click **Save Changes**
+7. New template appears in **Your Templates** section
 
-**PKG-11 (Harness) progress: D-34 ✓, D-36 ✓**
+### Quality Status
+- Backend: `cargo build` PASS, 26 tests pass
+- Frontend: `npm run type-check && npm run build` PASS
 
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
-- D-41: Reference semantic worker (PKG-12) - depends on D-23 ✓, D-38 ✓, D-39 ✓, D-40
-
+### Commits (2026-01-15 continued)
+- `75edc76` - Implement Templates UI with starter reference templates (Phase 1+2)
+- `2d4bc59` - Update SR-README.md with Phase 2 completion summary
+- `b1eb5aa` - Add starter templates visibility and user clone/edit workflow
+- `1658b78` - Add debug info card to Templates page for troubleshooting
+- `b286520` - Add Clone Template button to reference banner, remove debug code
 
 ---
 
-### Session 18 (2026-01-13)
-**Completed:** D-34
-
-**What was done:**
-
-D-34: End-to-end harness (happy path)
-- Created sr-e2e-harness crate with full e2e test automation:
-  - E2EClient: HTTP client for all API endpoints (loops, iterations, candidates, runs, evidence, approvals, freeze)
-  - HarnessTranscript: Deterministic event+evidence transcript for audit
-  - run_happy_path(): Complete flow execution with invariant checks
-- Happy path flow implemented:
-  1. Create loop → Activate loop
-  2. Start iteration (SYSTEM actor)
-  3. Register candidate (worker submission)
-  4. Start oracle run → Upload evidence bundle → Complete run
-  5. Record approval (HUMAN at Release Portal)
-  6. Create freeze record (HUMAN-only, establishing baseline)
-  7. Close loop
-- Key invariants asserted:
-  - no_approval_without_evidence: Approvals must have evidence refs
-  - loop_active_after_activation: Loop state validation
-  - run_has_evidence: Runs must have evidence bundle hash
-  - freeze_has_approval: Freeze records must reference approval
-  - freeze_has_evidence: Freeze records must have evidence refs
-- CLI tool (sr-e2e-harness) with:
-  - Configurable API URL, tokens, oracle suite
-  - JSON transcript output option
-  - Entity and event ID tracking
-  - Invariant check reporting
-
-**PKG-11 (Harness) progress: D-34 done**
-
-
----
-
-### Session 17 (2026-01-13)
-**Completed:** D-30
-
-**What was done:**
-
-D-30: Portal workflows UI (approvals, exceptions, freeze records)
-- Approvals.tsx - Full portal workflows page:
-  - Approval submission form (HUMAN-only per SR-CONTRACT C-TB-3)
-  - Exception creation/activation/resolution (HUMAN-only per SR-SPEC §1.8)
-  - Decision recording with precedent support (HUMAN-only per C-DEC-1)
-  - Tabbed interface with counters for each entity type
-  - Governance note warning about HUMAN-only requirements
-- CandidateDetail.tsx - Freeze record creation:
-  - Added "Create Freeze" form to freeze records tab
-  - Baseline ID, verification mode, oracle suite, approval linkage
-  - Integration with existing candidate context
-- Per SR-SPEC §1.8, exceptions (DEVIATION, DEFERRAL, WAIVER) are narrowly scoped permissions; waivers cannot target integrity conditions
-
-**PKG-09 (UI portals) progress: D-28 ✓, D-29 ✓, D-30 done**
-
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
-- D-34: End-to-end harness happy path (PKG-11) - depends on D-22 ✓, D-23 ✓, D-24 ✓, D-25 ✓, D-19 ✓, D-30 ✓, D-31 ✓
-- D-41: Reference semantic worker (PKG-12) - depends on D-23 ✓, D-38 ✓, D-39 ✓, D-40
-
-
----
-
-### Session 16 (2026-01-13)
-**Completed:** D-39
-
-**What was done:**
-
-D-39: Semantic oracle runner integration (meaning matrices/manifolds)
-- Created semantic_oracle.rs module in sr-domain with:
-  - SemanticSet schema (v1): manifold/meaning-matrix definition with axes, constraints, decision rules
-  - SemanticAxis: dimension of semantic space with weight, required flag, min coverage, max residual
-  - SemanticConstraint: required/preferred/prohibited constraint types with severity levels
-  - DecisionRule: pass/fail derivation from measurements (max_residual_norm, min_coverage, max_violations)
-  - SemanticEvalResult schema (`sr.semantic_eval.v1`): structured output per SR-SEMANTIC-ORACLE-SPEC §4
-  - ResidualVector, CoverageMetrics, ConstraintViolation measurement types
-  - Report artifacts: ResidualReport, CoverageReport, ViolationsReport
-  - Content-addressed hashing for semantic set binding
-  - intake_admissibility_semantic_set() for Branch 0
-- Created semantic_suite.rs module in sr-adapters with:
-  - SemanticOracleSuiteDefinition: extends OracleSuiteDefinition with semantic set binding
-  - create_intake_admissibility_suite(): `oracle.suite.intake_admissibility.v1` for Branch 0
-  - IntakeAdmissibilityRunner: deterministic local evaluation for intake artifacts
-  - Six semantic oracles bound to axes: schema_compliance, traceability_coverage, contradiction_free, ambiguity_bounded, privacy_safe, term_map_aligned
-  - Suite hash incorporates semantic set hash per SR-SEMANTIC-ORACLE-SPEC §2
-  - SemanticReportBundle: generates residual, coverage, violations report artifacts
-  - to_oracle_suite_definition(): converts semantic suite to standard OracleSuiteDefinition
-- Updated OracleSuiteRegistry to register semantic suite alongside core suites
-- 85 unit tests passing (8 new tests for semantic_suite, 12 new tests for semantic_oracle)
-
-**PKG-12 (Semantic work surface) progress: D-37 ✓, D-38 ✓, D-39 done**
-
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-- D-30: Portal workflows UI (approvals, exceptions) (PKG-09) - depends on D-29 ✓, D-19 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
-- D-41: Reference semantic worker (PKG-12) - depends on D-23 ✓, D-38 ✓, D-39 ✓
-
-
----
-
-### Session 15 (2026-01-13)
-**Completed:** D-38
-
-**What was done:**
-
-D-38: Prompt → Plan Instance decomposition (semantic work unit generator)
-- Created plan_instance.rs module in sr-domain with:
-  - PlanInstance schema (v1): commitment object with work units, dependency edges, source reference, content hash
-  - WorkUnitPlan schema: individual work unit with intake_ref, procedure_template_ref, initial_stage_id, depends_on edges, status
-  - DecompositionRationale: non-binding rationale stored separately from binding dependency edges (per D-38 acceptance criteria)
-  - Identifier types: PlanInstanceId, SourceRefId
-  - Status enums: PlanStatus, WorkUnitPlanStatus, DependencyEdgeType
-- PlanDecomposer deterministic pipeline:
-  - decompose(): multi-intake decomposition with dependency spec
-  - decompose_single(): single intake decomposition
-  - IntakeWithRef, ProcedureTemplateWithRef, DependencySpec helper types
-  - DecompositionResult: plan + rationale pair
-- Validators per D-38 acceptance criteria:
-  - PlanInstanceValidator: acyclic graph validation, dependency target validation, required field validation
-  - Cycle detection in dependency graph
-  - Content hash computation for both PlanInstance and DecompositionRationale
-- Key features:
-  - Eligible set computation (get_eligible_work_units)
-  - Deterministic content hashing for commitment object semantics
-  - Separation of binding edges from non-binding rationale
-- Added Hash derive to WorkKind for HashMap support
-- 66 unit tests passing (14 new tests for plan_instance module)
-
-**PKG-12 (Semantic work surface) progress: D-37 ✓, D-38 done**
-
-**Next deliverables:**
-- D-26: Integration/e2e oracle suite (PKG-08) - depends on D-24 ✓, D-25 ✓, D-31 ✓, D-18 ✓, D-28 ✓
-- D-30: Portal workflows UI (approvals, exceptions) (PKG-09) - depends on D-29 ✓, D-19 ✓
-- D-33: Operational logging + observability (PKG-10) - depends on D-17 ✓, D-22 ✓, D-24 ✓
-- D-39: Semantic oracle runner integration (PKG-12) - depends on D-15 ✓, D-27 ✓, D-37 ✓
-
-
----
-
-### Session 14 (2026-01-13)
-**Completed:** D-37
-
-**What was done:**
-
-D-37: Work surface schemas (Intake + Procedure Template) + validators
-- Created work_surface.rs module in sr-domain with core schemas:
-  - Intake schema (v1): work_unit_id, title, kind (WorkKind enum), objective, audience, deliverables, constraints, definitions, inputs, unknowns, completion_criteria
-  - ProcedureTemplate schema (v1): procedure_template_id, kind, stages with required_outputs, required_oracle_suites, gate_rule, transition_on_pass, portal configuration
-  - WorkSurfaceInstance schema (v1): work_unit_id, intake_ref, procedure_template_ref, stage_id, oracle_suites with content-addressed refs
-  - Identifier types: IntakeId, ProcedureTemplateId, StageId, WorkUnitId
-- Validators per SR-WORK-SURFACE:
-  - IntakeValidator: required fields (title, objective, audience, deliverables with paths)
-  - ProcedureTemplateValidator: stage validation, terminal stage exists, transition targets valid, portal config consistency
-  - WorkSurfaceInstanceValidator: refs integrity, content hashes required
-- Created procedure_templates.rs module with Branch 0 templates:
-  - Problem Statement Ingestion template: INGEST → VALIDATE → ACCEPT (with portal boundary)
-  - Generic Knowledge Work template: FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL
-  - Template registry with deterministic content hashing
-  - Intake admissibility oracle suite bindings
-- 53 unit tests passing covering all schemas, validators, and templates
-
-**PKG-12 (Semantic work surface) progress: D-37 done**
-
-
----
-
-### Session 13 (2026-01-13)
-**Completed:** D-29
-
-**What was done:**
-
-D-29: Loop/iteration/candidate views + evidence viewer
-- LoopDetail page: Single loop view with iterations list, budgets/usage stats, directive ref
-- IterationDetail page: Single iteration view with candidates list, context refs, summary (rationale, actions, blockers, next steps)
-- CandidateDetail page: Tabbed interface with oracle runs, evidence bundles, freeze records
-- EvidenceDetail page: Full manifest viewer with oracle results (pass/fail/error counts), artifacts with download links, raw JSON toggle
-- Updated Loops.tsx with navigation links to loop details
-- Updated Evidence.tsx with navigation links to evidence details
-- Added routes: /loops/:loopId, /iterations/:iterationId, /candidates/:candidateId, /evidence/:contentHash
-
-**PKG-09 (UI portals) progress: D-28 ✓, D-29 done**
-
-
----
-
-### Session 12 (2026-01-13)
-**Completed:** D-28
-
-**What was done:**
-
-D-28: UI scaffold (React) + OIDC login
-- AuthProvider using oidc-client-ts and react-oidc-context
-- Authorization Code flow with PKCE for secure SPA authentication
-- ProtectedRoute component for route guarding
-- Layout with header, navigation, and auth controls
-- User identity display with login/logout functionality
-- Environment configuration (VITE_OIDC_ISSUER, VITE_OIDC_CLIENT_ID)
-- Pages: Home, Callback, Loops, Evidence, Approvals (scaffolds)
-
-**PKG-09 (UI portals) progress: D-28 done**
-
-
----
-
-### Session 11 (2026-01-13)
-**Completed:** D-23, D-24, D-25, D-27
-
-**What was done:**
-
-D-23: Reference worker bridge (IterationStarted → context → candidate)
-- ReferenceWorkerBridge consumes IterationStarted from NATS
-- Deterministic context compilation using D-08 ContextCompiler
-- ContentResolver for ref-to-hash resolution with classification
-
-D-24: Oracle runner service (Podman + gVisor)
-- PodmanOracleRunner implementing OracleRunner port trait
-- Container isolation: network disabled, read-only workspace, scratch volume
-- EnvironmentFingerprint for reproducibility auditing
-
-D-25: Core oracle suite implementation
-- OracleSuiteRegistry for suite definitions
-- SR-SUITE-GOV: meta_validate, refs_validate
-- SR-SUITE-CORE: build, test, lint, schema, integrity_smoke
-- SR-SUITE-FULL: + integration, e2e, replay_verify, sbom
-- VerificationProfile: GOV-CORE, STRICT-CORE, STRICT-FULL
-- WaivableCondition vs IntegrityCondition distinction
-- Oracle report structures (BuildReport, UnitTestReport, etc.)
-- Deterministic suite hashing via compute_suite_hash()
-
-D-27: Oracle integrity checks (TAMPER/GAP/FLAKE/ENV_MISMATCH)
-- IntegrityChecker for oracle run validation
-- Tamper detection (hash mismatch, evidence hash verification)
-- Gap detection (missing required oracles in suite)
-- Flake detection (inconsistent oracle results across runs)
-- Environment mismatch detection (fingerprint drift)
-- IntegrityCondition enum (non-waivable per SR-CONTRACT)
-
-**PKG-07 (Orchestration runtime) complete (D-21, D-22, D-23)**
-**PKG-08 (Oracle substrate) progress: D-24, D-25, D-27 done**
-
-
----
-
-### Session 10 (2026-01-13)
-**Completed:** D-16, D-21, D-22, D-32
-
-**What was done:**
-
-D-16: Restricted evidence handling (Infisical + envelope keys)
-- SecretProvider port trait (sr-ports) with envelope key management
-- RestrictedEvidenceStore with AES-256-GCM envelope encryption
-- RedactionManifest schema per C-EVID-5
-- InfisicalSecretProvider adapter with KEK caching
-
-D-21: NATS/JetStream messaging integration (contracts + reliability)
-- NatsMessageBus adapter implementing MessageBus port
-- MessageEnvelope schema (v1.0) with idempotency key
-- NatsConsumer with redelivery handling via ack/nak/term
-
-D-22: Loop governor service (SYSTEM event emission + budgets)
-- LoopGovernor service for iteration orchestration
-- IterationStarted emission with SYSTEM actor only (per SR-SPEC)
-- LoopBudget, StopCondition, GovernorDecision audit records
-
-D-32: Build/init scripts (DB, buckets, identity realm, secrets)
-- init.sh: comprehensive initialization script
-- PostgreSQL schemas: es.events, es.outbox, proj.*, graph.*
-- MinIO buckets: evidence, candidates, artifacts
-- Zitadel config template with roles and OIDC clients
-- Development secrets with envelope KEK
-- Idempotent (safe to re-run), --check for status
-
-**PKG-05 (Evidence storage and integrity) complete**
-**PKG-07 (Orchestration runtime) progress: D-21, D-22 done**
-**PKG-10 (Self-host instance) progress: D-31, D-32 done**
-
-
----
-
-### Session 9 (2026-01-13)
-**Completed:** D-20
-
-**What was done:**
-
-D-20: Evidence API endpoints (upload, retrieve, associate with runs/candidates)
-
-- Evidence handlers: upload, get, list, associate, verify, get_blob
-- UploadEvidenceRequest with manifest validation + base64 blob encoding
-- EvidenceBundleRecorded event on upload
-- EvidenceAssociated event for explicit associations
-- Content-addressed storage via MinioEvidenceStore
-- Manifest validation using EvidenceManifest.validate()
-- Integrity verification endpoint
-
-- Added EvidenceProjection struct and query methods to ProjectionBuilder
-- Added migration 004_evidence.sql for evidence_bundles and evidence_associations tables
-- Event handlers for EvidenceBundleRecorded and EvidenceAssociated
-- Added MinioEvidenceStore to AppState
-
-**Routes implemented:**
-- POST /api/v1/evidence (upload with manifest + blobs)
-- GET /api/v1/evidence (list all evidence)
-- GET /api/v1/evidence/:hash (get evidence manifest)
-- POST /api/v1/evidence/:hash/associate (link to run/candidate/iteration)
-- POST /api/v1/evidence/:hash/verify (integrity check)
-- GET /api/v1/evidence/:hash/blobs/:name (get specific blob)
-- GET /api/v1/runs/:id/evidence (list evidence for run)
-- GET /api/v1/candidates/:id/evidence (list evidence for candidate)
-
-**PKG-06 (API) is now fully complete (D-17, D-18, D-19, D-20 done)**
-
-**Next deliverables to work on:**
-- D-16: Restricted evidence handling (depends on D-14) - PKG-05
-- D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
-- D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
-- D-21: NATS/JetStream messaging integration (depends on D-13) - PKG-07
-
-
----
-
-### Session 8 (2026-01-13)
-**Completed:** D-19
-
-**What was done:**
-
-D-19: Governance and portal-related API endpoints (approvals, exceptions, decisions, freeze records)
-
-- Approval handlers: record (HUMAN-only per SR-CONTRACT C-TB-3), get, list, list_for_portal
-- Exception handlers: create (HUMAN-only per SR-SPEC §1.8), get, list, activate, resolve
-  - Integrity conditions (ORACLE_TAMPER, ORACLE_GAP, etc.) cannot be waived
-  - Exception kinds: DEVIATION, DEFERRAL, WAIVER with proper validation
-- Decision handlers: record (HUMAN-only per SR-CONTRACT C-DEC-1), get, list
-  - Support for precedent decisions with applicability clauses
-- Freeze record handlers: create (HUMAN-only per SR-CONTRACT C-SHIP-1), get, list, list_for_candidate
-  - Verification modes: STRICT, WITH_EXCEPTIONS
-  - Artifact manifest and active exceptions captured at freeze time
-
-- Added projection types: ApprovalProjection, ExceptionProjection, DecisionProjection, FreezeRecordProjection
-- Added query methods to ProjectionBuilder for all new entities
-- Wired all D-19 routes in main.rs
-
-**Routes implemented:**
-- POST/GET /api/v1/approvals, GET approvals/:id, GET portals/:id/approvals
-- POST/GET /api/v1/exceptions, GET exceptions/:id, POST exceptions/:id/activate, POST exceptions/:id/resolve
-- POST/GET /api/v1/decisions, GET decisions/:id
-- POST/GET /api/v1/freeze-records, GET freeze-records/:id, GET candidates/:id/freeze-records
-
-**PKG-06 (API) is now fully complete (D-17, D-18, D-19 done)**
-
-**Next deliverables to work on:**
-- D-16: Restricted evidence handling (depends on D-14) - PKG-05
-- D-20: Evidence management API endpoints (depends on D-14, D-15) - PKG-06
-- D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
-- D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
-
-
----
-
-### Session 7 (2026-01-13)
-**Completed:** D-18
-
-**What was done:**
-
-D-18: Core API endpoints for loops, iterations, candidates, runs
-- Loop handlers: create, get, list, activate, pause, resume, close
-- Iteration handlers: start (SYSTEM-only per SR-SPEC §2.2), get, list, complete
-- Candidate handlers: register, get, list (by iteration or all)
-- Run handlers: start, get, list (by candidate or all), complete
-- API error types with proper HTTP status codes
-- Request/response types with JSON serialization
-- State transition validation using domain state machines
-- Event appending to PostgresEventStore
-- Projection updates after state changes
-- Added query methods to ProjectionBuilder: list_loops, get_iteration, get_candidates_for_iteration, list_candidates, get_run, list_runs
-- Updated main.rs with full route wiring and database initialization
-- AppState includes event_store and projections adapters
-
-**Routes implemented:**
-- POST/GET /api/v1/loops, GET/POST loops/:id/*, loops/:id/iterations
-- POST /api/v1/iterations, GET iterations/:id, POST iterations/:id/complete
-- POST/GET /api/v1/candidates, GET candidates/:id, candidates/:id/runs
-- POST/GET /api/v1/runs, GET runs/:id, POST runs/:id/complete
-
-**PKG-06 (API) is now complete (D-17, D-18 done)**
-
----
-
-### Session 6 (2026-01-13)
-**Completed:** D-14, D-15, D-17, D-31
-
-**What was done:**
-
-D-14: Evidence store adapter (MinIO, content-addressed bundles)
-- MinioEvidenceStore implementing EvidenceStore port
-- Content-addressed storage using SHA-256 hashes
-- Immutable object storage (no overwrites)
-- Blob storage and retrieval per evidence bundle
-- Integrity verification via hash recomputation
-- Unit tests for hash determinism and order independence
-
-D-15: Evidence manifest v1 library + validation oracle
-- EvidenceManifest schema (evidence.gate_packet artifact type)
-- EvidenceManifestBuilder for constructing manifests
-- OracleResult with Pass/Fail/Error/Skipped status
-- EvidenceArtifact descriptors with content hashes
-- Deterministic JSON serialization (sorted keys)
-- ManifestValidationOracle for schema validation
-- Verdict computation from oracle results
-- Unit tests for validation, serialization, roundtrip
-
-D-17: API service scaffold (Axum) + OIDC auth (Zitadel)
-- OidcProvider with JWKS fetching and JWT validation
-- AuthenticatedUser extractor with actor kind derivation
-- Role-based authorization helpers (require_role, require_human)
-- OptionalAuth extractor for unauthenticated endpoints
-- ApiConfig with environment variable loading
-- Health, info, whoami, and protected endpoints
-- Test mode for development without Zitadel
-- Unit tests for auth and endpoints
-
-D-31: Self-host deployment stack (compose/podman)
-- docker-compose.yml with all services:
-  - PostgreSQL 16.4 (event store + projections)
-  - MinIO (evidence storage)
-  - NATS with JetStream (message bus)
-  - Zitadel (OIDC identity provider)
-- Dockerfile.api (multi-stage Rust build)
-- Dockerfile.ui (React with nginx)
-- Init scripts for PostgreSQL databases
-- start.sh helper script for deployment
-- Makefile targets: deploy, deploy-up, deploy-down, deploy-logs
-
-**PKG-05 (Evidence storage) is now partially complete (D-14, D-15 done; D-16 pending)**
-**PKG-06 (API) is now partially complete (D-17 done)**
-**PKG-10 (Self-host) is now partially complete (D-31 done)**
-
-**Next deliverables to work on (per SR-PLAN dependency graph):**
-- D-16: Restricted evidence handling (depends on D-14) - PKG-05
-- D-18: Core API endpoints (depends on D-17, D-10, D-06, D-11) - PKG-06
-- D-28: UI scaffold + OIDC login (depends on D-02, D-17) - PKG-09
-- D-32: Build/init scripts (depends on D-31, D-09, D-16) - PKG-10
-
----
-
-### Session 5 (2026-01-13)
-**Completed:** D-11, D-12, D-13
-
-**What was done:**
-
-D-11: Projection builder for read models from event streams
-- ProjectionBuilder with checkpoint-based incremental processing
-- Event handlers for Loop, Iteration, Candidate, Run, Approval, Exception, Freeze, Decision, GovernedArtifact events
-- Query helpers: LoopProjection, IterationProjection, CandidateProjection, RunProjection
-- Added proj.checkpoints table for tracking rebuild state
-
-D-12: Dependency graph projection + staleness traversal
-- GraphProjection with node/edge management
-- EdgeType enum with all SR-SPEC Appendix B types
-- Transitive dependency queries (get_dependencies, get_dependents)
-- Staleness propagation on artifact changes
-
-D-13: Outbox publisher and NATS event publication
-- OutboxWriter: writes events to outbox within transaction
-- OutboxPublisher: reads from outbox and publishes to NATS
-- Topic mapping per event type
-- Hash-based idempotency
-
-Commits: be4c3ed (D-11), 00ea2f0 (D-12), 1a9f4a0 (D-13)
-
-**PKG-04 (Persistence, projections, graph) is now complete!**
-
----
-
-### Session 4 (2026-01-13)
-**Completed:** D-08, D-10
-
-**What was done:**
-
-D-08: Context compilation rules
-- ContextCompiler with deterministic ref ordering (kind, id, rel)
-- ItemClassification enum (Public, Internal, Restricted, Confidential)
-- RedactionRecord for audit trail of redacted content
-- RefSelector for work unit context selection and topological sorting
-- Unit tests for determinism, redaction, cycle detection
-
-D-10: PostgreSQL EventStore adapter
-- PostgresEventStore implementing EventStore port
-- Append-only streams with optimistic concurrency control
-- read_stream and replay_all for deterministic event retrieval
-- Stream kind inference, actor kind conversions
-- Unit tests for conversions and stream handling
-
-Commits: a388e5f (D-08), 5b9ca56 (D-10)
-
----
-
-### Session 3 (2026-01-13)
-**Completed:** D-04, D-05, D-06, D-07, D-09
-
-**What was done:**
-
-D-04: Local developer tooling
-- Added scripts/check-deps.sh, dev-setup.sh, run-tests.sh
-- Makefile provides `make dev`, `make test`, `make build` targets
-
-D-05: Domain model primitives and invariants
-- Added all domain entities: Iteration, Candidate, Run, EvidenceBundle, Approval, FreezeRecord, Exception, Decision
-- Added entity identifiers, state enums, invariants with unit tests
-
-D-06: Deterministic state machines
-- Added IterationStateMachine, RunStateMachine, ExceptionStateMachine with transition validation
-- Added VerificationComputer for verification status computation per SR-SPEC §3.3
-- Added InvariantValidator for enforcing human actor requirements and waiver constraints
-- Unit tests cover valid/invalid transitions
-
-D-07: Ports and boundary interfaces
-- sr-ports crate already implemented with: EventStore, EvidenceStore, OracleRunner, MessageBus, IdentityProvider, Clock traits
-- Error types are explicit and suitable for deterministic handling
-
-D-09: Postgres schemas and migrations
-- 001_event_store.sql: Event store schema (es.*) with append-only enforcement, streams, events, outbox
-- 002_projections.sql: All projections (loops, iterations, candidates, runs, governed_artifacts, decisions, approvals, freeze_records, exceptions, etc.)
-- 003_graph.sql: Dependency graph (graph.*) with nodes, edges, staleness markers, utility functions for traversal
-
-Commits: 57d1ba8 (D-04/D-05), 979e0c4 (README update), 1aeb3f0 (D-09)
-
----
-
-### Session 2 (2026-01-13)
-**Completed:** D-03 (Continuous integration baseline)
-
-**What was done:**
-- Created GitHub Actions CI workflow (.github/workflows/ci.yml)
-- Rust job: format check, clippy lint, build, test with caching
-- UI job: npm install, type-check, eslint, build
-- Summary job: produces machine-readable JSON with pass/fail, artifact hashes
-- Fixed Rust edition 2024 -> 2021 in Cargo.toml
-- Added ESLint configuration for UI (ui/.eslintrc.cjs)
-- Committed and pushed to solver-ralph-1 branch (commit 3692c0b)
-
----
-
-### Session 1 (2026-01-13)
-**Completed:** D-02 (Repository scaffold and workspace layout)
-
-**What was done:**
-- Created Rust workspace with 4 crates: sr-domain, sr-ports, sr-adapters, sr-api
-- Implemented stub domain entities, events, state machines, commands, errors
-- Created port traits for EventStore, EvidenceStore, OracleRunner, MessageBus, etc.
-- Set up React/TypeScript UI scaffold with Vite (builds successfully)
-- Created shared schemas directory structure
-- Added Makefile with build/test/dev targets
-- Committed and pushed to solver-ralph-1 branch (commit 608f083)
-
-
-## Cross-document reference convention
-
-When referencing another SR-* document:
-
-- Use the **doc_id** (e.g., `SR-CONTRACT`, `SR-SPEC`)
-- Resolve to physical path using the table below
-- If multiple candidates exist (duplicates, forks, renamed copies), treat this table as authoritative and record any deviation via SR-EXCEPTIONS
-
----
-
-
+## Implementation Status
+
+### Templates UI - COMPLETE
+
+| Feature | Status |
+|---------|--------|
+| Template schemas (14 types) | ✅ Implemented |
+| Starter reference templates (11) | ✅ Implemented |
+| List/browse by category | ✅ Implemented |
+| View template details | ✅ Implemented |
+| Clone reference templates | ✅ Implemented |
+| Edit user templates | ✅ Implemented |
+| Create from schema | ⏳ Future |
+| Template versioning | ⏳ Future |
+| Portal approval integration | ⏳ Future |
+
+### Notes
+- Backend auth bypass: `SR_AUTH_TEST_MODE=true`
+- Frontend auth bypass: `VITE_DEV_AUTH_BYPASS=true`
+- Templates nav item added to sidebar
