@@ -180,114 +180,65 @@ Created new Template Registry API in `crates/sr-api/src/handlers/templates.rs`:
 
 ---
 
-## Phase 2 Plan: Starter Templates
+## Completed Work: Templates UI (Phase 2) - Starter Templates
 
 ### Overview
 
-Seed the Templates registry with comprehensive starter template instances for each user-instantiable type. These serve as reference implementations demonstrating correct schema usage.
+Seeded the Templates registry with 11 starter reference templates demonstrating correct schema usage per SR-TEMPLATES. These are read-only examples users can clone.
 
-### Starter Instances to Create
+### Starter Templates Created
 
-#### Category 1: Work Surface (Self-Service)
+| # | Type Key | Name | Category |
+|---|----------|------|----------|
+| 1 | `record.intake` | Standard Research Memo Intake | WorkSurface |
+| 2 | `config.procedure_template` | Research Memo Procedure | WorkSurface |
+| 3 | `domain.work_surface` | Example Work Surface Binding | WorkSurface |
+| 4 | `budget_config` | Standard Budget Policy | Execution |
+| 5 | `config.gating_policy` | Hybrid Gating Policy | Execution |
+| 6 | `verification_profile` | Project Standard Profile | Verification |
+| 7 | `config.semantic_set` | Research Memo Quality Set | SemanticSets |
+| 8 | `record.waiver` | Example Waiver Template | Exceptions |
+| 9 | `record.deviation` | Example Deviation Template | Exceptions |
+| 10 | `record.deferral` | Example Deferral Template | Exceptions |
+| 11 | `oracle_suite` | Custom Verification Suite | Oracle |
 
-**1.1 Intake (`record.intake`)** - `Standard Research Memo Intake`
-```json
-{
-  "work_unit_id": "WU-TEMPLATE-001",
-  "title": "API Rate Limiting Analysis",
-  "kind": "research_memo",
-  "objective": "Evaluate rate limiting strategies for the public API...",
-  "deliverables": ["Analysis of current implementation", "Comparison of 3+ strategies", "Recommendation with approach"],
-  "constraints": ["Maximum 2000 words", "Must include performance impact"],
-  "completion_criteria": ["All strategies evaluated", "Recommendation includes migration path"]
-}
-```
+### Implementation Details
 
-**1.2 Procedure Template (`config.procedure_template`)** - `Research Memo Procedure`
-```json
-{
-  "procedure_template_id": "proc:RESEARCH-MEMO",
-  "kind": ["research_memo"],
-  "stages": [
-    {"stage_id": "stage:FRAME", "stage_name": "Frame", "required_oracle_suites": ["suite:SR-SUITE-GOV"]},
-    {"stage_id": "stage:OPTIONS", "stage_name": "Options Analysis", "required_oracle_suites": ["suite:SR-SUITE-GOV", "suite:SR-SUITE-CORE"]},
-    {"stage_id": "stage:DRAFT", "stage_name": "Draft", "required_oracle_suites": ["suite:SR-SUITE-CORE"]},
-    {"stage_id": "stage:FINAL", "stage_name": "Final", "required_oracle_suites": ["suite:SR-SUITE-CORE", "suite:SR-SUITE-FULL"]}
-  ]
-}
-```
+**Backend (`templates.rs`):**
+- Added `build_starter_instances()` method creating 11 templates
+- ID format: `tmpl_starter_{type_key_suffix}` (e.g., `tmpl_starter_intake`)
+- Status: `"reference"` (read-only)
+- Created by: `"system"`
+- Seeded on `TemplateRegistry::new()`
 
-**1.3 Work Surface Instance (`domain.work_surface`)** - `Example Work Surface Binding`
+**Frontend (Templates.tsx):**
+- Reference templates sorted first in each category
+- "Reference" badge (info tone - blue) on status pill
+- Clone button for reference templates
+- Clone creates editable copy with "(Copy)" suffix
 
-#### Category 2: Execution Policy (Self-Service)
+**Frontend (TemplateDetail.tsx):**
+- Read-only banner for reference templates
+- Clone Template button in header
+- Info banner explaining reference templates
 
-**2.1 Budget Configuration (`budget_config`)** - `Standard Budget Policy`
-```json
-{
-  "policy_id": "budget:STANDARD",
-  "max_iterations": 5,
-  "max_oracle_runs": 25,
-  "max_wallclock_hours": 16,
-  "on_exhaustion": {"stop_trigger": "BUDGET_EXHAUSTED", "routing_portal": "HumanAuthorityExceptionProcess"}
-}
-```
+**UI Components:**
+- Added `--info` CSS variable (#2e5b8c) to theme.css
+- Added `info` tone to Pill component
 
-**2.2 Gating Policy (`config.gating_policy`)** - `Hybrid Gating Policy`
+### Quality Status
+- Backend: `cargo build` PASS, 24 tests pass
+- Frontend: `npm run type-check && npm run build` PASS
 
-#### Category 3: Oracle (Portal Required)
-
-**3.1 Oracle Suite (`oracle_suite`)** - `Custom Verification Suite`
-
-#### Category 4: Verification (Portal Required)
-
-**4.1 Verification Profile (`verification_profile`)** - `Project Standard Profile`
-
-#### Category 5: Semantic Sets (Portal Required)
-
-**5.1 Semantic Set (`config.semantic_set`)** - `Research Memo Quality Set`
-
-#### Category 6: Exceptions (Portal Required)
-
-**6.1 Waiver (`record.waiver`)** - `Example Waiver Template`
-**6.2 Deviation (`record.deviation`)** - `Example Deviation Template`
-**6.3 Deferral (`record.deferral`)** - `Example Deferral Template`
-
-### Implementation Approach
-
-1. **Backend**: Add `build_starter_instances()` to `TemplateRegistry` in `templates.rs`
-2. **Frontend**: Show starter templates with "Reference" badge, add "Clone" button
-3. **Status**: Reference templates use `status: "reference"` and are read-only
-
-### Files to Modify
-
-| File | Changes |
-|------|---------|
-| `crates/sr-api/src/handlers/templates.rs` | Add `build_starter_instances()`, `seed_starter_templates()` |
-| `ui/src/pages/Templates.tsx` | Add reference template section, clone functionality |
-| `ui/src/pages/TemplateDetail.tsx` | Add read-only mode for reference templates |
+### Commit
+- `75edc76` - Implement Templates UI with starter reference templates (Phase 1+2)
 
 ---
 
-## Next Instance Prompt
+## Next Steps
 
-```
-read docs/charter/SR-README.md and then docs/charter/SR-CHARTER.md and then docs/platform/SR-TEMPLATES.md. Your task is to implement Phase 2 of the Templates UI: Starter Templates.
-
-The Phase 1 Templates UI is complete (see SR-README.md "Development Session Summary 2026-01-15"). Now implement Phase 2:
-
-1. In `crates/sr-api/src/handlers/templates.rs`:
-   - Add `build_starter_instances()` method that creates 11 starter template instances (see Phase 2 Plan in SR-README.md for the JSON structures)
-   - Add `seed_starter_templates()` to call this during `TemplateRegistry::new()`
-   - Use ID prefix `tmpl_starter_` and status `"reference"` for these templates
-
-2. In `ui/src/pages/Templates.tsx`:
-   - Show starter templates at top of each category tab with "Reference" badge
-   - Add "Clone" button to create editable copy from reference
-
-3. In `ui/src/pages/TemplateDetail.tsx`:
-   - Add read-only mode when viewing reference templates (hide edit buttons)
-
-Verify with: `cargo build` and `cd ui && npm run type-check && npm run build`
-
-Full starter template JSON examples are in the plan file: /Users/ryan/.claude/plans/whimsical-drifting-island.md
-```
+The Templates UI is complete (Phase 1 + Phase 2). Possible future enhancements:
+- Template editing UI
+- Template versioning
+- Portal approval workflow integration
+- Template search/filtering
