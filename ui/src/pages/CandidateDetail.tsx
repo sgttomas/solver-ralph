@@ -10,6 +10,8 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
+import { Card, Pill, Button, getStatusTone, truncateHash } from '../ui';
+import styles from '../styles/pages.module.css';
 
 interface TypedRef {
   type_key: string;
@@ -63,239 +65,6 @@ interface FreezeRecord {
   verification_mode: string;
   artifact_manifest_hash: string;
 }
-
-const styles = {
-  container: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-  },
-  breadcrumb: {
-    marginBottom: '1rem',
-    fontSize: '0.875rem',
-  },
-  breadcrumbLink: {
-    color: '#0066cc',
-    textDecoration: 'none',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '1.5rem',
-  },
-  title: {
-    margin: 0,
-    fontSize: '1.5rem',
-    color: '#1a1a2e',
-  },
-  subtitle: {
-    margin: '0.5rem 0 0 0',
-    fontSize: '0.875rem',
-    color: '#666',
-    fontFamily: 'monospace',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    marginBottom: '1.5rem',
-  },
-  cardTitle: {
-    margin: '0 0 1rem 0',
-    fontSize: '1rem',
-    color: '#1a1a2e',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-  },
-  th: {
-    textAlign: 'left' as const,
-    padding: '0.75rem',
-    borderBottom: '2px solid #e5e5e5',
-    color: '#666',
-    fontSize: '0.75rem',
-    textTransform: 'uppercase' as const,
-  },
-  td: {
-    padding: '0.75rem',
-    borderBottom: '1px solid #e5e5e5',
-    fontSize: '0.875rem',
-  },
-  statusBadge: {
-    display: 'inline-block',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.75rem',
-    fontWeight: 500,
-  },
-  link: {
-    color: '#0066cc',
-    textDecoration: 'none',
-  },
-  placeholder: {
-    textAlign: 'center' as const,
-    padding: '2rem',
-    color: '#666',
-  },
-  infoRow: {
-    display: 'flex',
-    marginBottom: '0.5rem',
-  },
-  infoLabel: {
-    width: '140px',
-    fontSize: '0.75rem',
-    color: '#666',
-    textTransform: 'uppercase' as const,
-  },
-  infoValue: {
-    flex: 1,
-    fontSize: '0.875rem',
-  },
-  monospace: {
-    fontFamily: 'monospace',
-    fontSize: '0.75rem',
-    backgroundColor: '#f5f5f5',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-  },
-  refList: {
-    listStyle: 'none',
-    margin: 0,
-    padding: 0,
-  },
-  refItem: {
-    padding: '0.5rem',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '4px',
-    marginBottom: '0.5rem',
-    fontFamily: 'monospace',
-    fontSize: '0.75rem',
-  },
-  refRel: {
-    color: '#666',
-    marginLeft: '0.5rem',
-  },
-  tabs: {
-    display: 'flex',
-    borderBottom: '2px solid #e5e5e5',
-    marginBottom: '1rem',
-  },
-  tab: {
-    padding: '0.75rem 1rem',
-    border: 'none',
-    background: 'none',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    color: '#666',
-    borderBottom: '2px solid transparent',
-    marginBottom: '-2px',
-  },
-  tabActive: {
-    color: '#0066cc',
-    borderBottomColor: '#0066cc',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '1rem',
-    marginBottom: '1.5rem',
-    padding: '1rem',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '4px',
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '0.5rem',
-  },
-  formRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1rem',
-  },
-  label: {
-    fontSize: '0.875rem',
-    fontWeight: 500,
-    color: '#333',
-  },
-  input: {
-    padding: '0.5rem 0.75rem',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    fontSize: '0.875rem',
-  },
-  select: {
-    padding: '0.5rem 0.75rem',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    fontSize: '0.875rem',
-    backgroundColor: 'white',
-  },
-  button: {
-    padding: '0.5rem 1rem',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '0.875rem',
-    cursor: 'pointer',
-  },
-  buttonPrimary: {
-    backgroundColor: '#1a1a2e',
-    color: 'white',
-  },
-  buttonSecondary: {
-    backgroundColor: '#e5e5e5',
-    color: '#333',
-  },
-  buttonSmall: {
-    padding: '0.25rem 0.5rem',
-    fontSize: '0.75rem',
-  },
-  buttonRow: {
-    display: 'flex',
-    gap: '0.5rem',
-    justifyContent: 'flex-end',
-  },
-  error: {
-    color: '#dc3545',
-    fontSize: '0.875rem',
-    padding: '0.5rem',
-    backgroundColor: '#f8d7da',
-    borderRadius: '4px',
-    marginBottom: '1rem',
-  },
-  success: {
-    color: '#155724',
-    fontSize: '0.875rem',
-    padding: '0.5rem',
-    backgroundColor: '#d4edda',
-    borderRadius: '4px',
-    marginBottom: '1rem',
-  },
-  cardTitleRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1rem',
-  },
-};
-
-const stateColors: Record<string, { bg: string; color: string }> = {
-  PENDING: { bg: '#fff3cd', color: '#856404' },
-  RUNNING: { bg: '#d4edda', color: '#155724' },
-  COMPLETED: { bg: '#cce5ff', color: '#004085' },
-  SUCCESS: { bg: '#d4edda', color: '#155724' },
-  FAILURE: { bg: '#f8d7da', color: '#721c24' },
-  VERIFIED: { bg: '#d4edda', color: '#155724' },
-  REJECTED: { bg: '#f8d7da', color: '#721c24' },
-  PASS: { bg: '#d4edda', color: '#155724' },
-  FAIL: { bg: '#f8d7da', color: '#721c24' },
-  ERROR: { bg: '#f5c6cb', color: '#721c24' },
-  SKIPPED: { bg: '#e2e3e5', color: '#383d41' },
-  STRICT: { bg: '#cce5ff', color: '#004085' },
-  WITH_EXCEPTIONS: { bg: '#fff3cd', color: '#856404' },
-};
 
 export function CandidateDetail(): JSX.Element {
   const { candidateId } = useParams<{ candidateId: string }>();
@@ -437,9 +206,9 @@ export function CandidateDetail(): JSX.Element {
 
   if (loading) {
     return (
-      <div style={styles.container}>
-        <div style={styles.placeholder}>
-          <p>Loading candidate details...</p>
+      <div className={styles.container}>
+        <div className={styles.placeholder}>
+          <p className={styles.placeholderText}>Loading candidate details...</p>
         </div>
       </div>
     );
@@ -447,118 +216,106 @@ export function CandidateDetail(): JSX.Element {
 
   if (error || !candidate) {
     return (
-      <div style={styles.container}>
-        <div style={styles.placeholder}>
-          <p style={{ color: '#dc3545' }}>Error: {error || 'Candidate not found'}</p>
-          <Link to="/loops" style={styles.link}>Back to Loops</Link>
+      <div className={styles.container}>
+        <div className={styles.placeholder}>
+          <p className={styles.error}>Error: {error || 'Candidate not found'}</p>
+          <Link to="/loops" className={styles.link}>Back to Workflows</Link>
         </div>
       </div>
     );
   }
 
-  const stateStyle = stateColors[candidate.state] || stateColors.PENDING;
-
   return (
-    <div style={styles.container}>
+    <div className={styles.container}>
       {/* Breadcrumb */}
-      <div style={styles.breadcrumb}>
-        <Link to="/loops" style={styles.breadcrumbLink}>Loops</Link>
+      <div className={styles.breadcrumb}>
+        <Link to="/loops" className={styles.breadcrumbLink}>Workflows</Link>
         {candidate.produced_by_iteration_id && (
           <>
-            <span style={{ color: '#666' }}> / </span>
+            <span className={styles.breadcrumbSeparator}>/</span>
             <Link
               to={`/iterations/${candidate.produced_by_iteration_id}`}
-              style={styles.breadcrumbLink}
+              className={styles.breadcrumbLink}
             >
               Iteration
             </Link>
           </>
         )}
-        <span style={{ color: '#666' }}> / </span>
+        <span className={styles.breadcrumbSeparator}>/</span>
         <span>Candidate</span>
       </div>
 
       {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Candidate</h1>
-          <p style={styles.subtitle}>{candidate.id}</p>
+      <div className={styles.header}>
+        <div className={styles.headerStart}>
+          <h1 className={styles.title}>Candidate</h1>
+          <p className={styles.subtitle}>{candidate.id}</p>
         </div>
-        <span
-          style={{
-            ...styles.statusBadge,
-            backgroundColor: stateStyle.bg,
-            color: stateStyle.color,
-          }}
-        >
-          {candidate.state}
-        </span>
+        <Pill tone={getStatusTone(candidate.state)}>{candidate.state}</Pill>
       </div>
 
       {/* Overview Card */}
-      <div style={styles.card}>
-        <h2 style={styles.cardTitle}>Overview</h2>
-        <div style={styles.infoRow}>
-          <span style={styles.infoLabel}>Content Hash</span>
-          <code style={styles.monospace}>{candidate.content_hash}</code>
+      <Card title="Overview" className={styles.cardSpacing}>
+        <div className={styles.infoRow}>
+          <span className={styles.infoLabel}>Content Hash</span>
+          <code className={styles.mono}>{candidate.content_hash}</code>
         </div>
         {candidate.git_sha && (
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Git SHA</span>
-            <code style={styles.monospace}>{candidate.git_sha}</code>
+          <div className={styles.infoRow}>
+            <span className={styles.infoLabel}>Git SHA</span>
+            <code className={styles.mono}>{candidate.git_sha}</code>
           </div>
         )}
-        <div style={styles.infoRow}>
-          <span style={styles.infoLabel}>Materialized</span>
-          <span style={styles.infoValue}>
+        <div className={styles.infoRow}>
+          <span className={styles.infoLabel}>Materialized</span>
+          <span className={styles.infoValue}>
             {new Date(candidate.materialized_at).toLocaleString()}
           </span>
         </div>
         {candidate.produced_by_iteration_id && (
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Iteration</span>
+          <div className={styles.infoRow}>
+            <span className={styles.infoLabel}>Iteration</span>
             <Link
               to={`/iterations/${candidate.produced_by_iteration_id}`}
-              style={styles.link}
+              className={styles.link}
             >
               {candidate.produced_by_iteration_id}
             </Link>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Refs Card */}
       {candidate.refs && candidate.refs.length > 0 && (
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>References ({candidate.refs.length})</h2>
-          <ul style={styles.refList}>
+        <Card title={`References (${candidate.refs.length})`} className={styles.cardSpacing}>
+          <ul className={styles.refList}>
             {candidate.refs.map((ref, idx) => (
-              <li key={idx} style={styles.refItem}>
+              <li key={idx} className={styles.refItem}>
                 <span>{ref.type_key}:{ref.id}</span>
-                <span style={styles.refRel}>({ref.rel})</span>
+                <span className={styles.refRel}>({ref.rel})</span>
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       )}
 
       {/* Tabbed Content Card */}
-      <div style={styles.card}>
-        <div style={styles.tabs}>
+      <Card>
+        <div className={styles.tabs}>
           <button
-            style={{ ...styles.tab, ...(activeTab === 'runs' ? styles.tabActive : {}) }}
+            className={`${styles.tab} ${activeTab === 'runs' ? styles.tabActive : ''}`}
             onClick={() => setActiveTab('runs')}
           >
             Oracle Runs ({runs.length})
           </button>
           <button
-            style={{ ...styles.tab, ...(activeTab === 'evidence' ? styles.tabActive : {}) }}
+            className={`${styles.tab} ${activeTab === 'evidence' ? styles.tabActive : ''}`}
             onClick={() => setActiveTab('evidence')}
           >
             Artifacts ({evidence.length})
           </button>
           <button
-            style={{ ...styles.tab, ...(activeTab === 'freeze' ? styles.tabActive : {}) }}
+            className={`${styles.tab} ${activeTab === 'freeze' ? styles.tabActive : ''}`}
             onClick={() => setActiveTab('freeze')}
           >
             Freeze Records ({freezeRecords.length})
@@ -569,79 +326,57 @@ export function CandidateDetail(): JSX.Element {
         {activeTab === 'runs' && (
           <>
             {runs.length === 0 ? (
-              <div style={styles.placeholder}>
-                <p>No oracle runs for this candidate.</p>
+              <div className={styles.placeholder}>
+                <p className={styles.placeholderText}>No oracle runs for this candidate.</p>
               </div>
             ) : (
-              <table style={styles.table}>
+              <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>Run ID</th>
-                    <th style={styles.th}>Suite</th>
-                    <th style={styles.th}>State</th>
-                    <th style={styles.th}>Outcome</th>
-                    <th style={styles.th}>Artifacts</th>
-                    <th style={styles.th}>Started</th>
+                    <th className={styles.th}>Run ID</th>
+                    <th className={styles.th}>Suite</th>
+                    <th className={styles.th}>State</th>
+                    <th className={styles.th}>Outcome</th>
+                    <th className={styles.th}>Artifacts</th>
+                    <th className={styles.th}>Started</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {runs.map(run => {
-                    const runStateStyle = stateColors[run.state] || stateColors.PENDING;
-                    const outcomeStyle = run.outcome
-                      ? (stateColors[run.outcome] || stateColors.PENDING)
-                      : null;
-                    return (
-                      <tr key={run.id}>
-                        <td style={styles.td}>{run.id}</td>
-                        <td style={styles.td}>
-                          <code style={styles.monospace}>{run.oracle_suite_id}</code>
-                        </td>
-                        <td style={styles.td}>
-                          <span
-                            style={{
-                              ...styles.statusBadge,
-                              backgroundColor: runStateStyle.bg,
-                              color: runStateStyle.color,
-                            }}
+                  {runs.map(run => (
+                    <tr key={run.id}>
+                      <td className={styles.td}>{run.id}</td>
+                      <td className={styles.td}>
+                        <code className={styles.mono}>{run.oracle_suite_id}</code>
+                      </td>
+                      <td className={styles.td}>
+                        <Pill tone={getStatusTone(run.state)}>{run.state}</Pill>
+                      </td>
+                      <td className={styles.td}>
+                        {run.outcome ? (
+                          <Pill tone={getStatusTone(run.outcome)}>{run.outcome}</Pill>
+                        ) : (
+                          <span style={{ color: 'var(--muted)' }}>-</span>
+                        )}
+                      </td>
+                      <td className={styles.td}>
+                        {run.evidence_bundle_hash ? (
+                          <Link
+                            to={`/evidence/${run.evidence_bundle_hash}`}
+                            className={styles.link}
                           >
-                            {run.state}
-                          </span>
-                        </td>
-                        <td style={styles.td}>
-                          {outcomeStyle ? (
-                            <span
-                              style={{
-                                ...styles.statusBadge,
-                                backgroundColor: outcomeStyle.bg,
-                                color: outcomeStyle.color,
-                              }}
-                            >
-                              {run.outcome}
-                            </span>
-                          ) : (
-                            <span style={{ color: '#999' }}>-</span>
-                          )}
-                        </td>
-                        <td style={styles.td}>
-                          {run.evidence_bundle_hash ? (
-                            <Link
-                              to={`/evidence/${run.evidence_bundle_hash}`}
-                              style={styles.link}
-                            >
-                              <code style={styles.monospace}>
-                                {run.evidence_bundle_hash.substring(0, 12)}...
-                              </code>
-                            </Link>
-                          ) : (
-                            <span style={{ color: '#999' }}>-</span>
-                          )}
-                        </td>
-                        <td style={styles.td}>
-                          {new Date(run.started_at).toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            <code className={styles.mono}>
+                              {truncateHash(run.evidence_bundle_hash, 12)}
+                            </code>
+                          </Link>
+                        ) : (
+                          <span style={{ color: 'var(--muted)' }}>-</span>
+                        )}
+                      </td>
+                      <td className={styles.td}>
+                        {new Date(run.started_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}
@@ -652,56 +387,47 @@ export function CandidateDetail(): JSX.Element {
         {activeTab === 'evidence' && (
           <>
             {evidence.length === 0 ? (
-              <div style={styles.placeholder}>
-                <p>No artifact bundles associated with this candidate.</p>
+              <div className={styles.placeholder}>
+                <p className={styles.placeholderText}>No artifact bundles associated with this candidate.</p>
               </div>
             ) : (
-              <table style={styles.table}>
+              <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>Content Hash</th>
-                    <th style={styles.th}>Type</th>
-                    <th style={styles.th}>Suite</th>
-                    <th style={styles.th}>Verdict</th>
-                    <th style={styles.th}>Created</th>
+                    <th className={styles.th}>Content Hash</th>
+                    <th className={styles.th}>Type</th>
+                    <th className={styles.th}>Suite</th>
+                    <th className={styles.th}>Verdict</th>
+                    <th className={styles.th}>Created</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {evidence.map(bundle => {
-                    const verdictStyle = stateColors[bundle.manifest.verdict] || stateColors.PENDING;
-                    return (
-                      <tr key={bundle.content_hash}>
-                        <td style={styles.td}>
-                          <Link
-                            to={`/evidence/${bundle.content_hash}`}
-                            style={styles.link}
-                          >
-                            <code style={styles.monospace}>
-                              {bundle.content_hash.substring(0, 16)}...
-                            </code>
-                          </Link>
-                        </td>
-                        <td style={styles.td}>{bundle.manifest.artifact_type}</td>
-                        <td style={styles.td}>
-                          <code style={styles.monospace}>{bundle.manifest.suite_id}</code>
-                        </td>
-                        <td style={styles.td}>
-                          <span
-                            style={{
-                              ...styles.statusBadge,
-                              backgroundColor: verdictStyle.bg,
-                              color: verdictStyle.color,
-                            }}
-                          >
-                            {bundle.manifest.verdict}
-                          </span>
-                        </td>
-                        <td style={styles.td}>
-                          {new Date(bundle.manifest.created_at).toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {evidence.map(bundle => (
+                    <tr key={bundle.content_hash}>
+                      <td className={styles.td}>
+                        <Link
+                          to={`/evidence/${bundle.content_hash}`}
+                          className={styles.link}
+                        >
+                          <code className={styles.mono}>
+                            {truncateHash(bundle.content_hash, 16)}
+                          </code>
+                        </Link>
+                      </td>
+                      <td className={styles.td}>{bundle.manifest.artifact_type}</td>
+                      <td className={styles.td}>
+                        <code className={styles.mono}>{bundle.manifest.suite_id}</code>
+                      </td>
+                      <td className={styles.td}>
+                        <Pill tone={getStatusTone(bundle.manifest.verdict)}>
+                          {bundle.manifest.verdict}
+                        </Pill>
+                      </td>
+                      <td className={styles.td}>
+                        {new Date(bundle.manifest.created_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}
@@ -711,27 +437,27 @@ export function CandidateDetail(): JSX.Element {
         {/* Freeze Records Tab */}
         {activeTab === 'freeze' && (
           <>
-            {/* Create Freeze Form (D-30) */}
-            <div style={styles.cardTitleRow}>
-              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Freeze Records</span>
-              <button
-                style={{ ...styles.button, ...styles.buttonSecondary, ...styles.buttonSmall }}
+            {/* Create Freeze Form Header (D-30) */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space4)' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--ink)' }}>Freeze Records</span>
+              <Button
+                variant="secondary"
                 onClick={() => setShowFreezeForm(!showFreezeForm)}
               >
                 {showFreezeForm ? 'Cancel' : 'Create Freeze'}
-              </button>
+              </Button>
             </div>
 
-            {freezeFormError && <div style={styles.error}>{freezeFormError}</div>}
-            {freezeFormSuccess && <div style={styles.success}>{freezeFormSuccess}</div>}
+            {freezeFormError && <div className={styles.error}>{freezeFormError}</div>}
+            {freezeFormSuccess && <div className={styles.success}>{freezeFormSuccess}</div>}
 
             {showFreezeForm && (
-              <form style={styles.form} onSubmit={handleSubmitFreeze}>
-                <div style={styles.formRow}>
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Baseline ID *</label>
+              <form className={styles.form} onSubmit={handleSubmitFreeze}>
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Baseline ID *</label>
                     <input
-                      style={styles.input}
+                      className={styles.input}
                       type="text"
                       placeholder="e.g., v1.0.0"
                       value={freezeBaselineId}
@@ -739,10 +465,10 @@ export function CandidateDetail(): JSX.Element {
                       required
                     />
                   </div>
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Verification Mode *</label>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Verification Mode *</label>
                     <select
-                      style={styles.select}
+                      className={styles.select}
                       value={freezeVerificationMode}
                       onChange={e => setFreezeVerificationMode(e.target.value)}
                     >
@@ -752,11 +478,11 @@ export function CandidateDetail(): JSX.Element {
                   </div>
                 </div>
 
-                <div style={styles.formRow}>
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Oracle Suite ID *</label>
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Oracle Suite ID *</label>
                     <input
-                      style={styles.input}
+                      className={styles.input}
                       type="text"
                       placeholder="e.g., suite:SR-SUITE-CORE"
                       value={freezeOracleSuiteId}
@@ -764,10 +490,10 @@ export function CandidateDetail(): JSX.Element {
                       required
                     />
                   </div>
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Oracle Suite Hash</label>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Oracle Suite Hash</label>
                     <input
-                      style={styles.input}
+                      className={styles.input}
                       type="text"
                       placeholder="sha256:..."
                       value={freezeOracleSuiteHash}
@@ -776,10 +502,10 @@ export function CandidateDetail(): JSX.Element {
                   </div>
                 </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Release Approval ID *</label>
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Release Approval ID *</label>
                   <input
-                    style={styles.input}
+                    className={styles.input}
                     type="text"
                     placeholder="appr_..."
                     value={freezeApprovalId}
@@ -788,10 +514,10 @@ export function CandidateDetail(): JSX.Element {
                   />
                 </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Artifact Bundle Refs (comma-separated)</label>
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Artifact Bundle Refs (comma-separated)</label>
                   <input
-                    style={styles.input}
+                    className={styles.input}
                     type="text"
                     placeholder="sha256:abc123, sha256:def456"
                     value={freezeEvidenceBundleRefs}
@@ -799,72 +525,59 @@ export function CandidateDetail(): JSX.Element {
                   />
                 </div>
 
-                <div style={styles.buttonRow}>
-                  <button
-                    type="button"
-                    style={{ ...styles.button, ...styles.buttonSecondary }}
-                    onClick={resetFreezeForm}
-                  >
+                <div className={styles.buttonRow}>
+                  <Button variant="secondary" type="button" onClick={resetFreezeForm}>
                     Cancel
-                  </button>
-                  <button type="submit" style={{ ...styles.button, ...styles.buttonPrimary }}>
+                  </Button>
+                  <Button variant="primary" type="submit">
                     Create Freeze Record
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
 
             {freezeRecords.length === 0 && !showFreezeForm ? (
-              <div style={styles.placeholder}>
-                <p>No freeze records for this candidate.</p>
-                <p style={{ fontSize: '0.875rem', color: '#999' }}>
+              <div className={styles.placeholder}>
+                <p className={styles.placeholderText}>No freeze records for this candidate.</p>
+                <p className={styles.placeholderHint}>
                   Freeze records are created when a human authority approves a candidate baseline.
                 </p>
               </div>
             ) : freezeRecords.length > 0 ? (
-              <table style={styles.table}>
+              <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>ID</th>
-                    <th style={styles.th}>Mode</th>
-                    <th style={styles.th}>Artifact Manifest</th>
-                    <th style={styles.th}>Created</th>
+                    <th className={styles.th}>ID</th>
+                    <th className={styles.th}>Mode</th>
+                    <th className={styles.th}>Artifact Manifest</th>
+                    <th className={styles.th}>Created</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {freezeRecords.map(freeze => {
-                    const modeStyle = stateColors[freeze.verification_mode] || stateColors.PENDING;
-                    return (
-                      <tr key={freeze.id}>
-                        <td style={styles.td}>{freeze.id}</td>
-                        <td style={styles.td}>
-                          <span
-                            style={{
-                              ...styles.statusBadge,
-                              backgroundColor: modeStyle.bg,
-                              color: modeStyle.color,
-                            }}
-                          >
-                            {freeze.verification_mode}
-                          </span>
-                        </td>
-                        <td style={styles.td}>
-                          <code style={styles.monospace}>
-                            {freeze.artifact_manifest_hash.substring(0, 16)}...
-                          </code>
-                        </td>
-                        <td style={styles.td}>
-                          {new Date(freeze.created_at).toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {freezeRecords.map(freeze => (
+                    <tr key={freeze.id}>
+                      <td className={styles.td}>{freeze.id}</td>
+                      <td className={styles.td}>
+                        <Pill tone={getStatusTone(freeze.verification_mode)}>
+                          {freeze.verification_mode}
+                        </Pill>
+                      </td>
+                      <td className={styles.td}>
+                        <code className={styles.mono}>
+                          {truncateHash(freeze.artifact_manifest_hash, 16)}
+                        </code>
+                      </td>
+                      <td className={styles.td}>
+                        {new Date(freeze.created_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             ) : null}
           </>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

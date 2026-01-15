@@ -8,6 +8,8 @@
 import { FormEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
+import { Card, Button } from '../ui';
+import styles from '../styles/pages.module.css';
 
 type StreamStartEvent = {
   type: 'start';
@@ -63,158 +65,6 @@ const defaultForm: FormState = {
   oracle_suite_id: '',
   model: '',
   work_unit: '',
-};
-
-const styles = {
-  page: {
-    maxWidth: '960px',
-    margin: '0 auto',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '1rem',
-  },
-  card: {
-    background: '#fff',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    boxShadow: '0 12px 28px rgba(26, 26, 46, 0.08)',
-    border: '1px solid #eceff4',
-  },
-  titleRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: '0.75rem',
-  },
-  title: {
-    fontSize: '1.4rem',
-    fontWeight: 700,
-    color: '#1a1a2e',
-    margin: 0,
-  },
-  subtitle: {
-    margin: '0 0 1rem 0',
-    color: '#555',
-    fontSize: '0.95rem',
-  },
-  formGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1rem',
-  },
-  field: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '0.35rem',
-  },
-  label: {
-    fontWeight: 600,
-    fontSize: '0.9rem',
-    color: '#2f2f40',
-  },
-  textarea: {
-    minHeight: '120px',
-    padding: '0.75rem',
-    borderRadius: '10px',
-    border: '1px solid #dfe3eb',
-    fontSize: '0.95rem',
-    resize: 'vertical' as const,
-  },
-  input: {
-    padding: '0.65rem 0.75rem',
-    borderRadius: '10px',
-    border: '1px solid #dfe3eb',
-    fontSize: '0.95rem',
-  },
-  pillRow: {
-    display: 'flex',
-    gap: '0.5rem',
-    flexWrap: 'wrap' as const,
-    marginTop: '0.5rem',
-  },
-  pill: {
-    padding: '0.35rem 0.75rem',
-    borderRadius: '999px',
-    border: '1px solid #dfe3eb',
-    background: '#f7f8fb',
-    fontSize: '0.85rem',
-    cursor: 'pointer',
-  },
-  actions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '0.75rem',
-    marginTop: '1rem',
-  },
-  buttonPrimary: {
-    padding: '0.75rem 1.25rem',
-    borderRadius: '10px',
-    border: 'none',
-    background: 'linear-gradient(135deg, #d68b4b, #b06b35)',
-    color: '#fff',
-    fontWeight: 700,
-    fontSize: '0.95rem',
-    cursor: 'pointer',
-  },
-  buttonGhost: {
-    padding: '0.75rem 1rem',
-    borderRadius: '10px',
-    border: '1px solid #dfe3eb',
-    background: '#fff',
-    color: '#2f2f40',
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  status: {
-    padding: '0.5rem 0.75rem',
-    borderRadius: '8px',
-    background: '#fef6ec',
-    border: '1px solid #f3dbc0',
-    color: '#8a5a2f',
-    fontSize: '0.9rem',
-    marginTop: '0.5rem',
-  },
-  resultGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '0.75rem',
-    marginTop: '1rem',
-  },
-  resultCard: {
-    border: '1px solid #eceff4',
-    borderRadius: '10px',
-    padding: '0.75rem',
-    background: '#f9fafc',
-  },
-  code: {
-    fontFamily: 'Menlo, Consolas, monospace',
-    fontSize: '0.85rem',
-    wordBreak: 'break-all' as const,
-    margin: 0,
-  },
-  outputBox: {
-    marginTop: '1rem',
-    border: '1px solid #eceff4',
-    borderRadius: '10px',
-    background: '#fdfdfd',
-    padding: '0.75rem',
-    whiteSpace: 'pre-wrap' as const,
-    fontFamily: 'Menlo, Consolas, monospace',
-    fontSize: '0.9rem',
-    color: '#2c2c2c',
-    minHeight: '100px',
-    maxHeight: '400px',
-    overflow: 'auto',
-  },
-  streamingIndicator: {
-    display: 'inline-block',
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: '#d68b4b',
-    marginLeft: '0.5rem',
-    animation: 'pulse 1s infinite',
-  },
 };
 
 export function PromptLoop(): JSX.Element {
@@ -369,7 +219,7 @@ export function PromptLoop(): JSX.Element {
   }, [form, token]);
 
   return (
-    <div style={styles.page}>
+    <div className={styles.container}>
       {/* Add keyframes for pulse animation */}
       <style>{`
         @keyframes pulse {
@@ -378,43 +228,62 @@ export function PromptLoop(): JSX.Element {
         }
       `}</style>
 
-      <div style={styles.card}>
-        <div style={styles.titleRow}>
-          <h1 style={styles.title}>
-            Task
-            {streaming && <span style={styles.streamingIndicator} />}
-          </h1>
-        </div>
-        <p style={styles.subtitle}>
-          Materialize a governed work surface from a free-form prompt, run a task iteration, and capture candidate + artifacts with streaming output.
-        </p>
+      <div className={styles.header}>
+        <h1 className={styles.title}>
+          Task
+          {streaming && (
+            <span style={{
+              display: 'inline-block',
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: 'var(--accent)',
+              marginLeft: 'var(--space2)',
+              animation: 'pulse 1s infinite',
+            }} />
+          )}
+        </h1>
+      </div>
+      <p style={{ color: 'var(--muted)', marginBottom: 'var(--space5)' }}>
+        Materialize a governed work surface from a free-form prompt, run a task iteration, and capture candidate + artifacts with streaming output.
+      </p>
 
-        <form onSubmit={submit}>
-          <div style={{ ...styles.field, marginBottom: '1rem' }}>
-            <label style={styles.label}>Prompt *</label>
+      <Card className={styles.cardSpacing}>
+        <form onSubmit={submit} className={styles.form}>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Prompt *</label>
             <textarea
-              style={styles.textarea}
+              className={styles.textarea}
               placeholder="What do you want the task to answer?"
               value={form.prompt}
               onChange={handleChange('prompt')}
               disabled={loading}
+              style={{ minHeight: '120px' }}
             />
           </div>
 
-          <div style={styles.formGrid}>
-            <div style={styles.field}>
-              <label style={styles.label}>Procedure Template ID (optional)</label>
+          <div className={styles.formRow}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Procedure Template ID (optional)</label>
               <input
-                style={styles.input}
+                className={styles.input}
                 placeholder="e.g., PROBLEM-STATEMENT-INGESTION"
                 value={form.procedure_template_id}
                 onChange={handleChange('procedure_template_id')}
                 disabled={loading}
               />
-              <div style={styles.pillRow}>
+              <div style={{ display: 'flex', gap: 'var(--space2)', marginTop: 'var(--space2)', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  style={styles.pill}
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: '999px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--paper)',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    color: 'var(--muted)',
+                  }}
                   onClick={() => setForm(f => ({ ...f, procedure_template_id: 'PROBLEM-STATEMENT-INGESTION' }))}
                   disabled={loading}
                 >
@@ -422,7 +291,15 @@ export function PromptLoop(): JSX.Element {
                 </button>
                 <button
                   type="button"
-                  style={styles.pill}
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: '999px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--paper)',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    color: 'var(--muted)',
+                  }}
                   onClick={() => setForm(f => ({ ...f, procedure_template_id: 'GENERIC-KNOWLEDGE-WORK' }))}
                   disabled={loading}
                 >
@@ -431,21 +308,23 @@ export function PromptLoop(): JSX.Element {
               </div>
             </div>
 
-            <div style={styles.field}>
-              <label style={styles.label}>Stage ID (optional)</label>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Stage ID (optional)</label>
               <input
-                style={styles.input}
+                className={styles.input}
                 placeholder="e.g., stage:FRAME"
                 value={form.stage_id}
                 onChange={handleChange('stage_id')}
                 disabled={loading}
               />
             </div>
+          </div>
 
-            <div style={styles.field}>
-              <label style={styles.label}>Oracle Suite ID (optional)</label>
+          <div className={styles.formRow}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Oracle Suite ID (optional)</label>
               <input
-                style={styles.input}
+                className={styles.input}
                 placeholder="e.g., suite:SR-SUITE-GOV"
                 value={form.oracle_suite_id}
                 onChange={handleChange('oracle_suite_id')}
@@ -453,95 +332,108 @@ export function PromptLoop(): JSX.Element {
               />
             </div>
 
-            <div style={styles.field}>
-              <label style={styles.label}>Model (optional)</label>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Model (optional)</label>
               <input
-                style={styles.input}
+                className={styles.input}
                 placeholder="e.g., gpt-4o-mini"
                 value={form.model}
                 onChange={handleChange('model')}
                 disabled={loading}
               />
             </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>Work Unit Name (optional)</label>
-              <input
-                style={styles.input}
-                placeholder="Custom work unit identifier"
-                value={form.work_unit}
-                onChange={handleChange('work_unit')}
-                disabled={loading}
-              />
-            </div>
           </div>
 
-          {error && <div style={styles.status}>Error: {error}</div>}
-          {loading && !streaming && <div style={styles.status}>Initializing task...</div>}
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Work Unit Name (optional)</label>
+            <input
+              className={styles.input}
+              placeholder="Custom work unit identifier"
+              value={form.work_unit}
+              onChange={handleChange('work_unit')}
+              disabled={loading}
+            />
+          </div>
 
-          <div style={styles.actions}>
-            <button type="button" style={styles.buttonGhost} onClick={handleReset} disabled={loading && !streaming}>
+          {error && <div className={styles.error}>Error: {error}</div>}
+          {loading && !streaming && (
+            <div className={styles.note}>Initializing task...</div>
+          )}
+
+          <div className={styles.buttonRow}>
+            <Button variant="ghost" type="button" onClick={handleReset} disabled={loading && !streaming}>
               {streaming ? 'Cancel' : 'Reset'}
-            </button>
-            <button type="submit" style={styles.buttonPrimary} disabled={loading}>
-              {loading ? 'Running…' : 'Run Task'}
-            </button>
+            </Button>
+            <Button variant="primary" type="submit" disabled={loading}>
+              {loading ? 'Running...' : 'Run Task'}
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
 
       {(artifacts || streamedOutput) && (
-        <div style={styles.card}>
-          <h2 style={{ ...styles.title, fontSize: '1.1rem', marginBottom: '0.5rem' }}>
-            {streaming ? 'Streaming Output' : 'Artifacts'}
-          </h2>
-
+        <Card title={streaming ? 'Streaming Output' : 'Artifacts'}>
           {artifacts && (
-            <div style={styles.resultGrid}>
-              <div style={styles.resultCard}>
-                <strong>Task</strong>
-                <p style={styles.code}>{artifacts.loop_id}</p>
+            <div className={styles.statsGrid} style={{ marginBottom: 'var(--space4)' }}>
+              <div className={styles.stat}>
+                <div className={styles.statLabel}>Task</div>
+                <code className={styles.mono} style={{ fontSize: '0.7rem' }}>{artifacts.loop_id}</code>
               </div>
-              <div style={styles.resultCard}>
-                <strong>Iteration</strong>
-                <p style={styles.code}>{artifacts.iteration_id}</p>
+              <div className={styles.stat}>
+                <div className={styles.statLabel}>Iteration</div>
+                <code className={styles.mono} style={{ fontSize: '0.7rem' }}>{artifacts.iteration_id}</code>
               </div>
               {artifacts.candidate_id && (
-                <div style={styles.resultCard}>
-                  <strong>Candidate</strong>
-                  <p style={styles.code}>{artifacts.candidate_id}</p>
+                <div className={styles.stat}>
+                  <div className={styles.statLabel}>Candidate</div>
+                  <code className={styles.mono} style={{ fontSize: '0.7rem' }}>{artifacts.candidate_id}</code>
                 </div>
               )}
               {artifacts.run_id && (
-                <div style={styles.resultCard}>
-                  <strong>Run</strong>
-                  <p style={styles.code}>{artifacts.run_id}</p>
+                <div className={styles.stat}>
+                  <div className={styles.statLabel}>Run</div>
+                  <code className={styles.mono} style={{ fontSize: '0.7rem' }}>{artifacts.run_id}</code>
                 </div>
               )}
               {artifacts.evidence_content_hash && (
-                <div style={styles.resultCard}>
-                  <strong>Artifact Hash</strong>
-                  <p style={styles.code}>{artifacts.evidence_content_hash}</p>
+                <div className={styles.stat}>
+                  <div className={styles.statLabel}>Artifact Hash</div>
+                  <code className={styles.mono} style={{ fontSize: '0.7rem' }}>{artifacts.evidence_content_hash}</code>
                 </div>
               )}
-              <div style={styles.resultCard}>
-                <strong>Work Surface Hash</strong>
-                <p style={styles.code}>{artifacts.work_surface_hash}</p>
+              <div className={styles.stat}>
+                <div className={styles.statLabel}>Work Surface Hash</div>
+                <code className={styles.mono} style={{ fontSize: '0.7rem' }}>{artifacts.work_surface_hash}</code>
               </div>
-              <div style={styles.resultCard}>
-                <strong>Oracle Suite Hash</strong>
-                <p style={styles.code}>{artifacts.oracle_suite_hash}</p>
+              <div className={styles.stat}>
+                <div className={styles.statLabel}>Oracle Suite Hash</div>
+                <code className={styles.mono} style={{ fontSize: '0.7rem' }}>{artifacts.oracle_suite_hash}</code>
               </div>
             </div>
           )}
 
-          <div ref={outputRef} style={styles.outputBox}>
-            <strong>LLM Output {streaming && <span style={{ color: '#d68b4b' }}>(streaming...)</span>}</strong>
+          <div
+            ref={outputRef}
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radiusSm)',
+              background: 'var(--paper)',
+              padding: 'var(--space3)',
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'var(--mono)',
+              fontSize: '0.875rem',
+              color: 'var(--ink)',
+              minHeight: '100px',
+              maxHeight: '400px',
+              overflow: 'auto',
+            }}
+          >
+            <strong>LLM Output {streaming && <span style={{ color: 'var(--accent)' }}>(streaming...)</span>}</strong>
             <div style={{ height: '8px' }} />
             {streamedOutput || (streaming ? 'Waiting for response...' : '')}
-            {streaming && <span style={{ animation: 'pulse 1s infinite' }}>▌</span>}
+            {streaming && <span style={{ animation: 'pulse 1s infinite' }}>|</span>}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

@@ -116,8 +116,63 @@ Final sidebar order (top to bottom):
 9. `3befa4e` - Reorder sidebar navigation items
 
 ### Notes
-- The existing functional pages use inline styles; they work but don't match the new Chirality design aesthetic
-- Future work: Port existing pages to use Card/Pill/Button primitives from `ui/src/ui/`
-- The `src/pages/PromptLoop.tsx` is the FUNCTIONAL one with SSE streaming; `src/screens/PromptLoopScreen.tsx` is a wireframe (can be removed)
 - Dev auth bypass: `VITE_DEV_AUTH_BYPASS=true`
 - Backend auth bypass: `SR_AUTH_TEST_MODE=true`
+- The `src/pages/PromptLoop.tsx` is the FUNCTIONAL one with SSE streaming; `src/screens/PromptLoopScreen.tsx` is a wireframe (can be removed)
+
+---
+
+## Development Session Summary (2026-01-14, Session 2)
+
+**Branch:** `solver-ralph-2`
+
+### Completed Work
+
+#### UI Component Library Port
+Ported all functional pages from inline styles to use the shared component library (`Card`, `Pill`, `Button`) and CSS module for consistent Chirality design aesthetic.
+
+**New Files Created:**
+| File | Purpose |
+|------|---------|
+| `ui/src/styles/pages.module.css` | Shared CSS module with common patterns (tables, forms, tabs, breadcrumbs, etc.) |
+| `ui/src/ui/utils.ts` | Utility functions: `getStatusTone()`, `truncate()`, `truncateHash()` |
+| `ui/src/ui/index.ts` | Export barrel for UI primitives |
+
+**Pages Ported (8 total):**
+| Page | Key Changes |
+|------|-------------|
+| `Loops.tsx` | Card wrapper, Pill for status badges, shared table styles |
+| `Evidence.tsx` | Card wrapper, truncateHash for content hashes |
+| `LoopDetail.tsx` | Breadcrumbs, info rows, stats grid, iteration table |
+| `IterationDetail.tsx` | Context refs list, summary sections, candidate table |
+| `CandidateDetail.tsx` | Tabbed content (Runs/Artifacts/Freeze), Button for forms |
+| `EvidenceDetail.tsx` | Oracle results cards, artifact download buttons, raw manifest viewer |
+| `Approvals.tsx` | Three-tab layout (Approvals/Exceptions/Decisions), all forms ported |
+| `PromptLoop.tsx` | Task form, streaming output display, artifact stats grid |
+
+**Design System Applied:**
+- Replaced hardcoded colors (`#1a1a2e`, `#0066cc`, etc.) with CSS variables (`var(--ink)`, `var(--accent)`, etc.)
+- Replaced inline style objects with CSS module classes
+- Used `getStatusTone()` utility to map status strings to Pill tones (success/warning/danger/neutral)
+- Consistent typography using `var(--font)` and `var(--mono)`
+
+### Quality Status
+- TypeScript type-check: PASS
+- ESLint: PASS
+- Vite build: PASS (642ms)
+
+### Architecture Notes
+The UI now follows a consistent pattern:
+```
+ui/src/
+├── ui/           # Primitives (Button, Card, Pill) + utils
+├── styles/       # pages.module.css (shared page patterns)
+├── pages/        # Functional pages using primitives + shared styles
+├── screens/      # Wireframe placeholders (can be deprecated)
+└── layout/       # AppLayout, Sidebar, Topbar
+```
+
+### What's Next
+- Wire up remaining placeholder screens (Agents, Protocols, Context, Audit, Settings)
+- Add real data fetching to OverviewScreen dashboard
+- Remove deprecated `src/screens/` wireframes once replaced

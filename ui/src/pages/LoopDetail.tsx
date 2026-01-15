@@ -9,6 +9,8 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
+import { Card, Pill, getStatusTone } from '../ui';
+import styles from '../styles/pages.module.css';
 
 interface TypedRef {
   type_key: string;
@@ -41,136 +43,6 @@ interface Iteration {
   completed_at: string | null;
   outcome: string | null;
 }
-
-const styles = {
-  container: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-  },
-  breadcrumb: {
-    marginBottom: '1rem',
-    fontSize: '0.875rem',
-  },
-  breadcrumbLink: {
-    color: '#0066cc',
-    textDecoration: 'none',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '1.5rem',
-  },
-  title: {
-    margin: 0,
-    fontSize: '1.5rem',
-    color: '#1a1a2e',
-  },
-  subtitle: {
-    margin: '0.5rem 0 0 0',
-    fontSize: '0.875rem',
-    color: '#666',
-    fontFamily: 'monospace',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    marginBottom: '1.5rem',
-  },
-  cardTitle: {
-    margin: '0 0 1rem 0',
-    fontSize: '1rem',
-    color: '#1a1a2e',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '1rem',
-  },
-  stat: {
-    padding: '1rem',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '4px',
-  },
-  statLabel: {
-    fontSize: '0.75rem',
-    color: '#666',
-    textTransform: 'uppercase' as const,
-    marginBottom: '0.25rem',
-  },
-  statValue: {
-    fontSize: '1.25rem',
-    fontWeight: 600,
-    color: '#1a1a2e',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-  },
-  th: {
-    textAlign: 'left' as const,
-    padding: '0.75rem',
-    borderBottom: '2px solid #e5e5e5',
-    color: '#666',
-    fontSize: '0.75rem',
-    textTransform: 'uppercase' as const,
-  },
-  td: {
-    padding: '0.75rem',
-    borderBottom: '1px solid #e5e5e5',
-    fontSize: '0.875rem',
-  },
-  statusBadge: {
-    display: 'inline-block',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.75rem',
-    fontWeight: 500,
-  },
-  link: {
-    color: '#0066cc',
-    textDecoration: 'none',
-  },
-  placeholder: {
-    textAlign: 'center' as const,
-    padding: '2rem',
-    color: '#666',
-  },
-  infoRow: {
-    display: 'flex',
-    marginBottom: '0.5rem',
-  },
-  infoLabel: {
-    width: '140px',
-    fontSize: '0.75rem',
-    color: '#666',
-    textTransform: 'uppercase' as const,
-  },
-  infoValue: {
-    flex: 1,
-    fontSize: '0.875rem',
-  },
-  monospace: {
-    fontFamily: 'monospace',
-    fontSize: '0.75rem',
-    backgroundColor: '#f5f5f5',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-  },
-};
-
-const stateColors: Record<string, { bg: string; color: string }> = {
-  CREATED: { bg: '#fff3cd', color: '#856404' },
-  ACTIVE: { bg: '#d4edda', color: '#155724' },
-  PAUSED: { bg: '#e2e3e5', color: '#383d41' },
-  CLOSED: { bg: '#f8d7da', color: '#721c24' },
-  RUNNING: { bg: '#d4edda', color: '#155724' },
-  COMPLETED: { bg: '#cce5ff', color: '#004085' },
-  SUCCESS: { bg: '#d4edda', color: '#155724' },
-  FAILURE: { bg: '#f8d7da', color: '#721c24' },
-};
 
 export function LoopDetail(): JSX.Element {
   const { loopId } = useParams<{ loopId: string }>();
@@ -208,9 +80,9 @@ export function LoopDetail(): JSX.Element {
 
   if (loading) {
     return (
-      <div style={styles.container}>
-        <div style={styles.placeholder}>
-          <p>Loading loop details...</p>
+      <div className={styles.container}>
+        <div className={styles.placeholder}>
+          <p className={styles.placeholderText}>Loading workflow details...</p>
         </div>
       </div>
     );
@@ -218,170 +90,133 @@ export function LoopDetail(): JSX.Element {
 
   if (error || !loop) {
     return (
-      <div style={styles.container}>
-        <div style={styles.placeholder}>
-          <p style={{ color: '#dc3545' }}>Error: {error || 'Loop not found'}</p>
-          <Link to="/loops" style={styles.link}>Back to Loops</Link>
+      <div className={styles.container}>
+        <div className={styles.placeholder}>
+          <p className={styles.error}>Error: {error || 'Workflow not found'}</p>
+          <Link to="/loops" className={styles.link}>Back to Workflows</Link>
         </div>
       </div>
     );
   }
 
-  const stateStyle = stateColors[loop.state] || stateColors.CREATED;
-
   return (
-    <div style={styles.container}>
+    <div className={styles.container}>
       {/* Breadcrumb */}
-      <div style={styles.breadcrumb}>
-        <Link to="/loops" style={styles.breadcrumbLink}>Loops</Link>
-        <span style={{ color: '#666' }}> / </span>
+      <div className={styles.breadcrumb}>
+        <Link to="/loops" className={styles.breadcrumbLink}>Workflows</Link>
+        <span className={styles.breadcrumbSeparator}>/</span>
         <span>{loop.id}</span>
       </div>
 
       {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>
-            {loop.work_unit || loop.goal}
-          </h1>
-          <p style={styles.subtitle}>{loop.id}</p>
+      <div className={styles.header}>
+        <div className={styles.headerStart}>
+          <h1 className={styles.title}>{loop.work_unit || loop.goal}</h1>
+          <p className={styles.subtitle}>{loop.id}</p>
         </div>
-        <span
-          style={{
-            ...styles.statusBadge,
-            backgroundColor: stateStyle.bg,
-            color: stateStyle.color,
-          }}
-        >
-          {loop.state}
-        </span>
+        <Pill tone={getStatusTone(loop.state)}>{loop.state}</Pill>
       </div>
 
       {/* Overview Card */}
-      <div style={styles.card}>
-        <h2 style={styles.cardTitle}>Overview</h2>
-        <div style={styles.infoRow}>
-          <span style={styles.infoLabel}>Goal</span>
-          <span style={styles.infoValue}>{loop.goal}</span>
+      <Card title="Overview" className={styles.cardSpacing}>
+        <div className={styles.infoRow}>
+          <span className={styles.infoLabel}>Goal</span>
+          <span className={styles.infoValue}>{loop.goal}</span>
         </div>
         {loop.work_unit && (
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Work Unit</span>
-            <span style={styles.infoValue}>{loop.work_unit}</span>
+          <div className={styles.infoRow}>
+            <span className={styles.infoLabel}>Work Unit</span>
+            <span className={styles.infoValue}>{loop.work_unit}</span>
           </div>
         )}
-        <div style={styles.infoRow}>
-          <span style={styles.infoLabel}>Created</span>
-          <span style={styles.infoValue}>{new Date(loop.created_at).toLocaleString()}</span>
+        <div className={styles.infoRow}>
+          <span className={styles.infoLabel}>Created</span>
+          <span className={styles.infoValue}>{new Date(loop.created_at).toLocaleString()}</span>
         </div>
-        <div style={styles.infoRow}>
-          <span style={styles.infoLabel}>Directive Ref</span>
-          <code style={styles.monospace}>
+        <div className={styles.infoRow}>
+          <span className={styles.infoLabel}>Directive Ref</span>
+          <code className={styles.mono}>
             {loop.directive_ref.type_key}:{loop.directive_ref.id}
           </code>
         </div>
-      </div>
+      </Card>
 
       {/* Budgets Card */}
-      <div style={styles.card}>
-        <h2 style={styles.cardTitle}>Budgets &amp; Usage</h2>
-        <div style={styles.grid}>
-          <div style={styles.stat}>
-            <div style={styles.statLabel}>Iterations</div>
-            <div style={styles.statValue}>
+      <Card title="Budgets & Usage" className={styles.cardSpacing}>
+        <div className={styles.statsGrid}>
+          <div className={styles.stat}>
+            <div className={styles.statLabel}>Iterations</div>
+            <div className={styles.statValue}>
               {loop.iteration_count} / {loop.budgets.max_iterations}
             </div>
           </div>
-          <div style={styles.stat}>
-            <div style={styles.statLabel}>Oracle Runs</div>
-            <div style={styles.statValue}>
+          <div className={styles.stat}>
+            <div className={styles.statLabel}>Oracle Runs</div>
+            <div className={styles.statValue}>
               {loop.oracle_run_count} / {loop.budgets.max_oracle_runs}
             </div>
           </div>
-          <div style={styles.stat}>
-            <div style={styles.statLabel}>Max Hours</div>
-            <div style={styles.statValue}>
+          <div className={styles.stat}>
+            <div className={styles.statLabel}>Max Hours</div>
+            <div className={styles.statValue}>
               {loop.budgets.max_wallclock_hours}h
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Iterations Card */}
-      <div style={styles.card}>
-        <h2 style={styles.cardTitle}>Iterations ({iterations.length})</h2>
+      <Card title={`Iterations (${iterations.length})`}>
         {iterations.length === 0 ? (
-          <div style={styles.placeholder}>
-            <p>No iterations yet.</p>
-            <p style={{ fontSize: '0.875rem', color: '#999' }}>
+          <div className={styles.placeholder}>
+            <p className={styles.placeholderText}>No iterations yet.</p>
+            <p className={styles.placeholderHint}>
               Iterations are started by the SYSTEM actor per SR-SPEC.
             </p>
           </div>
         ) : (
-          <table style={styles.table}>
+          <table className={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>#</th>
-                <th style={styles.th}>ID</th>
-                <th style={styles.th}>State</th>
-                <th style={styles.th}>Outcome</th>
-                <th style={styles.th}>Started</th>
-                <th style={styles.th}>Completed</th>
+                <th className={styles.th}>#</th>
+                <th className={styles.th}>ID</th>
+                <th className={styles.th}>State</th>
+                <th className={styles.th}>Outcome</th>
+                <th className={styles.th}>Started</th>
+                <th className={styles.th}>Completed</th>
               </tr>
             </thead>
             <tbody>
-              {iterations.map(iteration => {
-                const iterStateStyle = stateColors[iteration.state] || stateColors.CREATED;
-                const outcomeStyle = iteration.outcome
-                  ? (stateColors[iteration.outcome] || stateColors.CREATED)
-                  : { bg: 'transparent', color: '#999' };
-                return (
-                  <tr key={iteration.id}>
-                    <td style={styles.td}>{iteration.sequence_number}</td>
-                    <td style={styles.td}>
-                      <Link to={`/iterations/${iteration.id}`} style={styles.link}>
-                        {iteration.id}
-                      </Link>
-                    </td>
-                    <td style={styles.td}>
-                      <span
-                        style={{
-                          ...styles.statusBadge,
-                          backgroundColor: iterStateStyle.bg,
-                          color: iterStateStyle.color,
-                        }}
-                      >
-                        {iteration.state}
-                      </span>
-                    </td>
-                    <td style={styles.td}>
-                      {iteration.outcome ? (
-                        <span
-                          style={{
-                            ...styles.statusBadge,
-                            backgroundColor: outcomeStyle.bg,
-                            color: outcomeStyle.color,
-                          }}
-                        >
-                          {iteration.outcome}
-                        </span>
-                      ) : (
-                        <span style={{ color: '#999' }}>-</span>
-                      )}
-                    </td>
-                    <td style={styles.td}>{new Date(iteration.started_at).toLocaleString()}</td>
-                    <td style={styles.td}>
-                      {iteration.completed_at
-                        ? new Date(iteration.completed_at).toLocaleString()
-                        : '-'}
-                    </td>
-                  </tr>
-                );
-              })}
+              {iterations.map(iteration => (
+                <tr key={iteration.id}>
+                  <td className={styles.td}>{iteration.sequence_number}</td>
+                  <td className={styles.td}>
+                    <Link to={`/iterations/${iteration.id}`} className={styles.link}>
+                      {iteration.id}
+                    </Link>
+                  </td>
+                  <td className={styles.td}>
+                    <Pill tone={getStatusTone(iteration.state)}>{iteration.state}</Pill>
+                  </td>
+                  <td className={styles.td}>
+                    {iteration.outcome ? (
+                      <Pill tone={getStatusTone(iteration.outcome)}>{iteration.outcome}</Pill>
+                    ) : (
+                      <span style={{ color: 'var(--muted)' }}>-</span>
+                    )}
+                  </td>
+                  <td className={styles.td}>{new Date(iteration.started_at).toLocaleString()}</td>
+                  <td className={styles.td}>
+                    {iteration.completed_at
+                      ? new Date(iteration.completed_at).toLocaleString()
+                      : '-'}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
