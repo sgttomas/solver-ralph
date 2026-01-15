@@ -321,7 +321,7 @@ fn create_router(
         )
         .route(
             "/api/v1/templates/:template_id",
-            get(templates::get_template),
+            get(templates::get_template).put(templates::update_template),
         )
         .with_state(template_state);
 

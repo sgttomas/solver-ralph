@@ -1028,6 +1028,29 @@ impl TemplateRegistry {
         templates.push(template.clone());
         template
     }
+
+    pub async fn update_template(&self, template_id: &str, name: Option<String>, content: Option<serde_json::Value>) -> Option<TemplateInstance> {
+        let mut templates = self.templates.write().await;
+        let template = templates.iter_mut().find(|t| t.id == template_id)?;
+
+        // Don't allow updating reference templates
+        if template.status == "reference" {
+            return None;
+        }
+
+        if let Some(new_name) = name {
+            template.name = new_name;
+        }
+
+        if let Some(new_content) = content {
+            template.content_hash = compute_content_hash(&new_content);
+            template.content = new_content;
+        }
+
+        template.updated_at = chrono::Utc::now().to_rfc3339();
+
+        Some(template.clone())
+    }
 }
 
 impl Default for TemplateRegistry {
@@ -1200,6 +1223,24 @@ pub struct CreateTemplateResponse {
     pub content_hash: String,
     pub status: String,
     pub requires_portal: bool,
+}
+
+/// Request body for updating a template
+#[derive(Debug, Deserialize)]
+pub struct UpdateTemplateRequest {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub content: Option<serde_json::Value>,
+}
+
+/// Response for template update
+#[derive(Debug, Serialize)]
+pub struct UpdateTemplateResponse {
+    pub id: String,
+    pub name: String,
+    pub content_hash: String,
+    pub updated_at: String,
 }
 
 // ============================================================================
@@ -1480,6 +1521,58 @@ pub async fn create_template(
         content_hash,
         status,
         requires_portal: schema.requires_portal,
+    }))
+}
+
+/// Update an existing template instance
+///
+/// PUT /api/v1/templates/:template_id
+#[instrument(skip(state, user, body), fields(user_id = %user.actor_id, template_id = %template_id))]
+pub async fn update_template(
+    State(state): State<TemplateRegistryState>,
+    Path(template_id): Path<String>,
+    user: AuthenticatedUser,
+    Json(body): Json<UpdateTemplateRequest>,
+) -> ApiResult<Json<UpdateTemplateResponse>> {
+    // Check template exists first
+    let existing = state
+        .registry
+        .get_template(&template_id)
+        .await
+        .ok_or_else(|| ApiError::NotFound {
+            resource: "Template".to_string(),
+            id: template_id.clone(),
+        })?;
+
+    // Don't allow updating reference templates
+    if existing.status == "reference" {
+        return Err(ApiError::BadRequest {
+            message: "Cannot update reference templates. Clone the template first.".to_string(),
+        });
+    }
+
+    info!(
+        template_id = %template_id,
+        has_name_update = body.name.is_some(),
+        has_content_update = body.content.is_some(),
+        updated_by = %user.actor_id,
+        "Updating template instance"
+    );
+
+    let updated = state
+        .registry
+        .update_template(&template_id, body.name, body.content)
+        .await
+        .ok_or_else(|| ApiError::NotFound {
+            resource: "Template".to_string(),
+            id: template_id.clone(),
+        })?;
+
+    Ok(Json(UpdateTemplateResponse {
+        id: updated.id,
+        name: updated.name,
+        content_hash: updated.content_hash,
+        updated_at: updated.updated_at,
     }))
 }
 

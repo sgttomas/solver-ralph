@@ -16,7 +16,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
 import { Card, Pill, Button } from '../ui';
@@ -109,6 +109,7 @@ const CATEGORY_TABS: { id: TemplateCategory; label: string }[] = [
 
 export function Templates(): JSX.Element {
   const auth = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TemplateCategory>('work-surface');
   const [schemas, setSchemas] = useState<TemplateSchema[]>([]);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
@@ -215,24 +216,22 @@ export function Templates(): JSX.Element {
     return schemas.filter(s => typeKeys.includes(s.type_key));
   };
 
-  // Get templates for the active category (sorted: reference first)
+  // Get templates for the active category
   const getCategoryTemplates = () => {
     const categoryKey = activeTab === 'gates' ? null : activeTab;
-    if (!categoryKey) return [];
+    if (!categoryKey) return { reference: [], user: [] };
     const filtered = templates.filter(t => {
       // Map the backend category enum format to our tab format
       const templateCategory = String(t.category).toLowerCase().replace('_', '-');
       return templateCategory === categoryKey;
     });
-    // Sort: reference templates first, then by name
-    return filtered.sort((a, b) => {
-      if (a.status === 'reference' && b.status !== 'reference') return -1;
-      if (a.status !== 'reference' && b.status === 'reference') return 1;
-      return a.name.localeCompare(b.name);
-    });
+    // Split into reference and user-created templates
+    const reference = filtered.filter(t => t.status === 'reference').sort((a, b) => a.name.localeCompare(b.name));
+    const user = filtered.filter(t => t.status !== 'reference').sort((a, b) => a.name.localeCompare(b.name));
+    return { reference, user };
   };
 
-  // Clone a template
+  // Clone a template and navigate to the new copy
   const handleClone = async (template: TemplateSummary) => {
     if (!auth.user?.access_token) return;
 
@@ -269,16 +268,10 @@ export function Templates(): JSX.Element {
         throw new Error(errorData.message || `HTTP ${createRes.status}`);
       }
 
-      // Refresh templates list
-      const refreshRes = await fetch(`${config.apiUrl}/api/v1/templates`, {
-        headers: {
-          Authorization: `Bearer ${auth.user.access_token}`,
-        },
-      });
-      if (refreshRes.ok) {
-        const data: ListTemplatesResponse = await refreshRes.json();
-        setTemplates(data.templates || []);
-      }
+      const newTemplate = await createRes.json();
+
+      // Navigate to the new template's detail page for editing
+      navigate(`/templates/${activeTab}/${encodeURIComponent(newTemplate.id)}?edit=true`);
     } catch (err) {
       console.error('Clone failed:', err);
       setError(err instanceof Error ? err.message : 'Clone failed');
@@ -286,7 +279,7 @@ export function Templates(): JSX.Element {
   };
 
   const categorySchemas = getCategorySchemas();
-  const categoryTemplates = getCategoryTemplates();
+  const { reference: referenceTemplates, user: userTemplates } = getCategoryTemplates();
   const isUserInstantiable = categories.find(c =>
     String(c.id).toLowerCase().replace('_', '-') === activeTab
   )?.is_user_instantiable ?? false;
@@ -476,9 +469,58 @@ export function Templates(): JSX.Element {
         )}
       </Card>
 
-      {/* Template Instances */}
-      {categoryTemplates.length > 0 && (
-        <Card title="Template Instances">
+      {/* Starter Templates - Always visible when available */}
+      {referenceTemplates.length > 0 && (
+        <Card title="Starter Templates">
+          <div style={{ marginBottom: '1rem', color: 'var(--muted)', fontSize: '0.875rem' }}>
+            Pre-configured reference templates you can clone and customize for your use case.
+          </div>
+          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
+            {referenceTemplates.map(template => (
+              <div
+                key={template.id}
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radiusSm)',
+                  padding: '1rem',
+                  background: 'var(--paper)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '1rem' }}>{template.name}</h4>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', color: 'var(--muted)' }}>
+                      {template.type_key}
+                    </span>
+                  </div>
+                  <Pill tone="info">Reference</Pill>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                  <Link
+                    to={`/templates/${activeTab}/${encodeURIComponent(template.id)}`}
+                    style={{ flex: 1 }}
+                  >
+                    <Button variant="ghost" style={{ width: '100%' }}>
+                      View
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="primary"
+                    onClick={() => handleClone(template)}
+                    style={{ flex: 1 }}
+                  >
+                    Use Template
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* User-Created Instances */}
+      {userTemplates.length > 0 && (
+        <Card title="Your Templates">
           <table className={styles.table}>
             <thead>
               <tr>
@@ -488,11 +530,10 @@ export function Templates(): JSX.Element {
                 <th className={styles.th}>Status</th>
                 <th className={styles.th}>Hash</th>
                 <th className={styles.th}>Created</th>
-                <th className={styles.th}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {categoryTemplates.map(template => (
+              {userTemplates.map(template => (
                 <tr key={template.id}>
                   <td className={styles.td}>
                     <Link
@@ -511,16 +552,6 @@ export function Templates(): JSX.Element {
                     {truncateHash(template.content_hash)}
                   </td>
                   <td className={styles.td}>{formatDate(template.created_at)}</td>
-                  <td className={styles.td}>
-                    {template.status === 'reference' && (
-                      <Button
-                        variant="secondary"
-                        onClick={() => handleClone(template)}
-                      >
-                        Clone
-                      </Button>
-                    )}
-                  </td>
                 </tr>
               ))}
             </tbody>

@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
 import { Card, Pill, Button } from '../ui';
@@ -62,11 +62,19 @@ interface TemplateDetailResponse {
 
 export function TemplateDetail(): JSX.Element {
   const { category: _category, templateId } = useParams<{ category: string; templateId: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const auth = useAuth();
   const [template, setTemplate] = useState<TemplateDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showRawJson, setShowRawJson] = useState(false);
+
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(searchParams.get('edit') === 'true');
+  const [editName, setEditName] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!auth.user?.access_token || !templateId) return;
@@ -83,13 +91,19 @@ export function TemplateDetail(): JSX.Element {
       })
       .then((data: TemplateDetailResponse) => {
         setTemplate(data);
+        setEditName(data.name);
+        setEditContent(JSON.stringify(data.content, null, 2));
         setLoading(false);
+        // Auto-open edit mode for new cloned templates
+        if (searchParams.get('edit') === 'true' && data.status !== 'reference') {
+          setIsEditing(true);
+        }
       })
       .catch(err => {
         setError(err.message);
         setLoading(false);
       });
-  }, [auth.user?.access_token, templateId]);
+  }, [auth.user?.access_token, templateId, searchParams]);
 
   const getStatusTone = (status: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' => {
     switch (status.toLowerCase()) {
@@ -132,12 +146,85 @@ export function TemplateDetail(): JSX.Element {
       }
 
       const newTemplate = await createRes.json();
-      // Navigate to the new template
-      window.location.href = `/templates/${template.category}/${encodeURIComponent(newTemplate.id)}`;
+      // Navigate to the new template in edit mode
+      navigate(`/templates/${template.category}/${encodeURIComponent(newTemplate.id)}?edit=true`);
     } catch (err) {
       console.error('Clone failed:', err);
       setError(err instanceof Error ? err.message : 'Clone failed');
     }
+  };
+
+  const handleSave = async () => {
+    if (!auth.user?.access_token || !template) return;
+
+    // Validate JSON
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(editContent);
+    } catch {
+      setError('Invalid JSON content');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/api/v1/templates/${encodeURIComponent(template.id)}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${auth.user.access_token}`,
+          },
+          body: JSON.stringify({
+            name: editName,
+            content: parsedContent,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${res.status}`);
+      }
+
+      // Refresh template data
+      const refreshRes = await fetch(
+        `${config.apiUrl}/api/v1/templates/${encodeURIComponent(template.id)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${auth.user.access_token}`,
+          },
+        }
+      );
+
+      if (refreshRes.ok) {
+        const data: TemplateDetailResponse = await refreshRes.json();
+        setTemplate(data);
+        setEditContent(JSON.stringify(data.content, null, 2));
+      }
+
+      setIsEditing(false);
+      // Remove edit param from URL
+      navigate(`/templates/${_category}/${encodeURIComponent(template.id)}`, { replace: true });
+    } catch (err) {
+      console.error('Save failed:', err);
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (template) {
+      setEditName(template.name);
+      setEditContent(JSON.stringify(template.content, null, 2));
+    }
+    setIsEditing(false);
+    // Remove edit param from URL
+    navigate(`/templates/${_category}/${templateId}`, { replace: true });
   };
 
   const formatDate = (dateStr: string) => {
@@ -193,7 +280,7 @@ export function TemplateDetail(): JSX.Element {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerStart}>
-          <h1 className={styles.title}>{template.name}</h1>
+          <h1 className={styles.title}>{isEditing ? 'Edit Template' : template.name}</h1>
           <p className={styles.subtitle}>
             <span style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem' }}>{template.type_key}</span>
             {' '}&middot;{' '}
@@ -205,11 +292,15 @@ export function TemplateDetail(): JSX.Element {
           {template.requires_portal && (
             <Pill tone="warning">Portal Required</Pill>
           )}
-          {template.status === 'reference' && (
+          {template.status === 'reference' ? (
             <Button variant="primary" onClick={handleClone}>
-              Clone Template
+              Use Template
             </Button>
-          )}
+          ) : !isEditing ? (
+            <Button variant="secondary" onClick={() => setIsEditing(true)}>
+              Edit
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -365,36 +456,95 @@ export function TemplateDetail(): JSX.Element {
         </Card>
       )}
 
-      {/* Raw JSON */}
-      <Card
-        title="Content"
-        right={
-          <Button variant="ghost" onClick={() => setShowRawJson(!showRawJson)}>
-            {showRawJson ? 'Hide JSON' : 'Show JSON'}
-          </Button>
-        }
-      >
-        {showRawJson ? (
-          <pre
-            style={{
-              background: 'var(--ink)',
-              color: 'var(--paper)',
-              padding: '1rem',
-              borderRadius: 'var(--radiusSm)',
-              overflow: 'auto',
-              maxHeight: '400px',
-              fontSize: '0.75rem',
-              fontFamily: 'var(--mono)',
-            }}
-          >
-            {JSON.stringify(template.content, null, 2)}
-          </pre>
-        ) : (
-          <div className={styles.placeholder}>
-            <p className={styles.placeholderText}>Click "Show JSON" to view raw content</p>
+      {/* Edit Form or Content Display */}
+      {isEditing ? (
+        <Card title="Edit Template">
+          {error && (
+            <div style={{ color: 'var(--danger)', marginBottom: '1rem', padding: '0.5rem', background: 'color-mix(in srgb, var(--danger) 10%, white)', borderRadius: 'var(--radiusSm)' }}>
+              {error}
+            </div>
+          )}
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Template Name
+            </label>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radiusSm)',
+                fontSize: '1rem',
+                fontFamily: 'var(--font)',
+              }}
+            />
           </div>
-        )}
-      </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Content (JSON)
+            </label>
+            <p style={{ margin: '0 0 0.5rem', fontSize: '0.875rem', color: 'var(--muted)' }}>
+              Customize the template content for your specific use case.
+            </p>
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={20}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radiusSm)',
+                fontSize: '0.75rem',
+                fontFamily: 'var(--mono)',
+                resize: 'vertical',
+                background: 'var(--paper2)',
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <Button variant="ghost" onClick={handleCancelEdit} disabled={saving}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <Card
+          title="Content"
+          right={
+            <Button variant="ghost" onClick={() => setShowRawJson(!showRawJson)}>
+              {showRawJson ? 'Hide JSON' : 'Show JSON'}
+            </Button>
+          }
+        >
+          {showRawJson ? (
+            <pre
+              style={{
+                background: 'var(--ink)',
+                color: 'var(--paper)',
+                padding: '1rem',
+                borderRadius: 'var(--radiusSm)',
+                overflow: 'auto',
+                maxHeight: '400px',
+                fontSize: '0.75rem',
+                fontFamily: 'var(--mono)',
+              }}
+            >
+              {JSON.stringify(template.content, null, 2)}
+            </pre>
+          ) : (
+            <div className={styles.placeholder}>
+              <p className={styles.placeholderText}>Click "Show JSON" to view raw content</p>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }
