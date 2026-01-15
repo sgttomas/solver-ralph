@@ -3,13 +3,13 @@ import styles from "./Sidebar.module.css";
 
 const items = [
   { to: "/overview", label: "Overview" },
-  { to: "/prompt-loop", label: "Tasks" },
-  { to: "/loops", label: "Workflows" },
-  { to: "/evidence", label: "Artifacts" },
-  { to: "/approvals", label: "Approvals" },
   { to: "/agents", label: "Agents" },
   { to: "/protocols", label: "Protocols" },
+  { to: "/loops", label: "Workflows" },
+  { to: "/prompt-loop", label: "Tasks" },
   { to: "/documents", label: "Context" },
+  { to: "/evidence", label: "Artifacts" },
+  { to: "/approvals", label: "Approvals" },
   { to: "/audit", label: "Audit Log" },
   { to: "/settings", label: "Settings" },
 ];
