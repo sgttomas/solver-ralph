@@ -106,13 +106,13 @@ export function Evidence(): JSX.Element {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>Evidence</h1>
+        <h1 style={styles.title}>Artifacts</h1>
       </div>
 
       <div style={styles.card}>
         {loading ? (
           <div style={styles.placeholder}>
-            <p>Loading evidence bundles...</p>
+            <p>Loading artifact bundles...</p>
           </div>
         ) : error ? (
           <div style={styles.placeholder}>
@@ -120,10 +120,10 @@ export function Evidence(): JSX.Element {
           </div>
         ) : evidence.length === 0 ? (
           <div style={styles.placeholder}>
-            <p>No evidence bundles found.</p>
+            <p>No artifact bundles found.</p>
             <p style={{ fontSize: '0.875rem', color: '#999' }}>
-              Evidence bundles are produced by oracle runs. They contain
-              verification artifacts and structured measurements.
+              Artifact bundles are produced by oracle runs. They contain
+              verification outputs and structured measurements.
             </p>
           </div>
         ) : (

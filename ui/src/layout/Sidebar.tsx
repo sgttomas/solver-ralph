@@ -5,7 +5,7 @@ const items = [
   { to: "/overview", label: "Overview" },
   { to: "/prompt-loop", label: "Tasks" },
   { to: "/loops", label: "Workflows" },
-  { to: "/evidence", label: "Evidence" },
+  { to: "/evidence", label: "Artifacts" },
   { to: "/approvals", label: "Approvals" },
   { to: "/agents", label: "Agents" },
   { to: "/protocols", label: "Protocols" },

@@ -39,7 +39,7 @@ export function OverviewScreen() {
               <Pill tone="warning">Review</Pill>
             </div>
             <div className={styles.row}>
-              <span>Missing evidence for "Compliance Review"</span>
+              <span>Missing artifacts for "Compliance Review"</span>
               <Pill tone="danger">Blocked</Pill>
             </div>
           </div>

@@ -213,7 +213,7 @@ export function Home(): JSX.Element {
               <Link to="/prompt" style={styles.link}>Prompt Loop</Link> - Run a prompt through the governed loop
             </li>
             <li style={styles.listItem}>
-              <Link to="/evidence" style={styles.link}>Evidence</Link> - Oracle outputs
+              <Link to="/evidence" style={styles.link}>Artifacts</Link> - Oracle outputs
             </li>
             <li style={styles.listItem}>
               <Link to="/approvals" style={styles.link}>Approvals</Link> - Portal decisions

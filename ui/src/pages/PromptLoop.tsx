@@ -386,7 +386,7 @@ export function PromptLoop(): JSX.Element {
           </h1>
         </div>
         <p style={styles.subtitle}>
-          Materialize a governed work surface from a free-form prompt, run a task iteration, and capture candidate + evidence with streaming output.
+          Materialize a governed work surface from a free-form prompt, run a task iteration, and capture candidate + artifacts with streaming output.
         </p>
 
         <form onSubmit={submit}>
@@ -520,7 +520,7 @@ export function PromptLoop(): JSX.Element {
               )}
               {artifacts.evidence_content_hash && (
                 <div style={styles.resultCard}>
-                  <strong>Evidence Hash</strong>
+                  <strong>Artifact Hash</strong>
                   <p style={styles.code}>{artifacts.evidence_content_hash}</p>
                 </div>
               )}

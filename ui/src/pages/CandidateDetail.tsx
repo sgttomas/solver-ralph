@@ -555,7 +555,7 @@ export function CandidateDetail(): JSX.Element {
             style={{ ...styles.tab, ...(activeTab === 'evidence' ? styles.tabActive : {}) }}
             onClick={() => setActiveTab('evidence')}
           >
-            Evidence ({evidence.length})
+            Artifacts ({evidence.length})
           </button>
           <button
             style={{ ...styles.tab, ...(activeTab === 'freeze' ? styles.tabActive : {}) }}
@@ -580,7 +580,7 @@ export function CandidateDetail(): JSX.Element {
                     <th style={styles.th}>Suite</th>
                     <th style={styles.th}>State</th>
                     <th style={styles.th}>Outcome</th>
-                    <th style={styles.th}>Evidence</th>
+                    <th style={styles.th}>Artifacts</th>
                     <th style={styles.th}>Started</th>
                   </tr>
                 </thead>
@@ -648,12 +648,12 @@ export function CandidateDetail(): JSX.Element {
           </>
         )}
 
-        {/* Evidence Tab */}
+        {/* Artifacts Tab */}
         {activeTab === 'evidence' && (
           <>
             {evidence.length === 0 ? (
               <div style={styles.placeholder}>
-                <p>No evidence bundles associated with this candidate.</p>
+                <p>No artifact bundles associated with this candidate.</p>
               </div>
             ) : (
               <table style={styles.table}>
@@ -789,7 +789,7 @@ export function CandidateDetail(): JSX.Element {
                 </div>
 
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Evidence Bundle Refs (comma-separated)</label>
+                  <label style={styles.label}>Artifact Bundle Refs (comma-separated)</label>
                   <input
                     style={styles.input}
                     type="text"

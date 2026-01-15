@@ -9,7 +9,7 @@ export function ApprovalsScreen() {
       <div className={styles.left}>
         <header className={styles.header}>
           <h1>Approvals</h1>
-          <p>Review packages, diffs, evidence, and impact.</p>
+          <p>Review packages, diffs, artifacts, and impact.</p>
         </header>
 
         <Card title="Queue" right={<Pill tone="warning">16 pending</Pill>}>
@@ -60,7 +60,7 @@ export function ApprovalsScreen() {
             </div>
 
             <div className={styles.block}>
-              <div className={styles.meta}>Evidence</div>
+              <div className={styles.meta}>Artifacts</div>
               <div className={styles.row}>
                 <span>DOC-01234</span>
                 <Pill tone="warning">Outdated</Pill>

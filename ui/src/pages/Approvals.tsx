@@ -658,7 +658,7 @@ export function Approvals(): JSX.Element {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Evidence Refs (comma-separated hashes)</label>
+              <label style={styles.label}>Artifact Refs (comma-separated hashes)</label>
               <input
                 style={styles.input}
                 type="text"

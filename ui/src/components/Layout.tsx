@@ -128,7 +128,7 @@ function DevLayout({ children }: LayoutProps): JSX.Element {
             Prompt Loop
           </Link>
           <Link to="/evidence" style={styles.navLink}>
-            Evidence
+            Artifacts
           </Link>
           <Link to="/approvals" style={styles.navLink}>
             Approvals
@@ -191,7 +191,7 @@ function OidcLayout({ children }: LayoutProps): JSX.Element {
                 Prompt Loop
               </Link>
               <Link to="/evidence" style={styles.navLink}>
-                Evidence
+                Artifacts
               </Link>
               <Link to="/approvals" style={styles.navLink}>
                 Approvals

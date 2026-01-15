@@ -24,7 +24,7 @@ export function PromptLoopScreen() {
             </div>
             <div className={styles.bubble}>
               <div className={styles.meta}>Assistant output</div>
-              <div className={styles.muted}>Proposed next action requires compliance evidence.</div>
+              <div className={styles.muted}>Proposed next action requires compliance artifacts.</div>
             </div>
             <div className={styles.bubble}>
               <div className={styles.meta}>User</div>
@@ -36,7 +36,7 @@ export function PromptLoopScreen() {
         <Card title="Propose Action">
           <textarea className={styles.textarea} placeholder="Describe the next action…" />
           <div className={styles.actions}>
-            <div className={styles.hint}>Preflight validates evidence + authority gates.</div>
+            <div className={styles.hint}>Preflight validates artifacts + authority gates.</div>
             <Button>Submit for Preflight</Button>
           </div>
         </Card>
@@ -50,7 +50,7 @@ export function PromptLoopScreen() {
           </div>
         </Card>
 
-        <Card title="Required Evidence">
+        <Card title="Required Artifacts">
           <div className={styles.list}>
             <div className={styles.row}>
               <span>DOC-01234</span>
@@ -67,7 +67,7 @@ export function PromptLoopScreen() {
           <div className={styles.gate}>
             <div className={styles.strong}>Decision Gate: Compliance Review</div>
             <div className={styles.muted}>
-              This action cannot execute until evidence is complete and counsel approves.
+              This action cannot execute until artifacts are complete and counsel approves.
             </div>
             <div className={styles.gateActions}>
               <Button variant="secondary">View Gate</Button>

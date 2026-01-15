@@ -271,7 +271,7 @@ export function EvidenceDetail(): JSX.Element {
     return (
       <div style={styles.container}>
         <div style={styles.placeholder}>
-          <p>Loading evidence details...</p>
+          <p>Loading artifact details...</p>
         </div>
       </div>
     );
@@ -281,8 +281,8 @@ export function EvidenceDetail(): JSX.Element {
     return (
       <div style={styles.container}>
         <div style={styles.placeholder}>
-          <p style={{ color: '#dc3545' }}>Error: {error || 'Evidence not found'}</p>
-          <Link to="/evidence" style={styles.link}>Back to Evidence</Link>
+          <p style={{ color: '#dc3545' }}>Error: {error || 'Artifact not found'}</p>
+          <Link to="/evidence" style={styles.link}>Back to Artifacts</Link>
         </div>
       </div>
     );
@@ -305,7 +305,7 @@ export function EvidenceDetail(): JSX.Element {
     <div style={styles.container}>
       {/* Breadcrumb */}
       <div style={styles.breadcrumb}>
-        <Link to="/evidence" style={styles.breadcrumbLink}>Evidence</Link>
+        <Link to="/evidence" style={styles.breadcrumbLink}>Artifacts</Link>
         <span style={{ color: '#666' }}> / </span>
         <span>{bundle.content_hash.substring(0, 16)}...</span>
       </div>
@@ -313,7 +313,7 @@ export function EvidenceDetail(): JSX.Element {
       {/* Header */}
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Evidence Bundle</h1>
+          <h1 style={styles.title}>Artifact Bundle</h1>
           <p style={styles.subtitle}>{bundle.content_hash}</p>
         </div>
         <span
