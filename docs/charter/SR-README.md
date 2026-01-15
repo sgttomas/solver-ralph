@@ -57,32 +57,67 @@ Canonical index for the SR-* document set.
 | SR-README | `charter/` | This index |
 
 
-## Resolved: UI Redesign Integration Task
+## Development Session Summary (2026-01-14)
 
-**Status: COMPLETED**
+**Branch:** `solver-ralph-2`
 
-The Chirality AI governance console UI has been integrated with the existing functional pages. All changes have been made and type-check passes.
+### Completed Work
 
-### What Was Done
+#### 1. UI Redesign Integration
+Integrated the Chirality AI governance console UI with existing functional pages:
+- Restored `AuthProvider` wrapper in `main.tsx`
+- Added auth check and loading state in `AppLayout.tsx`
+- Connected all functional pages in `routes.tsx` (Loops, LoopDetail, IterationDetail, CandidateDetail, Evidence, EvidenceDetail, Approvals, PromptLoop)
+- Added user info display and logout button to `Topbar.tsx`
+- Fixed ESLint errors in `AuthProvider.tsx` and `PromptLoop.tsx`
 
-1. **main.tsx** - Restored `AuthProvider` wrapper around `RouterProvider`
-2. **AppLayout.tsx** - Added auth check with redirect to `/callback` for unauthenticated users, loading state
-3. **routes.tsx** - Connected all functional pages (Loops, LoopDetail, IterationDetail, CandidateDetail, Evidence, EvidenceDetail, Approvals, PromptLoop) and moved Callback outside the layout
-4. **Sidebar.tsx** - Added Prompt Loop to navigation, reordered items for better UX
-5. **Topbar.tsx** - Added user info display and logout button
+#### 2. Custom Logo
+- Added custom logo image (`ui/public/logo.png`) to replace the orange square placeholder in the sidebar
 
-### Testing Checklist
+#### 3. UI Terminology Updates
+Renamed user-facing labels throughout the UI to better reflect the platform's concepts:
 
-- [x] `npm run type-check` passes
-- [ ] Open http://localhost:3001/ - should redirect to /overview
-- [ ] Navigate to /loops - should show loop list from API
-- [ ] Navigate to /prompt-loop - should show streaming prompt interface
-- [ ] Navigate to /approvals - should show approval workflows
+| Old Term | New Term | Rationale |
+|----------|----------|-----------|
+| Loops | Workflows | Clearer terminology for workflow collections |
+| Prompt Loop | Tasks | Simplified name for the task interface |
+| Evidence | Artifacts | More general term for oracle outputs |
+| Documents | Context | Better reflects the purpose |
+
+#### 4. Sidebar Navigation Reordering
+Final sidebar order (top to bottom):
+1. Overview
+2. Agents
+3. Protocols
+4. Workflows
+5. Tasks
+6. Context
+7. Artifacts
+8. Approvals
+9. Audit Log
+10. Settings
+
+### Quality Status
+- TypeScript type-check: PASS
+- ESLint: PASS
+- UI build: PASS
+- Rust tests: 27 passed, 0 failed
+- E2E harness tests: 16 passed, 0 failed
+
+### Commits (chronological)
+1. `1151fa1` - Integrate Chirality AI UI with functional pages and auth
+2. `917fbc8` - Fix ESLint errors in AuthProvider and PromptLoop
+3. `989362d` - Add custom logo to sidebar
+4. `abfbb63` - Rename UI labels: Loops→Workflows, Prompt Loop→Tasks
+5. `bedf193` - Rename loop references to task on Task page
+6. `07a6ae7` - Update search placeholder: loops → workflows
+7. `6668e22` - Rename Evidence to Artifacts throughout UI
+8. `6627184` - Rename Documents to Context in UI
+9. `3befa4e` - Reorder sidebar navigation items
 
 ### Notes
-
-- The existing pages use inline styles; they'll work but won't match the new design
-- Future work: Port existing pages to use Card/Pill/Button primitives
-- The `src/pages/PromptLoop.tsx` is the FUNCTIONAL one with SSE streaming; `src/screens/PromptLoopScreen.tsx` is just a wireframe (can be removed)
-- Dev auth bypass is controlled by `VITE_DEV_AUTH_BYPASS=true` in environment
-- Backend auth bypass uses `SR_AUTH_TEST_MODE=true`
+- The existing functional pages use inline styles; they work but don't match the new Chirality design aesthetic
+- Future work: Port existing pages to use Card/Pill/Button primitives from `ui/src/ui/`
+- The `src/pages/PromptLoop.tsx` is the FUNCTIONAL one with SSE streaming; `src/screens/PromptLoopScreen.tsx` is a wireframe (can be removed)
+- Dev auth bypass: `VITE_DEV_AUTH_BYPASS=true`
+- Backend auth bypass: `SR_AUTH_TEST_MODE=true`
