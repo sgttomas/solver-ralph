@@ -9,7 +9,7 @@ const items = [
   { to: "/approvals", label: "Approvals" },
   { to: "/agents", label: "Agents" },
   { to: "/protocols", label: "Protocols" },
-  { to: "/documents", label: "Documents" },
+  { to: "/documents", label: "Context" },
   { to: "/audit", label: "Audit Log" },
   { to: "/settings", label: "Settings" },
 ];

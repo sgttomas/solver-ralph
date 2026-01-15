@@ -42,7 +42,7 @@ export const router = createBrowserRouter([
       // Placeholders for future
       { path: "/agents", element: <PlaceholderScreen title="Agents" /> },
       { path: "/protocols", element: <PlaceholderScreen title="Protocols" /> },
-      { path: "/documents", element: <PlaceholderScreen title="Documents" /> },
+      { path: "/documents", element: <PlaceholderScreen title="Context" /> },
       { path: "/audit", element: <PlaceholderScreen title="Audit Log" /> },
       { path: "/settings", element: <PlaceholderScreen title="Settings" /> },
 

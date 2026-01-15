@@ -870,7 +870,7 @@ export function Approvals(): JSX.Element {
           <div style={styles.placeholder}>
             <p>No exceptions recorded.</p>
             <p style={{ fontSize: '0.875rem', color: '#999' }}>
-              Exceptions are narrowly scoped permissions to deviate from governing documents.
+              Exceptions are narrowly scoped permissions to deviate from governing context.
             </p>
           </div>
         ) : (
