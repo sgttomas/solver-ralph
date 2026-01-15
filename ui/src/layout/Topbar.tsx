@@ -25,7 +25,7 @@ export function Topbar() {
       <div className={styles.searchWrap}>
         <input
           className={styles.search}
-          placeholder="Search loops, protocols, docs…  (⌘K)"
+          placeholder="Search workflows, protocols, docs…  (⌘K)"
         />
       </div>
 
