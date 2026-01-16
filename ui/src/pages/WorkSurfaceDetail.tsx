@@ -53,6 +53,22 @@ interface WorkSurfaceDetail {
   archived_by: ActorInfo | null;
 }
 
+// Stage approval status per SR-PLAN-V5 Phase 5c
+interface StageApprovalStatus {
+  stage_id: string;
+  requires_approval: boolean;
+  portal_id: string;
+  approval: {
+    approval_id: string;
+    decision: string;
+    recorded_at: string;
+    recorded_by: {
+      kind: string;
+      id: string;
+    };
+  } | null;
+}
+
 export function WorkSurfaceDetail(): JSX.Element {
   const { workSurfaceId } = useParams<{ workSurfaceId: string }>();
   const auth = useAuth();
@@ -61,6 +77,7 @@ export function WorkSurfaceDetail(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [showCompletionForm, setShowCompletionForm] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<StageApprovalStatus | null>(null);
 
   const fetchWorkSurface = useCallback(async () => {
     if (!auth.user?.access_token || !workSurfaceId) return;
@@ -89,9 +106,38 @@ export function WorkSurfaceDetail(): JSX.Element {
     }
   }, [auth.user?.access_token, workSurfaceId]);
 
+  // Fetch approval status for current stage (SR-PLAN-V5 Phase 5c)
+  const fetchApprovalStatus = useCallback(async (stageId: string) => {
+    if (!auth.user?.access_token || !workSurfaceId) return;
+
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/api/v1/work-surfaces/${workSurfaceId}/stages/${encodeURIComponent(stageId)}/approval-status`,
+        {
+          headers: { Authorization: `Bearer ${auth.user.access_token}` },
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setApprovalStatus(data);
+      }
+    } catch (err) {
+      // Silently ignore - approval status is supplementary
+      console.error('Failed to fetch approval status:', err);
+    }
+  }, [auth.user?.access_token, workSurfaceId]);
+
   useEffect(() => {
     fetchWorkSurface();
   }, [fetchWorkSurface]);
+
+  // Fetch approval status when work surface loads and has a current stage
+  useEffect(() => {
+    if (workSurface?.current_stage_id && workSurface.status === 'active') {
+      fetchApprovalStatus(workSurface.current_stage_id);
+    }
+  }, [workSurface?.current_stage_id, workSurface?.status, fetchApprovalStatus]);
 
   const handleArchive = async () => {
     if (!auth.user?.access_token || !workSurfaceId) return;
@@ -344,6 +390,62 @@ export function WorkSurfaceDetail(): JSX.Element {
                     <div style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
                       Oracle Suites:{' '}
                       {workSurface.current_oracle_suites.map((s) => s.suite_id).join(', ')}
+                    </div>
+                  )}
+
+                  {/* Approval Status - per SR-PLAN-V5 Phase 5c */}
+                  {approvalStatus?.requires_approval && (
+                    <div
+                      style={{
+                        marginTop: 'var(--space2)',
+                        padding: 'var(--space2)',
+                        borderRadius: 'var(--radius)',
+                        backgroundColor: approvalStatus.approval
+                          ? 'var(--bg-success-subtle)'
+                          : 'var(--bg-warning-subtle)',
+                        border: `1px solid ${approvalStatus.approval ? 'var(--success)' : 'var(--warning)'}`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <div>
+                          <span style={{ fontWeight: 500 }}>
+                            {approvalStatus.approval ? '✓ Approval Recorded' : '⚠ Approval Required'}
+                          </span>
+                          {approvalStatus.approval && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '2px' }}>
+                              Approved by {approvalStatus.approval.recorded_by.id} on{' '}
+                              {new Date(approvalStatus.approval.recorded_at).toLocaleDateString()}
+                            </div>
+                          )}
+                          {!approvalStatus.approval && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '2px' }}>
+                              This stage requires human approval before completion
+                            </div>
+                          )}
+                        </div>
+                        {!approvalStatus.approval && (
+                          <a
+                            href={`/approvals?portal_id=${encodeURIComponent(approvalStatus.portal_id)}&work_surface_id=${encodeURIComponent(workSurface.work_surface_id)}`}
+                            style={{
+                              padding: '4px 12px',
+                              backgroundColor: 'var(--primary)',
+                              color: 'white',
+                              borderRadius: 'var(--radius)',
+                              textDecoration: 'none',
+                              fontSize: '0.875rem',
+                              fontWeight: 500,
+                            }}
+                          >
+                            Record Approval
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
 

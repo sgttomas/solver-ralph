@@ -2509,6 +2509,51 @@ impl ProjectionBuilder {
             .collect())
     }
 
+    /// Check if an approval exists for a stage-gate portal with a specific work surface as subject
+    /// Per SR-PLAN-V5 Phase 5c: Stage completion approval check
+    ///
+    /// Returns the first matching APPROVED approval, or None if no valid approval exists.
+    pub async fn get_stage_approval(
+        &self,
+        portal_id: &str,
+        work_surface_id: &str,
+    ) -> Result<Option<ApprovalProjection>, ProjectionError> {
+        // Query for approval where:
+        // - portal_id matches
+        // - decision = 'APPROVED'
+        // - subject_refs contains an entry with kind='WorkSurface' and id=work_surface_id
+        let result = sqlx::query(
+            r#"
+            SELECT approval_id, portal_id, decision, subject_refs, evidence_refs,
+                   exceptions_acknowledged, rationale, approved_by_kind, approved_by_id,
+                   approved_at
+            FROM proj.approvals
+            WHERE portal_id = $1
+              AND decision = 'APPROVED'
+              AND subject_refs @> $2::jsonb
+            ORDER BY approved_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(portal_id)
+        .bind(serde_json::json!([{"kind": "WorkSurface", "id": work_surface_id}]))
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result.map(|row| ApprovalProjection {
+            approval_id: row.get("approval_id"),
+            portal_id: row.get("portal_id"),
+            decision: row.get("decision"),
+            subject_refs: row.get("subject_refs"),
+            evidence_refs: row.get("evidence_refs"),
+            exceptions_acknowledged: row.get("exceptions_acknowledged"),
+            rationale: row.get("rationale"),
+            approved_by_kind: row.get("approved_by_kind"),
+            approved_by_id: row.get("approved_by_id"),
+            approved_at: row.get("approved_at"),
+        }))
+    }
+
     // ========================================================================
     // Exception Query Methods
     // ========================================================================

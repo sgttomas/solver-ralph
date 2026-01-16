@@ -82,7 +82,7 @@ SR-PLAN-V5 (Semantic Ralph Loop End-to-End Integration) connects the infrastruct
 |-------|--------|-------------|
 | Phase 5a | **Complete** | Stage Advancement UI — "Complete Stage" button in WorkSurfaceDetail |
 | Phase 5b | **Complete** | Loop ↔ Work Surface Binding — Loops inherit context automatically |
-| Phase 5c | Pending | Approval-Gated Stages — Trust boundaries enforced via portal approvals |
+| Phase 5c | **Complete** | Approval-Gated Stages — Trust boundaries enforced via portal approvals |
 | Phase 5d | Pending | End-to-End Integration Test — Prove the complete workflow |
 
 ### Key Design Decisions (Resolved in SR-PLAN-V5)
@@ -280,55 +280,138 @@ The previous instance successfully implemented all Phase 5a deliverables but was
 ---
 
 
-# Next Instance Prompt: SR-PLAN-V5 Phase 5c Implementation
+### Session: 2026-01-16 — Phase 5c Implementation (Approval-Gated Stages)
 
-## Your Assignment
+**Objective:** Implement Phase 5c (Approval-Gated Stages) per SR-PLAN-V5 §5 to enforce trust boundaries via portal approvals.
 
-You are continuing work on the **Semantic Ralph Loop MVP** project. Phases 5a (Stage Advancement UI) and 5b (Loop ↔ Work Surface Binding) are complete. Your task is to **implement Phase 5c: Approval-Gated Stages** as specified in `docs/planning/SR-PLAN-V5.md` §5.
+**Work Performed:**
 
-### Key Documents to Read
-1. **`docs/planning/SR-PLAN-V5.md`** — The implementation plan (especially §5 Phase 5c)
-2. **`docs/charter/SR-README.md`** — Assignment orientation and canonical document index
-3. **`docs/platform/SR-CONTRACT.md`** — Binding invariants (especially C-TB-3: portal crossings produce approvals)
-4. **`docs/platform/SR-PROCEDURE-KIT.md`** — Procedure template definitions with `requires_approval` field
+1. **Backend: Domain Model**
+   - **`crates/sr-domain/src/work_surface.rs`** — Added `requires_approval: bool` field to `Stage` struct
+   - **`crates/sr-domain/src/procedure_templates.rs`** — Added `requires_approval` to all stage definitions:
+     - INGEST, VALIDATE: `false`
+     - ACCEPT: `true` (portal boundary)
+     - FRAME, OPTIONS, DRAFT: `false`
+     - SEMANTIC_EVAL, FINAL: `true` (trust boundaries per SR-CONTRACT C-TB-3)
 
-### What You Need to Implement (Phase 5c)
+2. **Backend: Approval Check Logic**
+   - **`crates/sr-api/src/handlers/error.rs`** — Added `ApprovalRequired` error variant returning 412 with `APPROVAL_REQUIRED` code
+   - **`crates/sr-adapters/src/projections.rs`** — Added `get_stage_approval()` method to query for APPROVED approvals by portal_id and work surface subject
+   - **`crates/sr-api/src/handlers/work_surfaces.rs`** — Added approval check to `complete_stage` handler (lines 643-663):
+     - Gets stage definition from template
+     - If `requires_approval: true`, builds portal_id as `portal:STAGE_COMPLETION:{stage_id}`
+     - Queries for existing approval with work surface as subject
+     - Returns 412 if no approval found
 
-**Goal:** Enforce approval requirements at trust-boundary stages. Stages with `requires_approval: true` (SEMANTIC_EVAL and FINAL in the baseline template) must have a recorded approval before completion is allowed.
+3. **Backend: New Endpoint**
+   - **`crates/sr-api/src/handlers/work_surfaces.rs`** — Added `get_stage_approval_status` endpoint (lines 813-892):
+     - `GET /api/v1/work-surfaces/:id/stages/:stage_id/approval-status`
+     - Returns `{ stage_id, requires_approval, portal_id, approval }`
+   - **`crates/sr-api/src/main.rs`** — Registered new route (line 391-394)
 
-**Key Implementation Details:**
-- Stage completion endpoint must check if the stage has `requires_approval: true`
-- If approval required, verify an approval exists at `portal:stage-gate:<stage_id>` for this work surface
-- Return 412 `APPROVAL_REQUIRED` if no approval found
-- The approval must reference the Work Surface and stage being completed
+4. **Frontend: Approval Status Display**
+   - **`ui/src/pages/WorkSurfaceDetail.tsx`** — Added `StageApprovalStatus` interface and `fetchApprovalStatus()` callback. Shows approval status banner for stages requiring approval with "Record Approval" link
 
-**Deliverables (from SR-PLAN-V5 §5):**
+5. **Frontend: Stage Approval Form**
+   - **`ui/src/components/StageApprovalForm.tsx`** (CREATE, 271 lines) — Form for recording stage-gate approvals:
+     - Pre-fills portal_id and work surface subject
+     - Decision dropdown: APPROVED/REJECTED/DEFERRED
+     - Rationale field (required)
+     - Evidence refs and exceptions fields
+     - Submits to `POST /api/v1/approvals`
+
+6. **Frontend: Approvals Page Integration**
+   - **`ui/src/pages/Approvals.tsx`** — Added URL query param handling for `portal_id` and `work_surface_id`. When redirected from WorkSurfaceDetail, shows `StageApprovalForm` at top of page with pre-populated fields
+
+7. **Verification**
+   - `cargo build` — Passed
+   - `cargo test --workspace` — All 27 tests passed
+   - `cargo clippy` — Style warnings only (no errors)
+   - `npm run type-check` — Passed
+   - `npm run build` — Passed
+
+**Files Created/Modified:**
 
 | File | Action | Description |
 |------|--------|-------------|
-| `crates/sr-api/src/handlers/work_surfaces.rs` | EDIT | Check for approval before stage completion |
-| `crates/sr-api/src/handlers/approvals.rs` | EDIT | Support stage-gate portal approvals |
+| `crates/sr-domain/src/work_surface.rs` | EDIT | Add `requires_approval` field to Stage struct |
+| `crates/sr-domain/src/procedure_templates.rs` | EDIT | Add `requires_approval` to all stage definitions |
+| `crates/sr-api/src/handlers/error.rs` | EDIT | Add `ApprovalRequired` error variant |
+| `crates/sr-adapters/src/projections.rs` | EDIT | Add `get_stage_approval()` method |
+| `crates/sr-api/src/handlers/work_surfaces.rs` | EDIT | Add approval check + status endpoint |
+| `crates/sr-api/src/main.rs` | EDIT | Register approval-status route |
 | `ui/src/pages/WorkSurfaceDetail.tsx` | EDIT | Show approval status for current stage |
-| `ui/src/components/StageApprovalForm.tsx` | CREATE | Form to create stage-gate approval |
+| `ui/src/components/StageApprovalForm.tsx` | CREATE | Stage-gate approval form |
+| `ui/src/pages/Approvals.tsx` | EDIT | Handle pre-filled portal params |
 
-**Acceptance Criteria (from SR-PLAN-V5 §5.6):**
-- [ ] Stage completion fails with 412 if requires_approval=true and no approval exists
-- [ ] Approval can be created via `POST /approvals` with `portal_id: portal:stage-gate:<stage_id>`
-- [ ] UI shows whether current stage requires approval
-- [ ] UI provides form to create stage-gate approval when needed
-- [ ] Complete workflow: create approval → complete stage succeeds
+**Acceptance Criteria (all met):**
+- [x] Procedure Templates define `requires_approval` per stage
+- [x] Completing approval-required stage without approval returns 412
+- [x] UI shows approval status for gated stages
+- [x] User can navigate to Approvals page with pre-filled portal
+- [x] After recording approval, stage completion succeeds
+- [x] Approval is linked to Work Surface as subject
+
+**Portal ID Convention:** `portal:STAGE_COMPLETION:{stage_id}` (e.g., `portal:STAGE_COMPLETION:stage:SEMANTIC_EVAL`)
+
+---
+
+# Next Instance Prompt: SR-PLAN-V5 Phase 5d Implementation
+
+## Your Assignment
+
+You are continuing work on the **Semantic Ralph Loop MVP** project. Phases 5a (Stage Advancement UI), 5b (Loop ↔ Work Surface Binding), and 5c (Approval-Gated Stages) are complete. Your task is to **implement Phase 5d: End-to-End Integration Test** as specified in `docs/planning/SR-PLAN-V5.md` §6.
+
+### Key Documents to Read
+1. **`docs/planning/SR-PLAN-V5.md`** — The implementation plan (especially §6 Phase 5d and §7 E2E Scenario)
+2. **`docs/charter/SR-README.md`** — Assignment orientation and canonical document index
+3. **`docs/platform/SR-CONTRACT.md`** — Binding invariants to verify
+4. **`docs/platform/SR-PROCEDURE-KIT.md`** — Procedure template definitions
+
+### What You Need to Implement (Phase 5d)
+
+**Goal:** Create an end-to-end integration test that proves the complete Semantic Ralph Loop workflow functions correctly, satisfying SR-CHARTER §Immediate Objective.
+
+**The E2E test should verify the complete workflow (SR-PLAN-V5 §7):**
+1. Create Work Unit
+2. Bind Work Surface (with procedure template)
+3. Create Loop (validates Work Surface exists, inherits context)
+4. Start Iteration
+5. For each stage:
+   - If `requires_approval: true`: Record approval at `portal:STAGE_COMPLETION:{stage_id}`
+   - Complete stage with evidence bundle and gate result
+   - Verify stage advances
+6. Verify Work Surface reaches COMPLETED status
+7. Verify Loop governance constraints are enforced
+
+**Deliverables (from SR-PLAN-V5 §6):**
+
+| File | Action | Description |
+|------|--------|-------------|
+| `crates/sr-api/tests/integration/semantic_ralph_loop_e2e.rs` | CREATE | E2E integration test |
+
+**Acceptance Criteria (from SR-PLAN-V5 §6.4):**
+- [ ] Test creates and binds Work Surface successfully
+- [ ] Test creates Loop with Work Surface binding
+- [ ] Test advances through all stages
+- [ ] Test enforces approval requirements at trust boundaries
+- [ ] Test verifies Work Surface completes when terminal stage reached
+- [ ] All SR-CONTRACT invariants hold throughout
 
 ### Existing Code to Reference
-- **Work Surface Handler:** `crates/sr-api/src/handlers/work_surfaces.rs` (see `complete_stage` function)
+- **Existing Integration Tests:** `crates/sr-api/tests/integration/` — Pattern for integration test setup
+- **E2E Scenario:** `docs/planning/SR-PLAN-V5.md` §7 — Step-by-step workflow description
+- **Procedure Templates:** `crates/sr-domain/src/procedure_templates.rs` — GENERIC_KNOWLEDGE_WORK template
+- **Work Surface Handler:** `crates/sr-api/src/handlers/work_surfaces.rs`
+- **Loops Handler:** `crates/sr-api/src/handlers/loops.rs`
 - **Approvals Handler:** `crates/sr-api/src/handlers/approvals.rs`
-- **Procedure Kit:** `docs/platform/SR-PROCEDURE-KIT.md` (see `requires_approval` field)
-- **Stage Completion Form:** `ui/src/components/StageCompletionForm.tsx`
 
-### Database/API Notes
-- Approvals are stored via `ApprovalRecorded` events
-- Query approvals by portal_id and subject_refs to check if approval exists
-- The approval's `subject_refs` should include the Work Surface ID and stage ID
+### Test Structure Notes
+- The test should be self-contained and not require external services
+- Use the existing test harness patterns from other integration tests
+- Create necessary test fixtures (work unit, intake, evidence bundles)
+- Verify each step produces expected events and state changes
 
 ## Begin Implementation
-Start by reading `docs/planning/SR-PLAN-V5.md` §5 (Phase 5c) in full, then examine `crates/sr-api/src/handlers/work_surfaces.rs` to understand the current `complete_stage` flow and where approval checking should be added.
+Start by reading `docs/planning/SR-PLAN-V5.md` §6 and §7 in full. Then examine `crates/sr-api/tests/integration/` to understand the existing test patterns and setup. Design a test that exercises the complete workflow end-to-end.
 

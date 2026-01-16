@@ -35,6 +35,13 @@ pub enum ApiError {
     /// Work Surface not found for work unit per SR-PLAN-V4 Phase 4c
     /// This is a precondition failure when starting iterations
     WorkSurfaceNotFound { work_unit_id: String },
+    /// Approval required before stage completion per SR-PLAN-V5 Phase 5c
+    /// This is a precondition failure for approval-gated stages
+    ApprovalRequired {
+        stage_id: String,
+        portal_id: String,
+        work_surface_id: String,
+    },
 }
 
 /// Error response body
@@ -91,6 +98,24 @@ impl IntoResponse for ApiError {
                 Some(serde_json::json!({
                     "work_unit_id": work_unit_id,
                     "error_code": "WORK_SURFACE_MISSING"
+                })),
+            ),
+            ApiError::ApprovalRequired {
+                stage_id,
+                portal_id,
+                work_surface_id,
+            } => (
+                StatusCode::PRECONDITION_FAILED,
+                format!(
+                    "Approval required before completing stage '{}'. \
+                     Record an approval at portal '{}' with this work surface as subject.",
+                    stage_id, portal_id
+                ),
+                Some(serde_json::json!({
+                    "stage_id": stage_id,
+                    "portal_id": portal_id,
+                    "work_surface_id": work_surface_id,
+                    "error_code": "APPROVAL_REQUIRED"
                 })),
             ),
         };

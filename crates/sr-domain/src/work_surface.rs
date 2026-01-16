@@ -432,6 +432,11 @@ pub struct Stage {
     /// Portal identifier (if requires_portal is true)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub portal_id: Option<String>,
+
+    /// Whether this stage requires human approval before completion
+    /// Per SR-PROCEDURE-KIT §1: Trust boundary flag for stage-gated approval
+    #[serde(default)]
+    pub requires_approval: bool,
 }
 
 /// Procedure Template schema (v1) per SR-WORK-SURFACE §4
@@ -1479,6 +1484,7 @@ mod tests {
                     transition_on_pass: TransitionTarget::Stage(StageId::new("FINAL")),
                     requires_portal: false,
                     portal_id: None,
+                    requires_approval: false,
                 },
                 Stage {
                     stage_id: StageId::new("FINAL"),
@@ -1491,6 +1497,7 @@ mod tests {
                     transition_on_pass: TransitionTarget::Terminal,
                     requires_portal: false,
                     portal_id: None,
+                    requires_approval: false,
                 },
             ],
             terminal_stage_id: StageId::new("FINAL"),
@@ -1524,6 +1531,7 @@ mod tests {
                 transition_on_pass: TransitionTarget::Terminal,
                 requires_portal: false,
                 portal_id: None,
+                requires_approval: false,
             }],
             terminal_stage_id: StageId::new("NONEXISTENT"),
             initial_stage_id: None,

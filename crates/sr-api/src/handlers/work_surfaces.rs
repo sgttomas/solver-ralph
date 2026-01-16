@@ -640,6 +640,28 @@ pub async fn complete_stage(
     let is_terminal = template.is_terminal(&current_stage_obj);
     let next_stage_id: Option<StageId> = template.get_next_stage(&current_stage_obj).cloned();
 
+    // 3b. Check if stage requires approval (SR-PLAN-V5 Phase 5c)
+    if let Some(stage_def) = template.get_stage(&current_stage_obj) {
+        if stage_def.requires_approval {
+            let portal_id = format!("portal:STAGE_COMPLETION:{}", stage_id);
+
+            // Query for existing approval
+            let approval = state
+                .app_state
+                .projections
+                .get_stage_approval(&portal_id, &work_surface_id)
+                .await?;
+
+            if approval.is_none() {
+                return Err(ApiError::ApprovalRequired {
+                    stage_id: stage_id.clone(),
+                    portal_id,
+                    work_surface_id: work_surface_id.clone(),
+                });
+            }
+        }
+    }
+
     // 4. Build gate result
     let gate_result = GateResult {
         status: parse_gate_result_status(&body.gate_result.status)?,
@@ -787,6 +809,90 @@ pub async fn complete_stage(
         next_stage_id: next_stage_id.map(|s| s.as_str().to_string()),
         is_terminal,
         work_surface_status: final_status,
+    }))
+}
+
+/// Response for stage approval status endpoint
+#[derive(Debug, Serialize)]
+pub struct StageApprovalStatusResponse {
+    pub stage_id: String,
+    pub requires_approval: bool,
+    pub portal_id: String,
+    pub approval: Option<ApprovalInfo>,
+}
+
+/// Approval info for stage approval status
+#[derive(Debug, Serialize)]
+pub struct ApprovalInfo {
+    pub approval_id: String,
+    pub decision: String,
+    pub recorded_at: String,
+    pub recorded_by: ActorInfo,
+}
+
+/// Get stage approval status
+///
+/// GET /api/v1/work-surfaces/:work_surface_id/stages/:stage_id/approval-status
+///
+/// Per SR-PLAN-V5 Phase 5c: Returns whether the stage requires approval and
+/// if an approval exists for this work surface at the stage gate portal.
+#[instrument(skip(state, _user))]
+pub async fn get_stage_approval_status(
+    State(state): State<WorkSurfaceState>,
+    _user: AuthenticatedUser,
+    Path((work_surface_id, stage_id)): Path<(String, String)>,
+) -> ApiResult<Json<StageApprovalStatusResponse>> {
+    // 1. Get current Work Surface to verify it exists
+    let current = get_work_surface_projection(&state.app_state, &work_surface_id).await?;
+
+    // 2. Get procedure template to find stage definition
+    let template = get_procedure_template_from_registry(
+        &state.template_registry,
+        &current.procedure_template_id,
+    )
+    .await
+    .ok_or_else(|| ApiError::Internal {
+        message: format!(
+            "Procedure template not found: {}",
+            current.procedure_template_id
+        ),
+    })?;
+
+    let stage_obj = StageId::from_string(stage_id.clone());
+    let stage_def = template.get_stage(&stage_obj).ok_or_else(|| ApiError::NotFound {
+        resource: "Stage".to_string(),
+        id: stage_id.clone(),
+    })?;
+
+    let requires_approval = stage_def.requires_approval;
+    let portal_id = format!("portal:STAGE_COMPLETION:{}", stage_id);
+
+    // 3. If approval required, check if one exists
+    let approval = if requires_approval {
+        let approval_proj = state
+            .app_state
+            .projections
+            .get_stage_approval(&portal_id, &work_surface_id)
+            .await?;
+
+        approval_proj.map(|a| ApprovalInfo {
+            approval_id: a.approval_id,
+            decision: a.decision,
+            recorded_at: a.approved_at.to_rfc3339(),
+            recorded_by: ActorInfo {
+                kind: a.approved_by_kind,
+                id: a.approved_by_id,
+            },
+        })
+    } else {
+        None
+    };
+
+    Ok(Json(StageApprovalStatusResponse {
+        stage_id,
+        requires_approval,
+        portal_id,
+        approval,
     }))
 }
 

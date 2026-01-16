@@ -389,6 +389,10 @@ fn create_router(
             post(work_surfaces::complete_stage),
         )
         .route(
+            "/api/v1/work-surfaces/:work_surface_id/stages/:stage_id/approval-status",
+            get(work_surfaces::get_stage_approval_status),
+        )
+        .route(
             "/api/v1/work-surfaces/:work_surface_id/iteration-context",
             get(work_surfaces::get_iteration_context),
         )

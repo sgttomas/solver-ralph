@@ -8,9 +8,11 @@
  */
 
 import { useState, useEffect, useCallback, FormEvent } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
 import { Card, Pill, Button, getStatusTone, truncate } from '../ui';
+import { StageApprovalForm } from '../components/StageApprovalForm';
 import styles from '../styles/pages.module.css';
 
 // ============================================================================
@@ -72,7 +74,13 @@ type TabType = 'approvals' | 'exceptions' | 'decisions';
 
 export function Approvals(): JSX.Element {
   const auth = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('approvals');
+
+  // Pre-filled params for stage approval (SR-PLAN-V5 Phase 5c)
+  const prefilledPortalId = searchParams.get('portal_id');
+  const prefilledWorkSurfaceId = searchParams.get('work_surface_id');
 
   // Data states
   const [approvals, setApprovals] = useState<Approval[]>([]);
@@ -377,8 +385,30 @@ export function Approvals(): JSX.Element {
   // Render Helpers
   // ============================================================================
 
+  // Handle stage approval form completion (SR-PLAN-V5 Phase 5c)
+  const handleStageApprovalComplete = () => {
+    // Clear URL params and refresh approvals
+    navigate('/approvals', { replace: true });
+    fetchApprovals();
+  };
+
+  const handleStageApprovalCancel = () => {
+    // Clear URL params
+    navigate('/approvals', { replace: true });
+  };
+
   const renderApprovalsTab = () => (
     <>
+      {/* Stage-Gate Approval Form - shown when redirected from WorkSurfaceDetail (SR-PLAN-V5 Phase 5c) */}
+      {prefilledPortalId && prefilledWorkSurfaceId && (
+        <StageApprovalForm
+          portalId={prefilledPortalId}
+          workSurfaceId={prefilledWorkSurfaceId}
+          onComplete={handleStageApprovalComplete}
+          onCancel={handleStageApprovalCancel}
+        />
+      )}
+
       <Card
         title="Record Approval"
         right={

@@ -67,6 +67,7 @@ pub fn problem_statement_ingestion_template() -> ProcedureTemplate {
                 transition_on_pass: TransitionTarget::Stage(StageId::new("VALIDATE")),
                 requires_portal: false,
                 portal_id: None,
+                requires_approval: false,
             },
             // Stage 1: VALIDATE
             Stage {
@@ -97,6 +98,7 @@ pub fn problem_statement_ingestion_template() -> ProcedureTemplate {
                 transition_on_pass: TransitionTarget::Stage(StageId::new("ACCEPT")),
                 requires_portal: false,
                 portal_id: None,
+                requires_approval: false,
             },
             // Stage 2: ACCEPT (Portal boundary)
             Stage {
@@ -124,6 +126,7 @@ pub fn problem_statement_ingestion_template() -> ProcedureTemplate {
                 transition_on_pass: TransitionTarget::Terminal,
                 requires_portal: true,
                 portal_id: Some("IntakeAcceptancePortal".to_string()),
+                requires_approval: true, // Trust boundary per SR-CONTRACT C-TB-3
             },
         ],
         terminal_stage_id: StageId::new("ACCEPT"),
@@ -193,6 +196,7 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
                 transition_on_pass: TransitionTarget::Stage(StageId::new("OPTIONS")),
                 requires_portal: false,
                 portal_id: None,
+                requires_approval: false,
             },
             // stage:OPTIONS
             Stage {
@@ -223,6 +227,7 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
                 transition_on_pass: TransitionTarget::Stage(StageId::new("DRAFT")),
                 requires_portal: false,
                 portal_id: None,
+                requires_approval: false,
             },
             // stage:DRAFT
             Stage {
@@ -252,8 +257,9 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
                 transition_on_pass: TransitionTarget::Stage(StageId::new("SEMANTIC_EVAL")),
                 requires_portal: false,
                 portal_id: None,
+                requires_approval: false,
             },
-            // stage:SEMANTIC_EVAL
+            // stage:SEMANTIC_EVAL - Trust boundary per SR-PROCEDURE-KIT §1
             Stage {
                 stage_id: StageId::new("SEMANTIC_EVAL"),
                 stage_name: "Semantic evaluation".to_string(),
@@ -284,8 +290,9 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
                 transition_on_pass: TransitionTarget::Stage(StageId::new("FINAL")),
                 requires_portal: false,
                 portal_id: None,
+                requires_approval: true, // Trust boundary per SR-CONTRACT C-TB-3
             },
-            // stage:FINAL
+            // stage:FINAL - Trust boundary per SR-PROCEDURE-KIT §1
             Stage {
                 stage_id: StageId::new("FINAL"),
                 stage_name: "Package final output".to_string(),
@@ -314,6 +321,7 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
                 transition_on_pass: TransitionTarget::Terminal,
                 requires_portal: false,
                 portal_id: None,
+                requires_approval: true, // Trust boundary per SR-CONTRACT C-TB-3
             },
         ],
         terminal_stage_id: StageId::new("FINAL"),
