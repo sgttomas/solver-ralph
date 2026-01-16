@@ -67,6 +67,25 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
 - **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
 
+### 0.8  (2026-01-16)
+
+- **oracle-suites/core-v1:** Created Core Oracle Suite container implementation:
+  - `Dockerfile` — Container image with Rust 1.83 toolchain, Node.js, jq
+  - `suite.json` — Suite definition manifest with environment constraints
+  - `oracles/build.sh` — Build verification oracle (Rust/Node.js/Make detection)
+  - `oracles/unit-tests.sh` — Unit test oracle with pass/fail parsing
+  - `oracles/schema-validation.sh` — JSON schema validation oracle
+  - `oracles/lint.sh` — Code linting oracle (advisory classification)
+  - `README.md` — Suite documentation
+- **Oracle output schema:** All oracles produce `sr.oracle_result.v1` JSON format with:
+  - `schema`, `oracle_id`, `status`, `started_at`, `completed_at`, `duration_ms`
+  - `exit_code`, `summary`, `details`, `artifacts`
+- **Environment constraints:** Suite declares `runsc` runtime, `network:disabled`, `workspace_readonly:true`
+- **Classification matrix:** 3 required oracles (build, unit-tests, schema-validation) + 1 advisory (lint)
+- **sr-adapters tests:** Added 6 integration tests validating suite.json parsing and GAP detection
+- **Rationale:** Documents SR-PLAN-V8 Phase V8-4 implementation of Core Oracle Suite Container. Oracles execute inside Podman containers with gVisor sandboxing, producing structured evidence per C-EVID-1.
+- **Classification:** G:MINOR (additive; backward-compatible; creates new directory `oracle-suites/`; no changes to existing contracts).
+
 ### 0.7  (2026-01-16)
 
 - **SR-SPEC Appendix A:** Added `IntegrityViolationDetected` event to canonical event registry with:

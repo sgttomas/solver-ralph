@@ -1490,4 +1490,213 @@ mod tests {
             assert_eq!(missing_oracles, vec!["oracle:build".to_string()]);
         }
     }
+
+    // ========================================================================
+    // V8-4 Core Oracle Suite Tests
+    // ========================================================================
+
+    #[test]
+    fn test_core_suite_v1_definition_parsing() {
+        // Load the suite.json from the oracle-suites/core-v1 directory
+        let suite_json = include_str!("../../../oracle-suites/core-v1/suite.json");
+
+        // Parse the suite definition
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("suite.json should be valid");
+
+        // Verify suite identity
+        assert_eq!(suite.suite_id, "suite:sr-core-v1");
+        assert_eq!(
+            suite.oci_image,
+            "ghcr.io/solver-ralph/oracle-suite-core:v1"
+        );
+
+        // Verify environment constraints
+        assert_eq!(suite.environment_constraints.runtime, "runsc");
+        assert_eq!(suite.environment_constraints.network, NetworkMode::Disabled);
+        assert!(suite.environment_constraints.workspace_readonly);
+        assert_eq!(suite.environment_constraints.cpu_arch, "amd64");
+        assert_eq!(suite.environment_constraints.os, "linux");
+
+        // Verify 4 oracles are defined
+        assert_eq!(suite.oracles.len(), 4);
+    }
+
+    #[test]
+    fn test_core_suite_v1_oracle_definitions() {
+        let suite_json = include_str!("../../../oracle-suites/core-v1/suite.json");
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("suite.json should be valid");
+
+        // Verify build oracle
+        let build_oracle = suite
+            .oracles
+            .iter()
+            .find(|o| o.oracle_id == "oracle:build")
+            .expect("oracle:build should exist");
+        assert_eq!(build_oracle.oracle_name, "Build Check");
+        assert_eq!(build_oracle.command, "/oracles/build.sh");
+        assert_eq!(build_oracle.timeout_seconds, 300);
+        assert_eq!(build_oracle.classification, OracleClassification::Required);
+        assert_eq!(build_oracle.expected_outputs.len(), 1);
+        assert_eq!(build_oracle.expected_outputs[0].path, "reports/build.json");
+        assert!(build_oracle.expected_outputs[0].required);
+
+        // Verify unit-tests oracle
+        let tests_oracle = suite
+            .oracles
+            .iter()
+            .find(|o| o.oracle_id == "oracle:unit-tests")
+            .expect("oracle:unit-tests should exist");
+        assert_eq!(tests_oracle.oracle_name, "Unit Tests");
+        assert_eq!(tests_oracle.command, "/oracles/unit-tests.sh");
+        assert_eq!(tests_oracle.timeout_seconds, 600);
+        assert_eq!(tests_oracle.classification, OracleClassification::Required);
+
+        // Verify schema-validation oracle
+        let schema_oracle = suite
+            .oracles
+            .iter()
+            .find(|o| o.oracle_id == "oracle:schema-validation")
+            .expect("oracle:schema-validation should exist");
+        assert_eq!(schema_oracle.oracle_name, "Schema Validation");
+        assert_eq!(schema_oracle.command, "/oracles/schema-validation.sh");
+        assert_eq!(schema_oracle.timeout_seconds, 120);
+        assert_eq!(schema_oracle.classification, OracleClassification::Required);
+
+        // Verify lint oracle (advisory)
+        let lint_oracle = suite
+            .oracles
+            .iter()
+            .find(|o| o.oracle_id == "oracle:lint")
+            .expect("oracle:lint should exist");
+        assert_eq!(lint_oracle.oracle_name, "Lint Check");
+        assert_eq!(lint_oracle.command, "/oracles/lint.sh");
+        assert_eq!(lint_oracle.timeout_seconds, 180);
+        assert_eq!(lint_oracle.classification, OracleClassification::Advisory);
+        // Advisory oracle output is not required
+        assert!(!lint_oracle.expected_outputs[0].required);
+    }
+
+    #[test]
+    fn test_core_suite_v1_metadata() {
+        let suite_json = include_str!("../../../oracle-suites/core-v1/suite.json");
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("suite.json should be valid");
+
+        // Verify metadata
+        assert!(suite.metadata.contains_key("maintainer"));
+        assert!(suite.metadata.contains_key("version_notes"));
+        assert!(suite.metadata.contains_key("contract_refs"));
+    }
+
+    #[test]
+    fn test_core_suite_v1_required_oracles_count() {
+        let suite_json = include_str!("../../../oracle-suites/core-v1/suite.json");
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("suite.json should be valid");
+
+        // Count required vs advisory oracles
+        let required_count = suite
+            .oracles
+            .iter()
+            .filter(|o| o.classification == OracleClassification::Required)
+            .count();
+        let advisory_count = suite
+            .oracles
+            .iter()
+            .filter(|o| o.classification == OracleClassification::Advisory)
+            .count();
+
+        // 3 required (build, unit-tests, schema-validation) + 1 advisory (lint)
+        assert_eq!(required_count, 3);
+        assert_eq!(advisory_count, 1);
+    }
+
+    #[test]
+    fn test_core_suite_v1_gap_detection_all_required() {
+        let suite_json = include_str!("../../../oracle-suites/core-v1/suite.json");
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("suite.json should be valid");
+
+        // Create results for all required oracles
+        let results = vec![
+            OracleResult {
+                oracle_id: "oracle:build".to_string(),
+                oracle_name: "Build Check".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 100,
+                error_message: None,
+                artifact_refs: vec![],
+                output: None,
+            },
+            OracleResult {
+                oracle_id: "oracle:unit-tests".to_string(),
+                oracle_name: "Unit Tests".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 200,
+                error_message: None,
+                artifact_refs: vec![],
+                output: None,
+            },
+            OracleResult {
+                oracle_id: "oracle:schema-validation".to_string(),
+                oracle_name: "Schema Validation".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 50,
+                error_message: None,
+                artifact_refs: vec![],
+                output: None,
+            },
+            // Note: lint is advisory, so missing it is OK
+        ];
+
+        // Should not detect a gap because all required oracles have results
+        let result = check_for_gaps(&suite, &results);
+        assert!(result.is_ok(), "All required oracles present - no gap");
+    }
+
+    #[test]
+    fn test_core_suite_v1_gap_detection_missing_required() {
+        let suite_json = include_str!("../../../oracle-suites/core-v1/suite.json");
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("suite.json should be valid");
+
+        // Create results missing oracle:unit-tests
+        let results = vec![
+            OracleResult {
+                oracle_id: "oracle:build".to_string(),
+                oracle_name: "Build Check".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 100,
+                error_message: None,
+                artifact_refs: vec![],
+                output: None,
+            },
+            OracleResult {
+                oracle_id: "oracle:schema-validation".to_string(),
+                oracle_name: "Schema Validation".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 50,
+                error_message: None,
+                artifact_refs: vec![],
+                output: None,
+            },
+        ];
+
+        // Should detect a gap for oracle:unit-tests
+        let result = check_for_gaps(&suite, &results);
+        assert!(result.is_err(), "Missing oracle:unit-tests should trigger gap");
+
+        if let Err(IntegrityCondition::OracleGap {
+            missing_oracles,
+            suite_id,
+        }) = result
+        {
+            assert_eq!(suite_id, "suite:sr-core-v1");
+            assert!(missing_oracles.contains(&"oracle:unit-tests".to_string()));
+        } else {
+            panic!("Expected OracleGap condition");
+        }
+    }
 }

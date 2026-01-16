@@ -1,0 +1,93 @@
+{
+  "suite_id": "suite:sr-core-v1",
+  "suite_hash": "sha256:core_v1_placeholder_to_be_computed_at_registration",
+  "oci_image": "ghcr.io/solver-ralph/oracle-suite-core:v1",
+  "oci_image_digest": "sha256:placeholder_digest_to_be_updated_after_build",
+  "environment_constraints": {
+    "runtime": "runsc",
+    "network": "disabled",
+    "cpu_arch": "amd64",
+    "os": "linux",
+    "workspace_readonly": true,
+    "additional_constraints": []
+  },
+  "oracles": [
+    {
+      "oracle_id": "oracle:build",
+      "oracle_name": "Build Check",
+      "description": "Verifies project builds successfully. Detects Rust (Cargo.toml) or Node.js (package.json) projects.",
+      "command": "/oracles/build.sh",
+      "args": [],
+      "timeout_seconds": 300,
+      "expected_outputs": [
+        {
+          "path": "reports/build.json",
+          "content_type": "application/json",
+          "required": true
+        }
+      ],
+      "classification": "required",
+      "working_dir": "/workspace",
+      "env": {}
+    },
+    {
+      "oracle_id": "oracle:unit-tests",
+      "oracle_name": "Unit Tests",
+      "description": "Runs the project's unit test suite and captures results.",
+      "command": "/oracles/unit-tests.sh",
+      "args": [],
+      "timeout_seconds": 600,
+      "expected_outputs": [
+        {
+          "path": "reports/unit-tests.json",
+          "content_type": "application/json",
+          "required": true
+        }
+      ],
+      "classification": "required",
+      "working_dir": "/workspace",
+      "env": {}
+    },
+    {
+      "oracle_id": "oracle:schema-validation",
+      "oracle_name": "Schema Validation",
+      "description": "Validates JSON schemas and type definitions in the project.",
+      "command": "/oracles/schema-validation.sh",
+      "args": [],
+      "timeout_seconds": 120,
+      "expected_outputs": [
+        {
+          "path": "reports/schema.json",
+          "content_type": "application/json",
+          "required": true
+        }
+      ],
+      "classification": "required",
+      "working_dir": "/workspace",
+      "env": {}
+    },
+    {
+      "oracle_id": "oracle:lint",
+      "oracle_name": "Lint Check",
+      "description": "Runs code linting. Advisory oracle - does not block verification.",
+      "command": "/oracles/lint.sh",
+      "args": [],
+      "timeout_seconds": 180,
+      "expected_outputs": [
+        {
+          "path": "reports/lint.json",
+          "content_type": "application/json",
+          "required": false
+        }
+      ],
+      "classification": "advisory",
+      "working_dir": "/workspace",
+      "env": {}
+    }
+  ],
+  "metadata": {
+    "maintainer": "solver-ralph-team",
+    "version_notes": "Initial core oracle suite for V8-4",
+    "contract_refs": ["C-OR-1", "C-OR-3", "C-EVID-1"]
+  }
+}
