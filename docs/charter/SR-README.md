@@ -12,9 +12,11 @@ refs:
 
 # SR-README
 
-Tasks are no longer assigned by SR-PLAN because the build out phase is complete.  See below for the Comprehensive Implementation Plan for the next phase of build out and implementation.
+Tasks are no longer assigned by SR-PLAN because the build out phase is complete.  See below for the details of your current assignment.
 
-Begin your task assignment by reading SR-CHARTER.  The project documentation constitutes a total development plan and specification with detailed instructions on types and contracts.  Always read the SR-* files that appear related to the task before going to read the code files.  Documentation leads development for this project.  Documentation is how you know your ontology, epistemology, and semantics.
+Start by reviewing docs/charter/SR-CHARTER.md
+
+The project documentation constitutes a total development plan and specification with detailed instructions on types and contracts.  Always read the SR-* files that appear related to the task before going to read the code files.  Documentation leads development for this project.  Documentation is how you know your ontology, epistemology, and semantics.
 
 Once you have read the appropriate project docs, then do whatever deliverables and tasks you think should be done next.
 
@@ -23,8 +25,6 @@ Your task is done when there are no more deliverables to be assigned, which mean
 You should push on to resolve any findings and consult the docs/ frequently for guidance and direction from the SR-* documents, several of which are normative.  They are typed documents and structured to aid in navigation.
 
 You should git add && commit && push after completing each deliverable.  You can remain on the same branch throughout this development session.
-
-If you cannot pass the tests for that deliverable then you must summarize what you did during that development session, delete the previous message where it says "Development History Summary for this Deliveralbe" and then append your new message including how to identify the task that was being worked on when the next instance of yourself begins the next iteration.
 
 ALWAYS refer to the project docs/*/SR-* for the authoritative coding architecture, plan, and semantics.  Understand the full set of docs/ and refer to the applicable SR-* document instead of making assumptions.
 
@@ -70,68 +70,39 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 ---
 
-## SR-PLAN-V3 Implementation Status
+## SR-PLAN-V5 Implementation Status
 
-**Status: COMPLETE**
+**Status: IN PROGRESS**
 
-All phases of the Intakes & References implementation (SR-PLAN-V3) are now complete.
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Phase 0a | **Complete** | Core Infrastructure — TypedRef module, Intake domain, database migrations, event definitions |
-| Phase 0b | **Complete** | Intake API — Intake handler with CRUD + lifecycle operations |
-| Phase 0c | **Complete** | References API — References browser backend (15 endpoints) |
-| Phase 1 | **Complete** | UI Structure — Sidebar and route reorganization |
-| Phase 2 | **Complete** | Intakes UI — Full Intake CRUD UI |
-| Phase 3 | **Complete** | References UI — References browser UI |
-
-### Current Routes
-
-```
-/intakes                              → Intakes.tsx (list with filters)
-/intakes/new                          → IntakeCreate.tsx (create form)
-/intakes/:intakeId                    → IntakeDetail.tsx (detail view)
-/intakes/:intakeId/edit               → IntakeEdit.tsx (edit form)
-/references                           → References.tsx (category sidebar)
-/references/documents/:documentId     → ReferenceDocumentDetail.tsx
-/references/bundles/:bundleId         → ReferenceBundleDetail.tsx
-/references/governed-artifacts/:id    → GovernedArtifactDetail.tsx
-```
-
----
-
-## SR-PLAN-V4 Implementation Status
-
-**Status: COMPLETE**
-
-SR-PLAN-V4 (Work Surface Composition) is now fully implemented. All four phases are complete.
+SR-PLAN-V5 (Semantic Ralph Loop End-to-End Integration) connects the infrastructure from V3+V4 into a functioning end-to-end workflow, completing the MVP per SR-CHARTER §Immediate Objective.
 
 ### Phase Overview
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 4a | **Complete** | Core Infrastructure — WorkSurfaceId, events, database migrations |
-| Phase 4b | **Complete** | Work Surface API — 9 endpoints for CRUD, stage transitions, compatibility |
-| Phase 4c | **Complete** | Event Integration — IterationStarted refs, EvidenceBundleRecorded binding, Governor stop trigger |
-| Phase 4d | **Complete** | Work Surface UI — List, composition wizard, detail with stage progress |
+| Phase 5a | **Complete** | Stage Advancement UI — "Complete Stage" button in WorkSurfaceDetail |
+| Phase 5b | Pending | Loop ↔ Work Surface Binding — Loops inherit context automatically |
+| Phase 5c | Pending | Approval-Gated Stages — Trust boundaries enforced via portal approvals |
+| Phase 5d | Pending | End-to-End Integration Test — Prove the complete workflow |
 
-### Key Design Decisions (Resolved in SR-PLAN-V4)
+### Key Design Decisions (Resolved in SR-PLAN-V5)
 
 | Question | Resolution |
 |----------|------------|
-| Compatibility checking | Intake `kind` must match Procedure Template's `kind[]`; binding fails otherwise |
-| Stage initialization | New Work Surface starts at template's initial stage; `StageEntered` emitted immediately |
-| Oracle suite binding | Per-stage binding (not once for whole Work Surface); resolved dynamically on stage entry |
-| Immutability | Binding refs immutable; only stage progression mutable via events |
-| Relationship to Loops | Work Surface 1:1 with Work Unit (not Loop); multiple Loops share same Work Surface |
-| UI workflow | Step-by-step wizard (Select Intake → Select Template → Review & Confirm) |
+| Approval requirement location | In Procedure Template stage definitions via `requires_approval` field |
+| Approval enforcement | Stage completion checks for recorded approval at `portal:stage-gate:<stage_id>` |
+| Loop-Work Surface binding | Loop creation validates Work Surface exists; iterations auto-inherit context |
+| Trust boundary stages | SEMANTIC_EVAL and FINAL stages require approval in baseline template |
 
-### Implemented Routes
+### Planned Deliverables
 
 ```
-/work-surfaces                        → WorkSurfaces.tsx (list with filters)
-/work-surfaces/new                    → WorkSurfaceCompose.tsx (composition wizard)
-/work-surfaces/:workSurfaceId         → WorkSurfaceDetail.tsx (detail with stage progress)
+ui/src/components/StageCompletionForm.tsx  — Stage completion form
+ui/src/components/EvidenceBundleSelector.tsx — Evidence picker
+ui/src/pages/WorkSurfaceDetail.tsx — Add stage completion UI
+crates/sr-api/src/handlers/loops.rs — Work Surface validation
+crates/sr-api/src/handlers/work_surfaces.rs — Approval check
+crates/sr-api/tests/integration/semantic_ralph_loop_e2e.rs — E2E test
 ```
 
 ---
@@ -177,43 +148,46 @@ SR-PLAN-V4 (Work Surface Composition) is now fully implemented. All four phases 
 
 ---
 
-## SR-PLAN-V5 Implementation Status
 
-**Status: IN PROGRESS**
+# Next Instance Prompt: SR-PLAN-V5 Phase 5a Implementation
 
-SR-PLAN-V5 (Semantic Ralph Loop End-to-End Integration) connects the infrastructure from V3+V4 into a functioning end-to-end workflow, completing the MVP per SR-CHARTER §Immediate Objective.
+## Your Assignment
 
-### Phase Overview
+You are continuing work on the **Semantic Ralph Loop MVP** project. The planning and review phase is complete. Your task is to **implement Phase 5a: Stage Advancement UI** as specified in `docs/planning/SR-PLAN-V5.md`.
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Phase 5a | Pending | Stage Advancement UI — "Complete Stage" button in WorkSurfaceDetail |
-| Phase 5b | Pending | Loop ↔ Work Surface Binding — Loops inherit context automatically |
-| Phase 5c | Pending | Approval-Gated Stages — Trust boundaries enforced via portal approvals |
-| Phase 5d | Pending | End-to-End Integration Test — Prove the complete workflow |
+### Key Documents to Read
+1. **`docs/planning/SR-PLAN-V5.md`** — The implementation plan (especially §3 Phase 5a)
+2. **`docs/charter/SR-README.md`** — Assignment orientation and canonical document index
+3. **`docs/platform/SR-CONTRACT.md`** — Binding invariants (C-EVID-*, C-TB-*, C-VER-*)
 
-### Key Design Decisions (Resolved in SR-PLAN-V5)
+### What You Need to Implement (Phase 5a)
 
-| Question | Resolution |
-|----------|------------|
-| Approval requirement location | In Procedure Template stage definitions via `requires_approval` field |
-| Approval enforcement | Stage completion checks for recorded approval at `portal:stage-gate:<stage_id>` |
-| Loop-Work Surface binding | Loop creation validates Work Surface exists; iterations auto-inherit context |
-| Trust boundary stages | SEMANTIC_EVAL and FINAL stages require approval in baseline template |
+**Goal:** Add UI to complete stages with evidence from the WorkSurfaceDetail page.
 
-### Planned Deliverables
+**Deliverables (from SR-PLAN-V5 §3.8):**
 
-```
-ui/src/components/StageCompletionForm.tsx  — Stage completion form
-ui/src/components/EvidenceBundleSelector.tsx — Evidence picker
-ui/src/pages/WorkSurfaceDetail.tsx — Add stage completion UI
-crates/sr-api/src/handlers/loops.rs — Work Surface validation
-crates/sr-api/src/handlers/work_surfaces.rs — Approval check
-crates/sr-api/tests/integration/semantic_ralph_loop_e2e.rs — E2E test
-```
+**Key Implementation Details:**
+- Form visible only when: Work Surface status is "active" AND current stage status is "entered"
+- Pre-populate oracle IDs from `workSurface.current_oracle_suites`
+- Gate result status options: PASS, PASS_WITH_WAIVERS, FAIL
+- If PASS_WITH_WAIVERS selected, waiver refs field is required
+- API endpoint: `POST /api/v1/work-surfaces/:work_surface_id/stages/:stage_id/complete`
 
----
+**Acceptance Criteria (from SR-PLAN-V5 §3.9):**
 
-## Prompt for Next Instance
+### Existing Code to Reference
+- **Backend API:** `crates/sr-api/src/handlers/work_surfaces.rs` — `complete_stage` endpoint exists
+- **Evidence API:** `crates/sr-api/src/handlers/evidence.rs` — `GET /api/v1/evidence` for bundle list
+- **Current UI:** `ui/src/pages/WorkSurfaceDetail.tsx` — where form will be integrated
 
-Evaluate the proposed implementation plan SR-PLAN-V5 Phase 5a (Stage Advancement UI). See `docs/planning/SR-PLAN-V5.md` for full specification.  Is this plan complete for the intended purpose?  Do you agree with the plan? Explain your rationale.  To do this properly you need to understand the canonical documents in the context of this SR-PLAN-V5.  Review the list of canonical documents and read thoroughly any applicable documents.  Review the codebase and read any pertinent files.  Then produce your report of findings and any recommendations to mitigate errors and omissions.
+### Implementation Order (from SR-PLAN-V5 §7)
+
+### MVP Limitations (Accepted)
+- Evidence bundle existence not validated by backend
+- Waiver refs not validated to exist
+- Oracle results are user-entered, not from actual oracle runs
+- FAIL records evidence but does NOT advance the stage
+
+## Begin Implementation
+Start by reading `docs/planning/SR-PLAN-V5.md` §3 (Phase 5a) in full, then examine `ui/src/pages/WorkSurfaceDetail.tsx` to understand the current UI structure before creating the new components.
+
