@@ -12,6 +12,8 @@ import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
 import { Card, Button, Pill, truncateHash } from '../ui';
 import { StageCompletionForm } from '../components/StageCompletionForm';
+import { IterationHistory, useToast } from '../components';
+import type { Iteration } from '../components';
 import styles from '../styles/pages.module.css';
 
 interface ActorInfo {
@@ -69,15 +71,29 @@ interface StageApprovalStatus {
   } | null;
 }
 
+// Response from iterations endpoint
+interface IterationsResponse {
+  iterations: Iteration[];
+  loop_id: string;
+  total: number;
+}
+
 export function WorkSurfaceDetail(): JSX.Element {
   const { workSurfaceId } = useParams<{ workSurfaceId: string }>();
   const auth = useAuth();
+  const toast = useToast();
   const [workSurface, setWorkSurface] = useState<WorkSurfaceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [showCompletionForm, setShowCompletionForm] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<StageApprovalStatus | null>(null);
+
+  // Iteration history state (V7-5)
+  const [iterations, setIterations] = useState<Iteration[]>([]);
+  const [loopId, setLoopId] = useState<string | null>(null);
+  const [iterationsLoading, setIterationsLoading] = useState(false);
+  const [startingIteration, setStartingIteration] = useState(false);
 
   const fetchWorkSurface = useCallback(async () => {
     if (!auth.user?.access_token || !workSurfaceId) return;
@@ -128,9 +144,79 @@ export function WorkSurfaceDetail(): JSX.Element {
     }
   }, [auth.user?.access_token, workSurfaceId]);
 
+  // Fetch iterations for the Work Surface (V7-5)
+  const fetchIterations = useCallback(async () => {
+    if (!auth.user?.access_token || !workSurfaceId) return;
+
+    setIterationsLoading(true);
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/api/v1/work-surfaces/${workSurfaceId}/iterations`,
+        {
+          headers: { Authorization: `Bearer ${auth.user.access_token}` },
+        }
+      );
+
+      if (res.ok) {
+        const data: IterationsResponse = await res.json();
+        setIterations(data.iterations);
+        setLoopId(data.loop_id);
+      } else if (res.status === 404) {
+        // No loop yet - that's fine
+        setIterations([]);
+        setLoopId(null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch iterations:', err);
+    } finally {
+      setIterationsLoading(false);
+    }
+  }, [auth.user?.access_token, workSurfaceId]);
+
+  // Start a new iteration (V7-5)
+  const handleStartNewIteration = useCallback(async () => {
+    if (!auth.user?.access_token || !workSurfaceId) return;
+
+    setStartingIteration(true);
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/api/v1/work-surfaces/${workSurfaceId}/iterations`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${auth.user.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to start iteration: HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      toast.success(`Started iteration #${data.iteration_number}`);
+      // Refresh iterations list
+      await fetchIterations();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to start new iteration';
+      toast.error(message);
+    } finally {
+      setStartingIteration(false);
+    }
+  }, [auth.user?.access_token, workSurfaceId, toast, fetchIterations]);
+
   useEffect(() => {
     fetchWorkSurface();
   }, [fetchWorkSurface]);
+
+  // Fetch iterations when work surface loads
+  useEffect(() => {
+    if (workSurface) {
+      fetchIterations();
+    }
+  }, [workSurface, fetchIterations]);
 
   // Fetch approval status when work surface loads and has a current stage
   useEffect(() => {
@@ -579,6 +665,24 @@ export function WorkSurfaceDetail(): JSX.Element {
           </table>
         </Card>
       )}
+
+      {/* Iteration History Card (V7-5) */}
+      <Card title="Iteration History" className={styles.cardSpacing}>
+        {iterationsLoading ? (
+          <div className={styles.placeholder}>
+            <p className={styles.placeholderText}>Loading iterations...</p>
+          </div>
+        ) : (
+          <IterationHistory
+            workSurfaceId={workSurface.work_surface_id}
+            iterations={iterations}
+            loopId={loopId ?? undefined}
+            onStartNewIteration={handleStartNewIteration}
+            canStartNew={workSurface.status === 'active'}
+            isStarting={startingIteration}
+          />
+        )}
+      </Card>
 
       {/* Params Card (if any) */}
       {Object.keys(workSurface.params || {}).length > 0 && (

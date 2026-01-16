@@ -411,6 +411,12 @@ fn create_router(
             "/api/v1/work-surfaces/:work_surface_id/start",
             post(work_surfaces::start_work_surface),
         )
+        // V7-5: Work Surface iteration endpoints
+        .route(
+            "/api/v1/work-surfaces/:work_surface_id/iterations",
+            get(work_surfaces::get_work_surface_iterations)
+                .post(work_surfaces::start_work_surface_iteration),
+        )
         .with_state(work_surface_state);
 
     // Attachment routes - Per SR-PLAN-V7 Phase V7-3

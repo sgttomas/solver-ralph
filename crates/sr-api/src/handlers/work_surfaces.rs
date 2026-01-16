@@ -14,6 +14,8 @@
 //! - GET    /api/v1/work-surfaces/compatibility                - Check compatibility
 //! - GET    /api/v1/work-surfaces/compatible-templates         - List compatible templates
 //! - POST   /api/v1/work-surfaces/:id/start                    - Start work (create Loop + Iteration)
+//! - GET    /api/v1/work-surfaces/:id/iterations               - List iterations (V7-5)
+//! - POST   /api/v1/work-surfaces/:id/iterations               - Start new iteration (V7-5)
 
 use axum::{
     extract::{Path, Query, State},
@@ -235,6 +237,38 @@ pub struct ProcedureTemplateSummary {
 pub struct IterationContextResponse {
     pub work_surface_id: String,
     pub refs: Vec<TypedRef>,
+}
+
+// ============================================================================
+// Iteration List/Create Types (SR-PLAN-V7 Phase V7-5)
+// ============================================================================
+
+/// Response for listing iterations for a Work Surface
+#[derive(Debug, Serialize)]
+pub struct WorkSurfaceIterationsResponse {
+    pub iterations: Vec<IterationSummary>,
+    pub loop_id: String,
+    pub total: usize,
+}
+
+/// Summary of a single iteration
+#[derive(Debug, Serialize)]
+pub struct IterationSummary {
+    pub iteration_id: String,
+    pub iteration_number: i32,
+    pub started_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage_id: Option<String>,
+}
+
+/// Response for starting a new iteration
+#[derive(Debug, Serialize)]
+pub struct StartIterationResponse {
+    pub iteration_id: String,
+    pub iteration_number: i32,
 }
 
 /// Response for Work Surface action (create, archive)
@@ -1481,6 +1515,192 @@ pub async fn start_work_surface(
         loop_id,
         iteration_id,
         already_started,
+    }))
+}
+
+// ============================================================================
+// Work Surface Iterations (SR-PLAN-V7 Phase V7-5)
+// ============================================================================
+
+/// Get iterations for a Work Surface
+///
+/// GET /api/v1/work-surfaces/{id}/iterations
+///
+/// Per SR-PLAN-V7 §V7-5: Returns the list of iterations for the Work Surface's Loop.
+#[instrument(skip(state, _user))]
+pub async fn get_work_surface_iterations(
+    State(state): State<WorkSurfaceState>,
+    _user: AuthenticatedUser,
+    Path(work_surface_id): Path<String>,
+) -> ApiResult<Json<WorkSurfaceIterationsResponse>> {
+    // 1. Get work surface to find work_unit_id
+    let ws = get_work_surface_projection(&state.app_state, &work_surface_id).await?;
+
+    // 2. Get Loop for this Work Surface
+    let loop_proj = state
+        .app_state
+        .projections
+        .get_loop_by_work_unit(&ws.work_unit_id)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?
+        .ok_or_else(|| ApiError::NotFound {
+            resource: "Loop".to_string(),
+            id: format!("for work_unit {}", ws.work_unit_id),
+        })?;
+
+    // 3. Get iterations for this Loop
+    let iterations = state
+        .app_state
+        .projections
+        .get_iterations(&loop_proj.loop_id)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
+
+    // 4. Convert to response format
+    let iteration_summaries: Vec<IterationSummary> = iterations
+        .iter()
+        .map(|iter| {
+            // Extract stage_id from refs if present
+            let stage_id = iter
+                .refs
+                .as_object()
+                .and_then(|refs| {
+                    // Look for ProcedureTemplate ref with current_stage_id
+                    if let Some(arr) = refs.get("refs").and_then(|v| v.as_array()) {
+                        for r in arr {
+                            if r.get("kind").and_then(|k| k.as_str()) == Some("ProcedureTemplate") {
+                                return r
+                                    .get("meta")
+                                    .and_then(|m| m.get("current_stage_id"))
+                                    .and_then(|s| s.as_str())
+                                    .map(|s| s.to_string());
+                            }
+                        }
+                    }
+                    None
+                });
+
+            IterationSummary {
+                iteration_id: iter.iteration_id.clone(),
+                iteration_number: iter.sequence,
+                started_at: iter.started_at.to_rfc3339(),
+                completed_at: iter.completed_at.map(|t| t.to_rfc3339()),
+                status: iter.state.clone(),
+                stage_id,
+            }
+        })
+        .collect();
+
+    let total = iteration_summaries.len();
+
+    Ok(Json(WorkSurfaceIterationsResponse {
+        iterations: iteration_summaries,
+        loop_id: loop_proj.loop_id,
+        total,
+    }))
+}
+
+/// Start a new iteration for a Work Surface
+///
+/// POST /api/v1/work-surfaces/{id}/iterations
+///
+/// Per SR-PLAN-V7 §V7-5: Starts a new iteration using SYSTEM actor mediation.
+/// Requires that the current iteration is completed or a stop trigger was fired.
+#[instrument(skip(state, _user), fields(work_surface_id = %work_surface_id))]
+pub async fn start_work_surface_iteration(
+    State(state): State<WorkSurfaceState>,
+    _user: AuthenticatedUser,
+    Path(work_surface_id): Path<String>,
+) -> ApiResult<Json<StartIterationResponse>> {
+    // 1. Get work surface and verify active
+    let ws = get_work_surface_projection(&state.app_state, &work_surface_id).await?;
+    if ws.status != "active" {
+        return Err(ApiError::PreconditionFailed {
+            code: "WORK_SURFACE_NOT_ACTIVE".to_string(),
+            message: format!("Work Surface status is '{}', must be 'active'", ws.status),
+        });
+    }
+
+    // 2. Get Loop for this Work Surface
+    let loop_proj = state
+        .app_state
+        .projections
+        .get_loop_by_work_unit(&ws.work_unit_id)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?
+        .ok_or_else(|| ApiError::PreconditionFailed {
+            code: "NO_LOOP".to_string(),
+            message: "Work Surface has no Loop. Call /start first.".to_string(),
+        })?;
+
+    // 3. Verify Loop is ACTIVE
+    if loop_proj.state != "ACTIVE" {
+        return Err(ApiError::PreconditionFailed {
+            code: "LOOP_NOT_ACTIVE".to_string(),
+            message: format!("Loop state is '{}', must be 'ACTIVE'", loop_proj.state),
+        });
+    }
+
+    // 4. Get current iterations and check if new iteration is allowed
+    let iterations = state
+        .app_state
+        .projections
+        .get_iterations(&loop_proj.loop_id)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
+
+    if let Some(last_iter) = iterations.last() {
+        // Current iteration must be completed or failed to start a new one
+        let can_start_new = last_iter.state == "COMPLETED" || last_iter.state == "FAILED";
+        if !can_start_new {
+            return Err(ApiError::PreconditionFailed {
+                code: "ITERATION_IN_PROGRESS".to_string(),
+                message: format!(
+                    "Current iteration {} is '{}'. Complete it before starting a new one.",
+                    last_iter.iteration_id, last_iter.state
+                ),
+            });
+        }
+    }
+
+    // 5. Start new iteration as SYSTEM (reuse existing helper)
+    let iteration_id = start_iteration_as_system(&state, &loop_proj.loop_id, &ws).await?;
+
+    // 6. Get the new iteration's sequence number
+    let new_iterations = state
+        .app_state
+        .projections
+        .get_iterations(&loop_proj.loop_id)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
+
+    let iteration_number = new_iterations
+        .iter()
+        .find(|i| i.iteration_id == iteration_id)
+        .map(|i| i.sequence)
+        .unwrap_or(new_iterations.len() as i32);
+
+    info!(
+        work_surface_id = %work_surface_id,
+        loop_id = %loop_proj.loop_id,
+        iteration_id = %iteration_id,
+        iteration_number = iteration_number,
+        "New iteration started for Work Surface"
+    );
+
+    Ok(Json(StartIterationResponse {
+        iteration_id,
+        iteration_number,
     }))
 }
 

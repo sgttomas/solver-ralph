@@ -23,3 +23,7 @@ export { AttachmentUploader } from './AttachmentUploader';
 export type { UploadedAttachment } from './AttachmentUploader';
 export { AttachmentPreview } from './AttachmentPreview';
 export type { AttachmentPreviewProps } from './AttachmentPreview';
+
+// Iteration history (V7-5)
+export { IterationHistory } from './IterationHistory';
+export type { Iteration, IterationHistoryProps } from './IterationHistory';

@@ -1,0 +1,256 @@
+/**
+ * IterationHistory Component Styles
+ *
+ * Per SR-PLAN-V7 Phase V7-5: Timeline view of iterations
+ * Uses design tokens from theme.css
+ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space3);
+}
+
+/* Empty state */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space5);
+  background-color: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  gap: var(--space3);
+}
+
+.emptyText {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space2);
+  border-bottom: 1px solid var(--border);
+}
+
+.headerInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space2);
+}
+
+.headerTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.headerCount {
+  font-size: 0.75rem;
+  color: var(--muted);
+  background-color: var(--bg);
+  padding: 2px 8px;
+  border-radius: var(--radiusSm);
+}
+
+/* Timeline */
+.timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.timelineItem {
+  display: flex;
+  gap: var(--space3);
+}
+
+.timelineItem.current .iterationCard {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* Timeline connector */
+.timelineConnector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 20px;
+  flex-shrink: 0;
+  padding-top: 12px;
+}
+
+.timelineDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background-color: white;
+  flex-shrink: 0;
+}
+
+.dotCompleted {
+  background-color: var(--success);
+  border-color: var(--success);
+}
+
+.dotFailed {
+  background-color: var(--danger);
+  border-color: var(--danger);
+}
+
+.dotActive {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.timelineLine {
+  width: 2px;
+  flex: 1;
+  min-height: 20px;
+  background-color: var(--border);
+  margin-top: 4px;
+}
+
+/* Iteration card */
+.iterationCard {
+  flex: 1;
+  background-color: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: var(--space3);
+  overflow: hidden;
+}
+
+.iterationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space3);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.iterationHeader:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.iterationHeader:focus {
+  outline: none;
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.iterationMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space2);
+}
+
+.iterationNumber {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.currentBadge {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  background-color: color-mix(in srgb, var(--accent) 10%, white);
+  border-radius: var(--radiusSm);
+}
+
+.iterationTiming {
+  display: flex;
+  align-items: center;
+  gap: var(--space2);
+}
+
+.duration {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.expandIcon {
+  font-size: 0.625rem;
+  color: var(--muted);
+  width: 16px;
+  text-align: center;
+}
+
+/* Expanded details */
+.iterationDetails {
+  padding: var(--space3);
+  background-color: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.detailRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space2);
+  margin-bottom: var(--space2);
+}
+
+.detailRow:last-child {
+  margin-bottom: 0;
+}
+
+.detailLabel {
+  font-size: 0.75rem;
+  color: var(--muted);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.detailValue {
+  font-size: 0.75rem;
+  color: var(--ink);
+  word-break: break-all;
+}
+
+code.detailValue {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  background-color: rgba(0, 0, 0, 0.04);
+  padding: 2px 6px;
+  border-radius: var(--radiusSm);
+}
+
+/* Loop reference */
+.loopRef {
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding-top: var(--space2);
+  border-top: 1px solid var(--border);
+}
+
+.loopId {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  background-color: rgba(0, 0, 0, 0.04);
+  padding: 2px 6px;
+  border-radius: var(--radiusSm);
+}
