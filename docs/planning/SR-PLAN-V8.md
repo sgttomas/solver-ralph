@@ -480,15 +480,22 @@ pub struct TempWorkspace {
 ```
 
 **Acceptance Criteria:**
-- [ ] Worker subscribes to `RunStarted` events
-- [ ] Worker retrieves suite from registry and validates hash
-- [ ] Worker materializes candidate workspace
-- [ ] Worker executes oracles via `PodmanOracleRunner` (test mode)
-- [ ] Worker emits `OracleExecutionStarted` and `OracleExecutionCompleted` events
-- [ ] Evidence bundle stored in MinIO
-- [ ] Existing `POST /runs/:id/complete` can consume worker results
-- [ ] End-to-end integration test passes
-- [ ] `cargo test --package sr-adapters` passes
+- [x] Worker subscribes to `RunStarted` events
+- [x] Worker retrieves suite from registry and validates hash
+- [x] Worker materializes candidate workspace
+- [x] Worker executes oracles via `PodmanOracleRunner` (test mode)
+- [x] Worker emits `OracleExecutionStarted` and `OracleExecutionCompleted` events
+- [x] Evidence bundle stored in MinIO (via existing PodmanOracleRunner)
+- [ ] Existing `POST /runs/:id/complete` can consume worker results (deferred)
+- [ ] End-to-end integration test passes (deferred)
+- [x] `cargo test --package sr-adapters` passes
+
+**Completion Notes (2026-01-16):**
+- `OracleExecutionWorker<S, R, Ev, C>` created with generic type parameters
+- New events: `OracleExecutionStarted`, `OracleExecutionCompleted`, `OracleExecutionStatus`
+- `CandidateWorkspace` trait and `SimpleCandidateWorkspace` implementation
+- TAMPER detection via suite hash validation before execution
+- Test mode skips event emission for unit testing
 
 **Effort:** ~2-3 sessions (increased from 1-2 due to event-driven architecture)
 

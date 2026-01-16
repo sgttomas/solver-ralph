@@ -99,6 +99,10 @@ pub enum EventType {
     RunCompleted,
     EvidenceBundleRecorded,
 
+    // Oracle execution events per SR-PLAN-V8 §V8-2
+    OracleExecutionStarted,
+    OracleExecutionCompleted,
+
     // Oracle suite events
     OracleSuiteRegistered,
     OracleSuiteUpdated,
@@ -338,5 +342,94 @@ impl WorkSurfaceArchivedEvent {
 
     pub fn event_type() -> &'static str {
         "WorkSurfaceArchived"
+    }
+}
+
+// ============================================================================
+// Oracle Execution Events per SR-PLAN-V8 §V8-2
+// ============================================================================
+
+/// Emitted when oracle execution begins
+///
+/// Per SR-PLAN-V8 §V8-2: The Oracle Execution Worker emits this event
+/// after validating the suite and materializing the candidate workspace.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OracleExecutionStarted {
+    /// Run identifier (format: run:<ULID>)
+    pub run_id: String,
+    /// Candidate being evaluated
+    pub candidate_id: String,
+    /// Oracle suite being executed
+    pub suite_id: String,
+    /// Content hash of the oracle suite (for TAMPER detection)
+    pub suite_hash: String,
+    /// Path to materialized workspace
+    pub workspace_path: String,
+    /// Timestamp when execution started
+    pub started_at: DateTime<Utc>,
+}
+
+impl OracleExecutionStarted {
+    pub fn stream_id(&self) -> String {
+        self.run_id.clone()
+    }
+
+    pub fn stream_kind() -> StreamKind {
+        StreamKind::Run
+    }
+
+    pub fn event_type() -> &'static str {
+        "OracleExecutionStarted"
+    }
+}
+
+/// Oracle execution status
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OracleExecutionStatus {
+    Pass,
+    Fail,
+    Error,
+}
+
+/// Emitted when oracle execution completes
+///
+/// Per SR-PLAN-V8 §V8-2: The Oracle Execution Worker emits this event
+/// with results after oracle suite execution completes (success or failure).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OracleExecutionCompleted {
+    /// Run identifier (format: run:<ULID>)
+    pub run_id: String,
+    /// Candidate that was evaluated
+    pub candidate_id: String,
+    /// Oracle suite that was executed
+    pub suite_id: String,
+    /// Execution status: PASS, FAIL, or ERROR
+    pub status: OracleExecutionStatus,
+    /// Evidence bundle hash (if execution produced evidence)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence_bundle_hash: Option<String>,
+    /// Environment fingerprint capturing execution environment
+    pub environment_fingerprint: serde_json::Value,
+    /// Execution duration in milliseconds
+    pub duration_ms: u64,
+    /// Timestamp when execution completed
+    pub completed_at: DateTime<Utc>,
+    /// Error message (if status is ERROR)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl OracleExecutionCompleted {
+    pub fn stream_id(&self) -> String {
+        self.run_id.clone()
+    }
+
+    pub fn stream_kind() -> StreamKind {
+        StreamKind::Run
+    }
+
+    pub fn event_type() -> &'static str {
+        "OracleExecutionCompleted"
     }
 }

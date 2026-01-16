@@ -21,8 +21,10 @@
 //! - Reference semantic worker (D-41)
 //! - MinIO attachment store adapter (SR-PLAN-V7 V7-3)
 //! - PostgreSQL oracle suite registry (SR-PLAN-V8 V8-1)
+//! - Oracle execution worker (SR-PLAN-V8 V8-2)
 
 pub mod attachment_store;
+pub mod candidate_store;
 pub mod config;
 pub mod event_manager;
 pub mod evidence;
@@ -34,6 +36,7 @@ pub mod minio;
 pub mod nats;
 pub mod oracle_runner;
 pub mod oracle_suite;
+pub mod oracle_worker;
 pub mod outbox;
 pub mod postgres;
 pub mod postgres_oracle_registry;
@@ -115,3 +118,8 @@ pub use worker::{
     run_worker, ContentResolver, ReferenceWorkerBridge, WorkAction, WorkResult, WorkerConfig,
     WorkerError,
 };
+pub use candidate_store::{
+    CandidateWorkspace, CandidateWorkspaceConfig, SimpleCandidateWorkspace, TempWorkspace,
+    WorkspaceError,
+};
+pub use oracle_worker::{OracleExecutionWorker, OracleWorkerConfig, OracleWorkerError};

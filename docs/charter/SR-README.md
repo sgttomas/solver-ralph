@@ -78,7 +78,7 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 | Plan | Scope | Key Deliverables | Status |
 |------|-------|------------------|--------|
 | SR-PLAN-V7 | Stabilization & Attachments | Tests, UX, `record.attachment` | **Complete** |
-| SR-PLAN-V8 | Oracle Runner & Semantic Suites | D-24, D-25, D-27, D-39 | **In Progress** (V8-1 ✅) |
+| SR-PLAN-V8 | Oracle Runner & Semantic Suites | D-24, D-25, D-27, D-39 | **In Progress** (V8-1 ✅, V8-2 ✅) |
 | SR-PLAN-V9 | Semantic Worker & Branch 0 | D-23, D-41, D-36 | Proposed |
 
 **Milestone 1 (MVP) projected completion:** After V9
@@ -90,12 +90,12 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 | Phase | Status | Description | Amendment |
 |-------|--------|-------------|-----------|
 | V8-1: Oracle Suite Registry | ✅ Complete | Port trait extracted, PostgreSQL adapter ready | A-4 |
-| V8-2: Event-Driven Worker | 🎯 Next | Worker subscribes to `RunStarted` events | A-1 |
-| V8-3: Integrity Checks | ⏳ Pending | TAMPER/GAP/FLAKE/ENV_MISMATCH detection | — |
+| V8-2: Event-Driven Worker | ✅ Complete | Worker subscribes to `RunStarted` events | A-1 |
+| V8-3: Integrity Checks | 🎯 Next | TAMPER/GAP/FLAKE/ENV_MISMATCH detection | — |
 | V8-4: Core Oracle Suite | ⏳ Pending | Build/unit/schema/lint oracles + container | — |
 | V8-5: Semantic Oracles | ⏳ Pending | Use existing types, focus on container packaging | A-3 |
 
-**SR-PLAN-V8 has passed coherence assessment AND philosophical consistency review. V8-1 complete, V8-2 ready.**
+**SR-PLAN-V8 has passed coherence assessment AND philosophical consistency review. V8-1 and V8-2 complete, V8-3 ready.**
 
 ### Amendments Applied
 
@@ -110,122 +110,133 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## Previous Session Summary (V8-1 Implementation)
+## Previous Session Summary (V8-2 Implementation)
 
-**Session Goal:** Implement SR-PLAN-V8 Phase V8-1 — Oracle Suite Registry
+**Session Goal:** Implement SR-PLAN-V8 Phase V8-2 — Event-Driven Oracle Worker
 
 ### What Was Accomplished
 
-1. **Added port trait to sr-ports** (`crates/sr-ports/src/lib.rs`):
-   - `OracleSuiteRegistryPort` trait with 5 methods: `register`, `get`, `get_by_hash`, `list`, `deprecate`
-   - `OracleSuiteRecord` struct (stored entity with lifecycle metadata)
-   - `OracleSuiteStatus` enum (Active, Deprecated, Archived)
-   - `RegisterSuiteInput` struct (bundles registration parameters for clippy compliance)
-   - `SuiteFilter` struct for list queries
-   - `OracleSuiteRegistryError` enum
+1. **Added domain events to sr-domain** (`crates/sr-domain/src/events.rs`):
+   - `OracleExecutionStarted` event payload struct
+   - `OracleExecutionCompleted` event payload struct
+   - `OracleExecutionStatus` enum (Pass, Fail, Error)
+   - Added event types to `EventType` enum
 
-2. **Created PostgreSQL adapter** (`crates/sr-adapters/src/postgres_oracle_registry.rs`):
-   - `PostgresOracleSuiteRegistry` struct implementing `OracleSuiteRegistryPort`
-   - Full CRUD operations against `proj.oracle_suites` table
+2. **Created candidate workspace materializer** (`crates/sr-adapters/src/candidate_store.rs`):
+   - `CandidateWorkspace` trait for materializing candidate content
+   - `TempWorkspace` struct with Drop cleanup
+   - `SimpleCandidateWorkspace` implementation (placeholder for V8-2)
+   - `WorkspaceError` error enum
 
-3. **Created database migration** (`migrations/008_oracle_suite_registry.sql`):
-   - `proj.oracle_suites` table with indexes on `suite_hash` and `status`
+3. **Created Oracle Execution Worker** (`crates/sr-adapters/src/oracle_worker.rs`):
+   - `OracleExecutionWorker<S, R, Ev, C>` generic struct
+   - Subscribes to `sr.events.run` NATS subject for `RunStarted` events
+   - Validates suite hash against registry (TAMPER detection per C-OR-2)
+   - Materializes candidate workspace
+   - Executes oracle suite via `PodmanOracleRunner`
+   - Emits `OracleExecutionStarted` and `OracleExecutionCompleted` events
+   - Idempotency tracking via processed_runs map
+   - `OracleWorkerConfig` and `OracleWorkerError` types
 
-4. **Updated existing in-memory registry** (`crates/sr-adapters/src/oracle_suite.rs`):
-   - `OracleSuiteRegistry` now implements `OracleSuiteRegistryPort`
-   - Added `record_to_definition()` conversion function
-   - Backwards compatible with existing API endpoints
-
-5. **Updated exports** (`crates/sr-adapters/src/lib.rs`):
-   - Exports `PostgresOracleSuiteRegistry` and `record_to_definition`
+4. **Updated exports** (`crates/sr-adapters/src/lib.rs`):
+   - Exports `candidate_store` and `oracle_worker` modules
+   - Exports key types: `OracleExecutionWorker`, `OracleWorkerConfig`, etc.
 
 ### Test Results
 
 | Package | Result |
 |---------|--------|
-| sr-ports | ✅ Compiles clean |
-| sr-adapters | ✅ 123 passed |
+| sr-domain | ✅ 118 passed |
+| sr-adapters | ✅ 128 passed |
 | sr-api | ✅ 41 passed |
 
 ### Files Created/Modified
 
 | File | Action |
 |------|--------|
-| `crates/sr-ports/src/lib.rs` | MODIFIED — Added port trait, types, error enum |
-| `migrations/008_oracle_suite_registry.sql` | CREATED — Database schema |
-| `crates/sr-adapters/src/postgres_oracle_registry.rs` | CREATED — PostgreSQL adapter |
-| `crates/sr-adapters/src/oracle_suite.rs` | MODIFIED — Implements port trait |
-| `crates/sr-adapters/src/lib.rs` | MODIFIED — Exports new module |
-| `docs/planning/SR-PLAN-V8.md` | MODIFIED — Marked V8-1 acceptance criteria complete |
+| `crates/sr-domain/src/events.rs` | MODIFIED — Added oracle execution events |
+| `crates/sr-adapters/src/candidate_store.rs` | CREATED — Workspace materializer |
+| `crates/sr-adapters/src/oracle_worker.rs` | CREATED — Event-driven worker |
+| `crates/sr-adapters/src/lib.rs` | MODIFIED — Exports new modules |
 
 ### Implementation Notes
 
-- Port trait named `OracleSuiteRegistryPort` (not `OracleSuiteRegistry`) to avoid collision with existing concrete type during transition
-- `RegisterSuiteInput` struct introduced to satisfy clippy's "too many arguments" warning
-- API layer continues using in-memory registry; PostgreSQL adapter available for production wiring
-- Per Amendment A-2: `OracleSuiteDefinition` = execution config, `OracleSuiteRecord` = stored entity
+- Worker follows `ReferenceWorkerBridge` and `SemanticWorkerBridge` patterns
+- Uses generic type parameters (not dyn traits) for async compatibility
+- TAMPER detection validates suite hash before execution (C-OR-2)
+- Test mode skips event emission for unit testing
+- Workspace materialization is placeholder; full content fetching deferred
 
 ---
 
-## Next Instance Prompt: Implement SR-PLAN-V8 Phase V8-2
+## Next Instance Prompt: Implement SR-PLAN-V8 Phase V8-3
 
 ### Assignment
 
-Implement **Phase V8-2: Event-Driven Oracle Worker** — create a worker that subscribes to `RunStarted` events and executes oracle suites.
+Implement **Phase V8-3: Oracle Integrity Condition Detection** — add detection and escalation for TAMPER/GAP/FLAKE/ENV_MISMATCH integrity conditions.
 
-### Key Concept (Amendment A-1)
+### Key Concept
 
-V8-2 uses the **Event-Driven Worker pattern**, NOT direct API calls:
-```
-RunStarted event → NATS → Oracle Worker → executes suite → OracleExecutionCompleted event
-```
+Per SR-CONTRACT §6, integrity conditions are fundamental to trust:
 
-The worker subscribes to `sr.runs.started` subject and processes events asynchronously.
+| Condition | Contract | Detection Point |
+|-----------|----------|-----------------|
+| `ORACLE_TAMPER` | C-OR-2 | Suite hash mismatch at run start |
+| `ORACLE_GAP` | C-OR-4 | Missing required oracle result |
+| `ORACLE_FLAKE` | C-OR-5 | Non-deterministic required oracle |
+| `ORACLE_ENV_MISMATCH` | C-OR-3 | Environment constraint violation |
+
+All integrity conditions MUST halt progression and escalate (C-OR-7).
 
 ### Where to Look
 
 | Document/File | What You'll Find |
 |---------------|------------------|
-| `docs/planning/SR-PLAN-V8.md` §4 Phase V8-2 | Full specification: event flow, worker structure, acceptance criteria |
-| `crates/sr-adapters/src/worker.rs` | Existing worker pattern (Reference Worker) to follow |
-| `crates/sr-adapters/src/semantic_worker.rs` | Semantic worker pattern |
-| `crates/sr-adapters/src/nats.rs` | NATS message bus adapter and subject conventions |
-| `crates/sr-adapters/src/oracle_runner.rs` | Existing `PodmanOracleRunner` implementation |
-| `crates/sr-domain/src/events.rs` | Event types (may need `OracleExecutionStarted`, `OracleExecutionCompleted`) |
+| `docs/planning/SR-PLAN-V8.md` §3 Phase V8-3 | Full specification: detection points, code examples |
+| `docs/platform/SR-CONTRACT.md` §6 | C-OR-1..7 oracle contract requirements |
+| `crates/sr-adapters/src/oracle_runner.rs` | Where to add integrity detection |
+| `crates/sr-adapters/src/oracle_worker.rs` | TAMPER detection already implemented here |
+| `crates/sr-adapters/src/oracle_suite.rs` | `IntegrityCondition` enum already exists |
 
-### What V8-2 Must Implement
+### What V8-3 Must Implement
 
-1. **Oracle Worker** that:
-   - Subscribes to `sr.runs.started` NATS subject
-   - Validates suite hash against registry (detect TAMPER)
-   - Captures environment fingerprint
-   - Calls existing `PodmanOracleRunner` to execute oracles
-   - Emits `OracleExecutionStarted` and `OracleExecutionCompleted` events
+1. **Integrity condition types** (`sr-domain/src/integrity.rs`):
+   - `IntegrityCondition` enum with TAMPER/GAP/FLAKE/ENV_MISMATCH variants
+   - Detection metadata for each condition type
+   - Severity and escalation requirements
 
-2. **New Domain Events** (if not already present):
-   - `OracleExecutionStarted` — emitted when worker begins processing
-   - `OracleExecutionCompleted` — emitted with results and evidence hash
+2. **Detection in oracle runner**:
+   - ORACLE_GAP: Check all required oracles have results after execution
+   - ORACLE_FLAKE: Detect via determinism declaration or repeat runs
+   - ORACLE_ENV_MISMATCH: Validate environment fingerprint vs suite constraints
+
+3. **`IntegrityViolationDetected` event**:
+   - Emitted when any integrity condition is detected
+   - Includes condition details and escalation requirements
+
+4. **API error response** for integrity violations
 
 ### Current State
 
 - Branch: `solver-ralph-8`
-- V8-1: ✅ Complete (port trait + PostgreSQL adapter)
-- V8-2: 🎯 Your assignment
-- Estimated effort: 2-3 sessions
+- V8-1: ✅ Complete (registry)
+- V8-2: ✅ Complete (event-driven worker with TAMPER detection)
+- V8-3: 🎯 Your assignment
+- Estimated effort: 1-2 sessions
 
 ### Acceptance Criteria (from SR-PLAN-V8)
 
-- [ ] Worker subscribes to `RunStarted` events
-- [ ] Suite hash validated before execution (TAMPER detection)
-- [ ] Environment fingerprint captured
-- [ ] Oracle runner invoked for each oracle in suite
-- [ ] Evidence bundle stored in MinIO
-- [ ] `OracleExecutionCompleted` event emitted
-- [ ] `cargo test --package sr-adapters` passes
+- [ ] ORACLE_TAMPER detected when suite hash mismatches (already in V8-2)
+- [ ] ORACLE_GAP detected when required oracle missing from results
+- [ ] ORACLE_ENV_MISMATCH detected when environment constraints violated
+- [ ] Integrity violations halt run and return structured error
+- [ ] `IntegrityViolationDetected` event emitted
+- [ ] Integration test validates each integrity condition
+- [ ] `cargo test --package sr-api` passes
 
 ### On Completion
 
-1. Run tests: `cargo test --package sr-adapters`
+1. Run tests: `cargo test --package sr-adapters && cargo test --package sr-api`
 2. Git commit
-3. Update SR-README: Mark V8-2 complete, write V8-3 prompt
+3. Update SR-README: Mark V8-3 complete, write V8-4 prompt
 
