@@ -1,7 +1,8 @@
 # SR-PLAN-V6: UI Integration for MVP Workflow
 
-**Status:** Draft (Pending Research & Validation)
+**Status:** Ready for Implementation
 **Created:** 2026-01-16
+**Validated:** 2026-01-16
 **Supersedes:** N/A (new plan)
 **Depends On:** SR-PLAN-V5 (MVP API complete)
 **Implements:** SR-CHARTER §Immediate Objective (Milestone 2: Usable MVP)
@@ -10,54 +11,83 @@
 
 ## Executive Summary
 
-SR-PLAN-V6 makes the Semantic Ralph Loop MVP **usable by humans** through UI integration. The MVP API workflow is proven (via E2E tests), but currently requires curl commands to operate. This plan delivers a web UI that drives the complete workflow:
+SR-PLAN-V6 makes the Semantic Ralph Loop MVP **usable by humans** through UI integration. The MVP API workflow is proven (via E2E tests), but currently requires curl commands to operate. This plan completes the web UI to drive the full workflow:
 
 ```
 Dashboard → New Work Wizard → Work Surface Detail → Stage Completion → Approval → Done
 ```
 
-The goal is not to build a production-ready application, but to prove the MVP workflow is usable from a human interface.
+**Key Finding from Research:** The UI is significantly more complete than initially anticipated. Most components from Phases 5a-5c already exist. The primary gap is wizard orchestration to start work (Loop creation + activation + iteration start).
 
 ---
 
 ## Table of Contents
 
-1. [Rationale](#1-rationale)
+1. [Research Findings](#1-research-findings)
 2. [Current State Analysis](#2-current-state-analysis)
-3. [Design Decisions & Assumptions](#3-design-decisions--assumptions)
-4. [Proposed Phases](#4-proposed-phases)
+3. [Design Decisions](#3-design-decisions)
+4. [Implementation Phases](#4-implementation-phases)
 5. [Technical Architecture](#5-technical-architecture)
-6. [Open Questions](#6-open-questions)
-7. [Research Tasks for Next Instance](#7-research-tasks-for-next-instance)
-8. [Success Criteria](#8-success-criteria)
+6. [Success Criteria](#6-success-criteria)
+7. [Verification Steps](#7-verification-steps)
 
 ---
 
-## 1. Rationale
+## 1. Research Findings
 
-### 1.1 The Usability Gap
+### 1.1 UI Technology Stack (Validated)
 
-SR-PLAN-V5 completed the MVP API workflow. The E2E test (`semantic_ralph_loop_e2e.rs`) proves:
-- Intake creation and activation
-- Work Surface binding with procedure template
-- Loop creation with Work Surface validation
-- Iteration start with context inheritance
-- Stage progression through FRAME → OPTIONS → DRAFT → FINAL
-- Approval-gated trust boundaries
-- Work Surface completion
+| Aspect | Finding |
+|--------|---------|
+| Build Tool | **Vite 5.4.11** |
+| Framework | **React 18.3.1** + TypeScript 5.7.2 |
+| Routing | **React Router v6** (`createBrowserRouter` with nested routes) |
+| Styling | **CSS Modules** with custom theme (NOT Tailwind) |
+| State Management | **React hooks + inline fetch** (NO external library) |
+| API Client | **None** — direct `fetch()` calls in components |
+| Auth | OIDC via Zitadel (`react-oidc-context`) with dev bypass mode |
 
-**However**, executing this workflow requires 10+ curl commands with correct sequencing. This is not how humans work.
+### 1.2 Existing Components (Confirmed Present)
 
-### 1.2 Why UI Now
+All Phase 5a-5c deliverables **already exist**:
 
-The MVP is architecturally complete but practically unusable. Before building more features (real oracles, LLM integration, evidence management), we should validate that the workflow makes sense from a user's perspective. A UI forces us to confront UX questions that curl commands hide.
+| Component | Location | Size | Status |
+|-----------|----------|------|--------|
+| `StageCompletionForm.tsx` | `ui/src/components/` | 12.6KB | ✅ Complete |
+| `EvidenceBundleSelector.tsx` | `ui/src/components/` | 5.1KB | ✅ Complete |
+| `StageApprovalForm.tsx` | `ui/src/components/` | 8.5KB | ✅ Complete |
+| `StageProgress.tsx` | `ui/src/components/` | — | ✅ Complete |
+| `WorkSurfaceDetail.tsx` | `ui/src/pages/` | 22KB | ✅ Complete with stage progress, completion, approval |
+| `WorkSurfaceCompose.tsx` | `ui/src/pages/` | 20KB | ✅ 3-step wizard (Intake → Template → Create) |
+| `WorkSurfaces.tsx` | `ui/src/pages/` | 11KB | ✅ List with filtering, pagination |
 
-### 1.3 Scope Boundary
+### 1.3 Existing Routes
 
-This plan focuses on **workflow integration**, not polish:
-- Functional forms, not beautiful designs
-- Working flows, not edge case handling
-- Proof of integration, not production readiness
+| Route | Component | Purpose |
+|-------|-----------|---------|
+| `/work-surfaces` | WorkSurfaces | List all work surfaces |
+| `/work-surfaces/new` | WorkSurfaceCompose | Create work surface wizard |
+| `/work-surfaces/:id` | WorkSurfaceDetail | View/complete stages |
+| `/intakes` | Intakes | List intakes |
+| `/intakes/new` | IntakeCreate | Create intake |
+| `/loops` | Loops | List loops |
+| `/loops/:id` | LoopDetail | Loop detail |
+| `/approvals` | Approvals | Approval portal |
+
+### 1.4 The Gap: Wizard Orchestration
+
+The current `WorkSurfaceCompose.tsx` wizard:
+1. ✅ Step 1: Select active Intake
+2. ✅ Step 2: Select compatible Procedure Template
+3. ✅ Step 3: Create Work Surface (`POST /work-surfaces`)
+4. ✅ Navigate to Work Surface detail
+
+**What's missing** (per E2E test in `semantic_ralph_loop_e2e.rs`):
+1. ❌ Create Loop bound to work unit (`POST /loops` with `work_unit`)
+2. ❌ Activate Loop (`POST /loops/{id}/activate`)
+3. ❌ Start Iteration (`POST /iterations` with SYSTEM actor)
+
+Without these steps, the Work Surface exists but has no active iteration context for stage progression.
 
 ---
 
@@ -65,494 +95,378 @@ This plan focuses on **workflow integration**, not polish:
 
 ### 2.1 API Endpoints (from SR-PLAN-V5)
 
-| Endpoint | Purpose | Used In UI |
-|----------|---------|------------|
-| `POST /intakes` | Create intake | New Work Wizard |
-| `POST /intakes/{id}/activate` | Activate intake | New Work Wizard |
-| `GET /intakes/{id}` | Get intake details | Work Surface Detail |
-| `POST /work-surfaces` | Create work surface | New Work Wizard |
-| `GET /work-surfaces` | List work surfaces | Dashboard |
-| `GET /work-surfaces/{id}` | Get work surface details | Work Surface Detail |
-| `POST /work-surfaces/{id}/stages/{stage}/complete` | Complete stage | Stage Completion |
-| `POST /loops` | Create loop | New Work Wizard |
-| `POST /loops/{id}/activate` | Activate loop | New Work Wizard |
-| `POST /iterations` | Start iteration (SYSTEM) | New Work Wizard |
-| `POST /approvals` | Record approval | Approval Panel |
+| Endpoint | Purpose | UI Implementation |
+|----------|---------|-------------------|
+| `POST /intakes` | Create intake | IntakeCreate.tsx ✅ |
+| `POST /intakes/{id}/activate` | Activate intake | IntakeDetail.tsx ✅ |
+| `POST /work-surfaces` | Create work surface | WorkSurfaceCompose.tsx ✅ |
+| `GET /work-surfaces` | List work surfaces | WorkSurfaces.tsx ✅ |
+| `GET /work-surfaces/{id}` | Get work surface details | WorkSurfaceDetail.tsx ✅ |
+| `POST /work-surfaces/{id}/stages/{stage}/complete` | Complete stage | StageCompletionForm.tsx ✅ |
+| `GET /work-surfaces/{id}/stages/{stage}/approval-status` | Check approval | WorkSurfaceDetail.tsx ✅ |
+| `POST /loops` | Create loop | ❌ Not wired to wizard |
+| `POST /loops/{id}/activate` | Activate loop | ❌ Not wired to wizard |
+| `POST /iterations` | Start iteration (SYSTEM) | ❌ Requires SYSTEM token |
+| `POST /approvals` | Record approval | StageApprovalForm.tsx ✅ |
 
-### 2.2 Existing UI Components (To Be Validated)
+### 2.2 SYSTEM Token Challenge
 
-The `ui/` directory contains a React/TypeScript application. Components that may exist from earlier phases:
+Per SR-SPEC §2.2, iteration start requires `actor_kind=SYSTEM`. The UI operates with a HUMAN token from OIDC.
 
-| Component | Expected Location | Status |
-|-----------|------------------|--------|
-| StageCompletionForm | `ui/src/components/` | Phase 5a deliverable - verify exists |
-| WorkSurfaceDetail | `ui/src/pages/` or `ui/src/components/` | May exist from Phase 4 |
-| Dashboard/Home | `ui/src/pages/` | Unknown |
-| API Client | `ui/src/api/` or `ui/src/services/` | Unknown |
-
-**Research Required:** Inventory existing UI components and patterns before finalizing plan.
-
-### 2.3 Authentication State
-
-The API supports `SR_AUTH_TEST_MODE=true` which accepts any Bearer token and determines actor type by token content:
-- Tokens containing "system" → SYSTEM actor
-- Tokens containing "agent" → AGENT actor
-- Otherwise → HUMAN actor
-
-**Decision Point:** Use test mode for V6 or implement real auth?
+**Resolution:** Add backend endpoint `POST /work-surfaces/{id}/start` that handles Loop creation, activation, and iteration start as SYSTEM actor. This aligns with SR-SPEC intent (SYSTEM mediates iteration start).
 
 ---
 
-## 3. Design Decisions & Assumptions
+## 3. Design Decisions
 
-### 3.1 Combine API Calls in Wizard
+### 3.1 Wizard Orchestration (Validated)
 
-**Decision:** The "New Work Wizard" should orchestrate multiple API calls behind a simple UX.
+**Decision:** The Work Surface wizard should orchestrate the full workflow.
 
-**Rationale:** The raw API requires 6+ sequential calls:
-1. Create intake
-2. Activate intake
-3. Create work surface
-4. Create loop
-5. Activate loop
-6. Start iteration
+**Implementation:** Extend `WorkSurfaceCompose.tsx` to call a new backend endpoint after creating the Work Surface.
 
-This separation is correct for the domain model (auditability, flexibility) but poor UX. The wizard presents: "Define work → Choose template → Start" and handles orchestration.
+### 3.2 Backend Mediation for Iteration Start
 
-**Assumption:** This aligns with SR-SPEC intent. Validate by reading SR-SPEC and SR-INTENT.
+**Decision:** Add `POST /work-surfaces/{id}/start` endpoint that:
+1. Creates Loop bound to work unit (if not exists)
+2. Activates Loop
+3. Starts Iteration as SYSTEM actor
+4. Returns Loop ID and Iteration ID
 
-### 3.2 Stage-Centric Work Surface View
+**Rationale:** Per SR-SPEC §2.2, iteration start must be SYSTEM-mediated. This keeps authorization correct while simplifying UX.
 
-**Decision:** The Work Surface Detail view centers on the current stage with visual progress indicator.
+### 3.3 Stage-Centric Work Surface View (Validated)
 
-**Rationale:** Users think "I'm on step 3 of 4" not "current_stage_id=stage:DRAFT". The procedure template defines the stage sequence; the UI should make this progression visible and intuitive.
+The existing `WorkSurfaceDetail.tsx` already implements this with visual progress bar, stage completion, and approval status. **No changes needed.**
 
-### 3.3 Approval as Distinct Action
+### 3.4 Approval as Distinct Action (Validated)
 
-**Decision:** Approval and stage completion are separate UI actions for trust boundary stages.
+The existing implementation separates approval (via StageApprovalForm on `/approvals` page) from stage completion. **No changes needed.**
 
-**Rationale:** Per SR-CONTRACT C-TB-3, trust boundaries require HUMAN approval. Making this a distinct action (not just a checkbox) emphasizes the governance meaning. The user must consciously approve before they can complete.
+### 3.5 Authentication Mode
 
-### 3.4 Hide Iteration Complexity
-
-**Decision:** Iterations are infrastructure, not user-facing concepts (for now).
-
-**Rationale:** The MVP auto-creates one iteration per work session. Users don't need to manage iterations directly. The wizard starts an iteration automatically; the UI doesn't expose iteration management.
-
-**Assumption:** This may change when we support multiple iterations per work surface. Revisit if needed.
-
-### 3.5 Hardcode Single Template
-
-**Decision:** Use `proc:RESEARCH-MEMO` template without template browsing UI.
-
-**Rationale:** Only one template exists in the starter registry. Building template browsing UI is scope creep. Hardcode for V6; the architecture supports expansion later.
+**Decision:** Use test mode (`SR_AUTH_TEST_MODE=true`) for V6 validation. Real auth integration deferred.
 
 ---
 
-## 4. Proposed Phases
+## 4. Implementation Phases
 
-### Phase UI-1: Foundation & Dashboard
+### Phase V6-1: Backend — Start Work Endpoint
 
-**Objective:** Establish UI infrastructure and show existing work surfaces.
-
-**Deliverables:**
-
-| File | Action | Description |
-|------|--------|-------------|
-| `ui/src/api/client.ts` | CREATE/EDIT | API client with typed endpoints |
-| `ui/src/api/types.ts` | CREATE/EDIT | TypeScript types matching API |
-| `ui/src/pages/Dashboard.tsx` | CREATE/EDIT | List work surfaces with status |
-| `ui/src/components/WorkSurfaceCard.tsx` | CREATE | Summary card for dashboard list |
-
-**Acceptance Criteria:**
-- [ ] API client can call all required endpoints
-- [ ] Dashboard displays list of work surfaces from API
-- [ ] Each card shows: title, current stage, status
-- [ ] Clicking card navigates to detail view (stub)
-
-### Phase UI-2: New Work Wizard
-
-**Objective:** Single flow to go from "idea" to "active work surface".
+**Objective:** Add SYSTEM-mediated endpoint to start work on a Work Surface.
 
 **Deliverables:**
 
 | File | Action | Description |
 |------|--------|-------------|
-| `ui/src/components/NewWorkWizard/index.tsx` | CREATE | Multi-step wizard container |
-| `ui/src/components/NewWorkWizard/IntakeForm.tsx` | CREATE | Step 1: Define intake |
-| `ui/src/components/NewWorkWizard/TemplateSelect.tsx` | CREATE | Step 2: Choose template (hardcoded) |
-| `ui/src/components/NewWorkWizard/Confirm.tsx` | CREATE | Step 3: Review and start |
+| `crates/sr-api/src/handlers/work_surfaces.rs` | EDIT | Add `start_work_surface` handler |
+| `crates/sr-api/src/main.rs` | EDIT | Register `/work-surfaces/{id}/start` route |
+
+**Handler Logic:**
+```rust
+// POST /work-surfaces/{id}/start
+// Actor: HUMAN (but iteration emitted as SYSTEM)
+async fn start_work_surface(
+    Path(work_surface_id): Path<String>,
+    State(state): State<AppState>,
+    auth: AuthenticatedActor,
+) -> Result<Json<StartWorkResponse>, ApiError> {
+    // 1. Get work surface
+    let ws = get_work_surface(&state.pool, &work_surface_id).await?;
+
+    // 2. Check status is active
+    if ws.status != "active" {
+        return Err(ApiError::precondition_failed("WORK_SURFACE_NOT_ACTIVE"));
+    }
+
+    // 3. Create loop bound to work unit
+    let loop_id = create_loop(&state, CreateLoopRequest {
+        goal: format!("Process work surface {}", work_surface_id),
+        work_unit: Some(ws.work_unit_id.clone()),
+        budgets: default_budgets(),
+    }, auth.clone()).await?;
+
+    // 4. Activate loop
+    activate_loop(&state, &loop_id).await?;
+
+    // 5. Start iteration as SYSTEM
+    let iteration_id = start_iteration_as_system(&state, &loop_id, &ws.work_unit_id).await?;
+
+    Ok(Json(StartWorkResponse {
+        loop_id,
+        iteration_id,
+        work_surface_id,
+    }))
+}
+```
 
 **Acceptance Criteria:**
-- [ ] User can fill out intake form (title, kind, objective, deliverables, constraints)
-- [ ] Template selection shows RESEARCH-MEMO with stage preview
-- [ ] "Start Work" button orchestrates: create intake → activate → create work surface → create loop → activate → start iteration
-- [ ] On success, navigates to Work Surface Detail
-- [ ] On error, shows meaningful message
+- [ ] `POST /work-surfaces/{id}/start` creates Loop, activates, starts Iteration
+- [ ] Iteration is emitted with `actor_kind=SYSTEM`
+- [ ] Returns Loop ID and Iteration ID
+- [ ] 412 if Work Surface not active
+- [ ] 409 if Loop already exists for work unit
 
-### Phase UI-3: Work Surface Detail
+### Phase V6-2: Frontend — Wizard Completion
 
-**Objective:** View and interact with an active work surface.
+**Objective:** Wire wizard to call `/start` after creating Work Surface.
 
 **Deliverables:**
 
 | File | Action | Description |
 |------|--------|-------------|
-| `ui/src/pages/WorkSurfaceDetail.tsx` | CREATE/EDIT | Main detail view |
-| `ui/src/components/StageProgress.tsx` | CREATE | Visual stage progression (FRAME → OPTIONS → DRAFT → FINAL) |
-| `ui/src/components/StagePanel.tsx` | CREATE | Current stage info and actions |
-| `ui/src/components/StageCompletionForm.tsx` | EDIT | Integrate with complete endpoint (may exist from 5a) |
+| `ui/src/pages/WorkSurfaceCompose.tsx` | EDIT | Call `/start` endpoint after creation |
+
+**Changes to `handleSubmit` in `WorkSurfaceCompose.tsx`:**
+```typescript
+const handleSubmit = async () => {
+  // ... existing validation ...
+
+  setSubmitting(true);
+  setError(null);
+
+  try {
+    // Step 1: Create Work Surface (existing)
+    const wsRes = await fetch(`${config.apiUrl}/api/v1/work-surfaces`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${auth.user.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        work_unit_id: selectedIntake.work_unit_id,
+        intake_id: selectedIntake.intake_id,
+        procedure_template_id: selectedTemplate.procedure_template_id,
+        params: {},
+      }),
+    });
+
+    if (!wsRes.ok) {
+      const errorData = await wsRes.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to create work surface: HTTP ${wsRes.status}`);
+    }
+
+    const wsData = await wsRes.json();
+
+    // Step 2: Start work (NEW)
+    const startRes = await fetch(`${config.apiUrl}/api/v1/work-surfaces/${wsData.work_surface_id}/start`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${auth.user.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!startRes.ok) {
+      // Work surface created but start failed - still navigate, show warning
+      console.warn('Work surface created but start failed:', startRes.status);
+    }
+
+    navigate(`/work-surfaces/${wsData.work_surface_id}`);
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to create work surface');
+  } finally {
+    setSubmitting(false);
+  }
+};
+```
 
 **Acceptance Criteria:**
-- [ ] Shows work surface title, status, intake summary
-- [ ] Visual progress bar/steps showing stage progression
-- [ ] Current stage highlighted with "Complete Stage" action
-- [ ] Completed stages show checkmark
-- [ ] Future stages show as locked/pending
+- [ ] Wizard creates Work Surface AND starts work
+- [ ] User arrives at WorkSurfaceDetail with Loop/Iteration active
+- [ ] "Complete Stage" button is functional
+- [ ] Graceful handling if start fails (navigate anyway, log warning)
 
-### Phase UI-4: Approval Flow
+### Phase V6-3: End-to-End Verification
 
-**Objective:** Enable approval for trust boundary stages (FINAL).
+**Objective:** Document and verify the complete human workflow.
 
-**Deliverables:**
-
-| File | Action | Description |
-|------|--------|-------------|
-| `ui/src/components/ApprovalPanel.tsx` | CREATE | Approval UI for gated stages |
-| `ui/src/pages/WorkSurfaceDetail.tsx` | EDIT | Integrate approval panel |
-
-**Acceptance Criteria:**
-- [ ] FINAL stage shows "Requires Approval" indicator
-- [ ] Approval panel with rationale input and Approve/Reject buttons
-- [ ] After approval, "Complete Stage" becomes enabled
-- [ ] Completion without approval shows error (412)
-
-### Phase UI-5: End-to-End Verification
-
-**Objective:** Manual testing of complete flow.
-
-**Deliverables:**
-
-| File | Action | Description |
-|------|--------|-------------|
-| `docs/planning/SR-PLAN-V6-VERIFICATION.md` | CREATE | Test script and results |
+**Verification Script:**
+1. Start API: `SR_AUTH_TEST_MODE=true cargo run --package sr-api`
+2. Start UI: `cd ui && npm run dev`
+3. Open browser to `http://localhost:5173`
+4. Navigate to `/intakes/new`, create and activate an intake
+5. Navigate to `/work-surfaces/new`
+6. Select intake, select template, click "Create Work Surface"
+7. Verify redirect to `/work-surfaces/{id}`
+8. Complete stages: FRAME → OPTIONS → DRAFT → FINAL
+9. For FINAL: click "Record Approval", approve, then complete
+10. Verify Work Surface status = "completed"
 
 **Acceptance Criteria:**
-- [ ] Complete flow documented with screenshots
-- [ ] All happy path scenarios work
-- [ ] Error scenarios show appropriate messages
+- [ ] Full workflow completes without curl commands
+- [ ] All stages can be completed via UI
+- [ ] Approval flow works for FINAL stage
+- [ ] No console errors during workflow
 
 ---
 
 ## 5. Technical Architecture
 
-### 5.1 API Client Pattern
+### 5.1 API Pattern (Existing)
+
+The codebase uses **inline `fetch()` calls** with auth token from OIDC context. This pattern should be maintained for consistency.
 
 ```typescript
-// ui/src/api/client.ts
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
-
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${getToken()}`, // test-token or system-token
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new ApiError(error.code, error.error);
-  }
-
-  return response.json();
-}
-
-export const api = {
-  intakes: {
-    create: (data: CreateIntakeRequest) => request<IntakeResponse>('POST', '/intakes', data),
-    activate: (id: string) => request<IntakeResponse>('POST', `/intakes/${id}/activate`),
-    get: (id: string) => request<IntakeResponse>('GET', `/intakes/${id}`),
+// Existing pattern (do NOT change to centralized client)
+const res = await fetch(`${config.apiUrl}/api/v1/endpoint`, {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${auth.user.access_token}`,
+    'Content-Type': 'application/json',
   },
-  workSurfaces: {
-    list: () => request<ListWorkSurfacesResponse>('GET', '/work-surfaces'),
-    get: (id: string) => request<WorkSurfaceResponse>('GET', `/work-surfaces/${id}`),
-    create: (data: CreateWorkSurfaceRequest) => request<WorkSurfaceResponse>('POST', '/work-surfaces', data),
-    completeStage: (wsId: string, stageId: string, data: CompleteStageRequest) =>
-      request<StageCompletionResponse>('POST', `/work-surfaces/${wsId}/stages/${stageId}/complete`, data),
-  },
-  loops: {
-    create: (data: CreateLoopRequest) => request<LoopResponse>('POST', '/loops', data),
-    activate: (id: string) => request<LoopResponse>('POST', `/loops/${id}/activate`),
-  },
-  iterations: {
-    start: (data: StartIterationRequest) => request<IterationResponse>('POST', '/iterations', data),
-  },
-  approvals: {
-    record: (data: RecordApprovalRequest) => request<ApprovalResponse>('POST', '/approvals', data),
-  },
-};
+  body: JSON.stringify(payload),
+});
 ```
 
-### 5.2 Component Hierarchy
+### 5.2 Styling (Existing)
+
+CSS Modules with custom theme variables. Use existing classes from `styles/pages.module.css`.
+
+**Theme colors (from `styles/theme.css`):**
+- Paper: `#ede4d4` / `#e5dac8`
+- Ink: `#1a110d`
+- Accent: `#ce8c55` (burnt caramel)
+- Success: `#2f6b4f`
+- Warning: `#9a6a16`
+
+### 5.3 Component Hierarchy (Existing)
 
 ```
-App
-├── Dashboard
-│   └── WorkSurfaceCard (×n)
-├── NewWorkWizard
-│   ├── IntakeForm
-│   ├── TemplateSelect
-│   └── Confirm
-└── WorkSurfaceDetail
-    ├── StageProgress
-    ├── StagePanel
-    │   ├── StageCompletionForm
-    │   └── ApprovalPanel (if requires_approval)
-    └── IntakeSummary
-```
-
-### 5.3 State Management
-
-**Recommendation:** Start simple with React Query or SWR for API state. Avoid Redux/Zustand unless complexity demands it.
-
-```typescript
-// Example with React Query
-const { data: workSurfaces } = useQuery('workSurfaces', api.workSurfaces.list);
-const { data: workSurface } = useQuery(['workSurface', id], () => api.workSurfaces.get(id));
+App (routes.tsx)
+├── /work-surfaces → WorkSurfaces (list)
+├── /work-surfaces/new → WorkSurfaceCompose (wizard)
+├── /work-surfaces/:id → WorkSurfaceDetail
+│   ├── StageProgress (visual)
+│   ├── StageCompletionForm (when completing)
+│   └── Approval status (when required)
+├── /intakes/new → IntakeCreate
+├── /approvals → Approvals
+│   └── StageApprovalForm (when recording)
+└── /loops/:id → LoopDetail
 ```
 
 ---
 
-## 6. Open Questions
+## 6. Success Criteria
 
-| Question | Options | Recommendation |
-|----------|---------|----------------|
-| Authentication | Test mode vs. real auth | Test mode for V6; defer real auth |
-| Evidence bundles | Placeholder vs. file upload | Placeholder hashes; defer upload |
-| Template selection | Hardcode vs. browse | Hardcode RESEARCH-MEMO |
-| Routing library | React Router vs. other | Check existing UI patterns |
-| Styling | Tailwind vs. CSS modules vs. other | Check existing UI patterns |
-| Form handling | React Hook Form vs. native | Check existing UI patterns |
-
----
-
-## 7. Research Tasks for Next Instance
-
-Before finalizing this plan, the implementing instance should:
-
-### 7.1 UI Codebase Inventory
-
-```bash
-# Run these to understand existing UI structure
-ls -la ui/src/
-ls -la ui/src/components/
-ls -la ui/src/pages/
-ls -la ui/src/api/ || ls -la ui/src/services/
-```
-
-Questions to answer:
-- What routing library is used?
-- What styling approach is used?
-- What state management exists?
-- Does StageCompletionForm exist from Phase 5a?
-- Is there an existing API client?
-
-### 7.2 Documentation Review
-
-Read these files for context:
-- `docs/platform/SR-SPEC.md` — Platform mechanics, any UI guidance
-- `docs/platform/SR-WORK-SURFACE.md` — Work surface definitions
-- `docs/platform/SR-INTENT.md` — Design rationale
-- `crates/sr-api/tests/integration/semantic_ralph_loop_e2e.rs` — API workflow reference
-
-### 7.3 API Response Validation
-
-Verify API response shapes match assumptions:
-```bash
-# With API running (SR_AUTH_TEST_MODE=true cargo run --package sr-api)
-curl -s http://localhost:3000/api/v1/work-surfaces -H "Authorization: Bearer test" | jq .
-curl -s http://localhost:3000/api/v1/templates?category=work-surface -H "Authorization: Bearer test" | jq .
-```
-
-### 7.4 Validate Assumptions
-
-- [ ] Confirm wizard orchestration aligns with SR-SPEC intent
-- [ ] Confirm approval flow matches SR-CONTRACT C-TB-3
-- [ ] Confirm portal ID convention: `portal:STAGE_COMPLETION:{stage_id}`
-- [ ] Check if RESEARCH-MEMO template has `requires_approval: true` on FINAL stage
-
----
-
-## 8. Success Criteria
-
-### 8.1 Functional Criteria
+### 6.1 Functional Criteria
 
 A user can:
-1. Open the UI in a browser
-2. See a dashboard of existing work surfaces (empty initially)
-3. Click "New Work" and fill out an intake form
-4. Choose a procedure template (RESEARCH-MEMO)
-5. Click "Start" and be taken to the new work surface
-6. See stage progression: FRAME → OPTIONS → DRAFT → FINAL
-7. Click "Complete Stage" for FRAME, OPTIONS, DRAFT
-8. See FINAL requires approval
-9. Approve with rationale
-10. Complete FINAL
-11. See work surface status = "completed"
-12. Return to dashboard and see completed work surface
+1. ✅ Open the UI in a browser
+2. ✅ See existing work surfaces at `/work-surfaces`
+3. ✅ Create an intake at `/intakes/new`
+4. ✅ Activate the intake
+5. ✅ Start wizard at `/work-surfaces/new`
+6. ✅ Select intake, select template
+7. **NEW** Click "Create" → Loop created, activated, iteration started
+8. ✅ See stage progression at `/work-surfaces/{id}`
+9. ✅ Complete stages via "Complete Stage" button
+10. ✅ For FINAL: record approval first via "Record Approval" link
+11. ✅ Complete FINAL stage
+12. ✅ See Work Surface status = "completed"
 
-### 8.2 Technical Criteria
+### 6.2 Technical Criteria
 
-- [ ] No console errors in browser
-- [ ] API errors displayed to user meaningfully
+- [ ] No console errors in browser during workflow
+- [ ] API errors displayed meaningfully
 - [ ] Navigation works (back button, direct URL)
-- [ ] Responsive enough to use (not mobile-optimized)
+- [ ] Builds pass: `npm run type-check && npm run build`
+- [ ] Backend builds: `cargo build --package sr-api`
 
-### 8.3 Non-Criteria (Out of Scope for V6)
+### 6.3 Non-Criteria (Out of Scope)
 
 - Production-ready error handling
 - Mobile-responsive design
-- Real authentication
+- Real OIDC authentication
 - File upload for evidence
-- Multiple templates
-- Iteration management UI
+- Multiple iteration management
 - Real semantic oracle evaluation
 
 ---
 
-## Appendix A: Workflow Diagrams
+## 7. Verification Steps
 
-### User Flow
+### 7.1 Build Verification
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        DASHBOARD                                 │
-│  [+ New Work]                                                   │
-│                                                                 │
-│  Active Work Surfaces:                                          │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ "API Rate Limiting Research"    DRAFT (3/4)    [View]   │   │
-│  │ "Auth System Design"            FRAME (1/4)    [View]   │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     NEW WORK WIZARD                              │
-│                                                                 │
-│  Step 1: Define Intake                                          │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ Title: [________________________]                        │   │
-│  │ Kind:  [Research Memo ▼]                                │   │
-│  │ Objective: [____________________________________]        │   │
-│  │ Deliverables: [+Add]                                    │   │
-│  │ Constraints: [+Add]                                     │   │
-│  │ Completion Criteria: [+Add]                             │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                          [Cancel] [Next →]      │
-│                                                                 │
-│  Step 2: Choose Procedure Template                              │
-│  Step 3: Confirm & Start                                        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              WORK SURFACE DETAIL VIEW                           │
-│                                                                 │
-│  "API Rate Limiting Research"                    Status: ACTIVE │
-│                                                                 │
-│  Progress: ████████░░░░░░░░ DRAFT (3/4)                        │
-│                                                                 │
-│  ┌──────────┬──────────┬──────────┬──────────┐                 │
-│  │  FRAME   │ OPTIONS  │  DRAFT   │  FINAL   │                 │
-│  │    ✓     │    ✓     │    ✓     │  🔒      │                 │
-│  │ completed│ completed│ current  │ locked   │                 │
-│  └──────────┴──────────┴──────────┴──────────┘                 │
-│                                                                 │
-│  Current Stage: DRAFT                                           │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ Purpose: Produce candidate deliverable                   │   │
-│  │                                                          │   │
-│  │ Evidence Bundle: [Upload/Reference]                      │   │
-│  │                                                          │   │
-│  │              [Complete Stage]                            │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  FINAL Stage requires approval before completion                │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ [Approve] [Request Changes]                              │   │
-│  │ Rationale: [________________________________]            │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+```bash
+# Backend
+cd /Users/ryan/ai-env/projects/solver-ralph
+cargo build --package sr-api
+cargo test --package sr-api
+
+# Frontend
+cd ui
+npm run type-check
+npm run build
 ```
 
-### API Call Sequence (New Work Wizard)
+### 7.2 Runtime Verification
 
+```bash
+# Terminal 1: Start API in test mode
+SR_AUTH_TEST_MODE=true cargo run --package sr-api
+
+# Terminal 2: Start UI dev server
+cd ui && npm run dev
+
+# Terminal 3: Watch for errors
+# Open browser to http://localhost:5173
 ```
-User clicks "Start Work"
-         │
-         ▼
-    ┌─────────────────┐
-    │ POST /intakes   │ ─── Create intake with form data
-    └────────┬────────┘
-             │ intake_id
-             ▼
-    ┌─────────────────────────────┐
-    │ POST /intakes/{id}/activate │ ─── Activate intake
-    └────────┬────────────────────┘
-             │
-             ▼
-    ┌─────────────────────┐
-    │ POST /work-surfaces │ ─── Bind intake + template
-    └────────┬────────────┘
-             │ work_surface_id
-             ▼
-    ┌─────────────────┐
-    │ POST /loops     │ ─── Create loop for work unit
-    └────────┬────────┘
-             │ loop_id
-             ▼
-    ┌──────────────────────────┐
-    │ POST /loops/{id}/activate│ ─── Activate loop
-    └────────┬─────────────────┘
-             │
-             ▼
-    ┌─────────────────────┐
-    │ POST /iterations    │ ─── Start iteration (SYSTEM token)
-    └────────┬────────────┘
-             │
-             ▼
-    Navigate to WorkSurfaceDetail
-```
+
+### 7.3 Manual Test Script
+
+1. **Create Intake**
+   - Navigate to `/intakes/new`
+   - Fill out: title, kind (research_memo), objective, deliverables
+   - Click "Create Intake"
+   - Click "Activate" on detail page
+
+2. **Start Work**
+   - Navigate to `/work-surfaces/new`
+   - Select the activated intake
+   - Select a procedure template
+   - Click "Create Work Surface"
+   - Verify redirect to detail page
+
+3. **Complete Stages**
+   - Click "Complete Stage" for FRAME
+   - Fill form, submit
+   - Repeat for OPTIONS, DRAFT
+   - For FINAL: click "Record Approval" first
+
+4. **Verify Completion**
+   - After FINAL completes, status should be "completed"
+   - Navigate back to `/work-surfaces` to see completed item
 
 ---
 
-## Appendix B: Files Reference
+## Appendix A: Files Reference
 
-### API Implementation (for response shape reference)
-
-| Handler File | Endpoints |
-|-------------|-----------|
-| `crates/sr-api/src/handlers/intakes.rs` | `/intakes/*` |
-| `crates/sr-api/src/handlers/work_surfaces.rs` | `/work-surfaces/*` |
-| `crates/sr-api/src/handlers/loops.rs` | `/loops/*` |
-| `crates/sr-api/src/handlers/iterations.rs` | `/iterations/*` |
-| `crates/sr-api/src/handlers/approvals.rs` | `/approvals/*` |
-
-### E2E Test (workflow reference)
+### Backend Files
 
 | File | Purpose |
 |------|---------|
-| `crates/sr-api/tests/integration/semantic_ralph_loop_e2e.rs` | Complete API workflow |
+| `crates/sr-api/src/handlers/work_surfaces.rs` | Work Surface handlers (add `start`) |
+| `crates/sr-api/src/handlers/loops.rs` | Loop creation/activation |
+| `crates/sr-api/src/handlers/iterations.rs` | Iteration start (SYSTEM) |
+| `crates/sr-api/src/main.rs` | Route registration |
 
-### Documentation
+### Frontend Files
+
+| File | Purpose |
+|------|---------|
+| `ui/src/pages/WorkSurfaceCompose.tsx` | Wizard (add `/start` call) |
+| `ui/src/pages/WorkSurfaceDetail.tsx` | Detail view (existing, complete) |
+| `ui/src/pages/WorkSurfaces.tsx` | List view (existing, complete) |
+| `ui/src/components/StageCompletionForm.tsx` | Stage completion (existing) |
+| `ui/src/components/StageApprovalForm.tsx` | Approval form (existing) |
+
+### Documentation Files
 
 | File | Purpose |
 |------|---------|
 | `docs/platform/SR-SPEC.md` | Platform mechanics |
 | `docs/platform/SR-WORK-SURFACE.md` | Work surface definitions |
-| `docs/platform/SR-CONTRACT.md` | Binding invariants (C-TB-3 for approvals) |
-| `docs/planning/SR-PLAN-V5.md` | Previous plan (format reference) |
+| `docs/platform/SR-CONTRACT.md` | C-TB-3 for approvals |
+| `crates/sr-api/tests/integration/semantic_ralph_loop_e2e.rs` | API workflow reference |
