@@ -1,0 +1,123 @@
+/**
+ * Toast Notification Styles
+ *
+ * Uses design tokens from theme.css
+ * Per SR-PLAN-V7 Phase V7-2
+ */
+
+.container {
+  position: fixed;
+  top: var(--space4);
+  right: var(--space4);
+  z-index: 1100; /* Above modals (1000) */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space2);
+  max-width: 400px;
+  width: calc(100% - var(--space4) * 2);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space2);
+  padding: var(--space3) var(--space4);
+  border-radius: var(--radiusSm);
+  box-shadow: var(--shadow);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  pointer-events: auto;
+  animation: slideIn 0.25s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast:hover {
+  box-shadow: var(--shadowSm);
+}
+
+/* Type variants */
+.success {
+  border-left: 4px solid var(--success);
+}
+
+.success .icon {
+  color: var(--success);
+}
+
+.error {
+  border-left: 4px solid var(--danger);
+}
+
+.error .icon {
+  color: var(--danger);
+}
+
+.warning {
+  border-left: 4px solid var(--warning);
+}
+
+.warning .icon {
+  color: var(--warning);
+}
+
+.info {
+  border-left: 4px solid var(--info);
+}
+
+.info .icon {
+  color: var(--info);
+}
+
+.icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.message {
+  flex: 1;
+  font-size: 0.875rem;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.dismiss:hover {
+  opacity: 1;
+}
+
+/* Responsive: full width on small screens */
+@media (max-width: 480px) {
+  .container {
+    top: var(--space2);
+    right: var(--space2);
+    left: var(--space2);
+    width: auto;
+    max-width: none;
+  }
+}

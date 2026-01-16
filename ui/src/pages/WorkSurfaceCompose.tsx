@@ -10,6 +10,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
+import { useToast } from '../components/ToastContext';
+import { fetchWithRetry, ApiError } from '../components/ApiErrorHandler';
 import config from '../config';
 import { Card, Button, Pill } from '../ui';
 import styles from '../styles/pages.module.css';
@@ -56,6 +58,7 @@ const WORK_KINDS = [
 export function WorkSurfaceCompose(): JSX.Element {
   const auth = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
   // Wizard state
   const [step, setStep] = useState<WizardStep>('intake');
@@ -71,6 +74,7 @@ export function WorkSurfaceCompose(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState('ALL');
   const [searchFilter, setSearchFilter] = useState('');
 
@@ -172,6 +176,7 @@ export function WorkSurfaceCompose(): JSX.Element {
 
     setSubmitting(true);
     setError(null);
+    setSubmitProgress('Creating Work Surface...');
 
     try {
       // Step 1: Create Work Surface
@@ -182,51 +187,66 @@ export function WorkSurfaceCompose(): JSX.Element {
         params: {},
       };
 
-      const res = await fetch(`${config.apiUrl}/api/v1/work-surfaces`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${auth.user.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to create work surface: HTTP ${res.status}`);
+      interface CreateResponse {
+        work_surface_id: string;
       }
 
-      const data = await res.json();
-
-      // Step 2: Start work (SR-PLAN-V6 Phase V6-2)
-      // Creates Loop, activates it, and starts first Iteration as SYSTEM actor
-      try {
-        const startRes = await fetch(`${config.apiUrl}/api/v1/work-surfaces/${data.work_surface_id}/start`, {
+      const data = await fetchWithRetry<CreateResponse>(
+        `${config.apiUrl}/api/v1/work-surfaces`,
+        {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${auth.user.access_token}`,
+            'Content-Type': 'application/json',
           },
-        });
+          body: JSON.stringify(payload),
+        }
+      );
 
-        if (!startRes.ok) {
-          // Log warning but don't block navigation - Work Surface was created successfully
-          console.warn(`Work surface created but start failed: HTTP ${startRes.status}`);
-        } else {
-          const startData = await startRes.json();
-          if (startData.already_started) {
-            console.info('Work was already started on this Work Surface');
+      // Step 2: Start work (SR-PLAN-V6 Phase V6-2)
+      // Creates Loop, activates it, and starts first Iteration as SYSTEM actor
+      setSubmitProgress('Starting work...');
+
+      interface StartResponse {
+        loop_id: string;
+        iteration_id: string;
+        already_started?: boolean;
+      }
+
+      try {
+        const startData = await fetchWithRetry<StartResponse>(
+          `${config.apiUrl}/api/v1/work-surfaces/${data.work_surface_id}/start`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${auth.user.access_token}`,
+            },
           }
+        );
+
+        if (startData.already_started) {
+          toast.info('Work was already started on this Work Surface');
+        } else {
+          toast.success('Work Surface created and work started');
         }
       } catch (startErr) {
-        // Log but don't block - Work Surface was created successfully
-        console.warn('Failed to start work:', startErr);
+        // Work Surface was created, but start failed - show warning and continue
+        const message = startErr instanceof ApiError
+          ? startErr.toUserMessage()
+          : 'Work was created but could not be started automatically';
+        toast.warning(message);
       }
 
       navigate(`/work-surfaces/${data.work_surface_id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create work surface');
+      const message = err instanceof ApiError
+        ? err.toUserMessage()
+        : 'Failed to create work surface';
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
+      setSubmitProgress(null);
     }
   };
 
@@ -578,11 +598,11 @@ export function WorkSurfaceCompose(): JSX.Element {
           </div>
 
           <div className={styles.buttonRow} style={{ marginTop: 'var(--space4)' }}>
-            <Button variant="ghost" onClick={handleBack}>
+            <Button variant="ghost" onClick={handleBack} disabled={submitting}>
               Back
             </Button>
             <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Creating...' : 'Create Work Surface'}
+              {submitProgress || 'Create Work Surface'}
             </Button>
           </div>
         </Card>
