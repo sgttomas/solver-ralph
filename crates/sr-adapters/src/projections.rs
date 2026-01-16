@@ -1608,11 +1608,15 @@ impl ProjectionBuilder {
         event: &EventEnvelope,
     ) -> Result<(), ProjectionError> {
         let payload = &event.payload;
-        let work_surface_id = payload["work_surface_id"].as_str().unwrap_or(&event.stream_id);
+        let work_surface_id = payload["work_surface_id"]
+            .as_str()
+            .unwrap_or(&event.stream_id);
         let work_unit_id = payload["work_unit_id"].as_str().unwrap_or("");
         let intake_ref = &payload["intake_ref"];
         let template_ref = &payload["procedure_template_ref"];
-        let initial_stage_id = payload["initial_stage_id"].as_str().unwrap_or("stage:UNKNOWN");
+        let initial_stage_id = payload["initial_stage_id"]
+            .as_str()
+            .unwrap_or("stage:UNKNOWN");
         let content_hash = payload["content_hash"].as_str().unwrap_or("");
         let params = &payload["params"];
 
@@ -1668,7 +1672,9 @@ impl ProjectionBuilder {
         event: &EventEnvelope,
     ) -> Result<(), ProjectionError> {
         let payload = &event.payload;
-        let work_surface_id = payload["work_surface_id"].as_str().unwrap_or(&event.stream_id);
+        let work_surface_id = payload["work_surface_id"]
+            .as_str()
+            .unwrap_or(&event.stream_id);
         let stage_id = payload["stage_id"].as_str().unwrap_or("");
         let oracle_suites = &payload["oracle_suites"];
 
@@ -1722,7 +1728,9 @@ impl ProjectionBuilder {
         event: &EventEnvelope,
     ) -> Result<(), ProjectionError> {
         let payload = &event.payload;
-        let work_surface_id = payload["work_surface_id"].as_str().unwrap_or(&event.stream_id);
+        let work_surface_id = payload["work_surface_id"]
+            .as_str()
+            .unwrap_or(&event.stream_id);
         let stage_id = payload["stage_id"].as_str().unwrap_or("");
         let evidence_bundle_ref = payload["evidence_bundle_ref"].as_str();
 
@@ -1783,7 +1791,9 @@ impl ProjectionBuilder {
         event: &EventEnvelope,
     ) -> Result<(), ProjectionError> {
         let payload = &event.payload;
-        let work_surface_id = payload["work_surface_id"].as_str().unwrap_or(&event.stream_id);
+        let work_surface_id = payload["work_surface_id"]
+            .as_str()
+            .unwrap_or(&event.stream_id);
 
         sqlx::query(
             r#"
@@ -1812,7 +1822,9 @@ impl ProjectionBuilder {
         event: &EventEnvelope,
     ) -> Result<(), ProjectionError> {
         let payload = &event.payload;
-        let work_surface_id = payload["work_surface_id"].as_str().unwrap_or(&event.stream_id);
+        let work_surface_id = payload["work_surface_id"]
+            .as_str()
+            .unwrap_or(&event.stream_id);
 
         sqlx::query(
             r#"

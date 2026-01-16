@@ -26,17 +26,18 @@ use axum::{
 use config::ApiConfig;
 use handlers::{
     approvals, attachments, candidates, decisions, evidence, exceptions, freeze, intakes,
-    iterations, loops, oracles, prompt_loop::{prompt_loop, prompt_loop_stream}, references, runs,
-    templates, work_surfaces,
+    iterations, loops, oracles,
+    prompt_loop::{prompt_loop, prompt_loop_stream},
+    references, runs, templates, work_surfaces,
 };
 use observability::{metrics_endpoint, request_context_middleware, Metrics, MetricsState};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use sr_adapters::oracle_suite::OracleSuiteRegistry;
 use sr_adapters::{
     AttachmentStoreConfig, MinioAttachmentStore, MinioConfig, MinioEvidenceStore,
     PostgresEventStore, ProjectionBuilder,
 };
-use sr_adapters::oracle_suite::OracleSuiteRegistry;
 use std::sync::Arc;
 use std::time::Instant;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
@@ -327,10 +328,7 @@ fn create_router(
             "/api/v1/templates",
             get(templates::list_templates).post(templates::create_template),
         )
-        .route(
-            "/api/v1/templates/schemas",
-            get(templates::list_schemas),
-        )
+        .route("/api/v1/templates/schemas", get(templates::list_schemas))
         .route(
             "/api/v1/templates/schemas/:type_key",
             get(templates::get_schema),
@@ -348,10 +346,7 @@ fn create_router(
             get(intakes::list_intakes).post(intakes::create_intake),
         )
         .route("/api/v1/intakes/:intake_id", get(intakes::get_intake))
-        .route(
-            "/api/v1/intakes/:intake_id",
-            put(intakes::update_intake),
-        )
+        .route("/api/v1/intakes/:intake_id", put(intakes::update_intake))
         .route(
             "/api/v1/intakes/:intake_id/activate",
             post(intakes::activate_intake),

@@ -15,12 +15,13 @@ use serde::{Deserialize, Serialize};
 use sr_domain::{
     entities::ActorKind,
     events::{
-        EventEnvelope, EventId, OracleExecutionCompleted, OracleExecutionStarted,
-        OracleExecutionStatus, StreamKind,
+        EventEnvelope, EventId, IntegrityViolationDetected, OracleExecutionCompleted,
+        OracleExecutionStarted, OracleExecutionStatus, StreamKind,
     },
+    integrity::IntegrityCondition,
 };
 use sr_ports::{
-    EvidenceStore, EventStore, MessageBusError, OracleRunResult, OracleStatus,
+    EventStore, EvidenceStore, MessageBusError, OracleRunResult, OracleStatus,
     OracleSuiteRegistryPort,
 };
 use std::collections::HashMap;
@@ -347,6 +348,24 @@ where
                 actual = %suite_record.suite_hash,
                 "TAMPER DETECTED: Suite hash mismatch"
             );
+
+            // V8-3: Emit IntegrityViolationDetected event per C-OR-7
+            let condition = IntegrityCondition::OracleTamper {
+                expected_hash: payload.oracle_suite_hash.clone(),
+                actual_hash: suite_record.suite_hash.clone(),
+                suite_id: payload.oracle_suite_id.clone(),
+            };
+
+            if !self.config.test_mode {
+                self.emit_integrity_violation(
+                    run_id,
+                    &payload.candidate_id,
+                    &payload.oracle_suite_id,
+                    condition.clone(),
+                )
+                .await?;
+            }
+
             return Err(OracleWorkerError::SuiteHashMismatch {
                 expected: payload.oracle_suite_hash.clone(),
                 actual: suite_record.suite_hash.clone(),
@@ -637,6 +656,76 @@ where
             })?;
 
         debug!(event_id = %event_id.as_str(), "OracleExecutionCompleted (error) event emitted");
+        Ok(())
+    }
+
+    /// Emit IntegrityViolationDetected event (V8-3)
+    ///
+    /// Per C-OR-7: All integrity conditions MUST halt progression, record context,
+    /// and route escalation.
+    async fn emit_integrity_violation(
+        &self,
+        run_id: &str,
+        candidate_id: &str,
+        suite_id: &str,
+        condition: IntegrityCondition,
+    ) -> Result<(), OracleWorkerError> {
+        let event_id = EventId::new();
+        let now = Utc::now();
+
+        let violation_payload = IntegrityViolationDetected::new(
+            run_id.to_string(),
+            candidate_id.to_string(),
+            suite_id.to_string(),
+            condition,
+        );
+
+        let payload = serde_json::to_value(&violation_payload).map_err(|e| {
+            OracleWorkerError::SerializationError {
+                message: e.to_string(),
+            }
+        })?;
+
+        // Get current stream version
+        let events = self
+            .event_store
+            .read_stream(run_id, 0, 1000)
+            .await
+            .map_err(|e| OracleWorkerError::EventStoreError {
+                message: e.to_string(),
+            })?;
+        let current_version = events.len() as u64;
+
+        let event = EventEnvelope {
+            event_id: event_id.clone(),
+            stream_id: run_id.to_string(),
+            stream_kind: StreamKind::Run,
+            stream_seq: current_version + 1,
+            global_seq: None,
+            event_type: "IntegrityViolationDetected".to_string(),
+            occurred_at: now,
+            actor_kind: ActorKind::System,
+            actor_id: self.config.worker_id.clone(),
+            correlation_id: Some(run_id.to_string()),
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload,
+            envelope_hash: compute_envelope_hash(&event_id),
+        };
+
+        self.event_store
+            .append(run_id, current_version, vec![event])
+            .await
+            .map_err(|e| OracleWorkerError::EventStoreError {
+                message: e.to_string(),
+            })?;
+
+        info!(
+            event_id = %event_id.as_str(),
+            condition = %violation_payload.condition.condition_code(),
+            "IntegrityViolationDetected event emitted (C-OR-7)"
+        );
         Ok(())
     }
 }

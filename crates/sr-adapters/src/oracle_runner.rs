@@ -19,11 +19,12 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use sr_domain::integrity::IntegrityCondition;
 use sr_ports::{
     EvidenceStore, EvidenceStoreError, OracleRunResult, OracleRunner, OracleRunnerError,
     OracleStatus,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
@@ -305,6 +306,106 @@ pub struct EnvironmentFingerprint {
 }
 
 // ============================================================================
+// Integrity Detection (SR-PLAN-V8 §V8-3)
+// ============================================================================
+
+/// Validate environment fingerprint against suite constraints (C-OR-3)
+///
+/// Per SR-CONTRACT §6, this detects ORACLE_ENV_MISMATCH when the runtime
+/// environment doesn't match the suite's declared constraints.
+pub fn validate_environment(
+    constraints: &EnvironmentConstraints,
+    fingerprint: &EnvironmentFingerprint,
+) -> Result<(), IntegrityCondition> {
+    // Check runtime matches
+    if constraints.runtime != fingerprint.runtime {
+        return Err(IntegrityCondition::OracleEnvMismatch {
+            constraint: "runtime".to_string(),
+            expected: constraints.runtime.clone(),
+            actual: fingerprint.runtime.clone(),
+        });
+    }
+
+    // Check OS matches
+    if constraints.os != fingerprint.os {
+        return Err(IntegrityCondition::OracleEnvMismatch {
+            constraint: "os".to_string(),
+            expected: constraints.os.clone(),
+            actual: fingerprint.os.clone(),
+        });
+    }
+
+    // Check CPU architecture matches
+    if constraints.cpu_arch != fingerprint.arch {
+        return Err(IntegrityCondition::OracleEnvMismatch {
+            constraint: "cpu_arch".to_string(),
+            expected: constraints.cpu_arch.clone(),
+            actual: fingerprint.arch.clone(),
+        });
+    }
+
+    // Check network mode matches
+    let expected_network = format!("{:?}", constraints.network);
+    if expected_network != fingerprint.network_mode {
+        return Err(IntegrityCondition::OracleEnvMismatch {
+            constraint: "network".to_string(),
+            expected: expected_network,
+            actual: fingerprint.network_mode.clone(),
+        });
+    }
+
+    // Check workspace readonly constraint
+    if constraints.workspace_readonly && !fingerprint.workspace_readonly {
+        return Err(IntegrityCondition::OracleEnvMismatch {
+            constraint: "workspace_readonly".to_string(),
+            expected: "true".to_string(),
+            actual: "false".to_string(),
+        });
+    }
+
+    Ok(())
+}
+
+/// Check for missing required oracle results (C-OR-4)
+///
+/// Per SR-CONTRACT §6, this detects ORACLE_GAP when required oracles
+/// did not produce a result. No Verified claim until resolved.
+pub fn check_for_gaps(
+    suite: &OracleSuiteDefinition,
+    results: &[OracleResult],
+) -> Result<(), IntegrityCondition> {
+    // Get IDs of required oracles
+    let required_ids: HashSet<&String> = suite
+        .oracles
+        .iter()
+        .filter(|o| o.classification == OracleClassification::Required)
+        .map(|o| &o.oracle_id)
+        .collect();
+
+    // Get IDs of oracles that produced results (not errors)
+    let executed_ids: HashSet<&String> = results
+        .iter()
+        .filter(|r| r.status != OracleResultStatus::Error)
+        .map(|r| &r.oracle_id)
+        .collect();
+
+    // Find missing required oracles
+    let missing: Vec<String> = required_ids
+        .difference(&executed_ids)
+        .map(|s| (*s).clone())
+        .collect();
+
+    if !missing.is_empty() {
+        return Err(IntegrityCondition::OracleGap {
+            missing_oracles: missing,
+            suite_id: suite.suite_id.clone(),
+        });
+    }
+
+    Ok(())
+}
+
+// ============================================================================
 // Podman Oracle Runner
 // ============================================================================
 
@@ -377,6 +478,21 @@ impl<E: EvidenceStore> PodmanOracleRunner<E> {
         // Capture environment fingerprint
         let fingerprint = self.capture_environment_fingerprint(&suite).await?;
 
+        // V8-3: Validate environment constraints before execution (C-OR-3)
+        if let Err(integrity_condition) =
+            validate_environment(&suite.environment_constraints, &fingerprint)
+        {
+            warn!(
+                suite_id = %suite_id,
+                condition = %integrity_condition.condition_code(),
+                "ENV_MISMATCH detected: {}",
+                integrity_condition.message()
+            );
+            return Err(OracleRunnerError::IntegrityViolation {
+                condition: integrity_condition,
+            });
+        }
+
         // Execute each oracle
         let mut oracle_results = Vec::new();
         let mut all_artifacts = Vec::new();
@@ -435,6 +551,19 @@ impl<E: EvidenceStore> PodmanOracleRunner<E> {
         }
 
         let run_completed_at = Utc::now();
+
+        // V8-3: Check for missing required oracle results (C-OR-4)
+        if let Err(integrity_condition) = check_for_gaps(&suite, &oracle_results) {
+            warn!(
+                suite_id = %suite_id,
+                condition = %integrity_condition.condition_code(),
+                "GAP detected: {}",
+                integrity_condition.message()
+            );
+            return Err(OracleRunnerError::IntegrityViolation {
+                condition: integrity_condition,
+            });
+        }
 
         // Build evidence manifest
         let manifest = self.build_evidence_manifest(
@@ -1022,5 +1151,343 @@ mod tests {
         assert!(all_pass);
         assert!(any_error);
         assert!(any_fail);
+    }
+
+    // ========================================================================
+    // V8-3 Integrity Condition Tests
+    // ========================================================================
+
+    use crate::evidence::{OracleResult, OracleResultStatus};
+
+    #[test]
+    fn test_env_mismatch_detection_runtime() {
+        let constraints = EnvironmentConstraints {
+            runtime: "runsc".to_string(),
+            network: NetworkMode::Disabled,
+            cpu_arch: "amd64".to_string(),
+            os: "linux".to_string(),
+            workspace_readonly: true,
+            additional_constraints: vec![],
+        };
+
+        let fingerprint = EnvironmentFingerprint {
+            container_image_digest: "sha256:abc".to_string(),
+            runtime: "runc".to_string(), // Mismatch!
+            runtime_version: "1.0".to_string(),
+            os: "linux".to_string(),
+            arch: "amd64".to_string(),
+            network_mode: "Disabled".to_string(),
+            workspace_readonly: true,
+            scratch_writable: true,
+            tool_versions: BTreeMap::new(),
+            runner_id: "test".to_string(),
+            executed_at: Utc::now(),
+        };
+
+        let result = validate_environment(&constraints, &fingerprint);
+
+        assert!(result.is_err());
+        if let Err(IntegrityCondition::OracleEnvMismatch {
+            constraint,
+            expected,
+            actual,
+        }) = result
+        {
+            assert_eq!(constraint, "runtime");
+            assert_eq!(expected, "runsc");
+            assert_eq!(actual, "runc");
+        } else {
+            panic!("Expected OracleEnvMismatch condition");
+        }
+    }
+
+    #[test]
+    fn test_env_mismatch_detection_arch() {
+        let constraints = EnvironmentConstraints {
+            runtime: "runsc".to_string(),
+            network: NetworkMode::Disabled,
+            cpu_arch: "amd64".to_string(),
+            os: "linux".to_string(),
+            workspace_readonly: true,
+            additional_constraints: vec![],
+        };
+
+        let fingerprint = EnvironmentFingerprint {
+            container_image_digest: "sha256:abc".to_string(),
+            runtime: "runsc".to_string(),
+            runtime_version: "1.0".to_string(),
+            os: "linux".to_string(),
+            arch: "arm64".to_string(), // Mismatch!
+            network_mode: "Disabled".to_string(),
+            workspace_readonly: true,
+            scratch_writable: true,
+            tool_versions: BTreeMap::new(),
+            runner_id: "test".to_string(),
+            executed_at: Utc::now(),
+        };
+
+        let result = validate_environment(&constraints, &fingerprint);
+
+        assert!(result.is_err());
+        if let Err(IntegrityCondition::OracleEnvMismatch {
+            constraint,
+            expected,
+            actual,
+        }) = result
+        {
+            assert_eq!(constraint, "cpu_arch");
+            assert_eq!(expected, "amd64");
+            assert_eq!(actual, "arm64");
+        } else {
+            panic!("Expected OracleEnvMismatch condition");
+        }
+    }
+
+    #[test]
+    fn test_env_match_passes() {
+        let constraints = EnvironmentConstraints {
+            runtime: "runsc".to_string(),
+            network: NetworkMode::Disabled,
+            cpu_arch: "amd64".to_string(),
+            os: "linux".to_string(),
+            workspace_readonly: true,
+            additional_constraints: vec![],
+        };
+
+        let fingerprint = EnvironmentFingerprint {
+            container_image_digest: "sha256:abc".to_string(),
+            runtime: "runsc".to_string(),
+            runtime_version: "1.0".to_string(),
+            os: "linux".to_string(),
+            arch: "amd64".to_string(),
+            network_mode: "Disabled".to_string(),
+            workspace_readonly: true,
+            scratch_writable: true,
+            tool_versions: BTreeMap::new(),
+            runner_id: "test".to_string(),
+            executed_at: Utc::now(),
+        };
+
+        let result = validate_environment(&constraints, &fingerprint);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_gap_detection_missing_required() {
+        let suite = OracleSuiteDefinition {
+            suite_id: "suite:test".to_string(),
+            suite_hash: "sha256:abc".to_string(),
+            oci_image: "test".to_string(),
+            oci_image_digest: "sha256:def".to_string(),
+            environment_constraints: EnvironmentConstraints::default(),
+            oracles: vec![
+                OracleDefinition {
+                    oracle_id: "oracle:build".to_string(),
+                    oracle_name: "Build".to_string(),
+                    command: "build".to_string(),
+                    args: vec![],
+                    timeout_seconds: 300,
+                    expected_outputs: vec![],
+                    classification: OracleClassification::Required,
+                    working_dir: None,
+                    env: BTreeMap::new(),
+                },
+                OracleDefinition {
+                    oracle_id: "oracle:test".to_string(),
+                    oracle_name: "Test".to_string(),
+                    command: "test".to_string(),
+                    args: vec![],
+                    timeout_seconds: 300,
+                    expected_outputs: vec![],
+                    classification: OracleClassification::Required,
+                    working_dir: None,
+                    env: BTreeMap::new(),
+                },
+            ],
+            metadata: BTreeMap::new(),
+        };
+
+        // Only one result - missing oracle:test
+        let results = vec![OracleResult {
+            oracle_id: "oracle:build".to_string(),
+            oracle_name: "Build".to_string(),
+            status: OracleResultStatus::Pass,
+            duration_ms: 100,
+            error_message: None,
+            artifact_refs: vec![],
+            output: None,
+        }];
+
+        let result = check_for_gaps(&suite, &results);
+
+        assert!(result.is_err());
+        if let Err(IntegrityCondition::OracleGap {
+            missing_oracles,
+            suite_id,
+        }) = result
+        {
+            assert_eq!(missing_oracles, vec!["oracle:test".to_string()]);
+            assert_eq!(suite_id, "suite:test");
+        } else {
+            panic!("Expected OracleGap condition");
+        }
+    }
+
+    #[test]
+    fn test_gap_detection_all_present() {
+        let suite = OracleSuiteDefinition {
+            suite_id: "suite:test".to_string(),
+            suite_hash: "sha256:abc".to_string(),
+            oci_image: "test".to_string(),
+            oci_image_digest: "sha256:def".to_string(),
+            environment_constraints: EnvironmentConstraints::default(),
+            oracles: vec![
+                OracleDefinition {
+                    oracle_id: "oracle:build".to_string(),
+                    oracle_name: "Build".to_string(),
+                    command: "build".to_string(),
+                    args: vec![],
+                    timeout_seconds: 300,
+                    expected_outputs: vec![],
+                    classification: OracleClassification::Required,
+                    working_dir: None,
+                    env: BTreeMap::new(),
+                },
+                OracleDefinition {
+                    oracle_id: "oracle:test".to_string(),
+                    oracle_name: "Test".to_string(),
+                    command: "test".to_string(),
+                    args: vec![],
+                    timeout_seconds: 300,
+                    expected_outputs: vec![],
+                    classification: OracleClassification::Required,
+                    working_dir: None,
+                    env: BTreeMap::new(),
+                },
+            ],
+            metadata: BTreeMap::new(),
+        };
+
+        // Both results present
+        let results = vec![
+            OracleResult {
+                oracle_id: "oracle:build".to_string(),
+                oracle_name: "Build".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 100,
+                error_message: None,
+                artifact_refs: vec![],
+                output: None,
+            },
+            OracleResult {
+                oracle_id: "oracle:test".to_string(),
+                oracle_name: "Test".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 100,
+                error_message: None,
+                artifact_refs: vec![],
+                output: None,
+            },
+        ];
+
+        let result = check_for_gaps(&suite, &results);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_gap_detection_advisory_not_required() {
+        let suite = OracleSuiteDefinition {
+            suite_id: "suite:test".to_string(),
+            suite_hash: "sha256:abc".to_string(),
+            oci_image: "test".to_string(),
+            oci_image_digest: "sha256:def".to_string(),
+            environment_constraints: EnvironmentConstraints::default(),
+            oracles: vec![
+                OracleDefinition {
+                    oracle_id: "oracle:build".to_string(),
+                    oracle_name: "Build".to_string(),
+                    command: "build".to_string(),
+                    args: vec![],
+                    timeout_seconds: 300,
+                    expected_outputs: vec![],
+                    classification: OracleClassification::Required,
+                    working_dir: None,
+                    env: BTreeMap::new(),
+                },
+                OracleDefinition {
+                    oracle_id: "oracle:sbom".to_string(),
+                    oracle_name: "SBOM".to_string(),
+                    command: "sbom".to_string(),
+                    args: vec![],
+                    timeout_seconds: 300,
+                    expected_outputs: vec![],
+                    classification: OracleClassification::Advisory, // Not required
+                    working_dir: None,
+                    env: BTreeMap::new(),
+                },
+            ],
+            metadata: BTreeMap::new(),
+        };
+
+        // Only required oracle present - advisory missing is OK
+        let results = vec![OracleResult {
+            oracle_id: "oracle:build".to_string(),
+            oracle_name: "Build".to_string(),
+            status: OracleResultStatus::Pass,
+            duration_ms: 100,
+            error_message: None,
+            artifact_refs: vec![],
+            output: None,
+        }];
+
+        let result = check_for_gaps(&suite, &results);
+        assert!(result.is_ok(), "Advisory oracles should not trigger GAP");
+    }
+
+    #[test]
+    fn test_gap_detection_error_counts_as_missing() {
+        let suite = OracleSuiteDefinition {
+            suite_id: "suite:test".to_string(),
+            suite_hash: "sha256:abc".to_string(),
+            oci_image: "test".to_string(),
+            oci_image_digest: "sha256:def".to_string(),
+            environment_constraints: EnvironmentConstraints::default(),
+            oracles: vec![OracleDefinition {
+                oracle_id: "oracle:build".to_string(),
+                oracle_name: "Build".to_string(),
+                command: "build".to_string(),
+                args: vec![],
+                timeout_seconds: 300,
+                expected_outputs: vec![],
+                classification: OracleClassification::Required,
+                working_dir: None,
+                env: BTreeMap::new(),
+            }],
+            metadata: BTreeMap::new(),
+        };
+
+        // Result with Error status counts as missing
+        let results = vec![OracleResult {
+            oracle_id: "oracle:build".to_string(),
+            oracle_name: "Build".to_string(),
+            status: OracleResultStatus::Error, // Error, not Pass/Fail
+            duration_ms: 100,
+            error_message: Some("Failed to execute".to_string()),
+            artifact_refs: vec![],
+            output: None,
+        }];
+
+        let result = check_for_gaps(&suite, &results);
+
+        assert!(
+            result.is_err(),
+            "Error results should be treated as missing"
+        );
+        if let Err(IntegrityCondition::OracleGap {
+            missing_oracles, ..
+        }) = result
+        {
+            assert_eq!(missing_oracles, vec!["oracle:build".to_string()]);
+        }
     }
 }

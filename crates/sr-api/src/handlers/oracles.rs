@@ -17,12 +17,12 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use sr_adapters::oracle_suite::{
-    IntegrityCondition, OracleSuiteRegistry, VerificationProfile, WaivableCondition,
-};
 use sr_adapters::oracle_runner::{
     EnvironmentConstraints, ExpectedOutput, NetworkMode, OracleClassification, OracleDefinition,
     OracleSuiteDefinition,
+};
+use sr_adapters::oracle_suite::{
+    IntegrityCondition, OracleSuiteRegistry, VerificationProfile, WaivableCondition,
 };
 use std::collections::BTreeMap;
 use tracing::{info, instrument};

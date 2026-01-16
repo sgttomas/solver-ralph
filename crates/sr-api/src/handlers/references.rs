@@ -227,9 +227,12 @@ pub async fn list_governed_artifacts(
     let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM proj.governed_artifacts")
         .fetch_one(state.app_state.projections.pool())
         .await
-        .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
 
-    let refs = get_governed_artifacts_refs(&state.app_state, Some((params.page_size, offset))).await?;
+    let refs =
+        get_governed_artifacts_refs(&state.app_state, Some((params.page_size, offset))).await?;
 
     Ok(Json(ReferencesListResponse {
         refs,
@@ -260,7 +263,9 @@ pub async fn get_governed_artifact(
     .bind(&artifact_id)
     .fetch_optional(state.app_state.projections.pool())
     .await
-    .map_err(|e| ApiError::Internal { message: e.to_string() })?
+    .map_err(|e| ApiError::Internal {
+        message: e.to_string(),
+    })?
     .ok_or_else(|| ApiError::NotFound {
         resource: "GovernedArtifact".to_string(),
         id: artifact_id.clone(),
@@ -302,7 +307,9 @@ pub async fn list_candidates(
     let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM proj.candidates")
         .fetch_one(state.app_state.projections.pool())
         .await
-        .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
 
     let refs = get_candidates_refs(&state.app_state, Some((params.page_size, offset))).await?;
 
@@ -328,7 +335,9 @@ pub async fn list_evidence_bundles(
     let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM proj.evidence_bundles")
         .fetch_one(state.app_state.projections.pool())
         .await
-        .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
 
     let rows = sqlx::query(
         r#"
@@ -342,7 +351,9 @@ pub async fn list_evidence_bundles(
     .bind(offset as i64)
     .fetch_all(state.app_state.projections.pool())
     .await
-    .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+    .map_err(|e| ApiError::Internal {
+        message: e.to_string(),
+    })?;
 
     use sqlx::Row;
 
@@ -396,7 +407,9 @@ pub async fn get_evidence_bundle(
     .bind(&content_hash)
     .fetch_optional(state.app_state.projections.pool())
     .await
-    .map_err(|e| ApiError::Internal { message: e.to_string() })?
+    .map_err(|e| ApiError::Internal {
+        message: e.to_string(),
+    })?
     .ok_or_else(|| ApiError::NotFound {
         resource: "EvidenceBundle".to_string(),
         id: content_hash.clone(),
@@ -527,7 +540,9 @@ pub async fn list_exceptions(
     let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM proj.exceptions")
         .fetch_one(state.app_state.projections.pool())
         .await
-        .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
 
     let refs = get_exceptions_refs(&state.app_state, Some((params.page_size, offset))).await?;
 
@@ -550,10 +565,13 @@ pub async fn list_iteration_summaries(
 ) -> ApiResult<Json<ReferencesListResponse>> {
     let offset = (params.page.saturating_sub(1)) * params.page_size;
 
-    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM proj.iterations WHERE state = 'COMPLETED'")
-        .fetch_one(state.app_state.projections.pool())
-        .await
-        .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+    let total: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM proj.iterations WHERE state = 'COMPLETED'")
+            .fetch_one(state.app_state.projections.pool())
+            .await
+            .map_err(|e| ApiError::Internal {
+                message: e.to_string(),
+            })?;
 
     let rows = sqlx::query(
         r#"
@@ -568,7 +586,9 @@ pub async fn list_iteration_summaries(
     .bind(offset as i64)
     .fetch_all(state.app_state.projections.pool())
     .await
-    .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+    .map_err(|e| ApiError::Internal {
+        message: e.to_string(),
+    })?;
 
     use sqlx::Row;
 
@@ -678,7 +698,9 @@ pub async fn list_intakes_as_refs(
     let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM proj.intakes")
         .fetch_one(state.app_state.projections.pool())
         .await
-        .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
 
     let refs = get_intakes_refs(&state.app_state, Some((params.page_size, offset))).await?;
 
@@ -741,7 +763,9 @@ async fn get_governed_artifacts_refs(
     .bind(offset as i64)
     .fetch_all(state.projections.pool())
     .await
-    .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+    .map_err(|e| ApiError::Internal {
+        message: e.to_string(),
+    })?;
 
     use sqlx::Row;
 
@@ -787,7 +811,9 @@ async fn get_candidates_refs(
     .bind(offset as i64)
     .fetch_all(state.projections.pool())
     .await
-    .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+    .map_err(|e| ApiError::Internal {
+        message: e.to_string(),
+    })?;
 
     use sqlx::Row;
 
@@ -831,7 +857,9 @@ async fn get_exceptions_refs(
     .bind(offset as i64)
     .fetch_all(state.projections.pool())
     .await
-    .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+    .map_err(|e| ApiError::Internal {
+        message: e.to_string(),
+    })?;
 
     use sqlx::Row;
 
@@ -883,7 +911,9 @@ async fn get_intakes_refs(
     .bind(offset as i64)
     .fetch_all(state.projections.pool())
     .await
-    .map_err(|e| ApiError::Internal { message: e.to_string() })?;
+    .map_err(|e| ApiError::Internal {
+        message: e.to_string(),
+    })?;
 
     use sqlx::Row;
 

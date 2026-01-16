@@ -250,13 +250,14 @@ impl MinioAttachmentStore {
                 }
             })?;
 
-        let data = response
-            .body
-            .collect()
-            .await
-            .map_err(|e| AttachmentStoreError::StorageError {
-                message: format!("Failed to read response body: {}", e),
-            })?;
+        let data =
+            response
+                .body
+                .collect()
+                .await
+                .map_err(|e| AttachmentStoreError::StorageError {
+                    message: format!("Failed to read response body: {}", e),
+                })?;
 
         let bytes = data.into_bytes();
         debug!(
@@ -291,7 +292,10 @@ mod tests {
     fn test_compute_hash_different_content() {
         let hash1 = MinioAttachmentStore::compute_hash(b"hello");
         let hash2 = MinioAttachmentStore::compute_hash(b"world");
-        assert_ne!(hash1, hash2, "Different content should have different hashes");
+        assert_ne!(
+            hash1, hash2,
+            "Different content should have different hashes"
+        );
     }
 
     #[test]

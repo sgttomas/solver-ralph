@@ -70,7 +70,6 @@ pub struct EvidenceManifest {
     pub metadata: BTreeMap<String, serde_json::Value>,
 
     // ---- Work Surface Context (SR-PLAN-V4 Phase 4c) ----
-
     /// Procedure template ID this evidence is associated with
     /// Per SR-SPEC §1.9.1: Evidence bundles should include stage context
     #[serde(default, skip_serializing_if = "Option::is_none")]

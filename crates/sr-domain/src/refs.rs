@@ -271,7 +271,12 @@ impl StrongTypedRef {
     }
 
     /// Create with metadata
-    pub fn with_meta(kind: RefKind, id: impl Into<String>, rel: RefRelation, meta: RefMeta) -> Self {
+    pub fn with_meta(
+        kind: RefKind,
+        id: impl Into<String>,
+        rel: RefRelation,
+        meta: RefMeta,
+    ) -> Self {
         Self {
             kind,
             id: id.into(),
@@ -345,12 +350,7 @@ impl StrongTypedRef {
         rel: RefRelation,
         content_hash: impl Into<String>,
     ) -> Self {
-        Self::with_meta(
-            RefKind::Intake,
-            id,
-            rel,
-            RefMeta::with_hash(content_hash),
-        )
+        Self::with_meta(RefKind::Intake, id, rel, RefMeta::with_hash(content_hash))
     }
 
     /// Create a reference to a procedure template
@@ -502,11 +502,7 @@ mod tests {
 
     #[test]
     fn test_strong_typed_ref_creation() {
-        let r = StrongTypedRef::intake(
-            "intake:01ABC123",
-            RefRelation::DependsOn,
-            "sha256:abc123",
-        );
+        let r = StrongTypedRef::intake("intake:01ABC123", RefRelation::DependsOn, "sha256:abc123");
 
         assert_eq!(r.kind, RefKind::Intake);
         assert_eq!(r.id, "intake:01ABC123");
@@ -533,11 +529,7 @@ mod tests {
 
     #[test]
     fn test_validation_missing_content_hash() {
-        let r = StrongTypedRef::new(
-            RefKind::Intake,
-            "intake:01ABC123",
-            RefRelation::DependsOn,
-        );
+        let r = StrongTypedRef::new(RefKind::Intake, "intake:01ABC123", RefRelation::DependsOn);
 
         let result = r.validate();
         assert!(result.is_err());
@@ -604,12 +596,8 @@ mod tests {
 
     #[test]
     fn test_ref_with_label() {
-        let r = StrongTypedRef::intake(
-            "intake:01ABC123",
-            RefRelation::DependsOn,
-            "sha256:abc123",
-        )
-        .with_label("API Rate Limiting Analysis");
+        let r = StrongTypedRef::intake("intake:01ABC123", RefRelation::DependsOn, "sha256:abc123")
+            .with_label("API Rate Limiting Analysis");
 
         assert_eq!(r.label, Some("API Rate Limiting Analysis".to_string()));
     }

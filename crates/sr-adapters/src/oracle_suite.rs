@@ -185,11 +185,9 @@ impl OracleSuiteRegistryPort for OracleSuiteRegistry {
             })?;
 
         // Deserialize oracles
-        let oracle_defs: Vec<OracleDefinition> =
-            serde_json::from_value(input.oracles.clone()).map_err(|e| {
-                OracleSuiteRegistryError::SerializationError {
-                    message: format!("Failed to deserialize oracles: {e}"),
-                }
+        let oracle_defs: Vec<OracleDefinition> = serde_json::from_value(input.oracles.clone())
+            .map_err(|e| OracleSuiteRegistryError::SerializationError {
+                message: format!("Failed to deserialize oracles: {e}"),
             })?;
 
         // Deserialize metadata

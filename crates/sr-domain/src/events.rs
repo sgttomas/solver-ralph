@@ -103,6 +103,9 @@ pub enum EventType {
     OracleExecutionStarted,
     OracleExecutionCompleted,
 
+    // Integrity violation events per SR-PLAN-V8 §V8-3
+    IntegrityViolationDetected,
+
     // Oracle suite events
     OracleSuiteRegistered,
     OracleSuiteUpdated,
@@ -431,5 +434,64 @@ impl OracleExecutionCompleted {
 
     pub fn event_type() -> &'static str {
         "OracleExecutionCompleted"
+    }
+}
+
+// ============================================================================
+// Integrity Violation Events per SR-PLAN-V8 §V8-3
+// ============================================================================
+
+use crate::integrity::IntegrityCondition;
+
+/// Emitted when an integrity condition is detected (per C-OR-7)
+///
+/// Per SR-CONTRACT §6 and SR-PLAN-V8 §V8-3: All integrity conditions
+/// MUST halt progression, record context, and route escalation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrityViolationDetected {
+    /// Run identifier (format: run:<ULID>)
+    pub run_id: String,
+    /// Candidate being evaluated when violation was detected
+    pub candidate_id: String,
+    /// Oracle suite where violation occurred
+    pub suite_id: String,
+    /// The integrity condition that was detected
+    pub condition: IntegrityCondition,
+    /// Timestamp when violation was detected
+    pub detected_at: DateTime<Utc>,
+    /// Whether escalation is required (always true per C-OR-7)
+    pub requires_escalation: bool,
+}
+
+impl IntegrityViolationDetected {
+    pub fn stream_id(&self) -> String {
+        self.run_id.clone()
+    }
+
+    pub fn stream_kind() -> StreamKind {
+        StreamKind::Run
+    }
+
+    pub fn event_type() -> &'static str {
+        "IntegrityViolationDetected"
+    }
+
+    /// Create a new integrity violation event
+    ///
+    /// Sets `requires_escalation` to `true` per C-OR-7.
+    pub fn new(
+        run_id: String,
+        candidate_id: String,
+        suite_id: String,
+        condition: IntegrityCondition,
+    ) -> Self {
+        Self {
+            run_id,
+            candidate_id,
+            suite_id,
+            condition,
+            detected_at: Utc::now(),
+            requires_escalation: true, // C-OR-7: always escalate
+        }
     }
 }

@@ -1871,6 +1871,38 @@ To protect the integrity of governance artifacts and evidence:
 
 **Evidence integrity**
 - `EvidenceMissingDetected`
+- `IntegrityViolationDetected`
+
+  **Event type:** `IntegrityViolationDetected`
+  **Stream kind:** `RUN`
+  **Stream id:** `run:{run_id}`
+
+  **Payload (v1):**
+  ```jsonc
+  {
+    "run_id": "run_01J...",
+    "candidate_id": "cand_01J...",
+    "suite_id": "suite:core-v1",
+    "condition": {
+      "condition_type": "ORACLE_TAMPER|ORACLE_GAP|ORACLE_FLAKE|ORACLE_ENV_MISMATCH",
+      // For ORACLE_TAMPER:
+      "expected_hash": "sha256:...",
+      "actual_hash": "sha256:...",
+      "suite_id": "suite:core-v1"
+      // For ORACLE_GAP:
+      // "missing_oracles": ["oracle:build", "oracle:test"],
+      // "suite_id": "suite:core-v1"
+      // For ORACLE_ENV_MISMATCH:
+      // "constraint": "runtime",
+      // "expected": "runsc",
+      // "actual": "runc"
+    },
+    "detected_at": "2026-01-16T...",
+    "requires_escalation": true
+  }
+  ```
+
+  **Note:** Emitted per C-OR-7 when any integrity condition is detected. All integrity conditions are blocking and require escalation. Condition types map to contract requirements: `ORACLE_TAMPER` (C-OR-2), `ORACLE_ENV_MISMATCH` (C-OR-3), `ORACLE_GAP` (C-OR-4), `ORACLE_FLAKE` (C-OR-5).
 
 **Records (non-binding human judgment)**
 - `RecordCreated`

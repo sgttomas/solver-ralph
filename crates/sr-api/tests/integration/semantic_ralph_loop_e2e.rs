@@ -329,7 +329,8 @@ async fn test_semantic_ralph_loop_end_to_end() {
     );
 
     // Parse intake_id directly from create response
-    let create_response: serde_json::Value = resp.json().await.expect("Failed to parse create response");
+    let create_response: serde_json::Value =
+        resp.json().await.expect("Failed to parse create response");
     let intake_id = create_response
         .get("intake_id")
         .and_then(|v| v.as_str())
@@ -387,7 +388,8 @@ async fn test_semantic_ralph_loop_end_to_end() {
         resp.text().await.unwrap_or_default()
     );
 
-    let ws_action: WorkSurfaceActionResponse = resp.json().await.expect("Failed to parse WS response");
+    let ws_action: WorkSurfaceActionResponse =
+        resp.json().await.expect("Failed to parse WS response");
     let work_surface_id = ws_action.work_surface_id.clone();
     println!("  Created Work Surface: {}", work_surface_id);
     assert_eq!(ws_action.status, "active");
@@ -506,7 +508,8 @@ async fn test_semantic_ralph_loop_end_to_end() {
         resp.text().await.unwrap_or_default()
     );
 
-    let iter_action: IterationActionResponse = resp.json().await.expect("Failed to parse iteration");
+    let iter_action: IterationActionResponse =
+        resp.json().await.expect("Failed to parse iteration");
     let iteration_id = iter_action.iteration_id.clone();
     println!("  Started Iteration: {}", iteration_id);
 
@@ -558,7 +561,10 @@ async fn test_semantic_ralph_loop_end_to_end() {
                 oracle_results: vec![OracleResultRequest {
                     oracle_id: "e2e-oracle".to_string(),
                     status: "PASS".to_string(),
-                    evidence_ref: Some(format!("sha256:oracle-evidence-{}", stage_id.replace(":", "-"))),
+                    evidence_ref: Some(format!(
+                        "sha256:oracle-evidence-{}",
+                        stage_id.replace(":", "-")
+                    )),
                 }],
                 waiver_refs: vec![],
             },
@@ -590,7 +596,10 @@ async fn test_semantic_ralph_loop_end_to_end() {
                     rel: "approves".to_string(),
                     meta: serde_json::Value::Null,
                 }],
-                evidence_refs: vec![format!("sha256:e2e-evidence-{}", stage_id.replace(":", "-"))],
+                evidence_refs: vec![format!(
+                    "sha256:e2e-evidence-{}",
+                    stage_id.replace(":", "-")
+                )],
                 exceptions_acknowledged: vec![],
                 rationale: Some(format!("E2E test approval for {} stage", stage_id)),
             };
@@ -630,7 +639,8 @@ async fn test_semantic_ralph_loop_end_to_end() {
                 resp.text().await.unwrap_or_default()
             );
 
-            let completion: StageCompletionResponse = resp.json().await.expect("Failed to parse completion");
+            let completion: StageCompletionResponse =
+                resp.json().await.expect("Failed to parse completion");
             println!(
                 "    Completed (with approval). Next stage: {:?}, is_terminal: {}",
                 completion.next_stage_id, completion.is_terminal
@@ -643,7 +653,8 @@ async fn test_semantic_ralph_loop_end_to_end() {
                 resp.text().await.unwrap_or_default()
             );
 
-            let completion: StageCompletionResponse = resp.json().await.expect("Failed to parse completion");
+            let completion: StageCompletionResponse =
+                resp.json().await.expect("Failed to parse completion");
             println!(
                 "    Completed. Next stage: {:?}, is_terminal: {}",
                 completion.next_stage_id, completion.is_terminal

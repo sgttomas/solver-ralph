@@ -117,18 +117,28 @@ pub async fn upload_attachment(
     let mut filename: Option<String> = None;
     let mut content_type: Option<String> = None;
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| ApiError::BadRequest {
-        message: format!("Failed to read multipart field: {}", e),
-    })? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| ApiError::BadRequest {
+            message: format!("Failed to read multipart field: {}", e),
+        })?
+    {
         let field_name = field.name().unwrap_or("").to_string();
 
         if field_name == "file" {
             filename = field.file_name().map(|s| s.to_string());
             content_type = field.content_type().map(|s| s.to_string());
 
-            file_content = Some(field.bytes().await.map_err(|e| ApiError::BadRequest {
-                message: format!("Failed to read file content: {}", e),
-            })?.to_vec());
+            file_content = Some(
+                field
+                    .bytes()
+                    .await
+                    .map_err(|e| ApiError::BadRequest {
+                        message: format!("Failed to read file content: {}", e),
+                    })?
+                    .to_vec(),
+            );
         }
     }
 
@@ -254,11 +264,17 @@ fn detect_media_type(filename: &str, _content: &[u8]) -> Option<String> {
         "tar" => Some("application/x-tar".to_string()),
         "gz" | "gzip" => Some("application/gzip".to_string()),
         "doc" => Some("application/msword".to_string()),
-        "docx" => Some("application/vnd.openxmlformats-officedocument.wordprocessingml.document".to_string()),
+        "docx" => Some(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document".to_string(),
+        ),
         "xls" => Some("application/vnd.ms-excel".to_string()),
-        "xlsx" => Some("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".to_string()),
+        "xlsx" => {
+            Some("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".to_string())
+        }
         "ppt" => Some("application/vnd.ms-powerpoint".to_string()),
-        "pptx" => Some("application/vnd.openxmlformats-officedocument.presentationml.presentation".to_string()),
+        "pptx" => Some(
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation".to_string(),
+        ),
         _ => None,
     }
 }

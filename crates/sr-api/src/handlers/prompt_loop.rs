@@ -22,13 +22,15 @@ use chrono::Utc;
 use futures::stream::Stream;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use sr_adapters::{EvidenceArtifact, EvidenceManifest, OracleResult, OracleResultStatus, OracleSuiteRegistry};
+use sr_adapters::{
+    EvidenceArtifact, EvidenceManifest, OracleResult, OracleResultStatus, OracleSuiteRegistry,
+};
+use sr_domain::work_surface::OracleSuiteBinding;
 use sr_domain::{
     CandidateId, ContentHash, EventEnvelope, EventId, Intake, ProcedureTemplateId, StageId,
     StreamKind, TypedRef, WorkKind, WorkSurfaceInstance, WorkUnitId,
 };
-use sr_domain::work_surface::OracleSuiteBinding;
-use sr_ports::{EvidenceStore, EventStore};
+use sr_ports::{EventStore, EvidenceStore};
 use std::convert::Infallible;
 use tracing::{info, instrument, warn};
 

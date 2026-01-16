@@ -91,11 +91,11 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 |-------|--------|-------------|-----------|
 | V8-1: Oracle Suite Registry | ✅ Complete | Port trait extracted, PostgreSQL adapter ready | A-4 |
 | V8-2: Event-Driven Worker | ✅ Complete | Worker subscribes to `RunStarted` events | A-1 |
-| V8-3: Integrity Checks | 🎯 Next | TAMPER/GAP/FLAKE/ENV_MISMATCH detection | — |
-| V8-4: Core Oracle Suite | ⏳ Pending | Build/unit/schema/lint oracles + container | — |
+| V8-3: Integrity Checks | ✅ Complete | TAMPER/GAP/ENV_MISMATCH detection + events | — |
+| V8-4: Core Oracle Suite | 🎯 Next | Build/unit/schema/lint oracles + container | — |
 | V8-5: Semantic Oracles | ⏳ Pending | Use existing types, focus on container packaging | A-3 |
 
-**SR-PLAN-V8 has passed coherence assessment AND philosophical consistency review. V8-1 and V8-2 complete, V8-3 ready.**
+**SR-PLAN-V8 has passed coherence assessment AND philosophical consistency review. V8-1, V8-2, and V8-3 complete. V8-4 ready.**
 
 ### Amendments Applied
 
@@ -110,142 +110,159 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## Previous Session Summary (V8-2 Implementation)
+## Previous Session Summary (V8-3 Implementation)
 
-**Session Goal:** Implement SR-PLAN-V8 Phase V8-2 — Event-Driven Oracle Worker
+**Session Goal:** Implement SR-PLAN-V8 Phase V8-3 — Oracle Integrity Condition Detection
 
 ### What Was Accomplished
 
-1. **Added domain events to sr-domain** (`crates/sr-domain/src/events.rs`):
-   - `OracleExecutionStarted` event payload struct
-   - `OracleExecutionCompleted` event payload struct
-   - `OracleExecutionStatus` enum (Pass, Fail, Error)
-   - Added event types to `EventType` enum
+1. **Created integrity module** (`crates/sr-domain/src/integrity.rs`):
+   - `IntegrityCondition` enum with four variants:
+     - `OracleTamper { expected_hash, actual_hash, suite_id }` (C-OR-2)
+     - `OracleGap { missing_oracles, suite_id }` (C-OR-4)
+     - `OracleFlake { oracle_id, run_1_hash, run_2_hash, description }` (C-OR-5)
+     - `OracleEnvMismatch { constraint, expected, actual }` (C-OR-3)
+   - Helper methods: `condition_code()`, `severity()`, `requires_escalation()`, `contract_ref()`, `message()`
+   - `Severity` enum (Blocking)
+   - `IntegrityCheckResult` for aggregating conditions
+   - `IntegrityError` wrapper with Display impl
+   - Comprehensive unit tests for all condition types
 
-2. **Created candidate workspace materializer** (`crates/sr-adapters/src/candidate_store.rs`):
-   - `CandidateWorkspace` trait for materializing candidate content
-   - `TempWorkspace` struct with Drop cleanup
-   - `SimpleCandidateWorkspace` implementation (placeholder for V8-2)
-   - `WorkspaceError` error enum
+2. **Added IntegrityViolationDetected event** (`crates/sr-domain/src/events.rs`):
+   - Event struct with run_id, candidate_id, suite_id, condition, detected_at, requires_escalation
+   - Added to `EventType` enum
+   - `new()` constructor that sets requires_escalation=true per C-OR-7
 
-3. **Created Oracle Execution Worker** (`crates/sr-adapters/src/oracle_worker.rs`):
-   - `OracleExecutionWorker<S, R, Ev, C>` generic struct
-   - Subscribes to `sr.events.run` NATS subject for `RunStarted` events
-   - Validates suite hash against registry (TAMPER detection per C-OR-2)
-   - Materializes candidate workspace
-   - Executes oracle suite via `PodmanOracleRunner`
-   - Emits `OracleExecutionStarted` and `OracleExecutionCompleted` events
-   - Idempotency tracking via processed_runs map
-   - `OracleWorkerConfig` and `OracleWorkerError` types
+3. **Added detection functions** (`crates/sr-adapters/src/oracle_runner.rs`):
+   - `validate_environment()` — Detects ENV_MISMATCH before oracle execution
+   - `check_for_gaps()` — Detects GAP after oracle execution (missing required results)
+   - Integrated into `execute_suite()` flow
+   - 6 new integration tests covering all detection scenarios
 
-4. **Updated exports** (`crates/sr-adapters/src/lib.rs`):
-   - Exports `candidate_store` and `oracle_worker` modules
-   - Exports key types: `OracleExecutionWorker`, `OracleWorkerConfig`, etc.
+4. **Updated oracle worker** (`crates/sr-adapters/src/oracle_worker.rs`):
+   - `emit_integrity_violation()` method for event emission
+   - TAMPER detection now emits `IntegrityViolationDetected` event per C-OR-7
+
+5. **Added IntegrityViolation error variant** (`crates/sr-ports/src/lib.rs`):
+   - `OracleRunnerError::IntegrityViolation { condition }` for structured error handling
+
+6. **Updated canonical documents**:
+   - SR-SPEC Appendix A: Added `IntegrityViolationDetected` event with full payload schema
+   - SR-CHANGE: Added version 0.7 documenting the changes
 
 ### Test Results
 
 | Package | Result |
 |---------|--------|
-| sr-domain | ✅ 118 passed |
-| sr-adapters | ✅ 128 passed |
+| sr-domain | ✅ 128 passed |
+| sr-adapters | ✅ 135 passed (1 ignored) |
 | sr-api | ✅ 41 passed |
 
 ### Files Created/Modified
 
 | File | Action |
 |------|--------|
-| `crates/sr-domain/src/events.rs` | MODIFIED — Added oracle execution events |
-| `crates/sr-adapters/src/candidate_store.rs` | CREATED — Workspace materializer |
-| `crates/sr-adapters/src/oracle_worker.rs` | CREATED — Event-driven worker |
-| `crates/sr-adapters/src/lib.rs` | MODIFIED — Exports new modules |
-| `docs/platform/SR-SPEC.md` | MODIFIED — Added OracleExecution events to Appendix A |
-| `docs/planning/SR-PLAN-V8.md` | MODIFIED — Marked V8-2 acceptance criteria complete |
+| `crates/sr-domain/src/integrity.rs` | CREATED — Rich integrity condition types |
+| `crates/sr-domain/src/lib.rs` | MODIFIED — Export integrity module |
+| `crates/sr-domain/src/events.rs` | MODIFIED — Added IntegrityViolationDetected event |
+| `crates/sr-ports/src/lib.rs` | MODIFIED — Added IntegrityViolation error variant |
+| `crates/sr-adapters/src/oracle_runner.rs` | MODIFIED — Added detection functions + tests |
+| `crates/sr-adapters/src/oracle_worker.rs` | MODIFIED — Emit integrity violation events |
+| `docs/platform/SR-SPEC.md` | MODIFIED — Added IntegrityViolationDetected to Appendix A |
+| `docs/build-governance/SR-CHANGE.md` | MODIFIED — Added version 0.7 |
 
-### Git Commits
+### Contract Compliance
 
-| Commit | Description |
-|--------|-------------|
-| `b4ffac4` | V8-2: Complete Event-Driven Oracle Execution Worker |
-| `d5d863c` | docs: Add OracleExecution events to SR-SPEC Appendix A |
+| Contract | Requirement | Implementation |
+|----------|-------------|----------------|
+| C-OR-2 | Suite pinning, TAMPER detection | Enhanced with event emission |
+| C-OR-3 | Environment constraints | ENV_MISMATCH detection before execution |
+| C-OR-4 | Oracle gaps blocking | GAP detection after execution |
+| C-OR-5 | Flake is stop-the-line | Type defined; full detection deferred to V8-4 |
+| C-OR-7 | Integrity conditions halt and escalate | All conditions halt, emit events |
 
 ### Implementation Notes
 
-- Worker follows `ReferenceWorkerBridge` and `SemanticWorkerBridge` patterns
-- Uses generic type parameters (not dyn traits) for async compatibility
-- TAMPER detection validates suite hash before execution (C-OR-2)
-- Test mode skips event emission for unit testing
-- Workspace materialization is placeholder; full content fetching deferred
+- Detection functions are module-level for testability (not struct methods)
+- GAP detection considers Error status as "missing" (only Pass/Fail count as results)
+- Advisory oracles are excluded from GAP checks (only Required oracles)
+- FLAKE detection requires repeat-run infrastructure; type defined but detection deferred
+- All integrity conditions set `requires_escalation: true` per C-OR-7
 
 ---
 
-## Next Instance Prompt: Implement SR-PLAN-V8 Phase V8-3
+## Next Instance Prompt: Implement SR-PLAN-V8 Phase V8-4
 
 ### Assignment
 
-Implement **Phase V8-3: Oracle Integrity Condition Detection** — add detection and escalation for TAMPER/GAP/FLAKE/ENV_MISMATCH integrity conditions.
+Implement **Phase V8-4: Core Oracle Suite Container** — create the actual oracle container with build/unit/schema/lint oracles that produce evidence.
 
 ### Key Concept
 
-Per SR-CONTRACT §6, integrity conditions are fundamental to trust:
+V8-1 through V8-3 built the infrastructure (registry, worker, integrity checks). V8-4 creates the actual oracles that run inside containers:
 
-| Condition | Contract | Detection Point |
-|-----------|----------|-----------------|
-| `ORACLE_TAMPER` | C-OR-2 | Suite hash mismatch at run start |
-| `ORACLE_GAP` | C-OR-4 | Missing required oracle result |
-| `ORACLE_FLAKE` | C-OR-5 | Non-deterministic required oracle |
-| `ORACLE_ENV_MISMATCH` | C-OR-3 | Environment constraint violation |
-
-All integrity conditions MUST halt progression and escalate (C-OR-7).
+| Oracle | Purpose | Expected Output |
+|--------|---------|-----------------|
+| `oracle:build` | Verify code compiles | Build report JSON |
+| `oracle:unit` | Run unit tests | Test results JSON |
+| `oracle:schema` | Validate schemas | Schema validation report |
+| `oracle:lint` | Check code quality | Lint report JSON |
 
 ### Where to Look
 
 | Document/File | What You'll Find |
 |---------------|------------------|
-| `docs/planning/SR-PLAN-V8.md` §3 Phase V8-3 | Full specification: detection points, code examples |
-| `docs/platform/SR-CONTRACT.md` §6 | C-OR-1..7 oracle contract requirements |
-| `crates/sr-adapters/src/oracle_runner.rs` | Where to add integrity detection |
-| `crates/sr-adapters/src/oracle_worker.rs` | TAMPER detection already implemented here |
-| `crates/sr-adapters/src/oracle_suite.rs` | `IntegrityCondition` enum already exists |
+| `docs/planning/SR-PLAN-V8.md` §4 Phase V8-4 | Full specification, container structure |
+| `docs/platform/SR-CONTRACT.md` §6 | C-OR-1..7 oracle requirements |
+| `crates/sr-adapters/src/oracle_suite.rs` | `OracleSuiteDefinition`, `OracleDefinition` types |
+| `crates/sr-adapters/src/oracle_runner.rs` | `PodmanOracleRunner` that executes suites |
+| `crates/sr-adapters/src/evidence.rs` | Evidence manifest and artifact types |
 
-### What V8-3 Must Implement
+### What V8-4 Must Implement
 
-1. **Integrity condition types** (`sr-domain/src/integrity.rs`):
-   - `IntegrityCondition` enum with TAMPER/GAP/FLAKE/ENV_MISMATCH variants
-   - Detection metadata for each condition type
-   - Severity and escalation requirements
+1. **Oracle container** (Dockerfile + scripts):
+   - Base image with build tools (Rust toolchain)
+   - Entry point that runs oracles based on command
+   - Output capture to `/scratch/reports/`
+   - JSON-formatted evidence output
 
-2. **Detection in oracle runner**:
-   - ORACLE_GAP: Check all required oracles have results after execution
-   - ORACLE_FLAKE: Detect via determinism declaration or repeat runs
-   - ORACLE_ENV_MISMATCH: Validate environment fingerprint vs suite constraints
+2. **Oracle suite definition** (`suite:SR-SUITE-CORE`):
+   - Register in `OracleSuiteRegistry` with proper hash
+   - Define environment constraints (runsc, network:disabled, etc.)
+   - Specify expected outputs for each oracle
 
-3. **`IntegrityViolationDetected` event**:
-   - Emitted when any integrity condition is detected
-   - Includes condition details and escalation requirements
+3. **Evidence artifact schemas**:
+   - Build report schema
+   - Test results schema
+   - Lint report schema
 
-4. **API error response** for integrity violations
+4. **Integration test**:
+   - End-to-end test that runs suite against a test candidate
+   - Verifies evidence bundle is produced
 
 ### Current State
 
 - Branch: `solver-ralph-8`
 - V8-1: ✅ Complete (registry)
-- V8-2: ✅ Complete (event-driven worker with TAMPER detection)
-- V8-3: 🎯 Your assignment
-- Estimated effort: 1-2 sessions
+- V8-2: ✅ Complete (event-driven worker)
+- V8-3: ✅ Complete (integrity detection)
+- V8-4: 🎯 Your assignment
+- Estimated effort: 2-3 sessions
 
 ### Acceptance Criteria (from SR-PLAN-V8)
 
-- [ ] ORACLE_TAMPER detected when suite hash mismatches (already in V8-2)
-- [ ] ORACLE_GAP detected when required oracle missing from results
-- [ ] ORACLE_ENV_MISMATCH detected when environment constraints violated
-- [ ] Integrity violations halt run and return structured error
-- [ ] `IntegrityViolationDetected` event emitted
-- [ ] Integration test validates each integrity condition
-- [ ] `cargo test --package sr-api` passes
+- [ ] Container image builds successfully
+- [ ] `oracle:build` produces build report evidence
+- [ ] `oracle:unit` produces test results evidence
+- [ ] `oracle:lint` produces lint report evidence
+- [ ] Suite registered with correct hash
+- [ ] Environment constraints enforced (runsc, network:disabled)
+- [ ] Integration test passes end-to-end
+- [ ] `cargo test --package sr-adapters` passes
 
 ### On Completion
 
 1. Run tests: `cargo test --package sr-adapters && cargo test --package sr-api`
 2. Git commit
-3. Update SR-README: Mark V8-3 complete, write V8-4 prompt
+3. Update SR-README: Mark V8-4 complete, write V8-5 prompt
 

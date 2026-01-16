@@ -46,6 +46,11 @@ pub mod semantic_suite;
 pub mod semantic_worker;
 pub mod worker;
 
+pub use attachment_store::{AttachmentStoreConfig, AttachmentStoreError, MinioAttachmentStore};
+pub use candidate_store::{
+    CandidateWorkspace, CandidateWorkspaceConfig, SimpleCandidateWorkspace, TempWorkspace,
+    WorkspaceError,
+};
 pub use config::*;
 pub use event_manager::{
     BlockReason, BlockReasonType, CoarseStatus, DependencyGraphEdge, DependencyGraphNode,
@@ -71,7 +76,6 @@ pub use integrity::{
     IntegrityChecker, IntegrityCheckerConfig, IntegrityError, IntegrityViolation,
     ProfileVerificationResult, StopTrigger, StopTriggerType, TamperCheckResult, ViolationSeverity,
 };
-pub use attachment_store::{AttachmentStoreConfig, AttachmentStoreError, MinioAttachmentStore};
 pub use minio::{MinioConfig, MinioEvidenceStore};
 pub use nats::{
     create_envelope, serialize_envelope, streams, subjects, MessageEnvelope, NatsConfig,
@@ -90,6 +94,7 @@ pub use oracle_suite::{
     WaivableCondition, PROFILE_GOV_CORE, PROFILE_STRICT_CORE, PROFILE_STRICT_FULL, SUITE_CORE_ID,
     SUITE_FULL_ID, SUITE_GOV_ID,
 };
+pub use oracle_worker::{OracleExecutionWorker, OracleWorkerConfig, OracleWorkerError};
 pub use outbox::{OutboxEntry, OutboxError, OutboxPublisher, OutboxPublisherConfig, OutboxWriter};
 pub use postgres::PostgresEventStore;
 pub use postgres_oracle_registry::PostgresOracleSuiteRegistry;
@@ -118,8 +123,3 @@ pub use worker::{
     run_worker, ContentResolver, ReferenceWorkerBridge, WorkAction, WorkResult, WorkerConfig,
     WorkerError,
 };
-pub use candidate_store::{
-    CandidateWorkspace, CandidateWorkspaceConfig, SimpleCandidateWorkspace, TempWorkspace,
-    WorkspaceError,
-};
-pub use oracle_worker::{OracleExecutionWorker, OracleWorkerConfig, OracleWorkerError};

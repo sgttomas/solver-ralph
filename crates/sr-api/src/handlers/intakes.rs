@@ -285,10 +285,7 @@ pub async fn create_intake(
     };
 
     // Append event to store
-    state
-        .event_store
-        .append(&intake_id, 0, vec![event])
-        .await?;
+    state.event_store.append(&intake_id, 0, vec![event]).await?;
 
     // Process projection
     state
@@ -405,10 +402,7 @@ pub async fn list_intakes(
     }
 
     sql.push_str(" ORDER BY created_at DESC");
-    sql.push_str(&format!(
-        " LIMIT {} OFFSET {}",
-        query.page_size, offset
-    ));
+    sql.push_str(&format!(" LIMIT {} OFFSET {}", query.page_size, offset));
 
     // Execute count query
     let total: i64 = {
@@ -504,7 +498,10 @@ pub async fn update_intake(
                 })
             })
             .collect();
-        changes.insert("deliverables".to_string(), serde_json::json!(deliverables_json));
+        changes.insert(
+            "deliverables".to_string(),
+            serde_json::json!(deliverables_json),
+        );
     }
     if let Some(constraints) = &body.constraints {
         changes.insert("constraints".to_string(), serde_json::json!(constraints));
@@ -841,16 +838,14 @@ pub async fn fork_intake(
         correlation_id: None,
         causation_id: None,
         supersedes: vec![],
-        refs: vec![
-            sr_domain::TypedRef {
-                kind: "Intake".to_string(),
-                id: source_intake_id.clone(),
-                rel: "supersedes".to_string(),
-                meta: serde_json::json!({
-                    "content_hash": source.content_hash,
-                }),
-            },
-        ],
+        refs: vec![sr_domain::TypedRef {
+            kind: "Intake".to_string(),
+            id: source_intake_id.clone(),
+            rel: "supersedes".to_string(),
+            meta: serde_json::json!({
+                "content_hash": source.content_hash,
+            }),
+        }],
         payload: fork_payload,
         envelope_hash: compute_envelope_hash(&event_id),
     };

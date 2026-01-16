@@ -165,6 +165,14 @@ pub enum OracleRunnerError {
 
     #[error("Execution error: {message}")]
     ExecutionError { message: String },
+
+    /// Integrity violation detected per SR-CONTRACT §6 (V8-3)
+    ///
+    /// This error halts progression and requires escalation per C-OR-7.
+    #[error("Integrity violation: {}", condition.message())]
+    IntegrityViolation {
+        condition: sr_domain::integrity::IntegrityCondition,
+    },
 }
 
 /// Message bus port per SR-SPEC §4.6

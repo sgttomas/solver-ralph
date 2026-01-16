@@ -83,7 +83,11 @@ impl TemplateCategory {
     pub fn type_keys(&self) -> Vec<&'static str> {
         match self {
             TemplateCategory::WorkSurface => {
-                vec!["record.intake", "config.procedure_template", "domain.work_surface"]
+                vec![
+                    "record.intake",
+                    "config.procedure_template",
+                    "domain.work_surface",
+                ]
             }
             TemplateCategory::Oracle => {
                 vec!["oracle_suite", "oracle_definition", "semantic_oracle"]
@@ -1035,7 +1039,10 @@ impl TemplateRegistry {
         ]
     }
 
-    pub async fn list_templates(&self, category: Option<TemplateCategory>) -> Vec<TemplateInstance> {
+    pub async fn list_templates(
+        &self,
+        category: Option<TemplateCategory>,
+    ) -> Vec<TemplateInstance> {
         let templates = self.templates.read().await;
         match category {
             Some(cat) => templates
@@ -1073,7 +1080,12 @@ impl TemplateRegistry {
         template
     }
 
-    pub async fn update_template(&self, template_id: &str, name: Option<String>, content: Option<serde_json::Value>) -> Option<TemplateInstance> {
+    pub async fn update_template(
+        &self,
+        template_id: &str,
+        name: Option<String>,
+        content: Option<serde_json::Value>,
+    ) -> Option<TemplateInstance> {
         let mut templates = self.templates.write().await;
         let template = templates.iter_mut().find(|t| t.id == template_id)?;
 
@@ -1676,7 +1688,9 @@ mod tests {
 
         // Should have schemas for key template types
         assert!(schemas.iter().any(|s| s.type_key == "record.intake"));
-        assert!(schemas.iter().any(|s| s.type_key == "config.procedure_template"));
+        assert!(schemas
+            .iter()
+            .any(|s| s.type_key == "config.procedure_template"));
         assert!(schemas.iter().any(|s| s.type_key == "record.waiver"));
     }
 
@@ -1706,7 +1720,9 @@ mod tests {
         assert!(templates.iter().any(|t| t.id == "tmpl_starter_intake"));
         assert!(templates.iter().any(|t| t.id == "tmpl_starter_procedure"));
         assert!(templates.iter().any(|t| t.id == "tmpl_starter_waiver"));
-        assert!(templates.iter().any(|t| t.id == "tmpl_starter_oracle_suite"));
+        assert!(templates
+            .iter()
+            .any(|t| t.id == "tmpl_starter_oracle_suite"));
     }
 
     #[tokio::test]
@@ -1714,15 +1730,21 @@ mod tests {
         let registry = TemplateRegistry::new();
 
         // Work Surface should have 3 starter templates
-        let ws_templates = registry.list_templates(Some(TemplateCategory::WorkSurface)).await;
+        let ws_templates = registry
+            .list_templates(Some(TemplateCategory::WorkSurface))
+            .await;
         assert_eq!(ws_templates.len(), 3);
 
         // Execution should have 2 starter templates
-        let exec_templates = registry.list_templates(Some(TemplateCategory::Execution)).await;
+        let exec_templates = registry
+            .list_templates(Some(TemplateCategory::Execution))
+            .await;
         assert_eq!(exec_templates.len(), 2);
 
         // Exceptions should have 3 starter templates
-        let exc_templates = registry.list_templates(Some(TemplateCategory::Exceptions)).await;
+        let exc_templates = registry
+            .list_templates(Some(TemplateCategory::Exceptions))
+            .await;
         assert_eq!(exc_templates.len(), 3);
     }
 

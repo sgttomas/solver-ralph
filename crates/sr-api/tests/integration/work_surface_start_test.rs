@@ -322,7 +322,10 @@ async fn test_start_happy_path() {
     println!("  Work Surface ID: {}", work_surface_id);
 
     // Action: Call /start
-    println!("[Action] Calling POST /work-surfaces/{}/start...", work_surface_id);
+    println!(
+        "[Action] Calling POST /work-surfaces/{}/start...",
+        work_surface_id
+    );
     let resp = client
         .http
         .post(&client.url(&format!("/work-surfaces/{}/start", work_surface_id)))
@@ -349,9 +352,18 @@ async fn test_start_happy_path() {
     println!("    already_started: {}", start_resp.already_started);
 
     assert_eq!(start_resp.work_surface_id, work_surface_id);
-    assert!(!start_resp.loop_id.is_empty(), "loop_id should not be empty");
-    assert!(!start_resp.iteration_id.is_empty(), "iteration_id should not be empty");
-    assert!(!start_resp.already_started, "already_started should be false on first call");
+    assert!(
+        !start_resp.loop_id.is_empty(),
+        "loop_id should not be empty"
+    );
+    assert!(
+        !start_resp.iteration_id.is_empty(),
+        "iteration_id should not be empty"
+    );
+    assert!(
+        !start_resp.already_started,
+        "already_started should be false on first call"
+    );
 
     println!("=== PASS: start_happy_path ===\n");
 }
@@ -389,7 +401,10 @@ async fn test_start_idempotent() {
     assert!(resp1.status().is_success());
     let first: StartWorkResponse = resp1.json().await.expect("Failed to parse first response");
     println!("  First call: already_started={}", first.already_started);
-    assert!(!first.already_started, "First call should have already_started=false");
+    assert!(
+        !first.already_started,
+        "First call should have already_started=false"
+    );
 
     // Second call
     println!("[Action] Second call to /start...");
@@ -407,9 +422,15 @@ async fn test_start_idempotent() {
     println!("  Second call: already_started={}", second.already_started);
 
     // Assert idempotency
-    assert!(second.already_started, "Second call should have already_started=true");
+    assert!(
+        second.already_started,
+        "Second call should have already_started=true"
+    );
     assert_eq!(first.loop_id, second.loop_id, "Loop ID should be the same");
-    assert_eq!(first.iteration_id, second.iteration_id, "Iteration ID should be the same");
+    assert_eq!(
+        first.iteration_id, second.iteration_id,
+        "Iteration ID should be the same"
+    );
 
     println!("=== PASS: start_idempotent ===\n");
 }
@@ -565,11 +586,17 @@ async fn test_start_activates_created_loop() {
     );
 
     let start_resp: StartWorkResponse = resp.json().await.expect("Failed to parse start response");
-    println!("  Response: loop_id={}, iteration_id={}", start_resp.loop_id, start_resp.iteration_id);
+    println!(
+        "  Response: loop_id={}, iteration_id={}",
+        start_resp.loop_id, start_resp.iteration_id
+    );
 
     // Assert: Same Loop was used (activated) and Iteration was created
     assert_eq!(start_resp.loop_id, loop_id, "Should use the existing Loop");
-    assert!(!start_resp.iteration_id.is_empty(), "Should create an Iteration");
+    assert!(
+        !start_resp.iteration_id.is_empty(),
+        "Should create an Iteration"
+    );
 
     // Verify Loop is now ACTIVE
     let get_loop_after: LoopResponse = client
@@ -636,10 +663,14 @@ async fn test_start_human_on_loop_created() {
         .await
         .expect("Failed to parse loop");
 
-    println!("  Loop created_by: kind={}, id={}", loop_resp.created_by.kind, loop_resp.created_by.id);
+    println!(
+        "  Loop created_by: kind={}, id={}",
+        loop_resp.created_by.kind, loop_resp.created_by.id
+    );
 
     assert_eq!(
-        loop_resp.created_by.kind.to_uppercase(), "HUMAN",
+        loop_resp.created_by.kind.to_uppercase(),
+        "HUMAN",
         "LoopCreated should have HUMAN actor, got {}",
         loop_resp.created_by.kind
     );
@@ -691,7 +722,10 @@ async fn test_start_system_on_iteration() {
         resp.text().await.unwrap_or_default()
     );
     let start_resp: StartWorkResponse = resp.json().await.expect("Failed to parse");
-    println!("  Iteration created via /start: {}", start_resp.iteration_id);
+    println!(
+        "  Iteration created via /start: {}",
+        start_resp.iteration_id
+    );
 
     // Action 2: HUMAN directly calls POST /iterations - should fail with 403
     println!("[Action 2] HUMAN directly calls POST /iterations (should fail with 403)...");

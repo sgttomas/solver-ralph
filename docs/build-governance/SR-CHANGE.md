@@ -67,6 +67,16 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
 - **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
 
+### 0.7  (2026-01-16)
+
+- **SR-SPEC Appendix A:** Added `IntegrityViolationDetected` event to canonical event registry with:
+  - Event type, stream kind (`RUN`), stream id format (`run:{run_id}`)
+  - Payload schema (v1) including `condition` object with `condition_type` discriminator
+  - Documentation of four condition types: `ORACLE_TAMPER` (C-OR-2), `ORACLE_ENV_MISMATCH` (C-OR-3), `ORACLE_GAP` (C-OR-4), `ORACLE_FLAKE` (C-OR-5)
+  - Note clarifying C-OR-7 escalation requirements
+- **Rationale:** Documents SR-PLAN-V8 Phase V8-3 implementation of Oracle Integrity Condition Detection. The `IntegrityViolationDetected` event is emitted per C-OR-7 when any integrity condition is detected during oracle execution. All integrity conditions are blocking and require escalation.
+- **Classification:** G:MINOR (additive; backward-compatible; existing baselines remain interpretable; strengthens integrity enforcement without changing verification semantics).
+
 ### 0.6  (2026-01-16)
 
 - **SR-SPEC §1.5.2:** Added `ATTACHMENT` to StreamKind enum for human-uploaded supporting files.

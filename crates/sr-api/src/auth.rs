@@ -130,10 +130,17 @@ impl OidcProvider {
         if self.config.skip_validation {
             // In test mode, create a mock identity based on token prefix
             // Use "system-" prefix for SYSTEM actors, "agent-" for AGENT, else HUMAN
-            let (actor_kind, actor_id) = if token.starts_with("system-") || token.contains("system") {
-                (ActorKind::System, format!("system-{}", &token[..8.min(token.len())]))
+            let (actor_kind, actor_id) = if token.starts_with("system-") || token.contains("system")
+            {
+                (
+                    ActorKind::System,
+                    format!("system-{}", &token[..8.min(token.len())]),
+                )
             } else if token.starts_with("agent-") || token.contains("agent") {
-                (ActorKind::Agent, format!("agent-{}", &token[..8.min(token.len())]))
+                (
+                    ActorKind::Agent,
+                    format!("agent-{}", &token[..8.min(token.len())]),
+                )
             } else {
                 (ActorKind::Human, "test-user".to_string())
             };

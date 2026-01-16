@@ -26,11 +26,11 @@ impl PostgresOracleSuiteRegistry {
 
     /// Connect to PostgreSQL and create a new oracle suite registry
     pub async fn connect(database_url: &str) -> Result<Self, OracleSuiteRegistryError> {
-        let pool = PgPool::connect(database_url)
-            .await
-            .map_err(|e| OracleSuiteRegistryError::ConnectionError {
+        let pool = PgPool::connect(database_url).await.map_err(|e| {
+            OracleSuiteRegistryError::ConnectionError {
                 message: e.to_string(),
-            })?;
+            }
+        })?;
         Ok(Self { pool })
     }
 
