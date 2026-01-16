@@ -2,8 +2,10 @@
 
 **Status:** Draft
 **Created:** 2026-01-15
+**Revised:** 2026-01-16 (Phase 5a coherence review + systematic evaluation incorporated)
 **Supersedes:** N/A (new plan)
 **Implements:** SR-CHARTER §Immediate Objective (Milestone 1: MVP)
+**Reviewed:** SR-PLAN-V5a-COHERENCE-REVIEW.md, SR-PLAN-V5-SYSTEMATIC-EVALUATION.md
 
 ---
 
@@ -132,7 +134,7 @@ Add the ability to complete stages with evidence from the WorkSurfaceDetail page
 
 **New Component: StageCompletionForm**
 
-When a stage is "entered" (current), display a "Complete Stage" button that expands to show:
+When a stage is "entered" (current) and Work Surface status is "active", display a "Complete Stage" button that expands to show:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -151,6 +153,7 @@ When a stage is "entered" (current), display a "Complete Stage" button that expa
 │ ┌─────────────────────────────────────────────────────┐ │
 │ │ Oracle: semantic:coherence  Status: PASS  Ref: ...  │ │
 │ └─────────────────────────────────────────────────────┘ │
+│ (Pre-populated from current_oracle_suites; editable)    │
 │                                                         │
 │ Waiver References (if Pass with Waivers)                │
 │ ┌─────────────────────────────────────────────────────┐ │
@@ -161,6 +164,12 @@ When a stage is "entered" (current), display a "Complete Stage" button that expa
 └─────────────────────────────────────────────────────────┘
 ```
 
+**Form Visibility Condition:**
+```typescript
+const currentStageRecord = stages.find(s => s.status === 'entered');
+const canComplete = workSurface.status === 'active' && currentStageRecord !== undefined;
+```
+
 ### 3.3 API Integration
 
 **Endpoint:** `POST /api/v1/work-surfaces/:work_surface_id/stages/:stage_id/complete`
@@ -168,9 +177,9 @@ When a stage is "entered" (current), display a "Complete Stage" button that expa
 **Request:**
 ```typescript
 interface CompleteStageRequest {
-  evidence_bundle_ref: string;
+  evidence_bundle_ref: string;  // Content hash of domain.evidence_bundle (artifact_type: evidence.gate_packet)
   gate_result: {
-    status: 'PASS' | 'PASS_WITH_WAIVERS' | 'FAIL';
+    status: 'PASS' | 'PASS_WITH_WAIVERS' | 'FAIL';  // Maps to: Verified (Strict), Verified-with-Exceptions, Failed
     oracle_results: Array<{
       oracle_id: string;
       status: string;
@@ -180,6 +189,13 @@ interface CompleteStageRequest {
   };
 }
 ```
+
+**Terminology Mapping (SR-CONTRACT alignment):**
+| API Status | SR-CONTRACT Term | Meaning |
+|------------|------------------|---------|
+| `PASS` | Verified (Strict) | All required oracles PASS |
+| `PASS_WITH_WAIVERS` | Verified-with-Exceptions | At least one FAIL covered by binding Gate Waiver |
+| `FAIL` | Failed | Stage does not advance; evidence is recorded |
 
 **Response:**
 ```typescript
@@ -198,28 +214,108 @@ To make evidence selection user-friendly, add a dropdown that fetches recent evi
 
 **Endpoint:** `GET /api/v1/evidence?limit=20` (existing)
 
-Display as:
+**Response schema (EvidenceSummary):**
+```typescript
+interface EvidenceSummary {
+  content_hash: string;      // The ref to use in CompleteStageRequest
+  bundle_id: string;
+  run_id: string;
+  candidate_id: string;
+  oracle_suite_id: string;
+  verdict: string;           // PASS, PASS_WITH_FINDINGS, FAIL
+  run_completed_at: string;  // ISO timestamp
+  artifact_count: number;
+}
 ```
-sha256:abc123... (uploaded 2 hours ago, verdict: PASS)
-sha256:def456... (uploaded yesterday, verdict: PASS_WITH_FINDINGS)
+
+**Display format:**
+```
+sha256:abc123... (run completed 2 hours ago, verdict: PASS)
+sha256:def456... (run completed yesterday, verdict: PASS_WITH_FINDINGS)
 [Enter hash manually...]
 ```
 
-### 3.5 Deliverables
+**MVP Limitation:** The evidence list shows all recent evidence bundles regardless of Work Surface association. Users must select the appropriate bundle for their stage. Future enhancement: add `work_surface_id` filter to the evidence list endpoint.
+
+### 3.5 Form State Management
+
+**StageCompletionForm internal state:**
+
+```typescript
+interface StageCompletionFormState {
+  evidenceBundleRef: string;
+  gateResultStatus: 'PASS' | 'PASS_WITH_WAIVERS' | 'FAIL' | null;
+  oracleResults: Array<{
+    oracle_id: string;
+    status: string;
+    evidence_ref: string;
+  }>;
+  waiverRefs: string[];
+  isSubmitting: boolean;
+  error: string | null;
+}
+```
+
+**Initial state derivation:**
+- `oracleResults` should be pre-populated from `workSurface.current_oracle_suites` with empty status fields:
+  ```typescript
+  const initialOracleResults = workSurface.current_oracle_suites.map(suite => ({
+    oracle_id: suite.suite_id,
+    status: '',
+    evidence_ref: '',
+  }));
+  ```
+
+### 3.6 Client-Side Validation Rules
+
+Before submission, validate:
+
+1. **Evidence Bundle Ref** — Must not be empty
+2. **Gate Result Status** — Must be selected (PASS, PASS_WITH_WAIVERS, or FAIL)
+3. **Waiver Refs** — If status is `PASS_WITH_WAIVERS`, at least one waiver ref required
+4. **FAIL Warning** — If status is `FAIL`, show warning: "Stage will not advance with FAIL status. Consider recording a waiver if appropriate."
+
+**MVP Note:** The backend does NOT validate:
+- That the evidence bundle exists in the evidence store
+- That waiver refs exist in the approvals/exceptions store
+- That oracle results match the required suites
+
+These validations are deferred to future work. The current implementation trusts user input.
+
+### 3.7 Success/Error Behavior
+
+**On successful submission:**
+1. Show success toast: "Stage [stage_name] completed"
+2. If `is_terminal === true`: Show completion message: "Work Surface completed!"
+3. If `is_terminal === false`: Show advancement message: "Advancing to stage: [next_stage_id]"
+4. Refresh `WorkSurfaceDetail` data to show updated stage progress
+5. Collapse/hide the completion form
+
+**On error:**
+1. Display error message from API response
+2. Keep form open with entered values preserved
+3. For 400 errors: "Stage ID mismatch" — refresh page (stage may have changed)
+4. For 409 errors: "Invalid state transition" — refresh page
+5. For 412 errors: "Approval required" — show link to Approvals page (handled in Phase 5c)
+
+### 3.8 Deliverables
 
 | File | Action | Description |
 |------|--------|-------------|
-| `ui/src/pages/WorkSurfaceDetail.tsx` | EDIT | Add StageCompletionForm component |
+| `ui/src/pages/WorkSurfaceDetail.tsx` | EDIT | Add StageCompletionForm integration |
 | `ui/src/components/StageCompletionForm.tsx` | CREATE | Reusable stage completion form |
-| `ui/src/components/EvidenceBundleSelector.tsx` | CREATE | Evidence bundle picker |
+| `ui/src/components/EvidenceBundleSelector.tsx` | CREATE | Evidence bundle picker with dropdown |
 
-### 3.6 Acceptance Criteria
+### 3.9 Acceptance Criteria
 
-- [ ] "Complete Stage" button visible for current (entered) stage only
-- [ ] Form validates required fields before submission
+- [ ] "Complete Stage" button visible only when: Work Surface status is "active" AND current stage status is "entered"
+- [ ] Form pre-populates oracle IDs from `current_oracle_suites`
+- [ ] Form validates required fields before submission (evidence ref, gate status)
+- [ ] If `PASS_WITH_WAIVERS` selected, waiver refs field is required
 - [ ] Successful completion refreshes page showing next stage as current
-- [ ] Terminal stage completion shows Work Surface as "completed"
-- [ ] Error states handled (invalid evidence, already completed, etc.)
+- [ ] Terminal stage completion shows Work Surface as "completed" with success message
+- [ ] Error states handled with appropriate messages (invalid evidence, already completed, etc.)
+- [ ] Form state preserved on error for retry
 
 ---
 
@@ -378,21 +474,26 @@ Integrate the approval workflow with stage progression so that stages requiring 
 Add to stage schema:
 ```yaml
 stages:
-  - id: "stage:frame"
+  - id: "stage:FRAME"           # UPPERCASE per SR-TYPES convention
     name: "Frame"
     oracle_suite: "suite:frame-check"
     requires_approval: false
 
-  - id: "stage:eval"
+  - id: "stage:EVAL"            # UPPERCASE per SR-TYPES convention
     name: "Evaluation"
     oracle_suite: "suite:eval-check"
-    requires_approval: true   # <-- Trust boundary
+    requires_approval: true     # Trust boundary (portal required)
 
-  - id: "stage:final"
+  - id: "stage:FINAL"           # UPPERCASE per SR-TYPES convention
     name: "Final"
     oracle_suite: "suite:final-check"
-    requires_approval: true   # <-- Trust boundary
+    requires_approval: true     # Trust boundary (portal required)
 ```
+
+**Portal ID Naming Convention:**
+Portal IDs for stage gates follow the pattern: `portal:STAGE_COMPLETION:{stage_id}`
+- Example: `portal:STAGE_COMPLETION:stage:FINAL`
+- This aligns with SR-CONTRACT §C-TB-3 portal semantics
 
 ### 5.4 Backend: Approval Check on Stage Completion
 
@@ -409,13 +510,16 @@ async fn complete_stage(
     // NEW: Check if stage requires approval
     let stage_def = procedure_template.get_stage(&stage_id)?;
     if stage_def.requires_approval {
+        // Portal ID follows convention: portal:STAGE_COMPLETION:{stage_id}
+        let portal_id = format!("portal:STAGE_COMPLETION:{}", stage_id);
+
         // Query for approval on this stage completion
         let approval = sqlx::query!(
             r#"SELECT approval_id FROM proj.approvals
                WHERE portal_id = $1
                AND subject_refs @> $2
                AND decision = 'APPROVED'"#,
-            format!("portal:stage-gate:{}", stage_id),
+            portal_id,
             json!([{"kind": "WorkSurface", "id": work_surface_id}])
         )
         .fetch_optional(&*pool)
@@ -425,8 +529,8 @@ async fn complete_stage(
             return Err(AppError::PreconditionFailed {
                 code: "APPROVAL_REQUIRED".into(),
                 message: format!(
-                    "Stage '{}' requires approval before completion. Record approval at portal 'portal:stage-gate:{}'.",
-                    stage_id, stage_id
+                    "Stage '{}' requires approval before completion. Record approval at portal '{}'.",
+                    stage_id, portal_id
                 ),
             });
         }
@@ -455,11 +559,11 @@ For stages that require approval, show approval status:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Stage: EVALUATION (requires approval)                   │
+│ Stage: EVAL (requires approval)                         │
 │ Status: Entered                                         │
 │                                                         │
 │ Approval Status: ⚠️ Not yet approved                    │
-│ Portal: portal:stage-gate:stage:eval                    │
+│ Portal: portal:STAGE_COMPLETION:stage:EVAL              │
 │                                                         │
 │ [Record Approval]  [Complete Stage (requires approval)] │
 └─────────────────────────────────────────────────────────┘
@@ -556,7 +660,7 @@ Verify the complete Semantic Ralph Loop workflow functions end-to-end.
 6. **Approval Gate**
    - Attempt to complete FINAL stage
    - Verify 412 APPROVAL_REQUIRED error
-   - Record approval at `portal:stage-gate:stage:final`
+   - Record approval at `portal:STAGE_COMPLETION:stage:FINAL`
    - Complete FINAL stage successfully
 
 7. **Verify Completion**
@@ -579,7 +683,7 @@ async fn test_semantic_ralph_loop_end_to_end() {
     // 2. Bind work surface
     let ws = create_work_surface(&client, &intake.intake_id, "proc:research-memo").await;
     assert_eq!(ws.status, "active");
-    assert_eq!(ws.current_stage_id, "stage:frame");
+    assert_eq!(ws.current_stage_id, "stage:FRAME");  // UPPERCASE per SR-TYPES
 
     // 3. Create loop bound to work unit
     let loop_result = create_loop(&client, "wu:test", "Test goal").await;
@@ -590,19 +694,19 @@ async fn test_semantic_ralph_loop_end_to_end() {
     assert!(iteration.refs.iter().any(|r| r.kind == "Intake"));
     assert!(iteration.refs.iter().any(|r| r.kind == "ProcedureTemplate"));
 
-    // 5. Complete non-approval stages
-    complete_stage(&client, &ws.work_surface_id, "stage:frame", &evidence_ref).await?;
-    complete_stage(&client, &ws.work_surface_id, "stage:draft", &evidence_ref).await?;
+    // 5. Complete non-approval stages (UPPERCASE stage IDs)
+    complete_stage(&client, &ws.work_surface_id, "stage:FRAME", &evidence_ref).await?;
+    complete_stage(&client, &ws.work_surface_id, "stage:DRAFT", &evidence_ref).await?;
 
     // 6. Attempt completion of approval-required stage (should fail)
-    let result = complete_stage(&client, &ws.work_surface_id, "stage:final", &evidence_ref).await;
+    let result = complete_stage(&client, &ws.work_surface_id, "stage:FINAL", &evidence_ref).await;
     assert!(matches!(result, Err(e) if e.code == "APPROVAL_REQUIRED"));
 
-    // 7. Record approval
-    record_approval(&client, "portal:stage-gate:stage:final", &ws.work_surface_id).await;
+    // 7. Record approval (portal follows STAGE_COMPLETION convention)
+    record_approval(&client, "portal:STAGE_COMPLETION:stage:FINAL", &ws.work_surface_id).await;
 
     // 8. Complete final stage (should succeed)
-    let completion = complete_stage(&client, &ws.work_surface_id, "stage:final", &evidence_ref).await?;
+    let completion = complete_stage(&client, &ws.work_surface_id, "stage:FINAL", &evidence_ref).await?;
     assert!(completion.is_terminal);
     assert_eq!(completion.work_surface_status, "completed");
 
@@ -641,10 +745,10 @@ async fn test_semantic_ralph_loop_end_to_end() {
 **Effort:** Medium
 **Dependencies:** None
 
-1. Create `StageCompletionForm.tsx` component
-2. Create `EvidenceBundleSelector.tsx` component
-3. Integrate into `WorkSurfaceDetail.tsx`
-4. Test stage completion flow
+1. Create `EvidenceBundleSelector.tsx` component (§3.4)
+2. Create `StageCompletionForm.tsx` component with state management (§3.5) and validation (§3.6)
+3. Integrate into `WorkSurfaceDetail.tsx` with success/error handling (§3.7)
+4. Test stage completion flow against acceptance criteria (§3.9)
 
 ### Phase 5b: Loop-Work Surface Binding (Integration)
 **Priority:** P0 — Required for iteration context
@@ -785,6 +889,68 @@ ADD COLUMN work_surface_id TEXT REFERENCES proj.work_surfaces(work_surface_id);
 |----------|-----------|
 | SR-CHARTER §Immediate Objective | MVP definition |
 | SR-CONTRACT C-TB-3 | Portal/approval requirements |
-| SR-PROCEDURE-KIT | Stage definitions |
-| SR-PLAN-V4 | Work Surface implementation |
+| SR-CONTRACT C-EVID-* | Evidence bundle requirements |
+| SR-CONTRACT C-VER-3 | Verified-with-Exceptions waiver linkage |
+| SR-PROCEDURE-KIT | Stage definitions, `requires_approval` field |
+| SR-TYPES §4.3, §7 | Type registry, domain types, UPPERCASE conventions |
 | SR-SPEC §3.2.1.1 | Iteration context requirements |
+| SR-SEMANTIC-ORACLE-SPEC | Oracle interface semantics |
+| SR-PLAN-V4 | Work Surface implementation |
+| SR-PLAN-V5a-COHERENCE-REVIEW | Phase 5a coherence review |
+| SR-PLAN-V5-SYSTEMATIC-EVALUATION | Ontology/epistemology/semantics evaluation |
+
+---
+
+## Appendix E: MVP Limitations and Future Enhancements
+
+The following limitations are accepted for MVP and documented for future work:
+
+### E.1 Evidence Bundle Validation (Phase 5a)
+
+| Limitation | SR-CONTRACT Reference | Future Enhancement |
+|------------|----------------------|-------------------|
+| Evidence bundle existence not validated | C-EVID-6 | Backend should verify evidence is retrievable before accepting stage completion |
+| Evidence not filtered by Work Surface | — | Add `work_surface_id` query param to `GET /api/v1/evidence` |
+| Evidence-stage relationship not enforced | C-EVID-4 | Validate evidence refs match procedure/stage context |
+
+### E.2 Waiver Validation (Phase 5a)
+
+| Limitation | SR-CONTRACT Reference | Future Enhancement |
+|------------|----------------------|-------------------|
+| Waiver refs not validated to exist | C-EXC-4 | Backend should verify waiver records exist |
+| Waiver-to-failure linkage not enforced | C-VER-3 | Validate waivers cover specific failed oracles |
+
+### E.3 Oracle Results (Phase 5a)
+
+| Limitation | Future Enhancement |
+|------------|-------------------|
+| Oracle results are user-entered, not from actual oracle runs | Auto-populate from most recent oracle run for this stage |
+| Oracle suite hash not validated against current stage | Validate suite hashes match `current_oracle_suites` |
+
+### E.4 Evidence-Stage Binding (Semantic Issue S1)
+
+| Limitation | SR-CONTRACT Reference | Future Enhancement |
+|------------|----------------------|-------------------|
+| Evidence bundles are not explicitly bound to a stage | C-EVID-4 | Add optional `stage_id` field to evidence bundle manifest for traceability |
+| No mechanism to query "evidence for stage X" | — | Add `stage_id` query param to `GET /api/v1/evidence` |
+
+**MVP Behavior:** Evidence bundles are associated with stage completion via the `StageCompleted` event payload (`evidence_bundle_ref`). This provides audit traceability but not explicit binding at creation time.
+
+### E.5 FAIL Behavior Clarification (Semantic Issue S2)
+
+When `gate_result.status = 'FAIL'`:
+1. Evidence is **recorded** in the `StageCompleted` event (with `outcome: FAIL`)
+2. The stage **does NOT advance** — `current_stage_id` remains unchanged
+3. Work Surface status remains `active`
+4. User can submit again with new evidence or waivers
+
+**Rationale:** This allows recording failed attempts for audit purposes while preventing invalid state transitions. The stage acts as a checkpoint that must be passed before proceeding.
+
+**Future Enhancement:** Consider a separate `StageAttempted` event type for failed attempts to distinguish from successful completions.
+
+---
+
+These limitations are appropriate for MVP because:
+1. The primary goal is demonstrating the end-to-end workflow
+2. Trust is placed in human operators (consistent with SR-CONTRACT §2.2 actor model)
+3. Full validation can be added incrementally without breaking the core flow
