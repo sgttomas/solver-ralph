@@ -85,135 +85,156 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## SR-PLAN-V8 Implementation Status
+## SR-PLAN-V8 Implementation Status (AMENDED 2026-01-16)
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| V8-1: Oracle Suite Registry | ⏳ Pending | PostgreSQL storage, suite management API |
-| V8-2: API Integration | ⏳ Pending | Wire PodmanOracleRunner to `/runs` endpoint |
-| V8-3: Integrity Checks | ⏳ Pending | TAMPER/GAP/FLAKE/ENV_MISMATCH detection |
-| V8-4: Core Oracle Suite | ⏳ Pending | Build/unit/schema/lint oracles + container |
-| V8-5: Semantic Oracles | ⏳ Pending | sr.semantic_eval.v1, residual/coverage artifacts |
+| Phase | Status | Description | Amendment |
+|-------|--------|-------------|-----------|
+| V8-1: Oracle Suite Registry | ⏳ Pending | Extract port trait, add PostgreSQL persistence | A-4 |
+| V8-2: Event-Driven Worker | ⏳ Pending | Worker subscribes to `RunStarted` events | A-1 |
+| V8-3: Integrity Checks | ⏳ Pending | TAMPER/GAP/FLAKE/ENV_MISMATCH detection | — |
+| V8-4: Core Oracle Suite | ⏳ Pending | Build/unit/schema/lint oracles + container | — |
+| V8-5: Semantic Oracles | ⏳ Pending | Use existing types, focus on container packaging | A-3 |
 
-**SR-PLAN-V8 is now under review prior to implementation.**
+**SR-PLAN-V8 has been amended following coherence assessment. Ready for philosophical review.**
+
+### Amendments Applied
+
+| ID | Issue | Resolution |
+|----|-------|------------|
+| A-1 | V8-2 assumed direct API call | Use Event-Driven Worker pattern |
+| A-2 | Type relationship unclear | `OracleSuiteDefinition` = config, `OracleSuiteRecord` = stored entity |
+| A-3 | Semantic types already exist | Use `sr-domain/src/semantic_oracle.rs` |
+| A-4 | Registry partially implemented | Extract port from existing `OracleSuiteRegistry` |
+
+**Revised Effort:** 7-10 sessions (was 7-9)
 
 ---
 
-## Previous Session Summary (V8 Authoring)
+## Previous Session Summary (V8 Coherence Assessment)
 
-**Session Goal:** Author SR-PLAN-V8 — Oracle Runner & Semantic Suite Foundation
+**Session Goal:** Review SR-PLAN-V8 for coherence with existing codebase
 
 ### What Was Accomplished
 
-1. **Read and analyzed canonical documents:**
-   - SR-README (assignment context)
-   - SR-PLAN-GAP-ANALYSIS (deliverable status, D-24/D-25/D-27/D-39 gaps)
-   - SR-SEMANTIC-ORACLE-SPEC (oracle interface requirements, sr.semantic_eval.v1 schema)
-   - SR-CONTRACT §6 (C-OR-1..7 oracle integrity), §7 (C-EVID-1..6 evidence)
-   - Existing `oracle_runner.rs` (~1027 lines of partial implementation)
+1. **Performed codebase coherence review:**
+   - Verified existing `OracleRunner` trait and `PodmanOracleRunner` implementation
+   - Discovered `POST /runs` uses event sourcing (creates `RunStarted` event, does NOT call oracle runner)
+   - Found existing `OracleSuiteRegistry` struct with 6 working API endpoints
+   - Found comprehensive semantic types in `sr-domain/src/semantic_oracle.rs` (~1024 lines)
 
-2. **Analyzed existing infrastructure:**
-   - `PodmanOracleRunner<E>` already implemented with Podman command building
-   - Evidence manifest builder exists
-   - Test mode for mock execution exists
-   - Gaps identified: suite registry (in-memory only), candidate path (placeholder), integrity detection (missing)
+2. **Identified 4 required amendments:**
 
-3. **Authored SR-PLAN-V8 with 5 phases:**
+   | Amendment | Finding |
+   |-----------|---------|
+   | A-1 | V8-2 must use Event-Driven Worker pattern (not direct API call) |
+   | A-2 | Clarify `OracleSuiteDefinition` vs `OracleSuiteRecord` relationship |
+   | A-3 | V8-5 should use existing semantic types, not create new ones |
+   | A-4 | V8-1 should extract port trait from existing registry implementation |
 
-   | Phase | Focus | Deliverables |
-   |-------|-------|--------------|
-   | V8-1 | Oracle Suite Registry | DB schema, API endpoints, port trait |
-   | V8-2 | API Integration | Wire runner to `/runs`, candidate workspace |
-   | V8-3 | Integrity Checks | TAMPER/GAP/FLAKE/ENV_MISMATCH detection |
-   | V8-4 | Core Oracle Suite | Container image, 4 oracles, suite.json |
-   | V8-5 | Semantic Oracles | sr.semantic_eval.v1, residual/coverage/violations |
+3. **Revised SR-PLAN-V8:**
+   - Added Amendments Summary section
+   - Rewrote V8-2 for event-driven architecture
+   - Updated V8-5 to reference existing types
+   - Revised effort estimates (7-10 sessions)
+   - Added critical files appendix
 
-4. **Included contract compliance matrix:**
-   - C-OR-1 through C-OR-7 mapped to implementation phases
-   - C-EVID-1, C-EVID-2 addressed via existing infrastructure
-   - C-VER-1 satisfied via semantic oracle evidence
+### Verdict
 
-### Files Created
+**COHERENT WITH AMENDMENTS** — Plan is sound but required 4 specific corrections before implementation.
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| `docs/planning/SR-PLAN-V8.md` | ~700 | Oracle Runner & Semantic Suite Foundation plan |
+### Files Modified
 
-### Key Architectural Decisions
+| File | Changes |
+|------|---------|
+| `docs/planning/SR-PLAN-V8.md` | Added amendments, rewrote V8-2, updated V8-5, revised estimates |
 
-| Decision | Rationale |
-|----------|-----------|
-| Registry before API | C-OR-2 requires suite pinning; need persistent storage first |
-| Integrity as separate phase | C-OR-7 requires all conditions halt and escalate; deserves focused implementation |
-| Core oracles before semantic | Validate packaging/execution before adding semantic complexity |
-| 5 phases (~7-9 sessions total) | Each phase completable in 1-2 sessions; clear acceptance criteria |
+### Estimated Effort (Revised)
 
-### Estimated Effort
-
-| Phase | Sessions |
-|-------|----------|
-| V8-1 | 1 |
-| V8-2 | 1-2 |
-| V8-3 | 1-2 |
-| V8-4 | 2 |
-| V8-5 | 2 |
-| **Total** | **7-9** |
+| Phase | Sessions | Change |
+|-------|----------|--------|
+| V8-1 | 1 | — |
+| V8-2 | 2-3 | +1 (event-driven complexity) |
+| V8-3 | 1-2 | — |
+| V8-4 | 2 | — |
+| V8-5 | 1-2 | -1 (types exist) |
+| **Total** | **7-10** | +1 |
 
 ---
 
-## Next Instance Prompt: Coherence Review of SR-PLAN-V8
+## Next Instance Prompt: Philosophical Coherence Review of SR-PLAN-V8
 
 ### Context
 
-SR-PLAN-V8 has been authored but not yet validated against the actual codebase. Before implementation begins, we need to verify that the plan's assumptions about existing infrastructure, type definitions, and integration points are accurate.
+SR-PLAN-V8 has been amended following codebase coherence review. Before implementation begins, we need a philosophical coherence review to ensure the plan aligns with the canonical SR-* documents in terms of ontology, epistemology, and semantics.
 
 ### Current State
 
-- Branch: `solver-ralph-8` (V7 complete, V8 plan authored)
+- Branch: `solver-ralph-8` (V7 complete, V8 plan amended)
 - SR-PLAN-V7: **Complete** (all phases)
-- SR-PLAN-V8: **Authored** (pending coherence review)
+- SR-PLAN-V8: **Amended** (pending philosophical review)
 
 ### Assignment
 
-**Evaluate SR-PLAN-V8 for coherence with the existing codebase**
+**Review SR-PLAN-V8 for philosophical coherence with canonical documents**
 
-The plan makes several assumptions about what exists and how components fit together. Your task is to verify these assumptions by examining the actual code and identifying any gaps, conflicts, or necessary adjustments.
+Evaluate SR-PLAN-V8 (`docs/planning/SR-PLAN-V8.md`) against the canonical governance documents along three philosophical dimensions.
 
-### Key Questions to Answer
+### Canonical Documents to Review
 
-1. **Oracle Runner Integration:**
-   - Does `oracle_runner.rs` actually implement the `OracleRunner` trait from `sr-ports`?
-   - What is the current state of the `/runs` endpoint in `runs.rs`? Does it already call the oracle runner, or is it a stub?
-   - How does the existing `EvidenceManifestBuilder` work, and does V8-2's proposed integration align with it?
+| Document | Path | Purpose |
+|----------|------|---------|
+| SR-SPEC | `docs/platform/SR-SPEC.md` | Platform specification |
+| SR-CONTRACT | `docs/platform/SR-CONTRACT.md` | Invariant contracts |
+| SR-CHARTER | `docs/charter/SR-CHARTER.md` | Project charter |
+| SR-DIRECTIVE | `docs/program/SR-DIRECTIVE.md` | Operational directives |
+| SR-SEMANTIC-ORACLE-SPEC | `docs/platform/SR-SEMANTIC-ORACLE-SPEC.md` | Semantic oracle spec |
+| SR-TYPES | `docs/platform/SR-TYPES.md` | Type definitions |
 
-2. **Type Consistency:**
-   - Do the proposed domain types (`OracleSuite`, `OracleSuiteStatus`) conflict with or duplicate anything in `sr-domain`?
-   - Are there existing types in `oracle_runner.rs` (like `OracleSuiteDefinition`) that should be reused vs. replaced?
+### Evaluation Dimensions
 
-3. **Database Patterns:**
-   - What patterns do existing migrations follow? (naming, structure, conventions)
-   - How do other PostgreSQL adapters implement their repository traits?
+**Ontology (What exists):**
+- Are the entities proposed in V8 (OracleSuiteRecord, OracleExecutionWorker, IntegrityCondition, etc.) consistent with the domain model defined in SR-SPEC?
+- Do the new event types (OracleExecutionStarted, OracleExecutionCompleted) align with the event sourcing ontology?
+- Is there entity duplication or confusion between sr-ports, sr-domain, and sr-adapters?
+- Do the proposed entities respect the authority boundaries defined in SR-DIRECTIVE?
 
-4. **API Patterns:**
-   - How are other handlers structured in `sr-api`? What's the standard for request/response types?
-   - What's the route registration pattern in `main.rs`?
+**Epistemology (How we know):**
+- Does the evidence model in V8 satisfy C-EVID-* contracts for what constitutes proof?
+- Are the integrity conditions (TAMPER/GAP/FLAKE/ENV_MISMATCH) sufficient to establish trust?
+- Does the event-driven worker pattern preserve the auditability guarantees?
+- Can verification gates derive decisions solely from recorded evidence (no out-of-band knowledge)?
+- Does the plan respect SR-DIRECTIVE's requirements for what must be recorded vs. computed?
 
-5. **Evidence Store Integration:**
-   - How does the existing `MinioEvidenceStore` work with `PodmanOracleRunner`?
-   - Is there a mismatch between V8's proposed flow and what's already wired?
+**Semantics (What it means):**
+- Do the semantic oracle outputs (residual/coverage/violations) correctly operationalize the meaning-matrix concept from SR-SEMANTIC-ORACLE-SPEC?
+- Is the relationship between `DecisionStatus` (Pass/Fail/Indeterminate/Waived) and gate outcomes well-defined?
+- Are the integrity condition names and their blocking behaviors semantically precise?
+- Do the oracle profiles (GOV-CORE, STRICT-CORE, STRICT-FULL) align with SR-DIRECTIVE's verification requirements?
 
-### Deliverable
+### Deliverables
 
-Produce a coherence assessment with one of these verdicts:
-- **COHERENT**: Plan aligns with codebase; proceed to implementation
-- **COHERENT WITH AMENDMENTS**: Plan mostly aligns but needs specific corrections (list them)
-- **REQUIRES REVISION**: Significant misalignment; plan needs rewriting before implementation
+1. **Coherence Report** — Structured analysis identifying:
+   - Alignments (where V8 correctly implements canonical requirements)
+   - Tensions (where V8 may conflict with or underspecify canonical requirements)
+   - Gaps (canonical requirements not addressed by V8)
+
+2. **SR-README Update** — Revise this file with:
+   - V8 status update (philosophical review complete)
+   - Summary of findings (if noteworthy)
+   - Next prompt for V8 implementation
+
+### Constraints
+
+- **Do NOT implement code** — this is a review and documentation task only
+- Focus on conceptual coherence, not implementation details
+- Be precise about which SR-* section supports or contradicts each claim
+- If you find the plan philosophically sound, say so briefly and move on
 
 ### First Actions
 
-1. Read `crates/sr-ports/src/lib.rs` to understand the port trait definitions
-2. Read `crates/sr-api/src/handlers/runs.rs` to understand current `/runs` implementation
-3. Read `crates/sr-adapters/src/evidence.rs` to understand evidence manifest building
-4. Examine existing migrations in `migrations/` for naming conventions
-5. Compare V8's proposed types against existing types in `sr-domain` and `oracle_runner.rs`
+1. Read `docs/planning/SR-PLAN-V8.md` (the amended plan)
+2. Read `docs/platform/SR-SPEC.md` (domain model, event sourcing ontology)
+3. Read `docs/platform/SR-CONTRACT.md` (C-OR-*, C-EVID-*, C-VER-* invariants)
+4. Read `docs/program/SR-DIRECTIVE.md` (operational policies, authority boundaries)
+5. Read `docs/platform/SR-SEMANTIC-ORACLE-SPEC.md` (semantic oracle requirements)
 
