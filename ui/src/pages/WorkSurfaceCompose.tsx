@@ -174,6 +174,7 @@ export function WorkSurfaceCompose(): JSX.Element {
     setError(null);
 
     try {
+      // Step 1: Create Work Surface
       const payload = {
         work_unit_id: selectedIntake.work_unit_id,
         intake_id: selectedIntake.intake_id,
@@ -196,6 +197,31 @@ export function WorkSurfaceCompose(): JSX.Element {
       }
 
       const data = await res.json();
+
+      // Step 2: Start work (SR-PLAN-V6 Phase V6-2)
+      // Creates Loop, activates it, and starts first Iteration as SYSTEM actor
+      try {
+        const startRes = await fetch(`${config.apiUrl}/api/v1/work-surfaces/${data.work_surface_id}/start`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${auth.user.access_token}`,
+          },
+        });
+
+        if (!startRes.ok) {
+          // Log warning but don't block navigation - Work Surface was created successfully
+          console.warn(`Work surface created but start failed: HTTP ${startRes.status}`);
+        } else {
+          const startData = await startRes.json();
+          if (startData.already_started) {
+            console.info('Work was already started on this Work Surface');
+          }
+        }
+      } catch (startErr) {
+        // Log but don't block - Work Surface was created successfully
+        console.warn('Failed to start work:', startErr);
+      }
+
       navigate(`/work-surfaces/${data.work_surface_id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create work surface');

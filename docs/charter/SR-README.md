@@ -77,7 +77,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 |-------|--------|-------------|
 | Coherence Review | ✅ Complete | `docs/reviews/SR-PLAN-V6-COHERENCE-REVIEW.md` — PASS_WITH_NOTES |
 | V6-1: Backend | ✅ Complete | `POST /work-surfaces/{id}/start` endpoint implemented |
-| V6-2: Frontend | ⏳ Pending | Wire wizard to call `/start` after creation |
+| V6-2: Frontend | ✅ Complete | Wizard calls `/start` after Work Surface creation |
 | V6-3: E2E Verification | ⏳ Pending | Document and verify complete human workflow |
 
 ---
@@ -126,99 +126,89 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 ---
 
-## Next Instance Prompt: Implement SR-PLAN-V6 Phase V6-2 (Frontend)
+## Previous Session Summary (V6-2 Frontend)
+
+### What Was Done
+
+1. **Modified `handleSubmit` in `WorkSurfaceCompose.tsx`** (lines 170-231):
+   - Added Step 2 after Work Surface creation to call `POST /work-surfaces/{id}/start`
+   - Graceful error handling: if `/start` fails, still navigate to detail page
+   - Handles `already_started: true` response by logging info message
+   - Uses inline `fetch()` pattern per SR-PLAN-V6 §5.1 (no centralized API client)
+
+### Verification
+
+- `npm run type-check` ✅ (no errors)
+- `npm run build` ✅ (built successfully)
+
+### Files Modified
+
+| File | Lines Changed |
+|------|---------------|
+| `ui/src/pages/WorkSurfaceCompose.tsx` | ~25 (modified `handleSubmit`) |
+
+### Notes for Next Instance
+
+- The codebase uses inline `fetch()` calls, not a centralized API client
+- SR-README mentioned `ui/src/lib/api.ts` but that file doesn't exist
+- Implementation follows SR-PLAN-V6 §5.1 pattern guidance
+
+---
+
+## Next Instance Prompt: Execute SR-PLAN-V6 Phase V6-3 (E2E Verification)
 
 ### Context
 
-Phase V6-1 (Backend) is complete. The `POST /work-surfaces/{id}/start` endpoint is implemented and documented. Now the frontend wizard needs to call this endpoint after Work Surface creation.
+Phases V6-1 (Backend) and V6-2 (Frontend) are complete. The full workflow is now wired:
+- Wizard creates Work Surface
+- Wizard calls `/start` to create Loop, activate it, and start Iteration
 
 ### Current State
 
 - Branch: `solver-ralph-7`
-- Backend: `/work-surfaces/{id}/start` endpoint fully implemented
-- Frontend: Wizard creates Work Surface but does not start work automatically
-- Gap: User must manually start work after wizard completes
+- Backend: `/work-surfaces/{id}/start` endpoint implemented
+- Frontend: Wizard calls `/start` after Work Surface creation
+- Gap: Full human workflow not yet verified end-to-end
 
 ### Assignment
 
-Implement **Phase V6-2: Frontend — Wire Wizard to Start Endpoint** as specified in `docs/planning/SR-PLAN-V6.md` §4.
+Execute **Phase V6-3: E2E Verification** as specified in `docs/planning/SR-PLAN-V6.md` §4.
 
-This phase updates the React wizard to call `POST /work-surfaces/{id}/start` after successful Work Surface creation, completing the one-click workflow.
+This phase documents and verifies the complete human workflow through the UI.
 
-### Files to Modify
+### Verification Steps
 
-Per SR-PLAN-V6 §4 (Phase V6-2):
+Per SR-PLAN-V6 §7.3:
 
-| File | Action | Description |
-|------|--------|-------------|
-| `ui/src/lib/api.ts` | EDIT | Add `startWorkSurface(id)` API function |
-| `ui/src/components/WorkSurfaceWizard.tsx` | EDIT | Call start after successful bind |
-
-### Implementation Requirements
-
-Per SR-PLAN-V6 §4:
-
-1. **API Client Function**
-   ```typescript
-   export async function startWorkSurface(workSurfaceId: string): Promise<StartWorkResponse> {
-     const response = await fetch(`${API_BASE}/work-surfaces/${workSurfaceId}/start`, {
-       method: 'POST',
-       headers: getAuthHeaders(),
-     });
-     if (!response.ok) throw new ApiError(response);
-     return response.json();
-   }
-   ```
-
-2. **Wizard Integration**
-   - After successful `bindWorkSurface()` call, immediately call `startWorkSurface()`
-   - Handle the response to show `loop_id` and `iteration_id` to user
-   - Handle `already_started: true` case gracefully (not an error)
-   - Handle 412 error if Work Surface is not active
-
-3. **UX Considerations**
-   - Show loading state during start
-   - On success: display confirmation with loop/iteration IDs
-   - On `already_started`: show "Work already in progress" message
-   - On error: show actionable error message
+1. Start API: `SR_AUTH_TEST_MODE=true cargo run --package sr-api`
+2. Start UI: `cd ui && npm run dev`
+3. Open browser to `http://localhost:5173`
+4. Navigate to `/intakes/new`, create and activate an intake
+5. Navigate to `/work-surfaces/new`
+6. Select intake, select template, click "Create Work Surface"
+7. Verify redirect to `/work-surfaces/{id}`
+8. Complete stages: FRAME → OPTIONS → DRAFT → FINAL
+9. For FINAL: click "Record Approval", approve, then complete
+10. Verify Work Surface status = "completed"
 
 ### Acceptance Criteria
 
-From SR-PLAN-V6 §4 (Phase V6-2):
+From SR-PLAN-V6 §4 (Phase V6-3):
 
-- [ ] `startWorkSurface` API function added to `api.ts`
-- [ ] Wizard calls `/start` after successful Work Surface creation
-- [ ] Success shows loop_id and iteration_id to user
-- [ ] `already_started: true` handled gracefully
-- [ ] Error states displayed appropriately
-- [ ] No breaking changes to existing wizard flow
+- [ ] Full workflow completes without curl commands
+- [ ] All stages can be completed via UI
+- [ ] Approval flow works for FINAL stage
+- [ ] No console errors during workflow
 
 ### Reference Documents
 
 - `docs/planning/SR-PLAN-V6.md` — Implementation plan
 - `docs/platform/SR-SPEC.md` §2.3.12 — Work Surface API documentation
-- `docs/platform/SR-WORK-SURFACE.md` §5.5 — /start endpoint semantics
-
-### Reference Code
-
-- `ui/src/lib/api.ts` — Existing API client patterns
-- `ui/src/components/WorkSurfaceWizard.tsx` — Current wizard implementation
-- `crates/sr-api/src/handlers/work_surfaces.rs` — Backend response structure
-
-### Guidelines
-
-- Follow existing React/TypeScript patterns in the UI codebase
-- Use existing error handling and loading state patterns
-- Test the full wizard flow end-to-end after changes
-- Run `npm run build` and `npm run lint` to verify
 
 ### Phase Complete When
 
-- [ ] `startWorkSurface` API function implemented
-- [ ] Wizard integration complete
-- [ ] All acceptance criteria met
-- [ ] `npm run build` passes
-- [ ] `npm run lint` passes
-- [ ] Manual test of wizard flow succeeds
+- [ ] Manual test of complete workflow succeeds
+- [ ] All acceptance criteria documented as passing
+- [ ] SR-README.md updated with V6-3 completion status
 - [ ] Committed and pushed
 
