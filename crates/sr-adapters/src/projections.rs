@@ -253,6 +253,13 @@ impl ProjectionBuilder {
             "IntakeArchived" => self.apply_intake_archived(&mut tx, event).await,
             "IntakeForked" => self.apply_intake_forked(&mut tx, event).await,
 
+            // Work Surface events (SR-PLAN-V4)
+            "WorkSurfaceBound" => self.apply_work_surface_bound(&mut tx, event).await,
+            "StageEntered" => self.apply_stage_entered(&mut tx, event).await,
+            "StageCompleted" => self.apply_stage_completed(&mut tx, event).await,
+            "WorkSurfaceCompleted" => self.apply_work_surface_completed(&mut tx, event).await,
+            "WorkSurfaceArchived" => self.apply_work_surface_archived(&mut tx, event).await,
+
             // Events we acknowledge but don't project
             "StopTriggered"
             | "OracleSuiteRegistered"
@@ -267,8 +274,6 @@ impl ProjectionBuilder {
             | "RecordSuperseded"
             | "WorkSurfaceRecorded"
             | "ProcedureTemplateSelected"
-            | "StageEntered"
-            | "StageCompleted"
             | "SemanticOracleEvaluated" => {
                 debug!(event_type = %event.event_type, "Event acknowledged, no projection update needed");
                 Ok(())
@@ -318,6 +323,8 @@ impl ProjectionBuilder {
         let tables = [
             "proj.evidence_associations", // Must truncate before evidence_bundles due to FK
             "proj.evidence_bundles",
+            "proj.work_surface_stage_history", // Must truncate before work_surfaces due to FK
+            "proj.work_surfaces",
             "proj.loops",
             "proj.iterations",
             "proj.candidates",
@@ -1586,6 +1593,248 @@ impl ProjectionBuilder {
         .await?;
 
         debug!(intake_id = %intake_id, source = ?source_intake_id, "Intake fork recorded");
+        Ok(())
+    }
+
+    // ========================================================================
+    // Work Surface Event Handlers (SR-PLAN-V4)
+    // ========================================================================
+
+    async fn apply_work_surface_bound(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let work_surface_id = payload["work_surface_id"].as_str().unwrap_or(&event.stream_id);
+        let work_unit_id = payload["work_unit_id"].as_str().unwrap_or("");
+        let intake_ref = &payload["intake_ref"];
+        let template_ref = &payload["procedure_template_ref"];
+        let initial_stage_id = payload["initial_stage_id"].as_str().unwrap_or("stage:UNKNOWN");
+        let content_hash = payload["content_hash"].as_str().unwrap_or("");
+        let params = &payload["params"];
+
+        let intake_id = intake_ref["id"].as_str().unwrap_or("");
+        let intake_content_hash = intake_ref["content_hash"].as_str().unwrap_or("");
+        let template_id = template_ref["id"].as_str().unwrap_or("");
+        let template_hash = template_ref["content_hash"].as_str().unwrap_or("");
+
+        // Initialize stage_status with the initial stage as "entered"
+        let stage_status = serde_json::json!({
+            initial_stage_id: {
+                "status": "entered",
+                "entered_at": event.occurred_at.to_rfc3339(),
+                "iteration_count": 0
+            }
+        });
+
+        sqlx::query(
+            r#"
+            INSERT INTO proj.work_surfaces (
+                work_surface_id, work_unit_id, intake_id, intake_content_hash,
+                procedure_template_id, procedure_template_hash, current_stage_id,
+                status, stage_status, current_oracle_suites, params, content_hash,
+                bound_at, bound_by_kind, bound_by_id, last_event_id, last_global_seq
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8, '[]'::jsonb, $9, $10, $11, $12, $13, $14, $15)
+            "#,
+        )
+        .bind(work_surface_id)
+        .bind(work_unit_id)
+        .bind(intake_id)
+        .bind(intake_content_hash)
+        .bind(template_id)
+        .bind(template_hash)
+        .bind(initial_stage_id)
+        .bind(&stage_status)
+        .bind(params)
+        .bind(content_hash)
+        .bind(event.occurred_at)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(work_surface_id = %work_surface_id, "Work Surface bound");
+        Ok(())
+    }
+
+    async fn apply_stage_entered(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let work_surface_id = payload["work_surface_id"].as_str().unwrap_or(&event.stream_id);
+        let stage_id = payload["stage_id"].as_str().unwrap_or("");
+        let oracle_suites = &payload["oracle_suites"];
+
+        // Update current stage, oracle suites, and stage_status
+        sqlx::query(
+            r#"
+            UPDATE proj.work_surfaces
+            SET current_stage_id = $1,
+                current_oracle_suites = $2,
+                stage_status = stage_status || jsonb_build_object($1, jsonb_build_object(
+                    'status', 'entered',
+                    'entered_at', $3::text,
+                    'iteration_count', 0
+                )),
+                last_event_id = $4,
+                last_global_seq = $5
+            WHERE work_surface_id = $6
+            "#,
+        )
+        .bind(stage_id)
+        .bind(oracle_suites)
+        .bind(event.occurred_at.to_rfc3339())
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .bind(work_surface_id)
+        .execute(&mut **tx)
+        .await?;
+
+        // Also record in stage history
+        sqlx::query(
+            r#"
+            INSERT INTO proj.work_surface_stage_history (
+                work_surface_id, stage_id, status, entered_at, event_id
+            ) VALUES ($1, $2, 'entered', $3, $4)
+            "#,
+        )
+        .bind(work_surface_id)
+        .bind(stage_id)
+        .bind(event.occurred_at)
+        .bind(event.event_id.as_str())
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(work_surface_id = %work_surface_id, stage_id = %stage_id, "Stage entered");
+        Ok(())
+    }
+
+    async fn apply_stage_completed(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let work_surface_id = payload["work_surface_id"].as_str().unwrap_or(&event.stream_id);
+        let stage_id = payload["stage_id"].as_str().unwrap_or("");
+        let evidence_bundle_ref = payload["evidence_bundle_ref"].as_str();
+
+        // Update stage_status to mark stage as completed
+        sqlx::query(
+            r#"
+            UPDATE proj.work_surfaces
+            SET stage_status = jsonb_set(
+                    stage_status,
+                    array[$1, 'status'],
+                    '"completed"'::jsonb
+                ),
+                stage_status = jsonb_set(
+                    stage_status,
+                    array[$1, 'completed_at'],
+                    to_jsonb($2::text)
+                ),
+                stage_status = jsonb_set(
+                    stage_status,
+                    array[$1, 'evidence_bundle_ref'],
+                    to_jsonb($3::text)
+                ),
+                last_event_id = $4,
+                last_global_seq = $5
+            WHERE work_surface_id = $6
+            "#,
+        )
+        .bind(stage_id)
+        .bind(event.occurred_at.to_rfc3339())
+        .bind(evidence_bundle_ref)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .bind(work_surface_id)
+        .execute(&mut **tx)
+        .await?;
+
+        // Update stage history
+        sqlx::query(
+            r#"
+            UPDATE proj.work_surface_stage_history
+            SET status = 'completed', completed_at = $1, evidence_bundle_ref = $2
+            WHERE work_surface_id = $3 AND stage_id = $4 AND status = 'entered'
+            "#,
+        )
+        .bind(event.occurred_at)
+        .bind(evidence_bundle_ref)
+        .bind(work_surface_id)
+        .bind(stage_id)
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(work_surface_id = %work_surface_id, stage_id = %stage_id, "Stage completed");
+        Ok(())
+    }
+
+    async fn apply_work_surface_completed(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let work_surface_id = payload["work_surface_id"].as_str().unwrap_or(&event.stream_id);
+
+        sqlx::query(
+            r#"
+            UPDATE proj.work_surfaces
+            SET status = 'completed',
+                completed_at = $1,
+                last_event_id = $2,
+                last_global_seq = $3
+            WHERE work_surface_id = $4
+            "#,
+        )
+        .bind(event.occurred_at)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .bind(work_surface_id)
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(work_surface_id = %work_surface_id, "Work Surface completed");
+        Ok(())
+    }
+
+    async fn apply_work_surface_archived(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let work_surface_id = payload["work_surface_id"].as_str().unwrap_or(&event.stream_id);
+
+        sqlx::query(
+            r#"
+            UPDATE proj.work_surfaces
+            SET status = 'archived',
+                archived_at = $1,
+                archived_by_kind = $2,
+                archived_by_id = $3,
+                last_event_id = $4,
+                last_global_seq = $5
+            WHERE work_surface_id = $6
+            "#,
+        )
+        .bind(event.occurred_at)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .bind(work_surface_id)
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(work_surface_id = %work_surface_id, "Work Surface archived");
         Ok(())
     }
 }

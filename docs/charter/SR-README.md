@@ -63,7 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
-| SR-PLAN-V4 | **pending review** | Work Surface Composition (Phase 4) — awaiting coherence review |
+| SR-PLAN-V4 | **in progress** | Work Surface Composition (Phase 4) — Phases 4a-4b complete, 4c-4d pending |
 | SR-PLAN-V3 | **complete** | Intakes & References implementation (Phases 0-3) |
 | SR-PLAN-V2 | superseded | Intakes & References draft (10 unresolved issues) |
 
@@ -112,7 +112,7 @@ SR-PLAN-V4 (Work Surface Composition) has passed coherence review. The review re
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Phase 4a | **Complete** | Core Infrastructure — WorkSurfaceId, events, database migrations |
-| Phase 4b | Pending | Work Surface API — 9 endpoints for CRUD, stage transitions, compatibility |
+| Phase 4b | **Complete** | Work Surface API — 9 endpoints for CRUD, stage transitions, compatibility |
 | Phase 4c | Pending | Event Integration — IterationStarted refs, EvidenceBundleRecorded binding |
 | Phase 4d | Pending | Work Surface UI — List, composition wizard, detail with stage progress |
 
@@ -137,60 +137,133 @@ SR-PLAN-V4 (Work Surface Composition) has passed coherence review. The review re
 
 ---
 
-## Prompt for Next Instance: Implement SR-PLAN-V4 Phase 4b (Work Surface API)
+## Prompt for Next Instance: Implement SR-PLAN-V4 Phase 4c (Event Integration)
 
-**Phase 4a Status:** COMPLETE (2026-01-15) — Core infrastructure implemented
+**Phase 4b Status:** COMPLETE (2026-01-15) — Work Surface API implemented (9 endpoints)
 
 ### Task
 
-Implement **Phase 4b: Work Surface API** from SR-PLAN-V4.
+Implement **Phase 4c: Event Integration** from SR-PLAN-V4.
+
+This phase integrates Work Surface context into iteration and evidence events, enabling the Semantic Ralph Loop to reference Work Surface bindings during iteration execution.
 
 ### Required Reading
 
-1. `docs/planning/SR-PLAN-V4.md` — Full implementation plan (especially §3 API Specification)
-2. `docs/platform/SR-WORK-SURFACE.md` — Primary specification (§5 Work Surface Instance)
-3. `crates/sr-domain/src/work_surface.rs` — Domain model with `ManagedWorkSurface`, events, lifecycle methods
-4. `crates/sr-api/src/handlers/intakes.rs` — Reference pattern for handler implementation
+1. `docs/planning/SR-PLAN-V4.md` — Full implementation plan (especially §6 Phase 4c specification)
+2. `docs/platform/SR-CONTRACT.md` — C-CTX-1, C-CTX-2 invariants (iteration context must be complete, no ghost inputs)
+3. `docs/platform/SR-SPEC.md` — §3.2.1.1 IterationStarted event structure
+4. `crates/sr-api/src/handlers/work_surfaces.rs` — Work Surface API (Phase 4b output)
+5. `crates/sr-adapters/src/governor.rs` — Loop Governor that emits IterationStarted events
 
 ### Deliverables
 
-1. **Work Surface Handler** (`crates/sr-api/src/handlers/work_surfaces.rs`)
-   - `POST /api/v1/work-surfaces` — Create/bind a new Work Surface
-   - `GET /api/v1/work-surfaces` — List Work Surfaces (with filters: status, work_unit_id, intake_id)
-   - `GET /api/v1/work-surfaces/:id` — Get Work Surface detail
-   - `POST /api/v1/work-surfaces/:id/enter-stage` — Enter a new stage
-   - `POST /api/v1/work-surfaces/:id/complete-stage` — Complete current stage (with evidence)
-   - `POST /api/v1/work-surfaces/:id/complete` — Complete the Work Surface (terminal stage)
-   - `POST /api/v1/work-surfaces/:id/archive` — Archive Work Surface
-   - `GET /api/v1/work-surfaces/check-compatibility` — Check Intake/Template compatibility
-   - `GET /api/v1/work-surfaces/by-work-unit/:work_unit_id` — Get active Work Surface for Work Unit
+1. **IterationStarted Integration**
+   - Update iteration creation to fetch Work Surface refs from `/api/v1/work-surfaces/:id/iteration-context`
+   - Include Work Surface refs in `IterationStarted.refs[]`:
+     - `Intake` ref (with content_hash)
+     - `ProcedureTemplate` ref (with content_hash, current_stage_id)
+     - `OracleSuite` refs for current stage
+   - Per C-CTX-2: All context must be derivable from refs (no ghost inputs)
 
-2. **Projections** (`crates/sr-adapters/src/projections.rs`)
-   - Add projection handlers for Work Surface events
-   - Handle `WorkSurfaceBound`, `StageEntered`, `StageCompleted`, `WorkSurfaceCompleted`, `WorkSurfaceArchived`
+2. **EvidenceBundleRecorded Integration**
+   - Include `procedure_template_id` and `stage_id` in evidence bundle metadata
+   - Evidence binds to (candidate, stage, work_surface) triple
 
-3. **Route Registration** (`crates/sr-api/src/main.rs`)
-   - Add all 9 Work Surface routes
-   - Wire up handler functions
+3. **Loop Governor Updates** (`crates/sr-adapters/src/governor.rs`)
+   - Validate Work Surface exists for iteration
+   - Add stop trigger: `WORK_SURFACE_MISSING` — Loop cannot iterate without active Work Surface
+
+4. **Error Handling**
+   - `WorkSurfaceNotFound` error when starting iteration without active Work Surface for Work Unit
+   - Graceful handling when Work Surface is archived mid-loop
 
 ### Verification Checklist
 
 - [ ] `cargo build` passes
 - [ ] `cargo test --workspace` passes
-- [ ] All 9 endpoints return appropriate responses
-- [ ] Compatibility check validates Intake kind vs Template kind[]
-- [ ] Stage transitions emit correct events
-- [ ] Only one active Work Surface per Work Unit enforced
+- [ ] IterationStarted events include Work Surface refs (Intake, Template, OracleSuites)
+- [ ] EvidenceBundleRecorded includes procedure_template_id and stage_id
+- [ ] Loop governor refuses to start iteration without active Work Surface
+- [ ] Stop trigger `WORK_SURFACE_MISSING` emitted when required
 
 ### Constraints
 
-- **Follow SR-PLAN-V4 §3** — Use the exact API schemas defined in the plan
-- **Pattern match intakes.rs** — Follow the same handler patterns
+- **Per C-CTX-1:** Iteration context must be immutable commitment objects (referenced by hash)
+- **Per C-CTX-2:** No ghost inputs — all context must be derivable from IterationStarted.refs[]
 - **Event sourcing** — All mutations via events, projections update state
+
+### Key Files to Modify
+
+| File | Changes |
+|------|---------|
+| `crates/sr-adapters/src/governor.rs` | Add Work Surface validation, stop trigger |
+| `crates/sr-domain/src/events.rs` | May need to update IterationStarted structure |
+| `crates/sr-api/src/handlers/iterations.rs` | Update iteration creation to include refs |
+| `crates/sr-api/src/handlers/evidence.rs` | Include stage context in evidence recording |
 
 ---
 
 ## Summary of Previous Development Iterations
+
+### Session: 2026-01-15 — Phase 4b Implementation (Work Surface API)
+
+**Objective:** Implement Phase 4b (Work Surface API) per SR-PLAN-V4 §6.
+
+**Work Performed:**
+
+1. **Work Surface Handler** (`crates/sr-api/src/handlers/work_surfaces.rs` — ~1190 lines)
+   - Created complete handler with 9 endpoints per SR-PLAN-V4 specification
+   - Request/response types: `CreateWorkSurfaceRequest`, `WorkSurfaceResponse`, `WorkSurfaceSummary`, `CompleteStageRequest`, `StageCompletionResponse`, `CompatibilityCheckResponse`, etc.
+   - Helper functions for procedure template lookup via TemplateRegistry
+   - Oracle suite resolution for stage transitions
+
+2. **Endpoints Implemented:**
+   | Endpoint | Method | Purpose |
+   |----------|--------|---------|
+   | `/api/v1/work-surfaces` | POST | Create/bind Work Surface (Intake + Template) |
+   | `/api/v1/work-surfaces` | GET | List with filters (status, intake_id, template_id, work_unit_id) |
+   | `/api/v1/work-surfaces/:id` | GET | Get Work Surface by ID |
+   | `/api/v1/work-surfaces/by-work-unit/:id` | GET | Get active Work Surface for Work Unit |
+   | `/api/v1/work-surfaces/:id/stages/:stage_id/complete` | POST | Complete stage with evidence |
+   | `/api/v1/work-surfaces/:id/iteration-context` | GET | Get TypedRef[] for iteration (Intake, Template, OracleSuites) |
+   | `/api/v1/work-surfaces/:id/archive` | POST | Archive Work Surface |
+   | `/api/v1/work-surfaces/compatibility` | GET | Check Intake/Template kind compatibility |
+   | `/api/v1/work-surfaces/compatible-templates` | GET | List templates compatible with Intake |
+
+3. **Projection Handlers** (`crates/sr-adapters/src/projections.rs`)
+   - `apply_work_surface_bound` — INSERT into proj.work_surfaces
+   - `apply_stage_entered` — UPDATE current_stage_id, oracle_suites, stage_status
+   - `apply_stage_completed` — UPDATE stage_status with evidence_bundle_ref
+   - `apply_work_surface_completed` — UPDATE status='completed', completed_at
+   - `apply_work_surface_archived` — UPDATE status='archived', archived_at, archived_by
+   - Added `proj.work_surfaces` and `proj.work_surface_stage_history` to truncate list
+
+4. **Integration Updates:**
+   - `crates/sr-api/src/handlers/mod.rs` — Added `pub mod work_surfaces;`
+   - `crates/sr-api/src/main.rs` — Added `WorkSurfaceState`, 8 routes, state initialization
+
+5. **Key Implementation Details:**
+   - `WorkSurfaceState` combines AppState, OracleRegistry, and TemplateRegistry
+   - Procedure templates fetched from TemplateRegistry by deserializing `TemplateInstance.content` where `type_key == "config.procedure_template"`
+   - Helper functions: `get_procedure_template_from_registry()`, `list_procedure_templates_from_registry()`
+   - Stage transitions emit both `StageCompleted` and `StageEntered` (for next stage) events
+   - Terminal stage completion emits `WorkSurfaceCompleted` event
+   - Unique constraint enforces one active Work Surface per Work Unit (database-level)
+
+**Files Modified:**
+
+| File | Action | Lines |
+|------|--------|-------|
+| `crates/sr-api/src/handlers/work_surfaces.rs` | CREATE | ~1190 |
+| `crates/sr-api/src/handlers/mod.rs` | EDIT | +1 |
+| `crates/sr-api/src/main.rs` | EDIT | +50 |
+| `crates/sr-adapters/src/projections.rs` | EDIT | +250 |
+
+**Verification:** `cargo build` passes (with warnings), `cargo test --workspace` passes (169+ tests).
+
+**Next Step:** Implement Phase 4c (Event Integration) per the prompt above.
+
+---
 
 ### Session: 2026-01-15 — Phase 4a Implementation + Canonical Doc Updates
 

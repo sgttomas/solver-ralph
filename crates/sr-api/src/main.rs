@@ -27,6 +27,7 @@ use config::ApiConfig;
 use handlers::{
     approvals, candidates, decisions, evidence, exceptions, freeze, intakes, iterations, loops,
     oracles, prompt_loop::{prompt_loop, prompt_loop_stream}, references, runs, templates,
+    work_surfaces,
 };
 use observability::{metrics_endpoint, request_context_middleware, Metrics, MetricsState};
 use serde::{Deserialize, Serialize};
@@ -56,6 +57,9 @@ pub struct OracleRegistryState {
 
 /// Template registry state for template-related endpoints
 pub use templates::{TemplateRegistry, TemplateRegistryState};
+
+/// Work Surface state for work surface endpoints (SR-PLAN-V4)
+pub use work_surfaces::WorkSurfaceState;
 
 /// Health check response
 #[derive(Serialize)]
@@ -141,6 +145,7 @@ fn create_router(
     oracle_state: OracleRegistryState,
     template_state: TemplateRegistryState,
     references_state: ReferencesState,
+    work_surface_state: WorkSurfaceState,
 ) -> Router {
     // Public routes (no authentication required)
     let public_routes = Router::new()
@@ -357,6 +362,42 @@ fn create_router(
             get(intakes::get_intake_by_hash),
         );
 
+    // Work Surface routes - Per SR-PLAN-V4 Phase 4b
+    let work_surface_routes = Router::new()
+        .route(
+            "/api/v1/work-surfaces",
+            get(work_surfaces::list_work_surfaces).post(work_surfaces::create_work_surface),
+        )
+        .route(
+            "/api/v1/work-surfaces/compatibility",
+            get(work_surfaces::check_compatibility),
+        )
+        .route(
+            "/api/v1/work-surfaces/compatible-templates",
+            get(work_surfaces::get_compatible_templates),
+        )
+        .route(
+            "/api/v1/work-surfaces/by-work-unit/:work_unit_id",
+            get(work_surfaces::get_work_surface_by_work_unit),
+        )
+        .route(
+            "/api/v1/work-surfaces/:work_surface_id",
+            get(work_surfaces::get_work_surface),
+        )
+        .route(
+            "/api/v1/work-surfaces/:work_surface_id/stages/:stage_id/complete",
+            post(work_surfaces::complete_stage),
+        )
+        .route(
+            "/api/v1/work-surfaces/:work_surface_id/iteration-context",
+            get(work_surfaces::get_iteration_context),
+        )
+        .route(
+            "/api/v1/work-surfaces/:work_surface_id/archive",
+            post(work_surfaces::archive_work_surface),
+        )
+        .with_state(work_surface_state);
+
     // References routes - Per SR-PLAN-V3 Phase 0c
     let references_routes = Router::new()
         .route("/api/v1/references", get(references::list_references))
@@ -435,6 +476,7 @@ fn create_router(
         .merge(oracle_routes)
         .merge(template_routes)
         .merge(intake_routes)
+        .merge(work_surface_routes)
         .merge(references_routes)
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(request_context_middleware))
@@ -585,6 +627,15 @@ async fn main() {
 
     info!("Template registry initialized with schemas");
 
+    // Create work surface state (SR-PLAN-V4 Phase 4b)
+    let work_surface_state = WorkSurfaceState {
+        app_state: state.clone(),
+        oracle_registry: oracle_registry.clone(),
+        template_registry: template_registry.clone(),
+    };
+
+    info!("Work surface state initialized");
+
     // Create references state (SR-PLAN-V3 Phase 0c)
     let references_state = ReferencesState {
         app_state: state.clone(),
@@ -595,7 +646,7 @@ async fn main() {
     info!("References state initialized");
 
     // Create router (D-33: includes metrics endpoint and request tracing)
-    let app = create_router(state, metrics_state, oracle_state, template_state, references_state);
+    let app = create_router(state, metrics_state, oracle_state, template_state, references_state, work_surface_state);
 
     // Start server
     let bind_addr = config.bind_addr();
