@@ -379,3 +379,97 @@
 .cardSpacing {
   margin-bottom: var(--space5);
 }
+
+/* References page - Category sidebar layout */
+.referencesLayout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: var(--space5);
+  align-items: start;
+}
+
+.categorySidebar {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space3);
+  position: sticky;
+  top: var(--space4);
+}
+
+.categorySidebarTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: var(--space3);
+  padding: 0 var(--space2);
+}
+
+.categoryList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.categoryItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space2) var(--space3);
+  border-radius: var(--radiusSm);
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--ink);
+  transition: all 150ms ease;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.categoryItem:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.categoryItemActive {
+  background: var(--ink);
+  color: white;
+}
+
+.categoryItemActive:hover {
+  background: var(--ink);
+}
+
+.categoryCount {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+}
+
+.categoryItemActive .categoryCount {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.contentArea {
+  min-width: 0; /* Prevent grid blowout */
+}
+
+/* Table row hover for clickable rows */
+.tableRowHover:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Small label for filters */
+.labelSmall {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}

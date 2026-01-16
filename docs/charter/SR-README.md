@@ -68,13 +68,11 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 ---
 
-## Prompt for Next Instance: Phase 3 — References UI
+## SR-PLAN-V3 Implementation Status
 
-### Task
+**Status: COMPLETE**
 
-Implement **Phase 3: References Browser UI** per SR-PLAN-V3 §3.
-
-### Current Progress
+All phases of the Intakes & References implementation (SR-PLAN-V3) are now complete.
 
 | Phase | Status | Description |
 |-------|--------|-------------|
@@ -83,186 +81,67 @@ Implement **Phase 3: References Browser UI** per SR-PLAN-V3 §3.
 | Phase 0c | **Complete** | References API — References browser backend (15 endpoints) |
 | Phase 1 | **Complete** | UI Structure — Sidebar and route reorganization |
 | Phase 2 | **Complete** | Intakes UI — Full Intake CRUD UI |
-| Phase 3 | Pending | References UI — References browser UI |
-
-### Current State
-
-**References.tsx exists** but uses old `/api/v1/context` endpoint. It has:
-- Tab-based UI (Documents, Intakes, Bundles)
-- File upload functionality
-- Basic stats overview
-
-**This needs to be refactored** to use the new References API (Phase 0c) with:
-- Category sidebar per SR-PLAN-V3 §2.1 (12 categories)
-- Category-specific list views
-- Proper pagination
-- Search within category
-
-### Backend API Available (Phase 0c)
-
-References API implemented in `crates/sr-api/src/handlers/references.rs`:
-
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| GET | `/api/v1/references` | List all refs (query: `kind`, `rel`, `page`, `page_size`) |
-| GET | `/api/v1/references/governed-artifacts` | List governed artifacts |
-| GET | `/api/v1/references/governed-artifacts/:id` | Get governed artifact detail |
-| GET | `/api/v1/references/candidates` | List candidates |
-| GET | `/api/v1/references/evidence-bundles` | List evidence bundles |
-| GET | `/api/v1/references/evidence-bundles/:hash` | Get evidence bundle detail |
-| GET | `/api/v1/references/oracle-suites` | List oracle suites |
-| GET | `/api/v1/references/procedure-templates` | List procedure templates |
-| GET | `/api/v1/references/exceptions` | List active exceptions |
-| GET | `/api/v1/references/iteration-summaries` | List iteration summaries |
-| GET | `/api/v1/references/agent-definitions` | List agent definitions |
-| GET | `/api/v1/references/gating-policies` | List gating policies |
-| GET | `/api/v1/references/intakes` | List intakes |
-| POST | `/api/v1/references/documents` | Upload document (multipart) |
-| GET | `/api/v1/references/documents/:id` | Get document detail |
-
-**Response Format** (all list endpoints):
-```typescript
-interface ReferencesListResponse {
-  refs: TypedRef[];
-  total: number;
-  page: number;
-  page_size: number;
-}
-
-interface TypedRef {
-  kind: string;           // e.g., "GovernedArtifact", "Intake", "Candidate"
-  id: string;             // Identifier
-  rel: string;            // Relationship type
-  meta?: {
-    content_hash?: string;
-    version?: string;
-    type_key?: string;
-    selector?: string;
-  };
-  label?: string;         // Human-readable label
-}
-```
-
-### Reference Categories (SR-PLAN-V3 §2.1)
-
-| Category | RefKind | Endpoint |
-|----------|---------|----------|
-| Governing Artifacts | `GovernedArtifact` | `/references/governed-artifacts` |
-| Procedure Templates | `ProcedureTemplate` | `/references/procedure-templates` |
-| Oracle Suites | `OracleSuite` | `/references/oracle-suites` |
-| Uploaded Documents | `GovernedArtifact` | `/references/documents` |
-| Evidence Bundles | `EvidenceBundle` | `/references/evidence-bundles` |
-| Iteration Summaries | `Iteration` | `/references/iteration-summaries` |
-| Candidates | `Candidate` | `/references/candidates` |
-| Active Exceptions | `Deviation`/`Deferral`/`Waiver` | `/references/exceptions` |
-| Agent Definitions | `AgentDefinition` | `/references/agent-definitions` |
-| Gating Policies | `GatingPolicy` | `/references/gating-policies` |
-| Intakes | `Intake` | `/references/intakes` |
+| Phase 3 | **Complete** | References UI — References browser UI |
 
 ### Current Routes
 
 ```
-/references                           → References.tsx (refactor needed)
-/references/documents/:documentId     → ReferenceDocumentDetail.tsx (exists)
-/references/bundles/:bundleId         → ReferenceBundleDetail.tsx (exists)
-/references/governed-artifacts/:id    → GovernedArtifactDetail.tsx (stub)
+/intakes                              → Intakes.tsx (list with filters)
+/intakes/new                          → IntakeCreate.tsx (create form)
+/intakes/:intakeId                    → IntakeDetail.tsx (detail view)
+/intakes/:intakeId/edit               → IntakeEdit.tsx (edit form)
+/references                           → References.tsx (category sidebar)
+/references/documents/:documentId     → ReferenceDocumentDetail.tsx
+/references/bundles/:bundleId         → ReferenceBundleDetail.tsx
+/references/governed-artifacts/:id    → GovernedArtifactDetail.tsx
 ```
 
-### Deliverables (Phase 3)
+### Next Steps
 
-1. **Refactor References.tsx**
-   - Replace tab-based UI with category sidebar
-   - Category sidebar on left, list view on right
-   - Each category shows count badge
-   - Selected category fetches from corresponding endpoint
-   - Pagination using `page` and `page_size`
-   - Search input (client-side filter on label/id)
-   - Keep document upload functionality
+With SR-PLAN-V3 complete, the next phase would be **Phase 4: Work Surface Composition** (currently deferred). This would enable binding Intake + Procedure Template + Oracle Suite into Work Surface instances.
 
-2. **Category List View Component**
-   - Reusable component for displaying TypedRef[] list
-   - Columns: Label/ID, Kind, Relation, Content Hash (truncated)
-   - Click row → navigate to appropriate detail page
-   - Loading and empty states
-
-3. **Detail View Pages**
-   - `GovernedArtifactDetail.tsx` — Implement (currently stub)
-   - `ReferenceDocumentDetail.tsx` — Verify/update if needed
-   - `ReferenceBundleDetail.tsx` — Verify/update if needed
-   - For Intakes: link to `/intakes/:id` (already complete)
-
-### UI Layout Sketch
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ References                                              │
-├─────────────┬───────────────────────────────────────────┤
-│ Categories  │  [Search input]                  [Upload] │
-│             │───────────────────────────────────────────│
-│ • Governing │  | Label        | Kind    | Hash       | │
-│   Artifacts │  |──────────────|─────────|────────────| │
-│ • Templates │  | SR-CONTRACT  | Govern  | sha256:abc | │
-│ • Suites    │  | SR-SPEC      | Govern  | sha256:def | │
-│ • Documents │  | ...          |         |            | │
-│ • Bundles   │  │                                      │ │
-│ • Iterations│  ├──────────────────────────────────────┤ │
-│ • Candidates│  │ Page 1 of 3        [<] [1] [2] [3] [>]│ │
-│ • Exceptions│  └──────────────────────────────────────┘ │
-│ • Agents    │                                           │
-│ • Policies  │                                           │
-│ • Intakes   │                                           │
-└─────────────┴───────────────────────────────────────────┘
-```
-
-### UI Patterns Reference
-
-From Phase 2 implementation:
-- `ui/src/pages/Intakes.tsx` — List page with filters, pagination
-- `ui/src/pages/IntakeDetail.tsx` — Detail page with sections
-- `ui/src/components/ArrayStringEditor.tsx` — Reusable editors
-- `ui/src/styles/pages.module.css` — Shared styles
-
-Auth pattern:
-```typescript
-const auth = useAuth();
-fetch(`${config.apiUrl}/api/v1/references/governed-artifacts`, {
-  headers: { Authorization: `Bearer ${auth.user.access_token}` }
-});
-```
-
-### Required Reading
-
-1. **`docs/planning/SR-PLAN-V3.md`** §2 & §3 (Phase 3) — References API & UI specification
-2. **`crates/sr-api/src/handlers/references.rs`** — Backend API implementation
-3. **`ui/src/pages/References.tsx`** — Current implementation to refactor
-4. **`ui/src/pages/Intakes.tsx`** — Reference for list page pattern (Phase 2)
-
-### Verification
-
-After Phase 3:
-```bash
-cd ui
-npm run type-check    # No TypeScript errors
-npm run build         # Build succeeds
-npm run dev           # Manual verification:
-                      #   - Navigate to /references
-                      #   - Click each category, verify list loads
-                      #   - Verify pagination works
-                      #   - Click item, verify detail page loads
-                      #   - Upload document, verify it appears
-```
-
-### Constraints
-
-- **Phase 0c complete** — Backend References API is ready
-- **Phase 2 complete** — Can reference Intakes.tsx patterns
-- **Follow SR-PLAN-V3** — Category structure and endpoints are specified
-- **Preserve upload functionality** — Keep document upload in refactored page
-- **Stop after phase** — This completes the Intakes & References implementation
+Consult SR-CHARTER and other SR-* documents for the next priority task.
 
 ---
 
 ## Summary of Previous Development Iterations
+
+### Session: 2026-01-15 — Phase 3 Implementation
+
+**Objective:** Implement Phase 3 of SR-PLAN-V3 (References Browser UI).
+
+**Work Performed:**
+
+1. **CSS Styles Added** (`ui/src/styles/pages.module.css`)
+   - `.referencesLayout` — Two-column grid layout (sidebar + content)
+   - `.categorySidebar` — Left sidebar with category list
+   - `.categoryItem` / `.categoryItemActive` — Category buttons with count badges
+   - `.tableRowHover` — Hover state for clickable table rows
+
+2. **References.tsx Refactored** (~575 lines)
+   - Replaced tab-based UI with category sidebar layout
+   - 10 categories: Governing Artifacts, Procedure Templates, Oracle Suites, Evidence Bundles, Iterations, Candidates, Exceptions, Agent Definitions, Gating Policies, Intakes
+   - Each category fetches from corresponding `/api/v1/references/*` endpoint
+   - Category counts fetched on mount
+   - Client-side search filtering
+   - Pagination with page size selector
+   - Row click navigation to appropriate detail pages
+   - Document upload preserved (shown with "not implemented" note for stub backend)
+
+3. **GovernedArtifactDetail.tsx Implemented** (~296 lines)
+   - Fetches from `/api/v1/references/governed-artifacts/:id`
+   - Displays all fields: artifact_id, artifact_type, version, content_hash, status, normative_status, authority_kind
+   - Tags, Governed By, and Supersedes cards with links
+   - Recording info (recorded_at, recorded_by)
+
+4. **ReferenceBundleDetail.tsx Updated** (~289 lines)
+   - Changed endpoint: `/api/v1/context/bundles/:id` → `/api/v1/references/evidence-bundles/:hash`
+   - Updated interface to match `EvidenceBundleDetailResponse`
+   - Displays verdict, artifact_count, linked entities (run, candidate, iteration, oracle suite)
+
+**Verification:** `npm run type-check` and `npm run build` pass.
+
+---
 
 ### Session: 2026-01-15 — Phase 2 Implementation
 

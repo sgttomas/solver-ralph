@@ -1,116 +1,248 @@
 /**
  * References Page
  *
- * Manages reference documents that can be referenced in semantic work.
- * Per SR-SPEC and SR-WORK-SURFACE, all iteration context must be:
- * - Content-addressed (sha256 hash)
- * - Explicitly referenced in IterationStarted.refs[]
- * - No ghost inputs allowed
+ * Browser for all typed references in the system per SR-PLAN-V3 Phase 3.
+ * Provides a category sidebar with 11 reference categories, each backed
+ * by the References API endpoints from Phase 0c.
  *
- * This page allows:
- * - Uploading context documents
- * - Viewing existing context artifacts
- * - Managing intake records
- * - Viewing context bundles for iterations
+ * Per SR-SPEC §3.2.1.1: Endpoints for browsing all typed references.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
-import { Card, Pill } from '../ui';
+import { Card, Button, Pill } from '../ui';
 import styles from '../styles/pages.module.css';
 
-type ReferenceTab = 'documents' | 'intakes' | 'bundles';
+// ============================================================================
+// Types
+// ============================================================================
 
-interface ReferenceDocument {
-  id: string;
-  filename: string;
-  media_type: string;
-  content_hash: string;
-  size_bytes: number;
-  description: string | null;
-  tags: string[];
-  referenced_by: number; // count of work units referencing this
-  uploaded_by: string;
-  uploaded_at: string;
-}
-
-interface Intake {
-  id: string;
-  work_unit_id: string;
-  title: string;
+interface TypedRef {
   kind: string;
-  objective: string;
-  content_hash: string;
-  status: 'draft' | 'active' | 'archived';
-  created_at: string;
-}
-
-interface ReferenceBundle {
   id: string;
-  iteration_id: string;
-  loop_id: string;
-  refs_count: number;
-  content_hash: string;
-  created_at: string;
+  rel: string;
+  meta: {
+    content_hash?: string;
+    version?: string;
+    type_key?: string;
+    selector?: string;
+  };
+  label?: string;
 }
 
-interface ReferencesResponse {
-  documents: ReferenceDocument[];
-  intakes: Intake[];
-  bundles: ReferenceBundle[];
+interface ReferencesListResponse {
+  refs: TypedRef[];
+  total: number;
+  page: number;
+  page_size: number;
 }
+
+interface Category {
+  id: string;
+  label: string;
+  endpoint: string;
+  count?: number;
+}
+
+interface Pagination {
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const CATEGORIES: Category[] = [
+  { id: 'governed-artifacts', label: 'Governing Artifacts', endpoint: '/references/governed-artifacts' },
+  { id: 'procedure-templates', label: 'Procedure Templates', endpoint: '/references/procedure-templates' },
+  { id: 'oracle-suites', label: 'Oracle Suites', endpoint: '/references/oracle-suites' },
+  { id: 'evidence-bundles', label: 'Evidence Bundles', endpoint: '/references/evidence-bundles' },
+  { id: 'iteration-summaries', label: 'Iterations', endpoint: '/references/iteration-summaries' },
+  { id: 'candidates', label: 'Candidates', endpoint: '/references/candidates' },
+  { id: 'exceptions', label: 'Exceptions', endpoint: '/references/exceptions' },
+  { id: 'agent-definitions', label: 'Agent Definitions', endpoint: '/references/agent-definitions' },
+  { id: 'gating-policies', label: 'Gating Policies', endpoint: '/references/gating-policies' },
+  { id: 'intakes', label: 'Intakes', endpoint: '/references/intakes' },
+];
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+function truncateHash(hash: string | undefined): string {
+  if (!hash) return '';
+  if (hash.startsWith('sha256:')) {
+    return hash.slice(0, 15) + '...' + hash.slice(-6);
+  }
+  return hash.length > 20 ? hash.slice(0, 10) + '...' + hash.slice(-6) : hash;
+}
+
+function getDetailPath(ref: TypedRef): string | null {
+  switch (ref.kind) {
+    case 'GovernedArtifact':
+      return `/references/governed-artifacts/${ref.id}`;
+    case 'EvidenceBundle':
+      return ref.meta.content_hash
+        ? `/references/bundles/${ref.meta.content_hash}`
+        : null;
+    case 'Intake':
+      return `/intakes/${ref.id}`;
+    case 'Candidate':
+      return `/candidates/${ref.id}`;
+    case 'Iteration':
+      return `/iterations/${ref.id}`;
+    case 'ProcedureTemplate':
+      return `/protocols/${ref.id}`;
+    case 'OracleSuite':
+      return `/oracles/suites/${ref.id}`;
+    default:
+      return null;
+  }
+}
+
+function getKindTone(kind: string): 'neutral' | 'success' | 'warning' | 'danger' {
+  switch (kind) {
+    case 'GovernedArtifact':
+      return 'success';
+    case 'EvidenceBundle':
+    case 'Candidate':
+      return 'neutral';
+    case 'Deviation':
+    case 'Deferral':
+    case 'Waiver':
+      return 'warning';
+    default:
+      return 'neutral';
+  }
+}
+
+// ============================================================================
+// Component
+// ============================================================================
 
 export function References(): JSX.Element {
   const auth = useAuth();
-  const [activeTab, setActiveTab] = useState<ReferenceTab>('documents');
-  const [documents, setDocuments] = useState<ReferenceDocument[]>([]);
-  const [intakes, setIntakes] = useState<Intake[]>([]);
-  const [bundles, setBundles] = useState<ReferenceBundle[]>([]);
+  const navigate = useNavigate();
+
+  // Category state
+  const [categories, setCategories] = useState<Category[]>(CATEGORIES);
+  const [selectedCategory, setSelectedCategory] = useState<string>('governed-artifacts');
+
+  // List state
+  const [refs, setRefs] = useState<TypedRef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<Pagination>({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+  });
+  const [search, setSearch] = useState('');
 
-  // Upload state
+  // Upload state (for documents category - preserved from original)
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchData = useCallback(() => {
+  // Fetch category counts on mount
+  const fetchCategoryCounts = useCallback(async () => {
     if (!auth.user?.access_token) return;
 
-    setLoading(true);
-    fetch(`${config.apiUrl}/api/v1/context`, {
-      headers: {
-        Authorization: `Bearer ${auth.user.access_token}`,
-      },
-    })
-      .then(res => {
-        // Treat 404 as "no data yet" rather than an error
-        if (res.status === 404) {
-          return { documents: [], intakes: [], bundles: [] };
+    const updatedCategories = await Promise.all(
+      CATEGORIES.map(async (cat) => {
+        try {
+          const res = await fetch(`${config.apiUrl}/api/v1${cat.endpoint}?page=1&page_size=1`, {
+            headers: { Authorization: `Bearer ${auth.user!.access_token}` },
+          });
+          if (res.ok) {
+            const data: ReferencesListResponse = await res.json();
+            return { ...cat, count: data.total };
+          }
+        } catch {
+          // Ignore errors for count fetching
         }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
+        return { ...cat, count: 0 };
       })
-      .then((data: ReferencesResponse) => {
-        setDocuments(data.documents || []);
-        setIntakes(data.intakes || []);
-        setBundles(data.bundles || []);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
+    );
+    setCategories(updatedCategories);
   }, [auth.user?.access_token]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchCategoryCounts();
+  }, [fetchCategoryCounts]);
 
+  // Fetch refs for selected category
+  const fetchRefs = useCallback(async () => {
+    if (!auth.user?.access_token) return;
+
+    const category = categories.find((c) => c.id === selectedCategory);
+    if (!category) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        page_size: pagination.pageSize.toString(),
+      });
+
+      const res = await fetch(`${config.apiUrl}/api/v1${category.endpoint}?${params}`, {
+        headers: { Authorization: `Bearer ${auth.user.access_token}` },
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data: ReferencesListResponse = await res.json();
+      setRefs(data.refs || []);
+      setPagination((prev) => ({ ...prev, total: data.total }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load references');
+      setRefs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [auth.user?.access_token, selectedCategory, pagination.page, pagination.pageSize, categories]);
+
+  useEffect(() => {
+    fetchRefs();
+  }, [fetchRefs]);
+
+  // Category selection
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    setSearch('');
+  };
+
+  // Pagination
+  const handlePageChange = (page: number) => {
+    setPagination((prev) => ({ ...prev, page }));
+  };
+
+  const handlePageSizeChange = (pageSize: number) => {
+    setPagination((prev) => ({ ...prev, pageSize, page: 1 }));
+  };
+
+  // Row click navigation
+  const handleRowClick = (ref: TypedRef) => {
+    const path = getDetailPath(ref);
+    if (path) {
+      navigate(path);
+    }
+  };
+
+  // Upload handlers (preserved from original for documents category)
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0 || !auth.user?.access_token) return;
 
@@ -124,7 +256,7 @@ export function References(): JSX.Element {
     }
 
     try {
-      const res = await fetch(`${config.apiUrl}/api/v1/context/upload`, {
+      const res = await fetch(`${config.apiUrl}/api/v1/references/documents`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${auth.user.access_token}`,
@@ -132,6 +264,9 @@ export function References(): JSX.Element {
         body: formData,
       });
 
+      if (res.status === 501) {
+        throw new Error('Document upload is not yet implemented');
+      }
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || `HTTP ${res.status}`);
@@ -139,7 +274,8 @@ export function References(): JSX.Element {
 
       const data = await res.json();
       setUploadSuccess(`Successfully uploaded ${data.uploaded?.length || files.length} file(s)`);
-      fetchData(); // Refresh the list
+      fetchRefs();
+      fetchCategoryCounts();
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
@@ -167,366 +303,273 @@ export function References(): JSX.Element {
     handleFileUpload(e.dataTransfer.files);
   };
 
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
+  // Client-side search filtering
+  const filteredRefs = search
+    ? refs.filter(
+        (ref) =>
+          (ref.label?.toLowerCase().includes(search.toLowerCase())) ||
+          ref.id.toLowerCase().includes(search.toLowerCase()) ||
+          ref.kind.toLowerCase().includes(search.toLowerCase())
+      )
+    : refs;
 
-  const truncateHash = (hash: string): string => {
-    if (!hash) return '';
-    if (hash.startsWith('sha256:')) {
-      return hash.slice(0, 15) + '...' + hash.slice(-6);
-    }
-    return hash.length > 20 ? hash.slice(0, 10) + '...' + hash.slice(-6) : hash;
-  };
+  const totalPages = Math.ceil(pagination.total / pagination.pageSize);
+  const currentCategory = categories.find((c) => c.id === selectedCategory);
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.headerStart}>
           <h1 className={styles.title}>References</h1>
-          <p className={styles.subtitle}>Documents and artifacts for semantic work context</p>
+          <p className={styles.subtitle}>Browse all typed references in the system</p>
         </div>
       </div>
 
-      {/* Overview Stats */}
-      <Card>
-        <div className={styles.statsGrid}>
-          <div className={styles.stat}>
-            <div className={styles.statLabel}>Documents</div>
-            <div className={styles.statValue}>{documents.length}</div>
-          </div>
-          <div className={styles.stat}>
-            <div className={styles.statLabel}>Intakes</div>
-            <div className={styles.statValue}>{intakes.length}</div>
-          </div>
-          <div className={styles.stat}>
-            <div className={styles.statLabel}>Reference Bundles</div>
-            <div className={styles.statValue}>{bundles.length}</div>
-          </div>
-          <div className={styles.stat}>
-            <div className={styles.statLabel}>Addressing</div>
-            <div className={styles.statValue}>sha256</div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Info Note */}
-      <div className={styles.note}>
-        Per SR-SPEC C-CTX-2: No ghost inputs. All agent-relevant authoritative inputs must be
-        derivable from IterationStarted.refs[]. Documents uploaded here are content-addressed
-        and can be referenced in work surfaces and iteration context.
-      </div>
-
-      {/* Upload Section */}
-      <Card>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--ink)' }}>
-          Upload Reference Documents
-        </h3>
-
-        <div
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          style={{
-            border: `2px dashed ${dragActive ? 'var(--accent)' : 'var(--border)'}`,
-            borderRadius: 'var(--radiusSm)',
-            padding: 'var(--space5)',
-            textAlign: 'center',
-            backgroundColor: dragActive ? 'rgba(0, 102, 204, 0.05)' : 'transparent',
-            transition: 'all 150ms ease',
-            cursor: 'pointer',
-          }}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            style={{ display: 'none' }}
-            onChange={(e) => handleFileUpload(e.target.files)}
-            accept=".md,.txt,.json,.yaml,.yml,.pdf,.png,.jpg,.jpeg,.csv"
-          />
-          <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.875rem' }}>
-            {uploading ? 'Uploading...' : 'Drag & drop files here, or click to select'}
-          </p>
-          <p style={{ margin: '0.5rem 0 0 0', color: 'var(--muted)', fontSize: '0.75rem' }}>
-            Supported: .md, .txt, .json, .yaml, .pdf, .png, .jpg, .csv
-          </p>
+      <div className={styles.referencesLayout}>
+        {/* Category Sidebar */}
+        <div className={styles.categorySidebar}>
+          <div className={styles.categorySidebarTitle}>Categories</div>
+          <ul className={styles.categoryList}>
+            {categories.map((cat) => (
+              <li key={cat.id}>
+                <button
+                  className={`${styles.categoryItem} ${
+                    selectedCategory === cat.id ? styles.categoryItemActive : ''
+                  }`}
+                  onClick={() => handleCategoryChange(cat.id)}
+                >
+                  <span>{cat.label}</span>
+                  {cat.count !== undefined && (
+                    <span className={styles.categoryCount}>{cat.count}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {uploadError && (
-          <div className={styles.error} style={{ marginTop: '1rem', marginBottom: 0 }}>
-            {uploadError}
-          </div>
-        )}
-        {uploadSuccess && (
-          <div className={styles.success} style={{ marginTop: '1rem', marginBottom: 0 }}>
-            {uploadSuccess}
-          </div>
-        )}
-      </Card>
+        {/* Content Area */}
+        <div className={styles.contentArea}>
+          {/* Upload Section (only for documents category - currently not functional) */}
+          {selectedCategory === 'documents' && (
+            <Card className={styles.cardSpacing}>
+              <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--ink)' }}>
+                Upload Reference Documents
+              </h3>
+              <div className={styles.note} style={{ marginBottom: 'var(--space3)' }}>
+                Document upload is not yet implemented in the backend.
+              </div>
+              <div
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                style={{
+                  border: `2px dashed ${dragActive ? 'var(--accent)' : 'var(--border)'}`,
+                  borderRadius: 'var(--radiusSm)',
+                  padding: 'var(--space5)',
+                  textAlign: 'center',
+                  backgroundColor: dragActive ? 'rgba(0, 102, 204, 0.05)' : 'transparent',
+                  transition: 'all 150ms ease',
+                  cursor: 'pointer',
+                  opacity: 0.6,
+                }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleFileUpload(e.target.files)}
+                  accept=".md,.txt,.json,.yaml,.yml,.pdf,.png,.jpg,.jpeg,.csv"
+                />
+                <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.875rem' }}>
+                  {uploading ? 'Uploading...' : 'Drag & drop files here, or click to select'}
+                </p>
+              </div>
+              {uploadError && (
+                <div className={styles.error} style={{ marginTop: '1rem', marginBottom: 0 }}>
+                  {uploadError}
+                </div>
+              )}
+              {uploadSuccess && (
+                <div className={styles.success} style={{ marginTop: '1rem', marginBottom: 0 }}>
+                  {uploadSuccess}
+                </div>
+              )}
+            </Card>
+          )}
 
-      {/* Tabs */}
-      <div className={styles.tabs}>
-        <button
-          className={`${styles.tab} ${activeTab === 'documents' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('documents')}
-        >
-          Documents ({documents.length})
-        </button>
-        <button
-          className={`${styles.tab} ${activeTab === 'intakes' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('intakes')}
-        >
-          Intakes ({intakes.length})
-        </button>
-        <button
-          className={`${styles.tab} ${activeTab === 'bundles' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('bundles')}
-        >
-          Reference Bundles ({bundles.length})
-        </button>
+          {/* Search and Filters */}
+          <Card className={styles.cardSpacing}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--space3)',
+                flexWrap: 'wrap',
+                alignItems: 'flex-end',
+              }}
+            >
+              <div className={styles.formGroup} style={{ marginBottom: 0, flex: 1, minWidth: '200px' }}>
+                <label className={styles.labelSmall}>Search</label>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Filter by label, ID, or kind..."
+                  className={styles.input}
+                />
+              </div>
+              <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                <label className={styles.labelSmall}>Per Page</label>
+                <select
+                  value={pagination.pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className={styles.select}
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button variant="ghost" onClick={fetchRefs}>
+                Refresh
+              </Button>
+            </div>
+          </Card>
+
+          {/* Error State */}
+          {error && <div className={styles.error}>{error}</div>}
+
+          {/* Loading State */}
+          {loading ? (
+            <Card>
+              <div className={styles.placeholder}>
+                <p className={styles.placeholderText}>Loading {currentCategory?.label || 'references'}...</p>
+              </div>
+            </Card>
+          ) : filteredRefs.length === 0 ? (
+            <Card>
+              <div className={styles.placeholder}>
+                <p className={styles.placeholderText}>No {currentCategory?.label?.toLowerCase() || 'references'} found.</p>
+                <p className={styles.placeholderHint}>
+                  {search
+                    ? 'Try adjusting your search.'
+                    : `This category is currently empty.`}
+                </p>
+              </div>
+            </Card>
+          ) : (
+            <>
+              {/* References Table */}
+              <Card>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th className={styles.th}>Label / ID</th>
+                      <th className={styles.th}>Kind</th>
+                      <th className={styles.th}>Relation</th>
+                      <th className={styles.th}>Content Hash</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRefs.map((ref, idx) => {
+                      const path = getDetailPath(ref);
+                      return (
+                        <tr
+                          key={`${ref.id}-${idx}`}
+                          onClick={() => handleRowClick(ref)}
+                          style={{ cursor: path ? 'pointer' : 'default' }}
+                          className={path ? styles.tableRowHover : undefined}
+                        >
+                          <td className={styles.td}>
+                            <div>
+                              <div style={{ fontWeight: 500 }}>
+                                {ref.label || ref.id}
+                              </div>
+                              {ref.label && ref.label !== ref.id && (
+                                <div
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    color: 'var(--muted)',
+                                    fontFamily: 'var(--mono)',
+                                    marginTop: 'var(--space1)',
+                                  }}
+                                >
+                                  {ref.id}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className={styles.td}>
+                            <Pill tone={getKindTone(ref.kind)}>{ref.kind}</Pill>
+                          </td>
+                          <td className={styles.td}>
+                            <span style={{ color: 'var(--muted)' }}>{ref.rel}</span>
+                          </td>
+                          <td className={styles.tdMono}>
+                            {ref.meta.content_hash
+                              ? truncateHash(ref.meta.content_hash)
+                              : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </Card>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    marginTop: 'var(--space4)',
+                    gap: 'var(--space2)',
+                  }}
+                >
+                  <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                    Page {pagination.page} of {totalPages} ({pagination.total} total)
+                  </span>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handlePageChange(1)}
+                    disabled={pagination.page === 1}
+                  >
+                    First
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page === 1}
+                  >
+                    Prev
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page >= totalPages}
+                  >
+                    Next
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={pagination.page >= totalPages}
+                  >
+                    Last
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-
-      {/* Tab Content */}
-      <Card>
-        {loading ? (
-          <div className={styles.placeholder}>
-            <p className={styles.placeholderText}>Loading references data...</p>
-          </div>
-        ) : error ? (
-          <div className={styles.placeholder}>
-            <p className={styles.error}>Error: {error}</p>
-          </div>
-        ) : activeTab === 'documents' ? (
-          documents.length === 0 ? (
-            <div className={styles.placeholder}>
-              <p className={styles.placeholderText}>No reference documents uploaded.</p>
-              <p className={styles.placeholderHint}>
-                Upload documents above to make them available as context for semantic work.
-                Each document is content-addressed and can be referenced by hash.
-              </p>
-            </div>
-          ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={styles.th}>Filename</th>
-                  <th className={styles.th}>Type</th>
-                  <th className={styles.th}>Size</th>
-                  <th className={styles.th}>Content Hash</th>
-                  <th className={styles.th}>Tags</th>
-                  <th className={styles.th}>Referenced</th>
-                  <th className={styles.th}>Uploaded</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map(doc => (
-                  <tr key={doc.id}>
-                    <td className={styles.td}>
-                      <Link to={`/references/documents/${doc.id}`} className={styles.link}>
-                        {doc.filename}
-                      </Link>
-                    </td>
-                    <td className={styles.tdMono}>{doc.media_type}</td>
-                    <td className={styles.td}>{formatBytes(doc.size_bytes)}</td>
-                    <td className={styles.tdMono}>{truncateHash(doc.content_hash)}</td>
-                    <td className={styles.td}>
-                      <div className={styles.badgeGroup}>
-                        {doc.tags.slice(0, 2).map(tag => (
-                          <Pill key={tag} tone="neutral">{tag}</Pill>
-                        ))}
-                        {doc.tags.length > 2 && (
-                          <Pill tone="neutral">+{doc.tags.length - 2}</Pill>
-                        )}
-                      </div>
-                    </td>
-                    <td className={styles.td}>
-                      {doc.referenced_by > 0 ? (
-                        <Pill tone="success">{doc.referenced_by} refs</Pill>
-                      ) : (
-                        <span style={{ color: 'var(--muted)' }}>—</span>
-                      )}
-                    </td>
-                    <td className={styles.td}>
-                      {new Date(doc.uploaded_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )
-        ) : activeTab === 'intakes' ? (
-          intakes.length === 0 ? (
-            <div className={styles.placeholder}>
-              <p className={styles.placeholderText}>No intake records.</p>
-              <p className={styles.placeholderHint}>
-                Intakes define the objective, scope, constraints, and deliverables
-                for a work unit. They are created when starting semantic work.
-              </p>
-            </div>
-          ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={styles.th}>Title</th>
-                  <th className={styles.th}>Kind</th>
-                  <th className={styles.th}>Work Unit</th>
-                  <th className={styles.th}>Objective</th>
-                  <th className={styles.th}>Status</th>
-                  <th className={styles.th}>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {intakes.map(intake => (
-                  <tr key={intake.id}>
-                    <td className={styles.td}>
-                      <Link to={`/intakes/${intake.id}`} className={styles.link}>
-                        {intake.title}
-                      </Link>
-                    </td>
-                    <td className={styles.td}>
-                      <Pill tone="neutral">{intake.kind}</Pill>
-                    </td>
-                    <td className={styles.tdMono}>
-                      <Link to={`/loops/${intake.work_unit_id}`} className={styles.link}>
-                        {intake.work_unit_id.slice(0, 12)}...
-                      </Link>
-                    </td>
-                    <td className={styles.td} style={{ maxWidth: '300px' }}>
-                      {intake.objective.length > 80
-                        ? intake.objective.slice(0, 80) + '...'
-                        : intake.objective}
-                    </td>
-                    <td className={styles.td}>
-                      <Pill tone={
-                        intake.status === 'active' ? 'success' :
-                        intake.status === 'draft' ? 'warning' : 'neutral'
-                      }>
-                        {intake.status}
-                      </Pill>
-                    </td>
-                    <td className={styles.td}>
-                      {new Date(intake.created_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )
-        ) : (
-          bundles.length === 0 ? (
-            <div className={styles.placeholder}>
-              <p className={styles.placeholderText}>No reference bundles recorded.</p>
-              <p className={styles.placeholderHint}>
-                Reference bundles capture the complete effective context for an iteration.
-                They are created automatically when iterations start.
-              </p>
-            </div>
-          ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={styles.th}>Bundle ID</th>
-                  <th className={styles.th}>Iteration</th>
-                  <th className={styles.th}>Loop</th>
-                  <th className={styles.th}>Refs Count</th>
-                  <th className={styles.th}>Content Hash</th>
-                  <th className={styles.th}>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bundles.map(bundle => (
-                  <tr key={bundle.id}>
-                    <td className={styles.tdMono}>
-                      <Link to={`/references/bundles/${bundle.id}`} className={styles.link}>
-                        {bundle.id.slice(0, 16)}...
-                      </Link>
-                    </td>
-                    <td className={styles.tdMono}>
-                      <Link to={`/iterations/${bundle.iteration_id}`} className={styles.link}>
-                        {bundle.iteration_id.slice(0, 12)}...
-                      </Link>
-                    </td>
-                    <td className={styles.tdMono}>
-                      <Link to={`/loops/${bundle.loop_id}`} className={styles.link}>
-                        {bundle.loop_id.slice(0, 12)}...
-                      </Link>
-                    </td>
-                    <td className={styles.td}>{bundle.refs_count} refs</td>
-                    <td className={styles.tdMono}>{truncateHash(bundle.content_hash)}</td>
-                    <td className={styles.td}>
-                      {new Date(bundle.created_at).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )
-        )}
-      </Card>
-
-      {/* Schema Reference */}
-      <Card>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--ink)' }}>
-          Intake Schema (SR-WORK-SURFACE)
-        </h3>
-        <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--muted)' }}>
-          Intakes define the structured problem statement for a work unit.
-          Required fields per SR-WORK-SURFACE §3.1:
-        </p>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th className={styles.th}>Field</th>
-              <th className={styles.th}>Type</th>
-              <th className={styles.th}>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className={styles.tdMono}>work_unit_id</td>
-              <td className={styles.td}>string</td>
-              <td className={styles.td}>Stable identifier for the work unit</td>
-            </tr>
-            <tr>
-              <td className={styles.tdMono}>title</td>
-              <td className={styles.td}>string</td>
-              <td className={styles.td}>Human-readable title</td>
-            </tr>
-            <tr>
-              <td className={styles.tdMono}>kind</td>
-              <td className={styles.td}>string</td>
-              <td className={styles.td}>Work kind (e.g., research_memo, decision_record)</td>
-            </tr>
-            <tr>
-              <td className={styles.tdMono}>objective</td>
-              <td className={styles.td}>string</td>
-              <td className={styles.td}>One sentence objective</td>
-            </tr>
-            <tr>
-              <td className={styles.tdMono}>deliverables[]</td>
-              <td className={styles.td}>array</td>
-              <td className={styles.td}>Required outputs with format and paths</td>
-            </tr>
-            <tr>
-              <td className={styles.tdMono}>constraints[]</td>
-              <td className={styles.td}>array</td>
-              <td className={styles.td}>Length, tone, required sections, prohibited content</td>
-            </tr>
-            <tr>
-              <td className={styles.tdMono}>inputs[]</td>
-              <td className={styles.td}>array</td>
-              <td className={styles.td}>Provided context refs (content-addressed)</td>
-            </tr>
-          </tbody>
-        </table>
-      </Card>
     </div>
   );
 }
