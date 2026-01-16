@@ -152,6 +152,10 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
    - Container build and registration instructions
    - Contract compliance matrix
 
+7. **Updated canonical documents**:
+   - SR-SPEC §1.9.1.1: Added `sr.oracle_result.v1` schema documentation
+   - SR-CHANGE: Added version 0.8 documenting V8-4 implementation
+
 ### Test Results
 
 | Package | Result |
@@ -171,6 +175,15 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 | `oracle-suites/core-v1/oracles/lint.sh` | CREATED — Lint check oracle (advisory) |
 | `oracle-suites/core-v1/README.md` | CREATED — Suite documentation |
 | `crates/sr-adapters/src/oracle_runner.rs` | MODIFIED — Added 6 V8-4 integration tests |
+| `docs/platform/SR-SPEC.md` | MODIFIED — Added §1.9.1.1 `sr.oracle_result.v1` schema |
+| `docs/build-governance/SR-CHANGE.md` | MODIFIED — Added version 0.8 |
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| `46e657a` | V8-4: Complete Core Oracle Suite Container |
+| `1bfb431` | docs: Add sr.oracle_result.v1 schema to SR-SPEC §1.9.1.1 |
 
 ### Contract Compliance
 
