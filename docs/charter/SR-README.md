@@ -263,7 +263,7 @@ SR-PLAN-V6 is complete. The MVP workflow is now fully functional end-to-end thro
 
 ### Assignment
 
-Plan and execute **SR-PLAN-V7: MVP Stabilization & Evidence Foundation**.
+Complete the planning phase before execution, see **SR-PLAN-V7: MVP Stabilization & Evidence Foundation**.
 
 **Goal:** Validate the completed MVP, then add the most architecturally significant extension (Evidence Upload) which is core to the semantic oracle model.
 
