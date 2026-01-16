@@ -148,46 +148,128 @@ crates/sr-api/tests/integration/semantic_ralph_loop_e2e.rs — E2E test
 
 ---
 
+### Session: 2026-01-16 (Interrupted) — Phase 5a Implementation
 
-# Next Instance Prompt: SR-PLAN-V5 Phase 5a Implementation
+**Objective:** Implement Phase 5a (Stage Advancement UI) per SR-PLAN-V5.
+
+**What Occurred (Reconstructed):**
+
+The previous instance successfully implemented all Phase 5a deliverables but was interrupted before committing the work. Based on examination of the uncommitted files:
+
+1. **Created `EvidenceBundleSelector.tsx`** (179 lines)
+   - Fetches evidence bundles from `GET /api/v1/evidence?limit=20`
+   - Dropdown showing truncated hash, verdict, and relative time
+   - Manual hash entry fallback when API fails or user prefers
+   - Proper loading and error states
+
+2. **Created `StageCompletionForm.tsx`** (374 lines)
+   - Complete form per SR-PLAN-V5 §3.2-3.7
+   - Evidence bundle selector integration
+   - Gate result radio buttons (PASS, PASS_WITH_WAIVERS, FAIL)
+   - Conditional waiver refs field (required for PASS_WITH_WAIVERS)
+   - Oracle results pre-populated from `current_oracle_suites`
+   - Client-side validation per §3.6
+   - API call to `POST /api/v1/work-surfaces/:id/stages/:stage_id/complete`
+   - Error handling for 400, 409, 412 per §3.7
+   - Success message with next stage info
+
+3. **Modified `WorkSurfaceDetail.tsx`**
+   - Added `showCompletionForm` state
+   - "Complete Stage" button visible when `status === 'active' && stage.status === 'entered'`
+   - StageCompletionForm rendered conditionally
+   - `onComplete` callback refreshes data and hides form
+
+**Session ended before:** `git add && commit && push`
+
+**Files left uncommitted:**
+- `ui/src/components/EvidenceBundleSelector.tsx` (new)
+- `ui/src/components/StageCompletionForm.tsx` (new)
+- `ui/src/pages/WorkSurfaceDetail.tsx` (modified)
+
+---
+
+### Session: 2026-01-16 — Phase 5a Verification & Commit
+
+**Objective:** Verify and commit the Phase 5a implementation left by the interrupted session.
+
+**Work Performed:**
+
+1. **Code Review**
+   - Examined all three files against SR-PLAN-V5 §3.9 acceptance criteria
+   - Confirmed all criteria satisfied
+
+2. **Verification**
+   - `npm run type-check` — Passed
+   - `npm run build` — Passed (warning about chunk size, acceptable)
+
+3. **Commit & Push**
+   - `1ba5275` — "Implement Phase 5a: Stage Advancement UI"
+   - `b41d643` — "Mark Phase 5a as complete in SR-README"
+
+**Files Committed:**
+
+| File | Action | Lines |
+|------|--------|-------|
+| `ui/src/components/EvidenceBundleSelector.tsx` | CREATE | 179 |
+| `ui/src/components/StageCompletionForm.tsx` | CREATE | 374 |
+| `ui/src/pages/WorkSurfaceDetail.tsx` | EDIT | +49 |
+
+**Next Step:** Implement Phase 5b (Loop ↔ Work Surface Binding) per SR-PLAN-V5.
+
+---
+
+
+# Next Instance Prompt: SR-PLAN-V5 Phase 5b Implementation
 
 ## Your Assignment
 
-You are continuing work on the **Semantic Ralph Loop MVP** project. The planning and review phase is complete. Your task is to **implement Phase 5a: Stage Advancement UI** as specified in `docs/planning/SR-PLAN-V5.md`.
+You are continuing work on the **Semantic Ralph Loop MVP** project. Phase 5a (Stage Advancement UI) is complete. Your task is to **implement Phase 5b: Loop ↔ Work Surface Binding** as specified in `docs/planning/SR-PLAN-V5.md` §4.
 
 ### Key Documents to Read
-1. **`docs/planning/SR-PLAN-V5.md`** — The implementation plan (especially §3 Phase 5a)
+1. **`docs/planning/SR-PLAN-V5.md`** — The implementation plan (especially §4 Phase 5b)
 2. **`docs/charter/SR-README.md`** — Assignment orientation and canonical document index
-3. **`docs/platform/SR-CONTRACT.md`** — Binding invariants (C-EVID-*, C-TB-*, C-VER-*)
+3. **`docs/platform/SR-CONTRACT.md`** — Binding invariants
 
-### What You Need to Implement (Phase 5a)
+### What You Need to Implement (Phase 5b)
 
-**Goal:** Add UI to complete stages with evidence from the WorkSurfaceDetail page.
+**Goal:** Ensure Loops are created with explicit Work Surface binding and inherit context automatically.
 
-**Deliverables (from SR-PLAN-V5 §3.8):**
+**Deliverables (from SR-PLAN-V5 §4.5):**
+
+| File | Action | Description |
+|------|--------|-------------|
+| `crates/sr-api/src/handlers/loops.rs` | EDIT | Add Work Surface validation on loop creation |
+| `crates/sr-api/src/handlers/iterations.rs` | EDIT | Auto-populate work_unit_id from Loop |
+| `crates/sr-adapters/src/projections.rs` | EDIT | Project work_surface_id to loops table |
+| `ui/src/pages/Loops.tsx` | EDIT | Add Work Surface column |
+| `ui/src/pages/LoopDetail.tsx` | EDIT | Enhance Work Surface display |
 
 **Key Implementation Details:**
-- Form visible only when: Work Surface status is "active" AND current stage status is "entered"
-- Pre-populate oracle IDs from `workSurface.current_oracle_suites`
-- Gate result status options: PASS, PASS_WITH_WAIVERS, FAIL
-- If PASS_WITH_WAIVERS selected, waiver refs field is required
-- API endpoint: `POST /api/v1/work-surfaces/:work_surface_id/stages/:stage_id/complete`
+- When `work_unit` is provided to loop creation, validate active Work Surface exists
+- Return 412 PRECONDITION_FAILED with code `WORK_SURFACE_REQUIRED` if not found
+- Add `work_surface_id` to LoopCreated event payload
+- Auto-populate `work_unit_id` in iterations from Loop's stored work_unit
+- UI: Show Work Surface column in Loops list, enhance LoopDetail display
 
-**Acceptance Criteria (from SR-PLAN-V5 §3.9):**
+**Acceptance Criteria (from SR-PLAN-V5 §4.6):**
+- [ ] Loop creation with work_unit fails if no active Work Surface exists
+- [ ] LoopCreated event includes work_surface_id when bound
+- [ ] Iterations automatically receive Work Surface context from Loop
+- [ ] Loops list shows bound Work Surface
+- [ ] LoopDetail shows Work Surface binding prominently
 
 ### Existing Code to Reference
-- **Backend API:** `crates/sr-api/src/handlers/work_surfaces.rs` — `complete_stage` endpoint exists
-- **Evidence API:** `crates/sr-api/src/handlers/evidence.rs` — `GET /api/v1/evidence` for bundle list
-- **Current UI:** `ui/src/pages/WorkSurfaceDetail.tsx` — where form will be integrated
+- **Loop Handler:** `crates/sr-api/src/handlers/loops.rs`
+- **Iteration Handler:** `crates/sr-api/src/handlers/iterations.rs`
+- **Projections:** `crates/sr-adapters/src/projections.rs`
+- **Loop UI:** `ui/src/pages/Loops.tsx`, `ui/src/pages/LoopDetail.tsx`
 
-### Implementation Order (from SR-PLAN-V5 §7)
-
-### MVP Limitations (Accepted)
-- Evidence bundle existence not validated by backend
-- Waiver refs not validated to exist
-- Oracle results are user-entered, not from actual oracle runs
-- FAIL records evidence but does NOT advance the stage
+### Database Schema Note
+You may need to add a migration for `work_surface_id` column on `proj.loops` table:
+```sql
+ALTER TABLE proj.loops ADD COLUMN work_surface_id TEXT REFERENCES proj.work_surfaces(work_surface_id);
+```
 
 ## Begin Implementation
-Start by reading `docs/planning/SR-PLAN-V5.md` §3 (Phase 5a) in full, then examine `ui/src/pages/WorkSurfaceDetail.tsx` to understand the current UI structure before creating the new components.
+Start by reading `docs/planning/SR-PLAN-V5.md` §4 (Phase 5b) in full, then examine `crates/sr-api/src/handlers/loops.rs` to understand the current loop creation flow.
 
