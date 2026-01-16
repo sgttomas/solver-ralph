@@ -64,7 +64,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
 | SR-PLAN-GAP-ANALYSIS | **living** | Deliverable status tracking & roadmap |
-| SR-PLAN-V7 | **ready** | MVP Stabilization & Attachment Foundation |
+| SR-PLAN-V7 | **complete** | MVP Stabilization & Attachment Foundation |
 | SR-PLAN-V6 | **complete** | UI Integration for MVP Workflow (V6-1, V6-2, V6-3 complete) |
 | SR-PLAN-V5 | **complete** | Semantic Ralph Loop End-to-End Integration (Phases 5a-5d) |
 | SR-PLAN-V4 | **complete** | Work Surface Composition (Phase 4) — All phases complete |
@@ -77,8 +77,8 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 | Plan | Scope | Key Deliverables | Status |
 |------|-------|------------------|--------|
-| SR-PLAN-V7 | Stabilization & Attachments | Tests, UX, `record.attachment` | **Ready** |
-| SR-PLAN-V8 | Oracle Runner & Semantic Suites | D-24, D-25, D-27, D-39 | Proposed |
+| SR-PLAN-V7 | Stabilization & Attachments | Tests, UX, `record.attachment` | **Complete** |
+| SR-PLAN-V8 | Oracle Runner & Semantic Suites | D-24, D-25, D-27, D-39 | Not yet authored |
 | SR-PLAN-V9 | Semantic Worker & Branch 0 | D-23, D-41, D-36 | Proposed |
 
 **Milestone 1 (MVP) projected completion:** After V9
@@ -94,7 +94,9 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 | V7-2: Error Handling | ✅ Complete | Toast notifications, loading states, retry logic |
 | V7-3: Attachment Backend | ✅ Complete | `POST /attachments` endpoint |
 | V7-4: Attachment Frontend | ✅ Complete | AttachmentUploader, AttachmentPreview, tabbed StageCompletionForm |
-| V7-5: Multiple Iterations | ⏳ Pending | Iteration history and new iteration support |
+| V7-5: Multiple Iterations | ✅ Complete | Iteration history and new iteration support |
+
+**SR-PLAN-V7 is now complete.** All MVP stabilization and attachment foundation work is done.
 
 ---
 
@@ -371,62 +373,135 @@ This preserves SR-CONTRACT's epistemological clarity: only oracle-produced Evide
 
 ---
 
-## Next Instance Prompt: Execute SR-PLAN-V7 Phase V7-5
+## Previous Session Summary (V7-5 Multiple Iteration Support)
+
+**Session Goal:** Implement SR-PLAN-V7 Phase V7-5 — Multiple iteration support.
+
+### What Was Accomplished
+
+1. **Implemented backend iteration endpoints:**
+
+   | Endpoint | Purpose |
+   |----------|---------|
+   | `GET /api/v1/work-surfaces/{id}/iterations` | Returns iteration list for Work Surface's Loop |
+   | `POST /api/v1/work-surfaces/{id}/iterations` | Starts new iteration (SYSTEM-mediated per C-CTX-1) |
+
+2. **Backend implementation details:**
+   - Reused existing `start_iteration_as_system()` helper from `/start` endpoint
+   - Added `WorkSurfaceIterationsResponse` and `IterationSummary` types
+   - Validation: Loop must be ACTIVE, current iteration must be COMPLETED or FAILED
+   - Returns HTTP 412 Precondition Failed for invalid states
+
+3. **Created frontend iteration history component:**
+
+   | File | Purpose |
+   |------|---------|
+   | `ui/src/components/IterationHistory.tsx` | Timeline view with expandable iteration cards |
+   | `ui/src/components/IterationHistory.module.css` | Timeline styling with animated active dot |
+
+4. **Integrated into WorkSurfaceDetail.tsx:**
+   - Added iteration fetching with `fetchIterations()` callback
+   - Added "Iteration History" card with IterationHistory component
+   - Wired "New Iteration" button with toast feedback on success/error
+   - Button disabled when current iteration still in progress
+
+5. **All checks pass:**
+   - `cargo test --package sr-api` ✅ (41 tests)
+   - `npm run type-check` ✅
+   - `npm run build` ✅
+
+### Files Created
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `ui/src/components/IterationHistory.tsx` | ~230 | Timeline component with expandable details |
+| `ui/src/components/IterationHistory.module.css` | ~180 | Timeline styling |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `crates/sr-api/src/handlers/work_surfaces.rs` | Added iteration list/create endpoints (+220 lines) |
+| `crates/sr-api/src/main.rs` | Registered `/iterations` routes |
+| `ui/src/pages/WorkSurfaceDetail.tsx` | Integrated iteration history (+104 lines) |
+| `ui/src/components/index.ts` | Exported new component |
+
+### Commits
+
+- `01742c0` SR-PLAN-V7 Phase V7-5: Multiple iteration support
+- `927a941` docs: mark V7-5 complete in SR-PLAN-V7 and SR-PLAN-GAP-ANALYSIS
+
+### SR-PLAN-V7 Complete
+
+With V7-5 done, SR-PLAN-V7 is fully complete:
+- V7-1: Integration tests ✅
+- V7-2: Error handling ✅
+- V7-3: Attachment backend ✅
+- V7-4: Attachment frontend ✅
+- V7-5: Multiple iterations ✅
+
+---
+
+## Next Instance Prompt: Author SR-PLAN-V8
 
 ### Context
 
-V7-4 is complete. The attachment foundation is now fully functional:
-- Backend: `POST /api/v1/attachments` stores files content-addressed in MinIO
-- Frontend: `AttachmentUploader` with drag-drop, progress, preview
-- Integration: `StageCompletionForm` has tabbed interface for Evidence vs Attachment
+SR-PLAN-V7 is complete. The MVP is now stabilized with:
+- Integration tests for core workflows
+- User-friendly error handling and toast notifications
+- Attachment upload support (distinct from Evidence Bundles)
+- Multiple iteration support for retry/iteration patterns
 
-The Work Surface workflow now supports both oracle-produced Evidence Bundles and human-uploaded Attachments. Next: enable multiple iterations so users can retry or iterate on stuck work.
+Per `SR-PLAN-GAP-ANALYSIS.md`, the critical path to Milestone 1 requires Oracle Runner infrastructure. SR-PLAN-V8 is proposed but **not yet authored**.
 
 ### Current State
 
-- Branch: `solver-ralph-7`
-- SR-PLAN-V7 Phase V7-1: **Complete** (Integration tests)
-- SR-PLAN-V7 Phase V7-2: **Complete** (Error handling)
-- SR-PLAN-V7 Phase V7-3: **Complete** (Attachment backend)
-- SR-PLAN-V7 Phase V7-4: **Complete** (Attachment frontend)
-- SR-PLAN-V7 Phase V7-5: **Pending** (next)
+- Branch: `solver-ralph-7` (all V7 work complete)
+- SR-PLAN-V7: **Complete** (all phases)
+- SR-PLAN-V8: **Not yet authored** (proposed scope: Oracle Runner & Semantic Suites)
 
 ### Assignment
 
-**Execute SR-PLAN-V7 Phase V7-5: Multiple Iteration Support**
+**Author SR-PLAN-V8: Oracle Runner & Semantic Suite Foundation**
 
-Enable viewing iteration history and starting new iterations on Work Surfaces.
+Create a detailed implementation plan for the oracle execution infrastructure, which is the primary blocker for Milestone 1 (MVP) completion.
 
-### Key Requirements (from SR-PLAN-V7 §V7-5)
+### Key Deliverables to Plan (from SR-PLAN-GAP-ANALYSIS)
 
-**Backend endpoints to create:**
-1. `GET /api/v1/work-surfaces/{id}/iterations` — Returns iteration list for Work Surface's Loop
-2. `POST /api/v1/work-surfaces/{id}/iterations` — Starts new iteration (SYSTEM-mediated per C-CTX-1)
+| Deliverable | Title | Gap Analysis Notes |
+|-------------|-------|-------------------|
+| D-24 | Oracle runner service | **Critical gap** — Podman + gVisor sandbox |
+| D-25 | Core oracle suite | Build/unit/schema/lint oracles |
+| D-27 | Oracle integrity checks | TAMPER/GAP/FLAKE/ENV_MISMATCH |
+| D-39 | Semantic oracle integration | Meaning matrices, residual/coverage artifacts |
 
-**Frontend components to create:**
-1. `IterationHistory.tsx` — Timeline view of iterations with status, stage, duration
-2. Integration into `WorkSurfaceDetail.tsx` — Collapsible iteration history section
+### Planning Requirements
 
-**UX requirements:**
-- Timeline shows each iteration: number, stage, status, duration
-- Expandable to show iteration details (evidence bundles, attachments)
-- "New Iteration" button available when current iteration is completed or stop trigger fired
-- New iteration uses SYSTEM actor mediation (same pattern as `/start`)
+1. **Read canonical documents first:**
+   - `SR-SEMANTIC-ORACLE-SPEC` — Oracle interface requirements
+   - `SR-CONTRACT` §C-VER-1, C-EVID-1 — Evidence and verification constraints
+   - `SR-SPEC` §1.9 — Evidence bundle model
+   - `SR-PLAN-GAP-ANALYSIS` — Current deliverable status
 
-### Acceptance Criteria
+2. **Define phased implementation:**
+   - Break D-24/D-25/D-27/D-39 into implementable phases
+   - Each phase should be completable in 1-2 sessions
+   - Define clear acceptance criteria per phase
 
-- [ ] `GET /work-surfaces/{id}/iterations` returns iteration list
-- [ ] `POST /work-surfaces/{id}/iterations` starts new iteration as SYSTEM
-- [ ] `IterationHistory.tsx` shows timeline of iterations
-- [ ] "New Iteration" button starts new iteration
-- [ ] `cargo test --package sr-api` passes
-- [ ] `npm run type-check` passes
-- [ ] `npm run build` passes
+3. **Address architectural decisions:**
+   - Sandbox technology (Podman + gVisor vs alternatives)
+   - Oracle suite packaging format
+   - Evidence bundle production workflow
+   - Integration with existing `/runs` API
+
+4. **Document in standard format:**
+   - Create `docs/planning/SR-PLAN-V8.md`
+   - Follow structure of SR-PLAN-V7 (context, phases, deliverables, acceptance criteria)
 
 ### First Action
 
-1. Read SR-PLAN-V7 §V7-5 for full requirements
-2. Examine existing iteration handling in `crates/sr-api/src/handlers/work_surfaces.rs`
-3. Review `crates/sr-domain/src/events.rs` for iteration-related events
-4. Implement `GET /work-surfaces/{id}/iterations` endpoint
+1. Read `docs/platform/SR-SEMANTIC-ORACLE-SPEC.md` for oracle interface requirements
+2. Read `docs/planning/SR-PLAN-GAP-ANALYSIS.md` for deliverable status
+3. Review `crates/sr-adapters/src/oracle_runner.rs` for existing (partial) implementation
+4. Draft SR-PLAN-V8 phases based on dependency analysis
 
