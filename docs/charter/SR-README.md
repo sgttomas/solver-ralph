@@ -63,7 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
-| SR-PLAN-V6 | **ready** | UI Integration for MVP Workflow (coherence verified, ready for implementation) |
+| SR-PLAN-V6 | **in progress** | UI Integration for MVP Workflow (V6-1, V6-2 complete; V6-3 pending) |
 | SR-PLAN-V5 | **complete** | Semantic Ralph Loop End-to-End Integration (Phases 5a-5d) |
 | SR-PLAN-V4 | **complete** | Work Surface Composition (Phase 4) — All phases complete |
 | SR-PLAN-V3 | **complete** | Intakes & References implementation (Phases 0-3) |
@@ -130,28 +130,32 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 ### What Was Done
 
-1. **Modified `handleSubmit` in `WorkSurfaceCompose.tsx`** (lines 170-231):
+1. **Modified `handleSubmit` in `ui/src/pages/WorkSurfaceCompose.tsx`** (lines 170-231):
    - Added Step 2 after Work Surface creation to call `POST /work-surfaces/{id}/start`
    - Graceful error handling: if `/start` fails, still navigate to detail page
    - Handles `already_started: true` response by logging info message
    - Uses inline `fetch()` pattern per SR-PLAN-V6 §5.1 (no centralized API client)
 
+2. **Updated SR-README.md** with V6-2 completion status and V6-3 prompt
+
 ### Verification
 
 - `npm run type-check` ✅ (no errors)
 - `npm run build` ✅ (built successfully)
+- Commit: `e4ff9c7` pushed to `solver-ralph-7`
 
 ### Files Modified
 
 | File | Lines Changed |
 |------|---------------|
 | `ui/src/pages/WorkSurfaceCompose.tsx` | ~25 (modified `handleSubmit`) |
+| `docs/charter/SR-README.md` | Updated status and next prompt |
 
 ### Notes for Next Instance
 
-- The codebase uses inline `fetch()` calls, not a centralized API client
-- SR-README mentioned `ui/src/lib/api.ts` but that file doesn't exist
-- Implementation follows SR-PLAN-V6 §5.1 pattern guidance
+- The UI codebase uses **inline `fetch()` calls**, not a centralized API client — this is intentional per SR-PLAN-V6 §5.1
+- The wizard file is `ui/src/pages/WorkSurfaceCompose.tsx` (not `components/`)
+- All acceptance criteria from SR-PLAN-V6 §4 (Phase V6-2) are satisfied
 
 ---
 
@@ -159,37 +163,52 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 ### Context
 
-Phases V6-1 (Backend) and V6-2 (Frontend) are complete. The full workflow is now wired:
-- Wizard creates Work Surface
-- Wizard calls `/start` to create Loop, activate it, and start Iteration
+Phases V6-1 (Backend) and V6-2 (Frontend) are complete. The one-click workflow is now fully wired:
+
+1. User completes wizard → `POST /work-surfaces` creates Work Surface
+2. Wizard automatically calls `POST /work-surfaces/{id}/start`
+3. Backend creates Loop, activates it, starts Iteration as SYSTEM actor
+4. User arrives at Work Surface detail page ready to complete stages
 
 ### Current State
 
 - Branch: `solver-ralph-7`
-- Backend: `/work-surfaces/{id}/start` endpoint implemented
+- Backend: `/work-surfaces/{id}/start` endpoint implemented and documented
 - Frontend: Wizard calls `/start` after Work Surface creation
-- Gap: Full human workflow not yet verified end-to-end
+- **Gap**: Full human workflow not yet verified end-to-end via manual testing
 
 ### Assignment
 
 Execute **Phase V6-3: E2E Verification** as specified in `docs/planning/SR-PLAN-V6.md` §4.
 
-This phase documents and verifies the complete human workflow through the UI.
+This phase verifies the complete human workflow through the UI — no curl commands should be needed.
 
 ### Verification Steps
 
-Per SR-PLAN-V6 §7.3:
+Per SR-PLAN-V6 §7:
 
-1. Start API: `SR_AUTH_TEST_MODE=true cargo run --package sr-api`
-2. Start UI: `cd ui && npm run dev`
-3. Open browser to `http://localhost:5173`
-4. Navigate to `/intakes/new`, create and activate an intake
-5. Navigate to `/work-surfaces/new`
-6. Select intake, select template, click "Create Work Surface"
-7. Verify redirect to `/work-surfaces/{id}`
-8. Complete stages: FRAME → OPTIONS → DRAFT → FINAL
-9. For FINAL: click "Record Approval", approve, then complete
-10. Verify Work Surface status = "completed"
+```bash
+# Terminal 1: Start API in test mode
+SR_AUTH_TEST_MODE=true cargo run --package sr-api
+
+# Terminal 2: Start UI dev server
+cd ui && npm run dev
+```
+
+Then in browser at `http://localhost:5173`:
+
+1. **Create Intake**: Navigate to `/intakes/new`, fill form, click "Create Intake"
+2. **Activate Intake**: On detail page, click "Activate"
+3. **Start Wizard**: Navigate to `/work-surfaces/new`
+4. **Select Intake**: Choose the activated intake
+5. **Select Template**: Choose a compatible procedure template
+6. **Create Work Surface**: Click "Create Work Surface"
+7. **Verify Redirect**: Should arrive at `/work-surfaces/{id}` with Loop/Iteration active
+8. **Complete FRAME**: Click "Complete Stage", fill form, submit
+9. **Complete OPTIONS**: Repeat
+10. **Complete DRAFT**: Repeat
+11. **Complete FINAL**: First click "Record Approval" link, approve, then complete stage
+12. **Verify Completion**: Work Surface status should be "completed"
 
 ### Acceptance Criteria
 
@@ -202,13 +221,15 @@ From SR-PLAN-V6 §4 (Phase V6-3):
 
 ### Reference Documents
 
-- `docs/planning/SR-PLAN-V6.md` — Implementation plan
+- `docs/planning/SR-PLAN-V6.md` — Implementation plan (§4 for phases, §7 for verification)
 - `docs/platform/SR-SPEC.md` §2.3.12 — Work Surface API documentation
+- `docs/platform/SR-WORK-SURFACE.md` §5.5 — /start endpoint semantics
 
 ### Phase Complete When
 
 - [ ] Manual test of complete workflow succeeds
 - [ ] All acceptance criteria documented as passing
 - [ ] SR-README.md updated with V6-3 completion status
+- [ ] SR-PLAN-V6 marked as **complete** in Feature Implementation Plans table
 - [ ] Committed and pushed
 
