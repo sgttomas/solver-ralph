@@ -63,6 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
+| SR-PLAN-V7 | **pending** | MVP Stabilization & Evidence Foundation |
 | SR-PLAN-V6 | **complete** | UI Integration for MVP Workflow (V6-1, V6-2, V6-3 complete) |
 | SR-PLAN-V5 | **complete** | Semantic Ralph Loop End-to-End Integration (Phases 5a-5d) |
 | SR-PLAN-V4 | **complete** | Work Surface Composition (Phase 4) — All phases complete |
@@ -230,4 +231,39 @@ The MVP UI integration is now complete. Users can:
 3. Complete all stages via the UI
 4. Record approvals for approval-gated stages
 5. See the Work Surface reach "completed" status
+
+---
+
+## Next Instance Prompt: Plan SR-PLAN-V7 (MVP Stabilization & Evidence Foundation)
+
+### Context
+
+SR-PLAN-V6 is complete. The MVP workflow is now fully functional end-to-end through the UI:
+- Intakes can be created and activated
+- Work Surfaces can be created via wizard (auto-starts Loop/Iteration)
+- All stages can be completed with approval gating
+- Work Surfaces reach "completed" status
+
+### Current State
+
+- Branch: `solver-ralph-7`
+- MVP UI Integration: **Complete** (SR-PLAN-V6)
+- All prior plans (V3, V4, V5, V6): **Complete**
+
+### Assignment
+
+Plan and execute **SR-PLAN-V7: MVP Stabilization & Evidence Foundation**.
+
+**Goal:** Validate the completed MVP, then add the most architecturally significant extension (Evidence Upload) which is core to the semantic oracle model.
+
+### First Action
+
+Read `docs/planning/SR-PLAN-V7.md` for the detailed implementation plan and requirements.
+
+### Reference Documents
+
+- `docs/planning/SR-PLAN-V7.md` — Implementation plan (to be created by human authority)
+- `docs/platform/SR-SPEC.md` — Platform mechanics
+- `docs/platform/SR-CONTRACT.md` — Binding invariants (especially C-EV-* for evidence)
+- `docs/platform/SR-SEMANTIC-ORACLE-SPEC.md` — Semantic oracle interface
 
