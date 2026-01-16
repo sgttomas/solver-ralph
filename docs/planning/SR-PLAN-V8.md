@@ -554,6 +554,20 @@ impl IntegrityCondition {
 | `ORACLE_FLAKE` | After execution | Detect via determinism declaration or repeat runs |
 | `ORACLE_ENV_MISMATCH` | Before/during execution | Validate environment fingerprint vs constraints |
 
+**Environment Fingerprint Fields (per SR-SPEC §4.5):**
+
+The `environment_fingerprint` MUST include the following fields for ENV_MISMATCH detection:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| `container_image_digest` | OCI image pinned by digest | `sha256:abc123...` |
+| `runtime` | Runtime name/version | `runsc 2024.01.1` (gVisor) |
+| `os_arch` | Operating system and architecture | `linux/amd64` |
+| `tool_versions` | Critical tool versions as declared by suite | `{"rustc": "1.75.0", "node": "20.10.0"}` |
+| `network_mode` | Network access mode | `disabled` (default for required oracles) |
+
+`ORACLE_ENV_MISMATCH` MUST be raised when the run-time fingerprint does not match the suite's declared `environment_constraints`.
+
 **ORACLE_TAMPER Detection:**
 
 ```rust

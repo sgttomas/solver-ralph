@@ -85,17 +85,17 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## SR-PLAN-V8 Implementation Status (AMENDED 2026-01-16)
+## SR-PLAN-V8 Implementation Status (REVIEWED 2026-01-16)
 
 | Phase | Status | Description | Amendment |
 |-------|--------|-------------|-----------|
-| V8-1: Oracle Suite Registry | ⏳ Pending | Extract port trait, add PostgreSQL persistence | A-4 |
+| V8-1: Oracle Suite Registry | 🎯 Ready | Extract port trait, add PostgreSQL persistence | A-4 |
 | V8-2: Event-Driven Worker | ⏳ Pending | Worker subscribes to `RunStarted` events | A-1 |
 | V8-3: Integrity Checks | ⏳ Pending | TAMPER/GAP/FLAKE/ENV_MISMATCH detection | — |
 | V8-4: Core Oracle Suite | ⏳ Pending | Build/unit/schema/lint oracles + container | — |
 | V8-5: Semantic Oracles | ⏳ Pending | Use existing types, focus on container packaging | A-3 |
 
-**SR-PLAN-V8 has been amended following coherence assessment. Ready for philosophical review.**
+**SR-PLAN-V8 has passed coherence assessment AND philosophical consistency review. Ready for implementation.**
 
 ### Amendments Applied
 
@@ -161,68 +161,30 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## Next Instance Prompt: Philosophical Consistency Review of SR-PLAN-V8
-
-### Context
-
-SR-PLAN-V8 has been amended following codebase coherence review. Before implementation begins, we need a philosophical consistency review to ensure the plan aligns with the canonical SR-* documents in terms of ontology, epistemology, and semantics.
-
-### Current State
-
-- Branch: `solver-ralph-8` (V7 complete, V8 plan amended)
-- SR-PLAN-V7: **Complete** (all phases)
-- SR-PLAN-V8: **Amended** (pending philosophical review)
+## Next Instance Prompt: Implement SR-PLAN-V8 Phase V8-1
 
 ### Assignment
 
-**Review SR-PLAN-V8 for philosophical consistency with canonical documents**
+Implement **Phase V8-1: Oracle Suite Registry** — extract a port trait from the existing in-memory registry and add PostgreSQL persistence.
 
-Evaluate SR-PLAN-V8 (`docs/planning/SR-PLAN-V8.md`) against the canonical governance documents along three philosophical dimensions.
+### Where to Look
 
-### Canonical Documents to Review
+| Document | What You'll Find |
+|----------|------------------|
+| `docs/planning/SR-PLAN-V8.md` §3 Phase V8-1 | Full specification: schema, trait signature, file list, acceptance criteria |
+| `docs/reviews/SR-PLAN-V8-CONSISTENCY.md` | Philosophical consistency review (verdict: CONSISTENT) |
+| `crates/sr-adapters/src/oracle_suite.rs` | Existing in-memory implementation to extract from |
+| `crates/sr-ports/src/lib.rs` | Existing port trait patterns to follow |
 
-| Document | Path | Purpose |
-|----------|------|---------|
-| SR-SPEC | `docs/platform/SR-SPEC.md` | Platform specification |
-| SR-CONTRACT | `docs/platform/SR-CONTRACT.md` | Invariant contracts |
-| SR-CHARTER | `docs/charter/SR-CHARTER.md` | Project charter |
-| SR-DIRECTIVE | `docs/program/SR-DIRECTIVE.md` | Operational directives |
-| SR-SEMANTIC-ORACLE-SPEC | `docs/platform/SR-SEMANTIC-ORACLE-SPEC.md` | Semantic oracle spec |
-| SR-TYPES | `docs/platform/SR-TYPES.md` | Type definitions |
+### Current State
 
-### Evaluation Dimensions
+- Branch: `solver-ralph-8`
+- SR-PLAN-V8: Ready for implementation (coherence ✅, consistency ✅)
+- Phase V8-1: 🎯 Your assignment
 
-**Ontology**
+### On Completion
 
-**Epistemology**
-
-**Semantics**
-
-
-### Deliverables
-
-1. **Consistency Report** — Structured analysis identifying:
-   - Alignments (where V8 correctly implements canonical requirements)
-   - Tensions (where V8 may conflict with or underspecify canonical requirements)
-   - Gaps (canonical requirements not addressed by V8)
-
-2. **SR-README Update** — Revise this file with:
-   - V8 status update (consistency review complete)
-   - Summary of findings (if noteworthy)
-   - Next prompt for V8 implementation
-
-### Constraints
-
-- **Do NOT implement code** — this is a review and documentation task only
-- Focus on conceptual coherence, not implementation details
-- Be precise about which SR-* section supports or contradicts each claim
-- If you find the plan philosophically consistent, say so briefly and move on
-
-### First Actions
-
-1. Read `docs/planning/SR-PLAN-V8.md` (the amended plan)
-2. Read `docs/platform/SR-SPEC.md` (domain model, event sourcing ontology)
-3. Read `docs/platform/SR-CONTRACT.md` (C-OR-*, C-EVID-*, C-VER-* invariants)
-4. Read `docs/program/SR-DIRECTIVE.md` (operational policies, authority boundaries)
-5. Read `docs/platform/SR-SEMANTIC-ORACLE-SPEC.md` (semantic oracle requirements)
+1. Run tests: `cargo test --package sr-api && cargo test --package sr-adapters`
+2. Git commit
+3. Update V8-1 status in this file to ✅ Complete
 
