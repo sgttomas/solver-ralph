@@ -36,3 +36,12 @@ tokio-stream = "0.1"
 async-stream = "0.3"
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["full", "test-util"] }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ulid = { workspace = true }
+
+[[test]]
+name = "semantic_ralph_loop_e2e"
+path = "tests/integration/semantic_ralph_loop_e2e.rs"
