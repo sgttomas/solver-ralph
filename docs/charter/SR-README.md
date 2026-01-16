@@ -442,66 +442,123 @@ With V7-5 done, SR-PLAN-V7 is fully complete:
 
 ---
 
-## Next Instance Prompt: Author SR-PLAN-V8
+## SR-PLAN-V8 Implementation Status
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| V8-1: Oracle Suite Registry | ⏳ Pending | PostgreSQL storage, suite management API |
+| V8-2: API Integration | ⏳ Pending | Wire PodmanOracleRunner to `/runs` endpoint |
+| V8-3: Integrity Checks | ⏳ Pending | TAMPER/GAP/FLAKE/ENV_MISMATCH detection |
+| V8-4: Core Oracle Suite | ⏳ Pending | Build/unit/schema/lint oracles + container |
+| V8-5: Semantic Oracles | ⏳ Pending | sr.semantic_eval.v1, residual/coverage artifacts |
+
+**SR-PLAN-V8 is now authored and ready for implementation.**
+
+---
+
+## Previous Session Summary (V8 Authoring)
+
+**Session Goal:** Author SR-PLAN-V8 — Oracle Runner & Semantic Suite Foundation
+
+### What Was Accomplished
+
+1. **Read and analyzed canonical documents:**
+   - SR-README (assignment context)
+   - SR-PLAN-GAP-ANALYSIS (deliverable status, D-24/D-25/D-27/D-39 gaps)
+   - SR-SEMANTIC-ORACLE-SPEC (oracle interface requirements, sr.semantic_eval.v1 schema)
+   - SR-CONTRACT §6 (C-OR-1..7 oracle integrity), §7 (C-EVID-1..6 evidence)
+   - Existing `oracle_runner.rs` (~1027 lines of partial implementation)
+
+2. **Analyzed existing infrastructure:**
+   - `PodmanOracleRunner<E>` already implemented with Podman command building
+   - Evidence manifest builder exists
+   - Test mode for mock execution exists
+   - Gaps identified: suite registry (in-memory only), candidate path (placeholder), integrity detection (missing)
+
+3. **Authored SR-PLAN-V8 with 5 phases:**
+
+   | Phase | Focus | Deliverables |
+   |-------|-------|--------------|
+   | V8-1 | Oracle Suite Registry | DB schema, API endpoints, port trait |
+   | V8-2 | API Integration | Wire runner to `/runs`, candidate workspace |
+   | V8-3 | Integrity Checks | TAMPER/GAP/FLAKE/ENV_MISMATCH detection |
+   | V8-4 | Core Oracle Suite | Container image, 4 oracles, suite.json |
+   | V8-5 | Semantic Oracles | sr.semantic_eval.v1, residual/coverage/violations |
+
+4. **Included contract compliance matrix:**
+   - C-OR-1 through C-OR-7 mapped to implementation phases
+   - C-EVID-1, C-EVID-2 addressed via existing infrastructure
+   - C-VER-1 satisfied via semantic oracle evidence
+
+### Files Created
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `docs/planning/SR-PLAN-V8.md` | ~700 | Oracle Runner & Semantic Suite Foundation plan |
+
+### Key Architectural Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Registry before API | C-OR-2 requires suite pinning; need persistent storage first |
+| Integrity as separate phase | C-OR-7 requires all conditions halt and escalate; deserves focused implementation |
+| Core oracles before semantic | Validate packaging/execution before adding semantic complexity |
+| 5 phases (~7-9 sessions total) | Each phase completable in 1-2 sessions; clear acceptance criteria |
+
+### Estimated Effort
+
+| Phase | Sessions |
+|-------|----------|
+| V8-1 | 1 |
+| V8-2 | 1-2 |
+| V8-3 | 1-2 |
+| V8-4 | 2 |
+| V8-5 | 2 |
+| **Total** | **7-9** |
+
+---
+
+## Next Instance Prompt: Implement SR-PLAN-V8 Phase V8-1
 
 ### Context
 
-SR-PLAN-V7 is complete. The MVP is now stabilized with:
-- Integration tests for core workflows
-- User-friendly error handling and toast notifications
-- Attachment upload support (distinct from Evidence Bundles)
-- Multiple iteration support for retry/iteration patterns
-
-Per `SR-PLAN-GAP-ANALYSIS.md`, the critical path to Milestone 1 requires Oracle Runner infrastructure. SR-PLAN-V8 is proposed but **not yet authored**.
+SR-PLAN-V8 is authored and ready for implementation. Phase V8-1 is the foundational phase — Oracle Suite Registry.
 
 ### Current State
 
-- Branch: `solver-ralph-7` (all V7 work complete)
+- Branch: `solver-ralph-7` (V7 complete, V8 plan authored)
 - SR-PLAN-V7: **Complete** (all phases)
-- SR-PLAN-V8: **Not yet authored** (proposed scope: Oracle Runner & Semantic Suites)
+- SR-PLAN-V8: **Authored** (ready for V8-1 implementation)
 
 ### Assignment
 
-**Author SR-PLAN-V8: Oracle Runner & Semantic Suite Foundation**
+**Implement SR-PLAN-V8 Phase V8-1: Oracle Suite Registry**
 
-Create a detailed implementation plan for the oracle execution infrastructure, which is the primary blocker for Milestone 1 (MVP) completion.
+Create persistent storage and API for oracle suite definitions.
 
-### Key Deliverables to Plan (from SR-PLAN-GAP-ANALYSIS)
+### Key Deliverables (from SR-PLAN-V8)
 
-| Deliverable | Title | Gap Analysis Notes |
-|-------------|-------|-------------------|
-| D-24 | Oracle runner service | **Critical gap** — Podman + gVisor sandbox |
-| D-25 | Core oracle suite | Build/unit/schema/lint oracles |
-| D-27 | Oracle integrity checks | TAMPER/GAP/FLAKE/ENV_MISMATCH |
-| D-39 | Semantic oracle integration | Meaning matrices, residual/coverage artifacts |
+| File | Action | Description |
+|------|--------|-------------|
+| `crates/sr-domain/src/entities/oracle_suite.rs` | CREATE | Oracle suite domain entity |
+| `crates/sr-adapters/src/postgres_oracle_registry.rs` | CREATE | PostgreSQL repository |
+| `crates/sr-api/src/handlers/oracle_suites.rs` | CREATE | Suite management endpoints |
+| `migrations/YYYYMMDD_oracle_suite_registry.sql` | CREATE | Database schema |
 
-### Planning Requirements
+### Acceptance Criteria (from SR-PLAN-V8)
 
-1. **Read canonical documents first:**
-   - `SR-SEMANTIC-ORACLE-SPEC` — Oracle interface requirements
-   - `SR-CONTRACT` §C-VER-1, C-EVID-1 — Evidence and verification constraints
-   - `SR-SPEC` §1.9 — Evidence bundle model
-   - `SR-PLAN-GAP-ANALYSIS` — Current deliverable status
-
-2. **Define phased implementation:**
-   - Break D-24/D-25/D-27/D-39 into implementable phases
-   - Each phase should be completable in 1-2 sessions
-   - Define clear acceptance criteria per phase
-
-3. **Address architectural decisions:**
-   - Sandbox technology (Podman + gVisor vs alternatives)
-   - Oracle suite packaging format
-   - Evidence bundle production workflow
-   - Integration with existing `/runs` API
-
-4. **Document in standard format:**
-   - Create `docs/planning/SR-PLAN-V8.md`
-   - Follow structure of SR-PLAN-V7 (context, phases, deliverables, acceptance criteria)
+- [ ] `POST /oracle-suites` registers suite with computed hash
+- [ ] `GET /oracle-suites/{id}` retrieves suite definition
+- [ ] Suite hash computed from deterministic serialization of definition
+- [ ] PostgreSQL adapter implements `OracleSuiteRegistry`
+- [ ] `cargo test --package sr-api` passes
+- [ ] `cargo test --package sr-adapters` passes
 
 ### First Action
 
-1. Read `docs/platform/SR-SEMANTIC-ORACLE-SPEC.md` for oracle interface requirements
-2. Read `docs/planning/SR-PLAN-GAP-ANALYSIS.md` for deliverable status
-3. Review `crates/sr-adapters/src/oracle_runner.rs` for existing (partial) implementation
-4. Draft SR-PLAN-V8 phases based on dependency analysis
+1. Read SR-PLAN-V8 §V8-1 for detailed specifications
+2. Create database migration for `oracle_suites` table
+3. Implement domain entity and port trait
+4. Implement PostgreSQL adapter
+5. Add API handlers
 

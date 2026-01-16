@@ -3,7 +3,7 @@
 **Purpose:** Track completion status of SR-PLAN deliverables and inform future implementation plans.
 
 **Last Updated:** 2026-01-16
-**Updated By:** Agent (V7-5 Multiple Iteration Support session)
+**Updated By:** Agent (V8 Authoring session)
 
 ---
 
@@ -169,18 +169,20 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V7-4 | Attachment frontend | ✅ Complete |
 | V7-5 | Multiple iterations | ✅ Complete |
 
-### SR-PLAN-V8 (Proposed)
+### SR-PLAN-V8 (Current)
 
-**Status:** Not yet authored
+**Status:** ✅ Authored — Ready for Implementation
 **Scope:** Oracle Runner & Semantic Suite Foundation
 **Target Deliverables:** D-24, D-25, D-27, D-39
+**Estimated Effort:** 7-9 sessions
 
-| Phase | Focus | Deliverables |
-|-------|-------|--------------|
-| V8-1 | Oracle runner service | D-24 |
-| V8-2 | Core oracle suite | D-25 |
-| V8-3 | Oracle integrity checks | D-27 |
-| V8-4 | Semantic oracle integration | D-39 |
+| Phase | Focus | Deliverables | Status |
+|-------|-------|--------------|--------|
+| V8-1 | Oracle Suite Registry | D-24 (partial) | ⏳ Pending |
+| V8-2 | API Integration | D-24 (partial) | ⏳ Pending |
+| V8-3 | Integrity Checks | D-27 | ⏳ Pending |
+| V8-4 | Core Oracle Suite | D-25 | ⏳ Pending |
+| V8-5 | Semantic Oracles | D-39 | ⏳ Pending |
 
 ### SR-PLAN-V9 (Proposed)
 
