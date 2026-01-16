@@ -625,13 +625,43 @@ Immutable state change record.
 
 A Work Surface is the binding context for a semantic-ralph-loop iteration. Per SR-CONTRACT §2.3 and SR-CHARTER, a Work Surface comprises: (1) Intake, (2) Procedure Template, and (3) oracle profile/suites.
 
+**Identifier format:** `ws:<ULID>`
+
 **Key fields:**
-- `work_unit_ref`
-- `intake_ref`
-- `procedure_template_ref`
-- `current_stage_id`
-- `oracle_profile_ref` — required; references the oracle suite(s) and semantic set definitions bound to this work surface
-- `params` (stage parameters; may include semantic set/version selectors)
+- `work_surface_id` — unique identifier (format: `ws:<ULID>`)
+- `work_unit_id` — the work unit this surface is bound to
+- `intake_ref` — content-addressed reference to the bound Intake
+- `procedure_template_ref` — content-addressed reference to the Procedure Template
+- `current_stage_id` — current procedure stage (format: `stage:<NAME>`)
+- `status` — lifecycle status: `active` | `completed` | `archived`
+- `stage_status` — map `{stage_id -> StageStatusRecord}` tracking completion per stage
+- `current_oracle_suites` — oracle suites resolved for current stage
+- `params` — stage parameters (may include semantic set/version selectors)
+- `content_hash` — hash of binding (intake_ref + template_ref + params)
+- `bound_at` — timestamp of binding
+- `bound_by` — actor who bound (per C-EVT-1 attribution)
+- `completed_at` — timestamp of completion (if completed)
+- `archived_at` — timestamp of archival (if archived)
+- `archived_by` — actor who archived (if archived)
+
+**WorkSurfaceStatus enum:**
+- `active` — currently in progress
+- `completed` — terminal stage passed
+- `archived` — superseded or abandoned
+
+**StageCompletionStatus enum:**
+- `pending` — stage not yet entered
+- `entered` — currently in stage
+- `completed` — stage gate passed
+- `skipped` — stage skipped per procedure rules
+
+**StageStatusRecord:**
+- `stage_id` — stage identifier
+- `status` — StageCompletionStatus
+- `entered_at` — when stage was entered (if entered)
+- `completed_at` — when stage was completed (if completed)
+- `evidence_bundle_ref` — evidence proving gate passage (if completed)
+- `iteration_count` — number of iterations in this stage
 
 ### 7.8 Procedure Template
 

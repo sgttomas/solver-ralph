@@ -47,6 +47,14 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - Completed the non-waivable integrity condition set to include `ORACLE_FLAKE` and `EVIDENCE_MISSING`.
 - Added explicit routing guidance for phase gates and budget extensions.
 
+### 0.3  (2026-01-15)
+
+- **SR-SPEC §1.5.2:** Added `WORK_SURFACE` and `INTAKE` to StreamKind enum to reflect Phase 4a implementation.
+- **SR-SPEC §1.3.3:** Fixed malformed section (removed orphaned Work Surface events that corrupted Candidate identity text).
+- **SR-SPEC Appendix A:** Added Work Surface events (`WorkSurfaceBound`, `StageEntered`, `StageCompleted`, `WorkSurfaceCompleted`, `WorkSurfaceArchived`) and Intake events (`IntakeCreated`, `IntakeUpdated`, `IntakeActivated`, `IntakeArchived`, `IntakeForked`) to canonical event registry.
+- **SR-TYPES §7.7:** Expanded Work Surface schema with full field definitions including `WorkSurfaceId` (format: `ws:<ULID>`), `WorkSurfaceStatus` enum, `StageCompletionStatus` enum, and `StageStatusRecord` structure.
+- **Classification:** G:MINOR (additive; backward-compatible; existing baselines remain interpretable).
+
 ---
 
 ## 1. What requires change control

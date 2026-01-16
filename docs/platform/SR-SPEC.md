@@ -185,15 +185,7 @@ All immutable content-addressed artifacts MUST use `sha256` digests over the can
 
 #### 1.3.3 Candidate identity (git + manifest + sha256)
 
-A 
-**Stages / Work Surface**
-- `WorkSurfaceRecorded`
-- `ProcedureTemplateSelected`
-- `StageEntered`
-- `StageCompleted`
-- `SemanticOracleEvaluated`
-
-**Candidate** is a content-addressable snapshot. Candidate identity MUST be stable and immutable for the scope claimed.
+A **Candidate** is a content-addressable snapshot. Candidate identity MUST be stable and immutable for the scope claimed.
 
 **Normative policy:**
 
@@ -239,7 +231,7 @@ Every persisted event MUST conform to the following envelope:
 {
   "event_id": "evt_01J...ULID",
   "stream_id": "loop:loop_01J...",
-  "stream_kind": "LOOP|ITERATION|CANDIDATE|RUN|APPROVAL|DECISION|GOVERNANCE|EXCEPTION|ORACLE_SUITE|FREEZE",
+  "stream_kind": "LOOP|ITERATION|CANDIDATE|RUN|APPROVAL|DECISION|GOVERNANCE|EXCEPTION|ORACLE_SUITE|FREEZE|WORK_SURFACE|INTAKE",
   "stream_seq": 42,
   "global_seq": 184467,              // REQUIRED in this SR-SPEC (PostgreSQL reference implementation)
   "event_type": "LoopCreated",        // namespaced in code (see Appendix A)
@@ -1781,6 +1773,21 @@ To protect the integrity of governance artifacts and evidence:
 
 **Decisions**
 - `DecisionRecorded`
+
+**Work Surface**
+- `WorkSurfaceBound`
+- `StageEntered`
+- `StageCompleted`
+- `WorkSurfaceCompleted`
+- `WorkSurfaceArchived`
+
+**Intake**
+- `IntakeCreated`
+- `IntakeUpdated`
+- `IntakeActivated`
+- `IntakeArchived`
+- `IntakeForked`
+
 ### Appendix B: Graph edge types (v1)
 
 - `about`

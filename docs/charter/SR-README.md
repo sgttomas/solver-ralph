@@ -101,15 +101,17 @@ All phases of the Intakes & References implementation (SR-PLAN-V3) are now compl
 
 ## SR-PLAN-V4 Implementation Status
 
-**Status: PENDING COHERENCE REVIEW**
+**Status: READY FOR IMPLEMENTATION**
 
-SR-PLAN-V4 (Work Surface Composition) is complete and awaiting coherence review against canonical SR-* documents. The plan is at `docs/planning/SR-PLAN-V4.md`.
+SR-PLAN-V4 (Work Surface Composition) has passed coherence review. The review report is at `docs/reviews/SR-PLAN-V4-COHERENCE-REVIEW.md`. The plan is at `docs/planning/SR-PLAN-V4.md`.
+
+**Coherence Review Summary:** The plan is coherent with canonical SR-* specifications. Three minor issues were identified (status enum naming, RefKind::Stage consideration, SQL type naming) — all can be addressed during implementation without plan revision.
 
 ### Phase Overview
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 4a | Pending | Core Infrastructure — WorkSurfaceId, events, database migrations |
+| Phase 4a | **Complete** | Core Infrastructure — WorkSurfaceId, events, database migrations |
 | Phase 4b | Pending | Work Surface API — 9 endpoints for CRUD, stage transitions, compatibility |
 | Phase 4c | Pending | Event Integration — IterationStarted refs, EvidenceBundleRecorded binding |
 | Phase 4d | Pending | Work Surface UI — List, composition wizard, detail with stage progress |
@@ -135,146 +137,145 @@ SR-PLAN-V4 (Work Surface Composition) is complete and awaiting coherence review 
 
 ---
 
-## Prompt for Next Instance: Review SR-PLAN-V4 for Coherence with Canonical Documents
+## Prompt for Next Instance: Implement SR-PLAN-V4 Phase 4b (Work Surface API)
+
+**Phase 4a Status:** COMPLETE (2026-01-15) — Core infrastructure implemented
 
 ### Task
 
-Review `docs/planning/SR-PLAN-V4.md` for **coherence and consistency** with the canonical SR-* documents in terms of **ontology**, **epistemology**, and **semantics**. This is a pre-implementation validation gate to ensure the plan faithfully implements the governed specifications.
-
-### Review Scope
-
-**Ontology** (What entities exist and how they relate):
-- Do the domain model entities (`ManagedWorkSurface`, `WorkSurfaceId`, `StageStatusRecord`) correctly represent the concepts in SR-WORK-SURFACE §5?
-- Are the relationships between Work Surface, Intake, Procedure Template, Stage, and Oracle Suite correctly modeled?
-- Does the 1:1 Work Surface ↔ Work Unit relationship align with SR-CONTRACT §2.3 (Work Unit definition)?
-- Are the RefKind and RefRelation values used in the plan consistent with SR-SPEC §1.5.3?
-
-**Epistemology** (What can be known and how it is established):
-- Does the plan correctly distinguish Commitment Objects from Proposals per SR-CONTRACT §2.8?
-- Is the immutability boundary (binding refs vs. stage progression) correctly placed?
-- Does the evidence binding (`EvidenceBundleRecorded` with `procedure_template_id`, `stage_id`) satisfy SR-SPEC §1.9.1?
-- Are the iteration context refs (`IterationStarted.refs[]`) sufficient to satisfy C-CTX-1 and C-CTX-2 (no ghost inputs)?
-
-**Semantics** (What terms mean and how they are used):
-- Are status enum values (`active`, `completed`, `archived`) consistent with SR-TYPES §3.1?
-- Is the `gate_result` structure aligned with SR-PROCEDURE-KIT gate rule semantics?
-- Does the oracle suite binding (per-stage, with `suite_hash`) align with SR-SEMANTIC-ORACLE-SPEC §2?
-- Are event names and payloads consistent with SR-SPEC Appendix A patterns?
-
-### Required Reading (in order)
-
-| Document | Focus Sections | Purpose |
-|----------|----------------|---------|
-| `docs/planning/SR-PLAN-V4.md` | Full document | The plan under review |
-| `docs/platform/SR-CONTRACT.md` | §2.3 (Candidate, Run, Loop), §2.8 (Commitment Objects), C-CTX-1, C-CTX-2 | Binding invariants |
-| `docs/platform/SR-WORK-SURFACE.md` | §2 (Core concepts), §5 (Work Surface Instance) | Primary specification |
-| `docs/platform/SR-SPEC.md` | §1.5.3 (TypedRef), §1.9 (Evidence), §3.2.1.1 (Iteration Context), Appendix A | Event patterns |
-| `docs/platform/SR-TYPES.md` | §3.1 (Status enums), §4.3 (Platform domain types) | Type definitions |
-| `docs/platform/SR-PROCEDURE-KIT.md` | §1-2 (Stage structure, gate rules) | Stage machine semantics |
-| `docs/platform/SR-SEMANTIC-ORACLE-SPEC.md` | §2-4 (Suite identity, binding) | Oracle binding |
-
-### Deliverable
-
-Produce a **review report** with the following structure:
-
-```markdown
-# SR-PLAN-V4 Coherence Review
-
-## Summary
-[One paragraph: Overall assessment — Coherent / Minor Issues / Major Issues]
-
-## Ontology Findings
-| Item | Specification | Plan | Status | Notes |
-|------|---------------|------|--------|-------|
-| ... | ... | ... | ✅/⚠️/❌ | ... |
-
-## Epistemology Findings
-| Item | Specification | Plan | Status | Notes |
-|------|---------------|------|--------|-------|
-| ... | ... | ... | ✅/⚠️/❌ | ... |
-
-## Semantics Findings
-| Item | Specification | Plan | Status | Notes |
-|------|---------------|------|--------|-------|
-| ... | ... | ... | ✅/⚠️/❌ | ... |
-
-## Recommended Changes
-[Numbered list of specific changes to SR-PLAN-V4, if any]
-
-## Conclusion
-[Ready for implementation / Requires revision]
-```
-
-### Actions After Review
-
-- **If Coherent:** Update SR-README to mark review complete and proceed to Phase 4a implementation prompt
-- **If Minor Issues:** Document issues, propose fixes, update SR-PLAN-V4 if fixes are unambiguous
-- **If Major Issues:** Document issues, do NOT update SR-PLAN-V4, escalate for user decision
-
-### Constraints
-
-- **Do not implement** — This task is review only
-- **Be thorough** — Check every major claim in the plan against source specifications
-- **Be specific** — Cite section numbers when identifying discrepancies
-- **Preserve intent** — If the plan makes reasonable choices within spec latitude, note as acceptable
-
----
-
-## Prompt for After Review: Implement SR-PLAN-V4 Phase 4a (Core Infrastructure)
-
-*This prompt should be used after the coherence review passes.*
-
-### Task
-
-Implement **Phase 4a: Core Infrastructure** from SR-PLAN-V4.
+Implement **Phase 4b: Work Surface API** from SR-PLAN-V4.
 
 ### Required Reading
 
-1. `docs/planning/SR-PLAN-V4.md` — Full implementation plan (especially §1 Domain Model, §2 Database Schema)
+1. `docs/planning/SR-PLAN-V4.md` — Full implementation plan (especially §3 API Specification)
 2. `docs/platform/SR-WORK-SURFACE.md` — Primary specification (§5 Work Surface Instance)
-3. `crates/sr-domain/src/work_surface.rs` — Existing domain model (already has `WorkSurfaceInstance`, extend it)
+3. `crates/sr-domain/src/work_surface.rs` — Domain model with `ManagedWorkSurface`, events, lifecycle methods
+4. `crates/sr-api/src/handlers/intakes.rs` — Reference pattern for handler implementation
 
 ### Deliverables
 
-1. **Work Surface ID type** (`crates/sr-domain/src/work_surface.rs`)
-   - `WorkSurfaceId` with ULID generation (format: `ws:<ULID>`)
-   - `WorkSurfaceStatus` enum (active, completed, archived)
-   - `StageCompletionStatus` enum (pending, entered, completed, skipped)
-   - `StageStatusRecord` struct
-   - `ManagedWorkSurface` struct (runtime representation with lifecycle)
+1. **Work Surface Handler** (`crates/sr-api/src/handlers/work_surfaces.rs`)
+   - `POST /api/v1/work-surfaces` — Create/bind a new Work Surface
+   - `GET /api/v1/work-surfaces` — List Work Surfaces (with filters: status, work_unit_id, intake_id)
+   - `GET /api/v1/work-surfaces/:id` — Get Work Surface detail
+   - `POST /api/v1/work-surfaces/:id/enter-stage` — Enter a new stage
+   - `POST /api/v1/work-surfaces/:id/complete-stage` — Complete current stage (with evidence)
+   - `POST /api/v1/work-surfaces/:id/complete` — Complete the Work Surface (terminal stage)
+   - `POST /api/v1/work-surfaces/:id/archive` — Archive Work Surface
+   - `GET /api/v1/work-surfaces/check-compatibility` — Check Intake/Template compatibility
+   - `GET /api/v1/work-surfaces/by-work-unit/:work_unit_id` — Get active Work Surface for Work Unit
 
-2. **Work Surface Events** (`crates/sr-domain/src/events.rs`)
-   - `WorkSurfaceBound`
-   - `StageEntered`
-   - `StageCompleted`
-   - `WorkSurfaceCompleted`
-   - `WorkSurfaceArchived`
-   - Add `StreamKind::WorkSurface`
+2. **Projections** (`crates/sr-adapters/src/projections.rs`)
+   - Add projection handlers for Work Surface events
+   - Handle `WorkSurfaceBound`, `StageEntered`, `StageCompleted`, `WorkSurfaceCompleted`, `WorkSurfaceArchived`
 
-3. **Database migrations** (`migrations/006_work_surfaces.sql`)
-   - Create `work_surface_status` enum
-   - Create `stage_completion_status` enum
-   - Create `proj.work_surfaces` table (see SR-PLAN-V4 §2.2)
-   - Create indexes
-   - Add unique constraint: only one active work surface per work unit
+3. **Route Registration** (`crates/sr-api/src/main.rs`)
+   - Add all 9 Work Surface routes
+   - Wire up handler functions
 
 ### Verification Checklist
 
 - [ ] `cargo build` passes
 - [ ] `cargo test --workspace` passes
-- [ ] Migration applies cleanly: `sqlx migrate run`
-- [ ] Types align with SR-WORK-SURFACE §5
-- [ ] Events align with SR-SPEC Appendix A pattern
+- [ ] All 9 endpoints return appropriate responses
+- [ ] Compatibility check validates Intake kind vs Template kind[]
+- [ ] Stage transitions emit correct events
+- [ ] Only one active Work Surface per Work Unit enforced
 
 ### Constraints
 
-- **Follow SR-PLAN-V4** — Use the exact schemas defined in the plan
-- **Extend existing code** — `work_surface.rs` already has foundational types; add to it
-- **No API changes yet** — Phase 4a is infrastructure only; API comes in Phase 4b
+- **Follow SR-PLAN-V4 §3** — Use the exact API schemas defined in the plan
+- **Pattern match intakes.rs** — Follow the same handler patterns
+- **Event sourcing** — All mutations via events, projections update state
 
 ---
 
 ## Summary of Previous Development Iterations
+
+### Session: 2026-01-15 — Phase 4a Implementation + Canonical Doc Updates
+
+**Objective:** Implement Phase 4a (Core Infrastructure) and update canonical specifications to reflect implementation.
+
+**Work Performed:**
+
+1. **Phase 4a Implementation** (from prior context — summarized)
+   - Added `WorkSurfaceId` with ULID generation (format: `ws:<ULID>`)
+   - Added `WorkSurfaceStatus` enum (Active, Completed, Archived)
+   - Added `StageCompletionStatus` enum (Pending, Entered, Completed, Skipped)
+   - Added `StageStatusRecord` struct with lifecycle tracking
+   - Added `ManagedWorkSurface` struct with full lifecycle methods
+   - Added `WorkSurfaceLifecycleError` error type
+   - Added `validate_work_kind_compatibility()` function
+   - Added Work Surface events to `events.rs` (`WorkSurfaceBound`, `StageEntered`, `StageCompleted`, `WorkSurfaceCompleted`, `WorkSurfaceArchived`)
+   - Added `StreamKind::WorkSurface` and `StreamKind::Intake`
+   - Created `migrations/006_work_surfaces.sql` with enums, tables, indexes, and constraints
+   - Fixed `postgres.rs` exhaustive match for new StreamKind variants
+
+2. **Canonical Specification Updates**
+   - **SR-SPEC §1.5.2:** Added `WORK_SURFACE` and `INTAKE` to StreamKind enum
+   - **SR-SPEC §1.3.3:** Fixed malformed section (removed orphaned Work Surface events corrupting Candidate identity text)
+   - **SR-SPEC Appendix A:** Added Work Surface events and Intake events to canonical event registry
+   - **SR-TYPES §7.7:** Expanded Work Surface schema with full field definitions (`WorkSurfaceId`, `WorkSurfaceStatus`, `StageCompletionStatus`, `StageStatusRecord`)
+   - **SR-CHANGE §0.3:** Added version entry documenting all spec changes (classified as G:MINOR)
+
+3. **Files Modified**
+   | File | Changes |
+   |------|---------|
+   | `crates/sr-domain/src/work_surface.rs` | Added types, lifecycle methods, 15+ unit tests |
+   | `crates/sr-domain/src/events.rs` | Added Work Surface events, StreamKind variants |
+   | `crates/sr-adapters/src/postgres.rs` | Added StreamKind::WorkSurface handling |
+   | `migrations/006_work_surfaces.sql` | New migration for Work Surfaces |
+   | `docs/platform/SR-SPEC.md` | StreamKind, §1.3.3 fix, Appendix A events |
+   | `docs/platform/SR-TYPES.md` | Expanded §7.7 Work Surface schema |
+   | `docs/build-governance/SR-CHANGE.md` | Added version 0.3 change log |
+
+**Verification:** `cargo build` and `cargo test --workspace` pass (118 tests in sr-domain).
+
+**Next Step:** Implement Phase 4b (Work Surface API) per the prompt above.
+
+---
+
+### Session: 2026-01-16 — SR-PLAN-V4 Coherence Review
+
+**Objective:** Perform coherence review of SR-PLAN-V4 against canonical SR-* specifications.
+
+**Work Performed:**
+
+1. **Document Review (Required Reading)**
+   - Read SR-PLAN-V4.md (plan under review — full document)
+   - Read SR-CONTRACT.md (§2.3, §2.8, C-CTX-1, C-CTX-2 — binding invariants)
+   - Read SR-WORK-SURFACE.md (§2, §5 — primary specification)
+   - Read SR-SPEC.md (§1.5.3, §1.9, §3.2.1.1, Appendix A — event patterns)
+   - Read SR-TYPES.md (§3.1, §4.3 — type definitions)
+   - Read SR-PROCEDURE-KIT.md (§1-2 — stage machine semantics)
+   - Read SR-SEMANTIC-ORACLE-SPEC.md (§2-4 — oracle binding)
+
+2. **Coherence Analysis**
+   - **Ontology:** 9 items checked — all ✅ with 1 ⚠️ (missing RefKind::Stage consideration)
+   - **Epistemology:** 8 items checked — all ✅
+   - **Semantics:** 11 items checked — all ✅ with 2 ⚠️ (status enum naming, SQL type naming)
+
+3. **Artifacts Created**
+   - `docs/reviews/SR-PLAN-V4-COHERENCE-REVIEW.md` — Full coherence review report
+
+4. **Documentation Updates**
+   - Updated `docs/charter/SR-README.md`:
+     - Changed SR-PLAN-V4 status from "PENDING COHERENCE REVIEW" to "READY FOR IMPLEMENTATION"
+     - Added coherence review summary
+     - Merged review prompt with implementation prompt
+
+**Review Verdict:** Coherent with Minor Issues — ready for implementation.
+
+**Minor Issues Identified (addressable during implementation):**
+1. Status enum uses lifecycle values (Active/Completed/Archived) instead of artifact status values — acceptable deviation documented
+2. Consider adding RefKind::Stage for stage-specific refs
+3. Verify SQL type naming for stage_completion_status
+
+**No code was modified.** This was a review-only session.
+
+**Next Step:** Implement Phase 4a (Core Infrastructure) per the prompt.
+
+---
 
 ### Session: 2026-01-16 — SR-PLAN-V4 Planning
 
