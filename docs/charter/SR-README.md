@@ -239,6 +239,15 @@ This preserves SR-CONTRACT's epistemological clarity: only oracle-produced Evide
 ### Commits
 
 - `bb9b910` feat(ui): add toast notifications and error handling (V7-2)
+- `097324f` docs: mark V7-2 complete, update next instance prompt for V7-3
+
+### Documents Updated
+
+| Document | Update |
+|----------|--------|
+| `docs/planning/SR-PLAN-V7.md` | V7-2 acceptance criteria marked complete |
+| `docs/planning/SR-PLAN-GAP-ANALYSIS.md` | V7 roadmap status updated |
+| `docs/charter/SR-README.md` | V7-2 session summary, V7-3 next prompt |
 
 ---
 
