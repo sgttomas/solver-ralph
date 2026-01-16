@@ -63,7 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
-| SR-PLAN-V6 | **draft** | UI Integration for MVP Workflow (pending research & validation) |
+| SR-PLAN-V6 | **ready** | UI Integration for MVP Workflow (coherence verified, ready for implementation) |
 | SR-PLAN-V5 | **complete** | Semantic Ralph Loop End-to-End Integration (Phases 5a-5d) |
 | SR-PLAN-V4 | **complete** | Work Surface Composition (Phase 4) — All phases complete |
 | SR-PLAN-V3 | **complete** | Intakes & References implementation (Phases 0-3) |
@@ -73,108 +73,109 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 ## SR-PLAN-V6 Implementation Status
 
-details to be added here
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Coherence Review | ✅ Complete | `docs/reviews/SR-PLAN-V6-COHERENCE-REVIEW.md` — PASS_WITH_NOTES |
+| V6-1: Backend | ⏳ Pending | Add `POST /work-surfaces/{id}/start` endpoint |
+| V6-2: Frontend | ⏳ Pending | Wire wizard to call `/start` after creation |
+| V6-3: E2E Verification | ⏳ Pending | Document and verify complete human workflow |
 
 ---
 
-## Next Instance Prompt: Coherence & Consistency Check for SR-PLAN-V6
+## Next Instance Prompt: Implement SR-PLAN-V6 Phase V6-1 (Backend)
 
 ### Context
 
-SR-PLAN-V6 has been validated and refined with design decisions resolved (§3.6-3.8). Before implementation begins, the plan requires a **coherence and consistency check** against the canonical SR-* documents to ensure alignment with the project's ontology, epistemology, and semantics.
+SR-PLAN-V6 has passed coherence and consistency review (see `docs/reviews/SR-PLAN-V6-COHERENCE-REVIEW.md`). The plan is verified to be consistent with canonical SR-* documents and ready for implementation.
 
 ### Current State
 
 - Branch: `solver-ralph-7`
-- SR-PLAN-V6 status: "Ready for Implementation" with design resolved
-- Design decisions documented in §3.6 (SYSTEM mediation), §3.7 (directive_ref), §3.8 (idempotency)
-- Implementation pseudocode provided for Phase V6-1
+- SR-PLAN-V6 status: "Ready for Implementation" — coherence verified
+- Coherence review: PASS_WITH_NOTES (minor terminology variances follow existing codebase patterns)
+- Implementation pseudocode provided in SR-PLAN-V6 §4 (Phase V6-1)
 
 ### Assignment
 
-Perform a coherence and consistency check of `docs/planning/SR-PLAN-V6.md` against the canonical SR-* documents. This is a **verification and alignment task**, not an implementation task.
+Implement **Phase V6-1: Backend — Start Work Endpoint** as specified in `docs/planning/SR-PLAN-V6.md` §4.
 
-### Canonical Documents to Review
+This phase adds the `POST /work-surfaces/{id}/start` endpoint that creates a Loop, activates it, and starts an Iteration as SYSTEM actor — enabling the UI wizard to fully orchestrate work surface creation.
 
-Per SR-CHARTER precedence order, check SR-PLAN-V6 against:
+### Files to Modify
 
-**Platform-definition (meaning, invariants, mechanics):**
-1. `docs/platform/SR-CONTRACT.md` — Binding invariants (C-TB-*, C-CTX-*, etc.)
-2. `docs/platform/SR-SPEC.md` — Platform mechanics (§2.2 SYSTEM actor requirements)
-3. `docs/platform/SR-TYPES.md` — Type registry and schemas
-4. `docs/platform/SR-WORK-SURFACE.md` — Work surface definitions
-5. `docs/platform/SR-PROCEDURE-KIT.md` — Procedure templates
+Per SR-PLAN-V6 §4 (Phase V6-1):
 
-**Build-execution (agent behavior, process):**
-1. `docs/build-governance/SR-AGENTS.md` — Agent actor model
-2. `docs/program/SR-DIRECTIVE.md` — Execution policy
+| File | Action | Description |
+|------|--------|-------------|
+| `crates/sr-adapters/src/projections.rs` | EDIT | Add `get_loop_by_work_unit` method for idempotency |
+| `crates/sr-api/src/handlers/work_surfaces.rs` | EDIT | Add `start_work_surface` handler |
+| `crates/sr-api/src/main.rs` | EDIT | Register `/work-surfaces/{id}/start` route |
 
-### Verification Tasks
+### Implementation Requirements
 
-**1. Ontological Consistency**
+Per SR-PLAN-V6 §3.6-3.8 and §4:
 
-Verify SR-PLAN-V6 uses canonical terminology correctly:
-- [ ] "Work Surface" usage matches SR-WORK-SURFACE definition
-- [ ] "Loop" and "Iteration" usage matches SR-SPEC §2/§3
-- [ ] "SYSTEM actor" semantics match SR-SPEC §2.2
-- [ ] "directive_ref" semantics match SR-TYPES
-- [ ] Event types (LoopCreated, IterationStarted) match SR-SPEC Appendix A
+1. **SYSTEM Actor Mediation (§3.6)**
+   - `IterationStarted` event MUST use `actor_kind: ActorKind::System`
+   - Use `actor_id: "system:work-surface-start"` as the system identity
+   - HUMAN actor is recorded on `LoopCreated` event (audit trail)
 
-**2. Epistemological Consistency**
+2. **Directive Ref Default (§3.7)**
+   - Use default directive_ref: `{kind: "doc", id: "SR-DIRECTIVE", rel: "governs", meta: {}}`
+   - This follows existing codebase pattern in `prompt_loop.rs`
 
-Verify knowledge claims and evidence requirements:
-- [ ] §3.6 SYSTEM mediation claim is supported by SR-SPEC §2.2
-- [ ] §3.7 directive_ref default is consistent with SR-DIRECTIVE
-- [ ] Idempotency design doesn't violate event sourcing invariants (C-EVT-*)
-- [ ] Audit trail preservation (HUMAN on LoopCreated) satisfies C-TB-* requirements
+3. **Idempotency (§3.8)**
+   - Query for existing Loop bound to `work_unit_id` before creating
+   - If Loop exists and is ACTIVE with iteration, return existing IDs (`already_started: true`)
+   - If Loop exists but not ACTIVE, activate and start iteration
+   - If no Loop exists, create → activate → start iteration
 
-**3. Semantic Consistency**
+4. **Iteration Context Refs**
+   - Populate `refs[]` from Work Surface context via `fetch_work_surface_refs`
+   - Must include: Intake, Procedure Template, oracle suites, governing artifacts
+   - Per C-CTX-1/C-CTX-2: all context derivable from `IterationStarted.refs[]`
 
-Verify the proposed implementation preserves platform semantics:
-- [ ] `start_work_surface` handler respects Work Surface lifecycle (SR-WORK-SURFACE §5)
-- [ ] Loop creation with `work_surface_id` matches SR-SPEC §2.3.1 binding semantics
-- [ ] Iteration context inheritance matches C-CTX-1, C-CTX-2
-- [ ] Portal/approval requirements not bypassed (C-TB-3)
+### Acceptance Criteria
 
-**4. Contract Compliance**
+From SR-PLAN-V6 §4 (Phase V6-1):
 
-Check against specific SR-CONTRACT invariants:
-- [ ] C-TB-3: Portal crossings produce Approval records (not bypassed by `/start`)
-- [ ] C-CTX-1: All refs are content-addressed
-- [ ] C-CTX-2: All context derivable from IterationStarted.refs[]
-- [ ] C-EVT-*: Event sourcing invariants preserved
+- [ ] `POST /work-surfaces/{id}/start` creates Loop, activates, starts Iteration
+- [ ] Iteration is emitted with `actor_kind=SYSTEM`, `actor_id="system:work-surface-start"`
+- [ ] Loop uses default `directive_ref` pointing to SR-DIRECTIVE
+- [ ] Returns `{ work_surface_id, loop_id, iteration_id, already_started }`
+- [ ] 412 if Work Surface not active
+- [ ] Idempotent: returns existing IDs with `already_started: true` if called again
+- [ ] HUMAN actor recorded on LoopCreated event (audit trail)
 
-### Deliverables
+### Reference Documents
 
-1. **Coherence Report** appended to SR-README.md documenting:
-   - Findings from each verification task
-   - Any inconsistencies discovered
-   - Recommended corrections (if any)
-   - Final assessment: PASS / PASS_WITH_NOTES / FAIL
+- `docs/planning/SR-PLAN-V6.md` — Implementation plan with pseudocode
+- `docs/reviews/SR-PLAN-V6-COHERENCE-REVIEW.md` — Coherence verification
+- `docs/platform/SR-SPEC.md` §2.2 — SYSTEM actor requirements
+- `docs/platform/SR-SPEC.md` §2.3.1 — Loop creation with work_unit binding
+- `docs/platform/SR-WORK-SURFACE.md` §5.4 — Loop ↔ Work Surface binding semantics
 
-2. **SR-PLAN-V6 updates** (if inconsistencies found):
-   - Correct any terminology misuse
-   - Add missing contract references
-   - Align pseudocode with canonical patterns
+### Reference Code
 
-3. **SR-CHANGE entry** (if SR-PLAN-V6 is modified):
-   - Log any changes per SR-CHANGE process
+- `crates/sr-api/src/handlers/loops.rs` — Loop creation/activation patterns
+- `crates/sr-api/src/handlers/iterations.rs` — Iteration start patterns
+- `crates/sr-domain/src/governor.rs` — SYSTEM actor pattern (line ~729)
+- `crates/sr-domain/src/prompt_loop.rs` — directive_ref default pattern (line ~92)
 
 ### Guidelines
 
-- This is **verification**, not implementation
-- Read canonical documents carefully before making judgments
-- When in doubt, cite the specific section of the canonical document
-- If SR-PLAN-V6 proposes something that contradicts a canonical document, flag it — don't assume the plan is correct
-- The goal is confidence that implementation will produce semantically correct behavior
+- Follow existing codebase patterns for consistency
+- Use the pseudocode in SR-PLAN-V6 §4 as implementation guide
+- Run `cargo build --package sr-api` and `cargo test --package sr-api` to verify
+- Commit after implementation with descriptive message
 
-### Verification Complete When
+### Phase Complete When
 
-- [ ] All ontological checks passed
-- [ ] All epistemological checks passed
-- [ ] All semantic checks passed
-- [ ] All contract compliance checks passed
-- [ ] Coherence report written
-- [ ] SR-PLAN-V6 status confirmed or updated
-- [ ] Ready for implementation (or blocked with documented issues)
+- [ ] `get_loop_by_work_unit` projection method added
+- [ ] `start_work_surface` handler implemented
+- [ ] Route registered in main.rs
+- [ ] All acceptance criteria met
+- [ ] `cargo build` passes
+- [ ] `cargo test` passes
+- [ ] Committed and pushed
 
