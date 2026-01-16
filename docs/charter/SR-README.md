@@ -414,6 +414,43 @@ cargo test --package sr-api --test semantic_ralph_loop_e2e -- --ignored --nocapt
 
 ---
 
+### Session: 2026-01-16 — Phase 5d E2E Test Execution & Bug Fixes
+
+**Objective:** Run E2E integration tests against live API and fix discovered issues.
+
+**Bug Fixes Applied:**
+
+1. **PostgreSQL Enum Type Casting** (`intakes.rs`, `references.rs`, `work_surfaces.rs`)
+   - PostgreSQL custom enum types (`work_kind`, `intake_status`, `work_surface_status`) require `::text` casting when binding to Rust `String` types
+   - Added casts: `kind::text`, `status::text` in SELECT queries
+
+2. **Starter Template JSON Structure** (`templates.rs`)
+   - `ProcedureTemplate` deserialization requires exact field names matching Rust struct
+   - Fixed enum variant naming: `research_memo` not `ResearchMemo`, `all_required_oracles_pass` not `AllRequiredOraclesPass`
+   - Added required fields: `artifact_type`, `artifact_version`, `required_outputs`, `steps`, `requires_portal`, `requires_approval`
+   - Set `transition_on_pass: null` for terminal stage (FINAL)
+
+3. **Auth Test Mode Actor Types** (`auth.rs`)
+   - Test mode (`SR_AUTH_TEST_MODE=true`) now supports SYSTEM and AGENT actors
+   - Tokens containing "system" → SYSTEM actor
+   - Tokens containing "agent" → AGENT actor
+   - Otherwise → HUMAN actor
+
+4. **SQL Duplicate Column Assignment** (`projections.rs`)
+   - `StageCompleted` event handler had multiple SET clauses for `stage_status`
+   - Fixed by nesting `jsonb_set` calls in single assignment
+
+5. **Loop Activation Step** (`semantic_ralph_loop_e2e.rs`)
+   - Loops must be activated (CREATED → ACTIVE) before starting iterations
+   - Added `POST /loops/{id}/activate` call in test
+
+**Template Used:** `proc:RESEARCH-MEMO` (4 stages: FRAME → OPTIONS → DRAFT → FINAL)
+- FINAL stage has `requires_approval: true`
+
+**Commit:** `38799a8` — Fix E2E integration test issues and PostgreSQL enum type handling
+
+---
+
 ## MVP Complete
 
 **SR-PLAN-V5 is now complete.** The Semantic Ralph Loop MVP satisfies SR-CHARTER §Immediate Objective:
