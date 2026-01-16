@@ -1,9 +1,23 @@
 # SR-PLAN-V8: Oracle Runner & Semantic Suite Foundation
 
-**Status:** Ready for Implementation
+**Status:** Ready for Implementation (Amended)
 **Created:** 2026-01-16
+**Amended:** 2026-01-16 (Coherence Assessment)
 **Depends On:** SR-PLAN-V7 (MVP Stabilization complete)
 **Implements:** SR-CHARTER §Immediate Objective (Milestone 1: Semantic Work Unit Runtime)
+
+---
+
+## Amendments Summary (2026-01-16 Coherence Assessment)
+
+| Amendment | Issue | Resolution |
+|-----------|-------|------------|
+| **A-1** | V8-2 assumed direct API call to oracle runner | Use **Event-Driven Worker** pattern (subscribes to `RunStarted`) |
+| **A-2** | `OracleSuite` vs `OracleSuiteDefinition` unclear | Clarify: `OracleSuiteDefinition` = execution config, `OracleSuite` = domain entity with lifecycle |
+| **A-3** | V8-5 proposed creating semantic types that already exist | Use existing types from `sr-domain/src/semantic_oracle.rs` |
+| **A-4** | V8-1 didn't acknowledge existing registry implementation | Extract port trait from existing `OracleSuiteRegistry` in `sr-adapters` |
+
+**Revised Effort:** 7-10 sessions (was 7-9)
 
 ---
 
@@ -104,7 +118,35 @@ The MVP is stabilized with:
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| `POST /runs` handler | ⚠️ Partial | Exists but may need oracle runner integration |
+| `POST /runs` handler | ✅ Complete | Creates `RunStarted` event (event-sourced) |
+| `POST /runs/:id/complete` | ✅ Complete | Creates `RunCompleted` event |
+
+> **AMENDMENT A-1:** The runs handler uses **event sourcing** — it does NOT call the oracle runner directly. It creates a `RunStarted` event, and oracle execution must happen via a separate worker that subscribes to these events.
+
+**`crates/sr-adapters/src/oracle_suite.rs`:**
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `OracleSuiteRegistry` struct | ✅ Implemented | In-memory registry with core suites |
+| `VerificationProfile` | ✅ Implemented | Profile definitions |
+| `IntegrityCondition` enum | ✅ Implemented | 6 variants defined |
+| `WaivableCondition` enum | ✅ Implemented | 6 variants defined |
+| Core suite factories | ✅ Implemented | GOV, CORE, FULL suites |
+
+> **AMENDMENT A-4:** The in-memory registry already exists with working API endpoints. V8-1 should extract a port trait and add PostgreSQL persistence, not create from scratch.
+
+**`crates/sr-domain/src/semantic_oracle.rs` (~1024 lines):**
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `SemanticEvalResult` | ✅ Implemented | Full `sr.semantic_eval.v1` schema |
+| `SemanticMetrics` | ✅ Implemented | Residual, coverage, violations |
+| `DecisionStatus` | ✅ Implemented | Pass/Fail/Indeterminate |
+| `ResidualReport` | ✅ Implemented | Output artifact schema |
+| `CoverageReport` | ✅ Implemented | Output artifact schema |
+| `ViolationsReport` | ✅ Implemented | Output artifact schema |
+
+> **AMENDMENT A-3:** Semantic oracle types already exist. V8-5 should focus on oracle suite packaging and container creation, not type definitions.
 
 ---
 
@@ -167,18 +209,21 @@ Building on working core oracles, V8-5 adds semantic measurement capabilities.
 
 ## 3. Implementation Phases
 
-### Phase V8-1: Oracle Suite Registry
+### Phase V8-1: Oracle Suite Registry (AMENDED per A-4)
 
-**Objective:** Persistent storage and retrieval of oracle suite definitions.
+**Objective:** Add persistent storage to the existing oracle suite registry.
+
+> **Amendment A-4:** The in-memory `OracleSuiteRegistry` already exists in `sr-adapters/src/oracle_suite.rs` with 6 working API endpoints in `sr-api/src/handlers/oracles.rs`. This phase extracts a port trait and adds PostgreSQL persistence.
 
 **Deliverables:**
 
 | File | Action | Description |
 |------|--------|-------------|
-| `crates/sr-domain/src/entities/oracle_suite.rs` | CREATE | Oracle suite domain entity |
-| `crates/sr-adapters/src/postgres_oracle_registry.rs` | CREATE | PostgreSQL repository |
-| `crates/sr-api/src/handlers/oracle_suites.rs` | CREATE | Suite management endpoints |
-| `migrations/YYYYMMDD_oracle_suite_registry.sql` | CREATE | Database schema |
+| `crates/sr-ports/src/lib.rs` | MODIFY | Add `OracleSuiteRegistry` port trait |
+| `crates/sr-adapters/src/postgres_oracle_registry.rs` | CREATE | PostgreSQL adapter implementing port |
+| `crates/sr-adapters/src/oracle_suite.rs` | MODIFY | Implement port trait on existing struct |
+| `crates/sr-api/src/main.rs` | MODIFY | Use DB-backed registry |
+| `migrations/008_oracle_suite_registry.sql` | CREATE | Database schema |
 
 **Database Schema:**
 
@@ -200,48 +245,48 @@ CREATE INDEX idx_oracle_suites_hash ON oracle_suites(suite_hash);
 CREATE INDEX idx_oracle_suites_status ON oracle_suites(status);
 ```
 
-**New Endpoints:**
+**Existing Endpoints (already implemented in `handlers/oracles.rs`):**
 
-`POST /api/v1/oracle-suites`
-- Registers a new oracle suite
-- Computes suite_hash from definition content
-- Validates OCI image reference format
-- Response: `{ suite_id, suite_hash, registered_at }`
+- `GET /api/v1/oracles/suites` — List all registered oracle suites
+- `GET /api/v1/oracles/suites/:suite_id` — Get suite detail with oracles
+- `POST /api/v1/oracles/suites` — Register a new oracle suite
+- `GET /api/v1/oracles/profiles` — List verification profiles
+- `GET /api/v1/oracles/profiles/:id` — Get profile detail
+- `POST /api/v1/oracles/profiles` — Register a new verification profile
 
-`GET /api/v1/oracle-suites/{suite_id}`
-- Retrieves suite definition by ID
-- Validates suite_hash matches stored (C-OR-2 foundation)
-- Response: Full `OracleSuiteDefinition`
+> These endpoints currently use the in-memory `OracleSuiteRegistry`. No endpoint changes needed.
 
-`GET /api/v1/oracle-suites`
-- Lists registered suites
-- Supports status filter (active, deprecated)
-- Response: `{ suites: [...], total }`
+**Type Relationship (Amendment A-2):**
 
-**Domain Entity:**
+- `OracleSuiteDefinition` (in `sr-adapters/src/oracle_runner.rs`) = **immutable execution configuration**
+- `OracleSuiteRecord` (new in `sr-ports`) = **stored entity with registry metadata**
 
 ```rust
-pub struct OracleSuite {
+// Existing in sr-adapters - the execution config
+pub struct OracleSuiteDefinition {
     pub suite_id: String,
     pub suite_hash: String,
     pub oci_image: String,
     pub oci_image_digest: String,
     pub environment_constraints: EnvironmentConstraints,
     pub oracles: Vec<OracleDefinition>,
-    pub metadata: serde_json::Value,
+    pub metadata: BTreeMap<String, serde_json::Value>,
+}
+
+// New in sr-ports - the stored record with lifecycle
+pub struct OracleSuiteRecord {
+    // All fields from OracleSuiteDefinition, plus:
     pub registered_at: DateTime<Utc>,
-    pub registered_by: ActorRef,
+    pub registered_by_kind: String,
+    pub registered_by_id: String,
     pub status: OracleSuiteStatus,
 }
 
-pub enum OracleSuiteStatus {
-    Active,
-    Deprecated,
-    Revoked,
-}
+// Conversion for oracle runner usage
+impl From<OracleSuiteRecord> for OracleSuiteDefinition { ... }
 ```
 
-**Port Trait:**
+**Port Trait (new in `sr-ports/src/lib.rs`):**
 
 ```rust
 #[async_trait]
@@ -275,23 +320,139 @@ pub trait OracleSuiteRegistry: Send + Sync {
 
 ---
 
-### Phase V8-2: Oracle Runner API Integration
+### Phase V8-2: Oracle Execution Worker (AMENDED per A-1)
 
-**Objective:** Wire `PodmanOracleRunner` to API endpoints for end-to-end oracle execution.
+**Objective:** Implement event-driven oracle execution that subscribes to `RunStarted` events.
+
+> **Amendment A-1:** The `POST /runs` handler uses **event sourcing** — it creates a `RunStarted` event and returns immediately. It does NOT call the oracle runner directly. Oracle execution must happen via a separate worker process that subscribes to `RunStarted` events.
+
+**Architecture:**
+
+```
+POST /runs → RunStarted event → Event Store
+                                    │
+                                    ▼
+                          OracleExecutionWorker
+                                    │
+                    ┌───────────────┼───────────────┐
+                    ▼               ▼               ▼
+              Resolve Suite   Materialize WS   Execute Oracles
+                    │               │               │
+                    └───────────────┼───────────────┘
+                                    ▼
+                          OracleExecutionCompleted event
+                                    │
+                                    ▼
+                          RunCompleted event (via existing handler)
+```
 
 **Deliverables:**
 
 | File | Action | Description |
 |------|--------|-------------|
-| `crates/sr-api/src/handlers/runs.rs` | MODIFY | Integrate oracle runner |
-| `crates/sr-api/src/main.rs` | MODIFY | Initialize runner in app state |
-| `crates/sr-adapters/src/oracle_runner.rs` | MODIFY | Fix candidate path resolution |
+| `crates/sr-adapters/src/oracle_worker.rs` | CREATE | Event-driven oracle execution worker |
 | `crates/sr-adapters/src/candidate_store.rs` | CREATE | Candidate workspace materializer |
+| `crates/sr-domain/src/events.rs` | MODIFY | Add `OracleExecutionStarted`, `OracleExecutionCompleted` |
+| `crates/sr-api/src/main.rs` | MODIFY | Start worker alongside API server |
+
+**New Event Types:**
+
+```rust
+/// Emitted when oracle execution begins (after worker picks up RunStarted)
+pub struct OracleExecutionStarted {
+    pub run_id: String,
+    pub candidate_id: String,
+    pub suite_id: String,
+    pub suite_hash: String,
+    pub workspace_path: String,
+    pub started_at: DateTime<Utc>,
+}
+
+/// Emitted when oracle execution completes (success or failure)
+pub struct OracleExecutionCompleted {
+    pub run_id: String,
+    pub candidate_id: String,
+    pub suite_id: String,
+    pub status: OracleStatus,  // Pass/Fail/Error
+    pub evidence_bundle_hash: Option<String>,
+    pub environment_fingerprint: serde_json::Value,
+    pub duration_ms: u64,
+    pub completed_at: DateTime<Utc>,
+    pub error: Option<String>,
+}
+```
+
+**Oracle Execution Worker:**
+
+```rust
+pub struct OracleExecutionWorker<R, W, E>
+where
+    R: OracleSuiteRegistry,
+    W: CandidateWorkspace,
+    E: EvidenceStore,
+{
+    event_store: Arc<dyn EventStore>,
+    oracle_registry: Arc<R>,
+    oracle_runner: Arc<PodmanOracleRunner<E>>,
+    candidate_workspace: Arc<W>,
+}
+
+impl<R, W, E> OracleExecutionWorker<R, W, E> {
+    /// Poll for RunStarted events and execute oracles
+    pub async fn run(&self) -> Result<(), WorkerError> {
+        loop {
+            // 1. Poll for unprocessed RunStarted events
+            let events = self.poll_run_started_events().await?;
+
+            for event in events {
+                // 2. Extract run details from event
+                let run_id = &event.stream_id;
+                let payload: RunStartedPayload = serde_json::from_value(event.payload)?;
+
+                // 3. Retrieve and validate suite
+                let suite = self.oracle_registry
+                    .get(&payload.oracle_suite_id)
+                    .await?
+                    .ok_or(WorkerError::SuiteNotFound)?;
+
+                if suite.suite_hash != payload.oracle_suite_hash {
+                    // Emit integrity violation event
+                    self.emit_integrity_violation(run_id, IntegrityCondition::OracleTamper { ... }).await?;
+                    continue;
+                }
+
+                // 4. Materialize candidate workspace
+                let workspace = self.candidate_workspace
+                    .materialize(&payload.candidate_id)
+                    .await?;
+
+                // 5. Emit OracleExecutionStarted
+                self.emit_execution_started(run_id, &payload, &workspace).await?;
+
+                // 6. Execute oracle suite
+                let result = self.oracle_runner
+                    .execute_suite(
+                        &payload.candidate_id,
+                        &payload.oracle_suite_id,
+                        &payload.oracle_suite_hash,
+                        &workspace.path,
+                    )
+                    .await;
+
+                // 7. Emit OracleExecutionCompleted
+                self.emit_execution_completed(run_id, result).await?;
+            }
+
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
+}
+```
 
 **Candidate Workspace Resolution:**
 
 The oracle runner currently uses a placeholder path (`/tmp/candidates/{id}`). We need to:
-1. Resolve candidate from Candidate store
+1. Resolve candidate from Candidate projection
 2. Materialize workspace directory with candidate content
 3. Pass workspace path to oracle runner
 
@@ -311,85 +472,18 @@ pub struct TempWorkspace {
 }
 ```
 
-**`POST /runs` Handler Enhancement:**
-
-```rust
-pub async fn start_run(
-    State(state): State<AppState>,
-    user: AuthenticatedUser,
-    Json(request): Json<StartRunRequest>,
-) -> ApiResult<Json<RunStartedResponse>> {
-    // 1. Validate request
-    let candidate_id = &request.candidate_id;
-    let suite_id = &request.oracle_suite_id;
-    let suite_hash = &request.oracle_suite_hash;
-
-    // 2. Retrieve suite from registry (V8-1)
-    let suite = state.oracle_registry
-        .get(suite_id)
-        .await?
-        .ok_or(ApiError::not_found("Oracle suite not found"))?;
-
-    // 3. Verify suite hash (C-OR-2 foundation)
-    if suite.suite_hash != *suite_hash {
-        return Err(ApiError::conflict("Suite hash mismatch"));
-    }
-
-    // 4. Materialize candidate workspace
-    let workspace = state.candidate_workspace
-        .materialize(candidate_id)
-        .await?;
-
-    // 5. Execute oracle suite
-    let result = state.oracle_runner
-        .execute_suite(
-            candidate_id,
-            suite_id,
-            suite_hash,
-            &workspace.path,
-        )
-        .await?;
-
-    // 6. Emit RunCompleted event
-    state.event_store
-        .append(RunCompleted {
-            run_id: result.run_id.clone(),
-            candidate_id: candidate_id.clone(),
-            evidence_bundle_hash: result.evidence_bundle_hash.clone(),
-            status: result.status,
-        })
-        .await?;
-
-    // 7. Return result
-    Ok(Json(RunStartedResponse {
-        run_id: result.run_id,
-        evidence_bundle_hash: result.evidence_bundle_hash,
-        status: result.status.to_string(),
-    }))
-}
-```
-
-**App State Enhancement:**
-
-```rust
-pub struct AppState {
-    // ... existing fields ...
-    pub oracle_registry: Arc<dyn OracleSuiteRegistry>,
-    pub oracle_runner: Arc<PodmanOracleRunner<MinioEvidenceStore>>,
-    pub candidate_workspace: Arc<dyn CandidateWorkspace>,
-}
-```
-
 **Acceptance Criteria:**
-- [ ] `POST /runs` triggers oracle suite execution
-- [ ] Candidate workspace materialized correctly
-- [ ] Oracle runner executes in test mode (mock containers)
+- [ ] Worker subscribes to `RunStarted` events
+- [ ] Worker retrieves suite from registry and validates hash
+- [ ] Worker materializes candidate workspace
+- [ ] Worker executes oracles via `PodmanOracleRunner` (test mode)
+- [ ] Worker emits `OracleExecutionStarted` and `OracleExecutionCompleted` events
 - [ ] Evidence bundle stored in MinIO
-- [ ] `RunCompleted` event emitted
+- [ ] Existing `POST /runs/:id/complete` can consume worker results
 - [ ] End-to-end integration test passes
-- [ ] `cargo test --package sr-api` passes
+- [ ] `cargo test --package sr-adapters` passes
 
-**Effort:** ~1-2 sessions
+**Effort:** ~2-3 sessions (increased from 1-2 due to event-driven architecture)
 
 ---
 
@@ -788,17 +882,32 @@ curl -X POST http://localhost:8080/api/v1/oracle-suites \
 
 ---
 
-### Phase V8-5: Semantic Oracle Integration
+### Phase V8-5: Semantic Oracle Integration (AMENDED per A-3)
 
-**Objective:** Add semantic oracle support with `sr.semantic_eval.v1` output schema.
+**Objective:** Create semantic oracle suite container using existing type definitions.
+
+> **Amendment A-3:** The semantic oracle types already exist in `sr-domain/src/semantic_oracle.rs` (~1024 lines). This phase focuses on **container packaging** and **oracle suite creation**, not type definitions.
+
+**Existing Types (DO NOT RECREATE):**
+
+| Type | Location | Purpose |
+|------|----------|---------|
+| `SemanticEvalResult` | `semantic_oracle.rs:178-192` | Main evaluation result |
+| `SemanticMetrics` | `semantic_oracle.rs:195-201` | Residual, coverage, violations |
+| `EvalDecision` | `semantic_oracle.rs:204-210` | Pass/Fail decision |
+| `DecisionStatus` | `semantic_oracle.rs:156-160` | Pass/Fail/Indeterminate |
+| `ResidualReport` | `semantic_oracle.rs:263-273` | Output artifact |
+| `CoverageReport` | `semantic_oracle.rs:276-286` | Output artifact |
+| `ViolationsReport` | `semantic_oracle.rs:289-298` | Output artifact |
 
 **Deliverables:**
 
 | File | Action | Description |
 |------|--------|-------------|
-| `oracle-suites/semantic-v1/` | CREATE | Semantic oracle suite |
-| `crates/sr-domain/src/semantic.rs` | CREATE | Semantic evaluation types |
-| `docs/platform/SR-TYPES.md` | MODIFY | Add semantic result types |
+| `oracle-suites/semantic-v1/` | CREATE | Semantic oracle suite container |
+| `oracle-suites/semantic-v1/Dockerfile` | CREATE | Container image definition |
+| `oracle-suites/semantic-v1/suite.json` | CREATE | Suite manifest |
+| `crates/sr-domain/src/semantic_oracle.rs` | MODIFY | Add `Waived` to `DecisionStatus` if needed |
 
 **Semantic Oracle Suite:**
 
@@ -898,58 +1007,25 @@ Per SR-SEMANTIC-ORACLE-SPEC §4:
 }
 ```
 
-**Domain Types:**
+**Optional Type Modification:**
+
+If the `Waived` decision status is needed, add it to the existing enum:
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SemanticEvalResult {
-    pub schema: String,  // "sr.semantic_eval.v1"
-    pub candidate_id: String,
-    pub procedure_template_id: String,
-    pub stage_id: String,
-    pub oracle_suite_id: String,
-    pub oracle_suite_hash: String,
-    pub semantic_set: SemanticSetRef,
-    pub metrics: SemanticMetrics,
-    pub decision: SemanticDecision,
-    pub notes: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SemanticSetRef {
-    pub semantic_set_id: String,
-    pub semantic_set_hash: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SemanticMetrics {
-    pub residual_norm: f64,
-    pub coverage: HashMap<String, f64>,
-    pub violations: Vec<SemanticViolation>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SemanticViolation {
-    pub code: String,
-    pub axis: String,
-    pub description: String,
-    pub severity: ViolationSeverity,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SemanticDecision {
-    pub status: DecisionStatus,
-    pub rule_id: String,
-    pub thresholds: HashMap<String, f64>,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+// In sr-domain/src/semantic_oracle.rs
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DecisionStatus {
     Pass,
     Fail,
-    Waived,
+    Indeterminate,
+    Waived,  // ADD THIS IF NEEDED
 }
 ```
+
+**Output Schemas (already defined in `semantic_oracle.rs`):**
+
+The existing types produce these JSON schemas — no changes needed:
 
 **Residual Output Schema (`reports/semantic/residual.json`):**
 
@@ -1001,16 +1077,17 @@ pub enum DecisionStatus {
 ```
 
 **Acceptance Criteria:**
-- [ ] Semantic oracle suite definition conforms to SR-SEMANTIC-ORACLE-SPEC
+- [ ] Semantic oracle suite Dockerfile builds successfully
+- [ ] Suite definition conforms to SR-SEMANTIC-ORACLE-SPEC
 - [ ] `semantic_set_hash` incorporated into `oracle_suite_hash` (§2)
 - [ ] All 3 required artifacts produced: residual, coverage, violations
-- [ ] Evaluation result conforms to `sr.semantic_eval.v1` schema
-- [ ] Domain types defined in `sr-domain`
-- [ ] SR-TYPES updated with semantic result types
+- [ ] Outputs conform to existing `sr-domain` type definitions
+- [ ] `Waived` variant added to `DecisionStatus` if needed
 - [ ] Integration test validates semantic oracle execution
 - [ ] Evidence bundle contains semantic artifacts
+- [ ] Suite registers via existing API endpoint
 
-**Effort:** ~2 sessions
+**Effort:** ~1-2 sessions (reduced from 2 — types already exist)
 
 ---
 
@@ -1094,21 +1171,21 @@ Remaining Milestone 1 work (for SR-PLAN-V9):
 
 ---
 
-## Appendix A: Effort Summary
+## Appendix A: Effort Summary (AMENDED)
 
-| Phase | Focus | Effort | Cumulative |
-|-------|-------|--------|------------|
-| V8-1 | Oracle Suite Registry | 1 session | 1 |
-| V8-2 | API Integration | 1-2 sessions | 2-3 |
-| V8-3 | Integrity Checks | 1-2 sessions | 3-5 |
-| V8-4 | Core Oracle Suite | 2 sessions | 5-7 |
-| V8-5 | Semantic Oracles | 2 sessions | 7-9 |
+| Phase | Focus | Effort | Cumulative | Amendment |
+|-------|-------|--------|------------|-----------|
+| V8-1 | Oracle Suite Registry | 1 session | 1 | A-4: Extract port from existing |
+| V8-2 | Event-Driven Worker | **2-3 sessions** | 3-4 | A-1: Event sourcing architecture |
+| V8-3 | Integrity Checks | 1-2 sessions | 4-6 | — |
+| V8-4 | Core Oracle Suite | 2 sessions | 6-8 | — |
+| V8-5 | Semantic Oracles | **1-2 sessions** | 7-10 | A-3: Use existing types |
 
-**Total:** ~7-9 sessions for complete execution
+**Total:** ~7-10 sessions for complete execution (was 7-9)
 
 ---
 
-## Appendix B: Dependency Graph
+## Appendix B: Dependency Graph (AMENDED)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1118,18 +1195,19 @@ Remaining Milestone 1 work (for SR-PLAN-V9):
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  V8-1: Oracle Suite Registry                                    │
-│  - PostgreSQL storage for suite definitions                     │
-│  - POST/GET /oracle-suites endpoints                            │
-│  - Suite hash computation                                       │
+│  V8-1: Oracle Suite Registry (AMENDED A-4)                      │
+│  - Extract port trait from existing OracleSuiteRegistry         │
+│  - Add PostgreSQL persistence layer                             │
+│  - Existing endpoints continue to work                          │
 └─────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  V8-2: Oracle Runner API Integration                            │
-│  - Wire PodmanOracleRunner to POST /runs                        │
+│  V8-2: Oracle Execution Worker (AMENDED A-1)                    │
+│  - Event-driven worker subscribes to RunStarted                 │
+│  - NOT direct API call (event sourcing architecture)            │
+│  - Emits OracleExecutionStarted/Completed events                │
 │  - Candidate workspace materialization                          │
-│  - Evidence bundle storage                                      │
 └─────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
@@ -1146,11 +1224,11 @@ Remaining Milestone 1 work (for SR-PLAN-V9):
                 ▼                               ▼
 ┌───────────────────────────────┐ ┌───────────────────────────────┐
 │  V8-4: Core Oracle Suite      │ │  V8-5: Semantic Oracles       │
-│  - Build oracle               │ │  - sr.semantic_eval.v1 schema │
-│  - Unit test oracle           │ │  - Residual/coverage/violation│
-│  - Schema validation oracle   │ │  - Semantic set binding       │
-│  - Lint oracle (advisory)     │ │  - Stage gate integration     │
-│  - Container packaging        │ │                               │
+│  - Build oracle               │ │  (AMENDED A-3)                │
+│  - Unit test oracle           │ │  - Use EXISTING types from    │
+│  - Schema validation oracle   │ │    sr-domain/semantic_oracle  │
+│  - Lint oracle (advisory)     │ │  - Focus on container package │
+│  - Container packaging        │ │  - Add Waived if needed       │
 └───────────────────────────────┘ └───────────────────────────────┘
                 │                               │
                 └───────────────┬───────────────┘
@@ -1181,3 +1259,41 @@ Remaining Milestone 1 work (for SR-PLAN-V9):
 | C-EVID-1 | Evidence bundle minimum manifest | V8-2: Existing manifest builder |
 | C-EVID-2 | Evidence immutability | Existing: MinIO content-addressed storage |
 | C-VER-1 | Verification evidence-based | V8-5: Semantic oracle produces evidence |
+
+---
+
+## Appendix D: Critical Files for Implementation
+
+### V8-1 (Registry)
+| File | Action |
+|------|--------|
+| `crates/sr-ports/src/lib.rs` | MODIFY — add `OracleSuiteRegistry` trait |
+| `crates/sr-adapters/src/oracle_suite.rs` | MODIFY — implement port trait |
+| `crates/sr-adapters/src/postgres_oracle_registry.rs` | CREATE — DB adapter |
+| `migrations/008_oracle_suite_registry.sql` | CREATE — schema |
+
+### V8-2 (Event-Driven Worker)
+| File | Action |
+|------|--------|
+| `crates/sr-adapters/src/oracle_worker.rs` | CREATE — event-driven worker |
+| `crates/sr-adapters/src/candidate_store.rs` | CREATE — workspace materializer |
+| `crates/sr-api/src/handlers/runs.rs` | MINIMAL — event already created |
+| `crates/sr-domain/src/events.rs` | MODIFY — add oracle execution events |
+
+### V8-3 (Integrity)
+| File | Action |
+|------|--------|
+| `crates/sr-domain/src/integrity.rs` | CREATE — integrity condition types |
+| `crates/sr-adapters/src/oracle_runner.rs` | MODIFY — add integrity detection |
+| `crates/sr-domain/src/events.rs` | MODIFY — add `IntegrityViolationDetected` |
+
+### V8-4 (Core Suite)
+| File | Action |
+|------|--------|
+| `oracle-suites/core-v1/` | CREATE — directory with Dockerfile, suite.json, scripts |
+
+### V8-5 (Semantic Oracles)
+| File | Action |
+|------|--------|
+| `oracle-suites/semantic-v1/` | CREATE — directory |
+| `crates/sr-domain/src/semantic_oracle.rs` | MODIFY — add `Waived` variant if needed |
