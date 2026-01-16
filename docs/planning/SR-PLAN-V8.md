@@ -309,12 +309,19 @@ pub trait OracleSuiteRegistry: Send + Sync {
 ```
 
 **Acceptance Criteria:**
-- [ ] `POST /oracle-suites` registers suite with computed hash
-- [ ] `GET /oracle-suites/{id}` retrieves suite definition
-- [ ] Suite hash computed from deterministic serialization of definition
-- [ ] PostgreSQL adapter implements `OracleSuiteRegistry`
-- [ ] `cargo test --package sr-api` passes
-- [ ] `cargo test --package sr-adapters` passes
+- [x] `POST /oracle-suites` registers suite with computed hash
+- [x] `GET /oracle-suites/{id}` retrieves suite definition
+- [x] Suite hash computed from deterministic serialization of definition
+- [x] PostgreSQL adapter implements `OracleSuiteRegistryPort`
+- [x] `cargo test --package sr-api` passes
+- [x] `cargo test --package sr-adapters` passes
+
+**Completion Notes (2026-01-16):**
+- Port trait named `OracleSuiteRegistryPort` (not `OracleSuiteRegistry`) to avoid collision with existing concrete type
+- Added `RegisterSuiteInput` struct to bundle registration parameters (clippy compliance)
+- In-memory `OracleSuiteRegistry` implements the port trait for backwards compatibility
+- PostgreSQL adapter ready at `sr-adapters/src/postgres_oracle_registry.rs`
+- Migration ready at `migrations/008_oracle_suite_registry.sql`
 
 **Effort:** ~1 session
 

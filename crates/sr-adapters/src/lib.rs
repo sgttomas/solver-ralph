@@ -20,6 +20,7 @@
 //! - Event Manager: work-unit + stage projection + eligible-set computation (D-40)
 //! - Reference semantic worker (D-41)
 //! - MinIO attachment store adapter (SR-PLAN-V7 V7-3)
+//! - PostgreSQL oracle suite registry (SR-PLAN-V8 V8-1)
 
 pub mod attachment_store;
 pub mod config;
@@ -35,6 +36,7 @@ pub mod oracle_runner;
 pub mod oracle_suite;
 pub mod outbox;
 pub mod postgres;
+pub mod postgres_oracle_registry;
 pub mod projections;
 pub mod restricted;
 pub mod semantic_suite;
@@ -78,8 +80,8 @@ pub use oracle_runner::{
     PodmanOracleRunner, PodmanOracleRunnerConfig,
 };
 pub use oracle_suite::{
-    create_core_suite, create_full_suite, create_gov_suite, oracle_ids, validate_suite,
-    BuildArtifact, BuildError, BuildReport, IntegrityCondition, IntegrityPathway,
+    create_core_suite, create_full_suite, create_gov_suite, oracle_ids, record_to_definition,
+    validate_suite, BuildArtifact, BuildError, BuildReport, IntegrityCondition, IntegrityPathway,
     IntegritySmokeReport, LintIssue, LintReport, MetaValidateReport, MetaValidationError,
     OracleSuiteRegistry, SuiteValidationError, TestFailure, UnitTestReport, VerificationProfile,
     WaivableCondition, PROFILE_GOV_CORE, PROFILE_STRICT_CORE, PROFILE_STRICT_FULL, SUITE_CORE_ID,
@@ -87,6 +89,7 @@ pub use oracle_suite::{
 };
 pub use outbox::{OutboxEntry, OutboxError, OutboxPublisher, OutboxPublisherConfig, OutboxWriter};
 pub use postgres::PostgresEventStore;
+pub use postgres_oracle_registry::PostgresOracleSuiteRegistry;
 pub use projections::{
     ApprovalProjection, CandidateProjection, DecisionProjection, EvidenceProjection,
     ExceptionProjection, FreezeRecordProjection, IterationProjection, LoopProjection,

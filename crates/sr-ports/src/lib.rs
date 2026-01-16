@@ -4,9 +4,11 @@
 //! - EventStore
 //! - EvidenceStore
 //! - OracleRunner
+//! - OracleSuiteRegistryPort (V8-1)
 //! - MessageBus
 //! - IdentityProvider
 //! - Clock
+//! - SecretProvider
 
 use std::future::Future;
 use std::pin::Pin;
@@ -364,4 +366,174 @@ pub enum SecretProviderError {
 
     #[error("Provider error: {message}")]
     ProviderError { message: String },
+}
+
+// ============================================================================
+// Oracle Suite Registry Port (V8-1: Oracle Suite Registry)
+// ============================================================================
+
+/// Input for registering a new oracle suite
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RegisterSuiteInput {
+    /// Suite identifier (e.g., "suite:SR-SUITE-CORE")
+    pub suite_id: String,
+    /// Content hash of the suite definition
+    pub suite_hash: String,
+    /// OCI container image reference
+    pub oci_image: String,
+    /// OCI image digest for pinning
+    pub oci_image_digest: String,
+    /// Environment constraints (serialized)
+    pub environment_constraints: serde_json::Value,
+    /// Oracle definitions (serialized)
+    pub oracles: serde_json::Value,
+    /// Additional metadata
+    pub metadata: serde_json::Value,
+    /// Actor kind registering the suite
+    pub actor_kind: String,
+    /// Actor ID registering the suite
+    pub actor_id: String,
+}
+
+/// Oracle suite registry port per SR-PLAN-V8 and SR-CONTRACT C-OR-2
+///
+/// This port abstracts oracle suite storage for registry operations.
+/// The primary implementation is PostgreSQL, but test implementations may use
+/// in-memory stores.
+///
+/// Per SR-CONTRACT C-OR-2: Runs MUST pin oracle suite identity at start.
+/// The registry provides persistent storage and retrieval of suite definitions.
+pub trait OracleSuiteRegistryPort: Send + Sync {
+    /// Register a new oracle suite
+    ///
+    /// Returns the stored record with computed hash and registration metadata.
+    /// Fails if a suite with the same ID already exists.
+    fn register(
+        &self,
+        input: RegisterSuiteInput,
+    ) -> impl Future<Output = Result<OracleSuiteRecord, OracleSuiteRegistryError>> + Send;
+
+    /// Get an oracle suite by ID
+    fn get(
+        &self,
+        suite_id: &str,
+    ) -> impl Future<Output = Result<Option<OracleSuiteRecord>, OracleSuiteRegistryError>> + Send;
+
+    /// Get an oracle suite by its content hash
+    fn get_by_hash(
+        &self,
+        suite_hash: &str,
+    ) -> impl Future<Output = Result<Option<OracleSuiteRecord>, OracleSuiteRegistryError>> + Send;
+
+    /// List oracle suites with optional filtering
+    fn list(
+        &self,
+        filter: SuiteFilter,
+    ) -> impl Future<Output = Result<Vec<OracleSuiteRecord>, OracleSuiteRegistryError>> + Send;
+
+    /// Deprecate an oracle suite (soft delete)
+    ///
+    /// Deprecated suites remain in the registry for audit but cannot be used
+    /// for new runs. Existing pinned runs continue to reference the suite.
+    fn deprecate(
+        &self,
+        suite_id: &str,
+        actor_kind: &str,
+        actor_id: &str,
+    ) -> impl Future<Output = Result<(), OracleSuiteRegistryError>> + Send;
+}
+
+/// Oracle suite record - stored entity with lifecycle metadata
+///
+/// Per SR-PLAN-V8 Amendment A-2:
+/// - `OracleSuiteDefinition` = execution config (in sr-adapters)
+/// - `OracleSuiteRecord` = stored entity with registry metadata (this type)
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OracleSuiteRecord {
+    /// Suite identifier (e.g., "suite:SR-SUITE-CORE")
+    pub suite_id: String,
+    /// Content hash of the suite definition
+    pub suite_hash: String,
+    /// OCI container image reference
+    pub oci_image: String,
+    /// OCI image digest for pinning
+    pub oci_image_digest: String,
+    /// Environment constraints (serialized)
+    pub environment_constraints: serde_json::Value,
+    /// Oracle definitions (serialized)
+    pub oracles: serde_json::Value,
+    /// Additional metadata (e.g., semantic_set_id, semantic_set_hash)
+    pub metadata: serde_json::Value,
+    /// Registration timestamp
+    pub registered_at: DateTime<Utc>,
+    /// Actor kind that registered the suite
+    pub registered_by_kind: String,
+    /// Actor ID that registered the suite
+    pub registered_by_id: String,
+    /// Suite lifecycle status
+    pub status: OracleSuiteStatus,
+}
+
+/// Oracle suite lifecycle status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OracleSuiteStatus {
+    /// Suite is active and can be used for new runs
+    #[default]
+    Active,
+    /// Suite is deprecated and cannot be used for new runs
+    Deprecated,
+    /// Suite is archived (historical record only)
+    Archived,
+}
+
+impl std::fmt::Display for OracleSuiteStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Active => write!(f, "active"),
+            Self::Deprecated => write!(f, "deprecated"),
+            Self::Archived => write!(f, "archived"),
+        }
+    }
+}
+
+impl std::str::FromStr for OracleSuiteStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "active" => Ok(Self::Active),
+            "deprecated" => Ok(Self::Deprecated),
+            "archived" => Ok(Self::Archived),
+            _ => Err(format!("Invalid oracle suite status: {}", s)),
+        }
+    }
+}
+
+/// Filter for listing oracle suites
+#[derive(Debug, Clone, Default)]
+pub struct SuiteFilter {
+    /// Filter by status
+    pub status: Option<OracleSuiteStatus>,
+    /// Maximum number of results
+    pub limit: Option<usize>,
+}
+
+/// Oracle suite registry errors
+#[derive(Debug, thiserror::Error)]
+pub enum OracleSuiteRegistryError {
+    #[error("Oracle suite not found: {suite_id}")]
+    NotFound { suite_id: String },
+
+    #[error("Oracle suite already exists: {suite_id}")]
+    AlreadyExists { suite_id: String },
+
+    #[error("Suite hash conflict: {suite_hash} already registered")]
+    HashConflict { suite_hash: String },
+
+    #[error("Connection error: {message}")]
+    ConnectionError { message: String },
+
+    #[error("Serialization error: {message}")]
+    SerializationError { message: String },
 }

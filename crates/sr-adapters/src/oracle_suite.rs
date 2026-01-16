@@ -29,6 +29,10 @@ use crate::oracle_runner::{
 use crate::semantic_suite::{
     create_intake_admissibility_suite, to_oracle_suite_definition, SUITE_INTAKE_ADMISSIBILITY_ID,
 };
+use sr_ports::{
+    OracleSuiteRecord, OracleSuiteRegistryError, OracleSuiteRegistryPort, OracleSuiteStatus,
+    RegisterSuiteInput, SuiteFilter,
+};
 
 // ============================================================================
 // Suite Registry
@@ -143,6 +147,216 @@ impl Default for OracleSuiteRegistry {
     fn default() -> Self {
         Self::with_core_suites()
     }
+}
+
+// ============================================================================
+// OracleSuiteRegistryPort Implementation (V8-1)
+// ============================================================================
+
+impl OracleSuiteRegistryPort for OracleSuiteRegistry {
+    /// Register a new oracle suite
+    #[instrument(skip(self, input), fields(suite_id = %input.suite_id))]
+    async fn register(
+        &self,
+        input: RegisterSuiteInput,
+    ) -> Result<OracleSuiteRecord, OracleSuiteRegistryError> {
+        let mut suites = self.suites.write().await;
+
+        // Check if suite already exists
+        if suites.contains_key(&input.suite_id) {
+            return Err(OracleSuiteRegistryError::AlreadyExists {
+                suite_id: input.suite_id,
+            });
+        }
+
+        // Check for hash conflict
+        if suites.values().any(|s| s.suite_hash == input.suite_hash) {
+            return Err(OracleSuiteRegistryError::HashConflict {
+                suite_hash: input.suite_hash,
+            });
+        }
+
+        // Deserialize environment constraints
+        let env_constraints: EnvironmentConstraints =
+            serde_json::from_value(input.environment_constraints.clone()).map_err(|e| {
+                OracleSuiteRegistryError::SerializationError {
+                    message: format!("Failed to deserialize environment_constraints: {e}"),
+                }
+            })?;
+
+        // Deserialize oracles
+        let oracle_defs: Vec<OracleDefinition> =
+            serde_json::from_value(input.oracles.clone()).map_err(|e| {
+                OracleSuiteRegistryError::SerializationError {
+                    message: format!("Failed to deserialize oracles: {e}"),
+                }
+            })?;
+
+        // Deserialize metadata
+        let meta: BTreeMap<String, serde_json::Value> =
+            serde_json::from_value(input.metadata.clone()).unwrap_or_default();
+
+        // Create the suite definition
+        let definition = OracleSuiteDefinition {
+            suite_id: input.suite_id.clone(),
+            suite_hash: input.suite_hash.clone(),
+            oci_image: input.oci_image.clone(),
+            oci_image_digest: input.oci_image_digest.clone(),
+            environment_constraints: env_constraints,
+            oracles: oracle_defs,
+            metadata: meta,
+        };
+
+        suites.insert(input.suite_id.clone(), definition);
+
+        info!(suite_id = %input.suite_id, suite_hash = %input.suite_hash, "Oracle suite registered (in-memory)");
+
+        // Create the record to return
+        let record = OracleSuiteRecord {
+            suite_id: input.suite_id,
+            suite_hash: input.suite_hash,
+            oci_image: input.oci_image,
+            oci_image_digest: input.oci_image_digest,
+            environment_constraints: input.environment_constraints,
+            oracles: input.oracles,
+            metadata: input.metadata,
+            registered_at: Utc::now(),
+            registered_by_kind: input.actor_kind,
+            registered_by_id: input.actor_id,
+            status: OracleSuiteStatus::Active,
+        };
+
+        Ok(record)
+    }
+
+    /// Get an oracle suite by ID
+    async fn get(
+        &self,
+        suite_id: &str,
+    ) -> Result<Option<OracleSuiteRecord>, OracleSuiteRegistryError> {
+        let suites = self.suites.read().await;
+
+        match suites.get(suite_id) {
+            Some(def) => Ok(Some(definition_to_record(def))),
+            None => Ok(None),
+        }
+    }
+
+    /// Get an oracle suite by its content hash
+    async fn get_by_hash(
+        &self,
+        suite_hash: &str,
+    ) -> Result<Option<OracleSuiteRecord>, OracleSuiteRegistryError> {
+        let suites = self.suites.read().await;
+
+        for def in suites.values() {
+            if def.suite_hash == suite_hash {
+                return Ok(Some(definition_to_record(def)));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// List oracle suites with optional filtering
+    async fn list(
+        &self,
+        filter: SuiteFilter,
+    ) -> Result<Vec<OracleSuiteRecord>, OracleSuiteRegistryError> {
+        let suites = self.suites.read().await;
+
+        let mut records: Vec<OracleSuiteRecord> = suites
+            .values()
+            .map(definition_to_record)
+            .filter(|r| {
+                // In-memory registry only has active suites
+                filter.status.is_none() || filter.status == Some(OracleSuiteStatus::Active)
+            })
+            .collect();
+
+        // Apply limit if specified
+        if let Some(limit) = filter.limit {
+            records.truncate(limit);
+        }
+
+        Ok(records)
+    }
+
+    /// Deprecate an oracle suite (in-memory just removes it)
+    async fn deprecate(
+        &self,
+        suite_id: &str,
+        _actor_kind: &str,
+        _actor_id: &str,
+    ) -> Result<(), OracleSuiteRegistryError> {
+        let mut suites = self.suites.write().await;
+
+        if suites.remove(suite_id).is_none() {
+            return Err(OracleSuiteRegistryError::NotFound {
+                suite_id: suite_id.to_string(),
+            });
+        }
+
+        info!(suite_id = %suite_id, "Oracle suite deprecated (in-memory)");
+        Ok(())
+    }
+}
+
+/// Convert an OracleSuiteDefinition to an OracleSuiteRecord
+///
+/// Per SR-PLAN-V8 Amendment A-2:
+/// - OracleSuiteDefinition = execution config
+/// - OracleSuiteRecord = stored entity with lifecycle metadata
+fn definition_to_record(def: &OracleSuiteDefinition) -> OracleSuiteRecord {
+    OracleSuiteRecord {
+        suite_id: def.suite_id.clone(),
+        suite_hash: def.suite_hash.clone(),
+        oci_image: def.oci_image.clone(),
+        oci_image_digest: def.oci_image_digest.clone(),
+        environment_constraints: serde_json::to_value(&def.environment_constraints)
+            .unwrap_or_default(),
+        oracles: serde_json::to_value(&def.oracles).unwrap_or_default(),
+        metadata: serde_json::to_value(&def.metadata).unwrap_or_default(),
+        // In-memory registry doesn't track registration metadata
+        registered_at: Utc::now(),
+        registered_by_kind: "SYSTEM".to_string(),
+        registered_by_id: "in-memory-registry".to_string(),
+        status: OracleSuiteStatus::Active,
+    }
+}
+
+/// Convert an OracleSuiteRecord back to an OracleSuiteDefinition
+///
+/// This is useful when the execution layer needs the definition format.
+pub fn record_to_definition(
+    record: &OracleSuiteRecord,
+) -> Result<OracleSuiteDefinition, OracleSuiteRegistryError> {
+    let environment_constraints: EnvironmentConstraints =
+        serde_json::from_value(record.environment_constraints.clone()).map_err(|e| {
+            OracleSuiteRegistryError::SerializationError {
+                message: format!("Failed to deserialize environment_constraints: {e}"),
+            }
+        })?;
+
+    let oracles: Vec<OracleDefinition> =
+        serde_json::from_value(record.oracles.clone()).map_err(|e| {
+            OracleSuiteRegistryError::SerializationError {
+                message: format!("Failed to deserialize oracles: {e}"),
+            }
+        })?;
+
+    let metadata: BTreeMap<String, serde_json::Value> =
+        serde_json::from_value(record.metadata.clone()).unwrap_or_default();
+
+    Ok(OracleSuiteDefinition {
+        suite_id: record.suite_id.clone(),
+        suite_hash: record.suite_hash.clone(),
+        oci_image: record.oci_image.clone(),
+        oci_image_digest: record.oci_image_digest.clone(),
+        environment_constraints,
+        oracles,
+        metadata,
+    })
 }
 
 // ============================================================================
