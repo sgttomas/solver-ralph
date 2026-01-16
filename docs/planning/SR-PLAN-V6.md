@@ -3,6 +3,7 @@
 **Status:** Ready for Implementation
 **Created:** 2026-01-16
 **Validated:** 2026-01-16
+**Design Resolved:** 2026-01-16
 **Supersedes:** N/A (new plan)
 **Depends On:** SR-PLAN-V5 (MVP API complete)
 **Implements:** SR-CHARTER §Immediate Objective (Milestone 2: Usable MVP)
@@ -147,6 +148,47 @@ The existing implementation separates approval (via StageApprovalForm on `/appro
 
 **Decision:** Use test mode (`SR_AUTH_TEST_MODE=true`) for V6 validation. Real auth integration deferred.
 
+### 3.6 SYSTEM Actor Mediation (Resolved 2026-01-16)
+
+**Question:** How will `/start` emit SYSTEM-actor iteration events when called by a HUMAN token?
+
+**Resolution:** Follow the established pattern from `governor.rs` and `prompt_loop.rs`:
+- Hard-code `actor_kind: ActorKind::System` when emitting `IterationStarted` event
+- Use `actor_id: "system:work-surface-start"` as the system identity
+- The calling HUMAN actor is recorded in the Loop creation event (audit trail preserved)
+
+**Precedent:** `governor.rs:729` uses `actor_kind: ActorKind::System` with `actor_id: "governor"` for iteration events. `prompt_loop.rs:92` uses `system_actor_id = "system:prompt-loop"`.
+
+### 3.7 Directive Ref Handling (Resolved 2026-01-16)
+
+**Question:** What `directive_ref` should be used for auto-created Loops?
+
+**Resolution:** Use the same default as `prompt_loop.rs`:
+```json
+{
+    "kind": "doc",
+    "id": "SR-DIRECTIVE",
+    "rel": "governs",
+    "meta": {}
+}
+```
+
+**Rationale:** SR-DIRECTIVE is the canonical execution policy document per SR-README. This default is already established in the codebase and semantically correct.
+
+### 3.8 Idempotency Design (Resolved 2026-01-16)
+
+**Question:** Should `/start` be idempotent (safe to retry)?
+
+**Resolution:** Yes. The endpoint should be idempotent:
+1. Query for existing Loop bound to `work_unit_id`
+2. If Loop exists and is ACTIVE with an iteration, return existing IDs (200 OK)
+3. If Loop exists but not ACTIVE, activate it and start iteration
+4. If no Loop exists, create → activate → start iteration
+
+**Rationale:** Idempotency prevents inconsistent state if the UI retries after a network failure. The frontend can safely call `/start` without checking if work has already started.
+
+**New helper method needed:** `get_loop_by_work_unit(work_unit_id) -> Option<LoopProjection>` in `projections.rs`
+
 ---
 
 ## 4. Implementation Phases
@@ -159,53 +201,236 @@ The existing implementation separates approval (via StageApprovalForm on `/appro
 
 | File | Action | Description |
 |------|--------|-------------|
+| `crates/sr-adapters/src/projections.rs` | EDIT | Add `get_loop_by_work_unit` method |
 | `crates/sr-api/src/handlers/work_surfaces.rs` | EDIT | Add `start_work_surface` handler |
 | `crates/sr-api/src/main.rs` | EDIT | Register `/work-surfaces/{id}/start` route |
 
-**Handler Logic:**
+**New Projection Method (`projections.rs`):**
 ```rust
-// POST /work-surfaces/{id}/start
-// Actor: HUMAN (but iteration emitted as SYSTEM)
-async fn start_work_surface(
-    Path(work_surface_id): Path<String>,
-    State(state): State<AppState>,
-    auth: AuthenticatedActor,
-) -> Result<Json<StartWorkResponse>, ApiError> {
-    // 1. Get work surface
-    let ws = get_work_surface(&state.pool, &work_surface_id).await?;
+/// Get a loop by work_unit ID (for idempotency checks)
+pub async fn get_loop_by_work_unit(&self, work_unit_id: &str) -> Result<Option<LoopProjection>, ProjectionError> {
+    let result = sqlx::query(
+        r#"
+        SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
+               created_by_kind, created_by_id, created_at, activated_at,
+               closed_at, iteration_count
+        FROM proj.loops WHERE work_unit = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(work_unit_id)
+    .fetch_optional(&self.pool)
+    .await?;
 
-    // 2. Check status is active
+    Ok(result.map(|row| /* ... same as get_loop ... */))
+}
+```
+
+**Handler Logic (`work_surfaces.rs`):**
+```rust
+/// Response for starting work on a Work Surface
+#[derive(Debug, Serialize)]
+pub struct StartWorkResponse {
+    pub work_surface_id: String,
+    pub loop_id: String,
+    pub iteration_id: String,
+    pub already_started: bool, // true if idempotent return
+}
+
+/// Start work on a Work Surface (HUMAN-callable, SYSTEM-mediated iteration)
+///
+/// POST /api/v1/work-surfaces/{id}/start
+///
+/// Per SR-PLAN-V6 §3.6-3.8:
+/// - Creates Loop bound to work_unit (or reuses existing)
+/// - Activates Loop if needed
+/// - Starts Iteration as SYSTEM actor
+/// - Idempotent: safe to retry
+#[instrument(skip(state, user), fields(user_id = %user.actor_id))]
+pub async fn start_work_surface(
+    State(state): State<WorkSurfaceState>,
+    user: AuthenticatedUser,
+    Path(work_surface_id): Path<String>,
+) -> ApiResult<Json<StartWorkResponse>> {
+    // 1. Get work surface and verify active
+    let ws = get_work_surface_projection(&state.app_state, &work_surface_id).await?;
     if ws.status != "active" {
-        return Err(ApiError::precondition_failed("WORK_SURFACE_NOT_ACTIVE"));
+        return Err(ApiError::PreconditionFailed {
+            code: "WORK_SURFACE_NOT_ACTIVE".to_string(),
+            message: format!("Work Surface status is '{}', must be 'active'", ws.status),
+        });
     }
 
-    // 3. Create loop bound to work unit
-    let loop_id = create_loop(&state, CreateLoopRequest {
-        goal: format!("Process work surface {}", work_surface_id),
-        work_unit: Some(ws.work_unit_id.clone()),
-        budgets: default_budgets(),
-    }, auth.clone()).await?;
+    // 2. Check for existing Loop (idempotency per §3.8)
+    let existing_loop = state.app_state.projections
+        .get_loop_by_work_unit(&ws.work_unit_id)
+        .await?;
 
-    // 4. Activate loop
-    activate_loop(&state, &loop_id).await?;
+    let (loop_id, already_started) = match existing_loop {
+        Some(loop_proj) if loop_proj.state == "ACTIVE" && loop_proj.iteration_count > 0 => {
+            // Already fully started - idempotent return
+            let iterations = state.app_state.projections.get_iterations(&loop_proj.loop_id).await?;
+            let latest_iter = iterations.last().ok_or_else(|| ApiError::Internal {
+                message: "Loop has iteration_count > 0 but no iterations found".to_string(),
+            })?;
+            return Ok(Json(StartWorkResponse {
+                work_surface_id,
+                loop_id: loop_proj.loop_id,
+                iteration_id: latest_iter.iteration_id.clone(),
+                already_started: true,
+            }));
+        }
+        Some(loop_proj) => {
+            // Loop exists but needs activation or iteration
+            (loop_proj.loop_id, false)
+        }
+        None => {
+            // Create new Loop
+            let new_loop_id = create_loop_internal(&state, &ws, &user).await?;
+            (new_loop_id, false)
+        }
+    };
 
-    // 5. Start iteration as SYSTEM
-    let iteration_id = start_iteration_as_system(&state, &loop_id, &ws.work_unit_id).await?;
+    // 3. Activate Loop if not ACTIVE
+    let loop_proj = state.app_state.projections.get_loop(&loop_id).await?
+        .ok_or_else(|| ApiError::Internal { message: "Loop just created/found is missing".to_string() })?;
+
+    if loop_proj.state == "CREATED" {
+        activate_loop_internal(&state.app_state, &loop_id, &user).await?;
+    }
+
+    // 4. Start Iteration as SYSTEM (per §3.6)
+    let iteration_id = start_iteration_as_system(&state.app_state, &loop_id, &ws.work_unit_id).await?;
+
+    info!(
+        work_surface_id = %work_surface_id,
+        loop_id = %loop_id,
+        iteration_id = %iteration_id,
+        "Work started on Work Surface"
+    );
 
     Ok(Json(StartWorkResponse {
+        work_surface_id,
         loop_id,
         iteration_id,
-        work_surface_id,
+        already_started,
     }))
+}
+
+/// Create Loop with default directive_ref (per §3.7)
+async fn create_loop_internal(
+    state: &WorkSurfaceState,
+    ws: &WorkSurfaceResponse,
+    user: &AuthenticatedUser,
+) -> Result<String, ApiError> {
+    let loop_id = LoopId::new();
+    let event_id = EventId::new();
+    let now = Utc::now();
+
+    // Default directive_ref per §3.7
+    let directive_ref = serde_json::json!({
+        "kind": "doc",
+        "id": "SR-DIRECTIVE",
+        "rel": "governs",
+        "meta": {}
+    });
+
+    let payload = serde_json::json!({
+        "goal": format!("Process work surface {}", ws.work_surface_id),
+        "work_unit": ws.work_unit_id,
+        "work_surface_id": ws.work_surface_id,
+        "budgets": {
+            "max_iterations": 5,
+            "max_oracle_runs": 25,
+            "max_wallclock_hours": 16
+        },
+        "directive_ref": directive_ref
+    });
+
+    let event = EventEnvelope {
+        event_id: event_id.clone(),
+        stream_id: loop_id.as_str().to_string(),
+        stream_kind: StreamKind::Loop,
+        stream_seq: 1,
+        global_seq: None,
+        event_type: "LoopCreated".to_string(),
+        occurred_at: now,
+        actor_kind: user.actor_kind.clone(), // HUMAN creates the Loop
+        actor_id: user.actor_id.clone(),
+        correlation_id: None,
+        causation_id: None,
+        supersedes: vec![],
+        refs: vec![],
+        payload,
+        envelope_hash: compute_envelope_hash(&event_id),
+    };
+
+    state.app_state.event_store.append(loop_id.as_str(), 0, vec![event]).await?;
+    state.app_state.projections.process_events(&*state.app_state.event_store).await?;
+
+    Ok(loop_id.as_str().to_string())
+}
+
+/// Start iteration as SYSTEM actor (per §3.6)
+async fn start_iteration_as_system(
+    state: &AppState,
+    loop_id: &str,
+    work_unit_id: &str,
+) -> Result<String, ApiError> {
+    // Per §3.6: Use SYSTEM actor for iteration start
+    let system_actor_kind = ActorKind::System;
+    let system_actor_id = "system:work-surface-start".to_string();
+
+    let iteration_id = IterationId::new();
+    let event_id = EventId::new();
+    let now = Utc::now();
+
+    // Get iteration sequence
+    let iterations = state.projections.get_iterations(loop_id).await?;
+    let sequence = (iterations.len() + 1) as u32;
+
+    // Fetch Work Surface refs for iteration context
+    let refs = fetch_work_surface_refs(state, work_unit_id).await?;
+
+    let payload = serde_json::json!({
+        "loop_id": loop_id,
+        "iteration_number": sequence,
+    });
+
+    let event = EventEnvelope {
+        event_id: event_id.clone(),
+        stream_id: iteration_id.as_str().to_string(),
+        stream_kind: StreamKind::Iteration,
+        stream_seq: 1,
+        global_seq: None,
+        event_type: "IterationStarted".to_string(),
+        occurred_at: now,
+        actor_kind: system_actor_kind, // SYSTEM per §3.6
+        actor_id: system_actor_id,
+        correlation_id: Some(loop_id.to_string()),
+        causation_id: None,
+        supersedes: vec![],
+        refs,
+        payload,
+        envelope_hash: compute_envelope_hash(&event_id),
+    };
+
+    state.event_store.append(iteration_id.as_str(), 0, vec![event]).await?;
+    state.projections.process_events(&*state.event_store).await?;
+
+    Ok(iteration_id.as_str().to_string())
 }
 ```
 
 **Acceptance Criteria:**
 - [ ] `POST /work-surfaces/{id}/start` creates Loop, activates, starts Iteration
-- [ ] Iteration is emitted with `actor_kind=SYSTEM`
+- [ ] Iteration is emitted with `actor_kind=SYSTEM`, `actor_id="system:work-surface-start"`
+- [ ] Loop uses default `directive_ref` pointing to SR-DIRECTIVE
 - [ ] Returns Loop ID and Iteration ID
 - [ ] 412 if Work Surface not active
-- [ ] 409 if Loop already exists for work unit
+- [ ] Idempotent: returns existing IDs with `already_started: true` if called again
+- [ ] HUMAN actor recorded on LoopCreated event (audit trail)
 
 ### Phase V6-2: Frontend — Wizard Completion
 
@@ -447,9 +672,10 @@ cd ui && npm run dev
 
 | File | Purpose |
 |------|---------|
+| `crates/sr-adapters/src/projections.rs` | Add `get_loop_by_work_unit` method |
 | `crates/sr-api/src/handlers/work_surfaces.rs` | Work Surface handlers (add `start`) |
-| `crates/sr-api/src/handlers/loops.rs` | Loop creation/activation |
-| `crates/sr-api/src/handlers/iterations.rs` | Iteration start (SYSTEM) |
+| `crates/sr-api/src/handlers/loops.rs` | Loop creation/activation (reference) |
+| `crates/sr-api/src/handlers/iterations.rs` | Iteration start (reference for SYSTEM pattern) |
 | `crates/sr-api/src/main.rs` | Route registration |
 
 ### Frontend Files
