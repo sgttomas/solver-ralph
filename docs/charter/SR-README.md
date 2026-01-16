@@ -63,12 +63,25 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
+| SR-PLAN-GAP-ANALYSIS | **living** | Deliverable status tracking & roadmap |
 | SR-PLAN-V7 | **ready** | MVP Stabilization & Attachment Foundation |
 | SR-PLAN-V6 | **complete** | UI Integration for MVP Workflow (V6-1, V6-2, V6-3 complete) |
 | SR-PLAN-V5 | **complete** | Semantic Ralph Loop End-to-End Integration (Phases 5a-5d) |
 | SR-PLAN-V4 | **complete** | Work Surface Composition (Phase 4) — All phases complete |
 | SR-PLAN-V3 | **complete** | Intakes & References implementation (Phases 0-3) |
 | SR-PLAN-V2 | superseded | Intakes & References draft (10 unresolved issues) |
+
+### Roadmap (from Gap Analysis)
+
+Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
+
+| Plan | Scope | Key Deliverables | Status |
+|------|-------|------------------|--------|
+| SR-PLAN-V7 | Stabilization & Attachments | Tests, UX, `record.attachment` | **Ready** |
+| SR-PLAN-V8 | Oracle Runner & Semantic Suites | D-24, D-25, D-27, D-39 | Proposed |
+| SR-PLAN-V9 | Semantic Worker & Branch 0 | D-23, D-41, D-36 | Proposed |
+
+**Milestone 1 (MVP) projected completion:** After V9
 
 ---
 
@@ -77,7 +90,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Coherence Review | ✅ Complete | Ontological review completed, plan amended |
-| V7-1: Integration Tests | ⏳ Pending | Integration tests for `/start` endpoint |
+| V7-1: Integration Tests | ✅ Complete | Integration tests for `/start` endpoint |
 | V7-2: Error Handling | ⏳ Pending | Toast notifications, loading states, retry logic |
 | V7-3: Attachment Backend | ⏳ Pending | `POST /attachments` endpoint |
 | V7-4: Attachment Frontend | ⏳ Pending | AttachmentUploader, AttachmentPreview components |
@@ -145,69 +158,125 @@ This preserves SR-CONTRACT's epistemological clarity: only oracle-produced Evide
 
 ---
 
-## Next Instance Prompt: Execute SR-PLAN-V7 Phase V7-1
+## Previous Session Summary (V7-1 Integration Tests)
+
+**Session Goal:** Implement SR-PLAN-V7 Phase V7-1 — Integration tests for `/start` endpoint.
+
+### What Was Accomplished
+
+1. **Explored codebase to understand test patterns:**
+   - Examined existing `semantic_ralph_loop_e2e.rs` for test infrastructure patterns
+   - Analyzed `/start` endpoint implementation in `work_surfaces.rs:1396-1484`
+   - Verified actor mediation: LoopCreated uses HUMAN, IterationStarted uses SYSTEM
+
+2. **Created integration test file:**
+   - `crates/sr-api/tests/integration/work_surface_start_test.rs` (695 lines)
+   - Registered in `crates/sr-api/Cargo.toml` as `[[test]]`
+
+3. **Implemented all 6 test cases:**
+
+   | Test | Description | Validates |
+   |------|-------------|-----------|
+   | `test_start_happy_path` | Active Work Surface → Loop → Iteration | Core flow |
+   | `test_start_idempotent` | Second call returns `already_started: true` | Idempotency |
+   | `test_start_rejects_inactive` | Archived Work Surface → HTTP 412 | Precondition |
+   | `test_start_activates_created_loop` | Existing CREATED Loop → activates | Edge case |
+   | `test_start_human_on_loop_created` | `created_by.kind == "HUMAN"` | Audit trail |
+   | `test_start_system_on_iteration` | HUMAN `/start` succeeds, direct `POST /iterations` fails 403 | C-CTX-1 |
+
+4. **All tests pass:** `cargo test --package sr-api` succeeds (36 unit + 6 integration tests)
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `crates/sr-api/tests/integration/work_surface_start_test.rs` | Created — 6 test cases |
+| `crates/sr-api/Cargo.toml` | Added `[[test]]` registration |
+| `docs/planning/SR-PLAN-V7.md` | Checked V7-1 acceptance criteria |
+
+### Commits
+
+- (pending) V7-1 integration tests for `/start` endpoint
+
+---
+
+## Next Instance Prompt: Execute SR-PLAN-V7 Phase V7-2
 
 ### Context
 
-SR-PLAN-V7 has been reviewed for coherence and **amended** to correct an ontological gap. The plan now correctly distinguishes:
-- **Evidence Bundles** (`domain.evidence_bundle`): Oracle-generated, satisfies C-VER-1
-- **Attachments** (`record.attachment`): Human-uploaded supporting files, does NOT satisfy C-VER-1
+V7-1 is complete. The `/start` endpoint now has integration test coverage ensuring:
+- Happy path works (Loop created, activated, Iteration started)
+- Idempotency (second call returns `already_started: true`)
+- Precondition enforcement (412 for non-active Work Surface)
+- Actor mediation (HUMAN on Loop, SYSTEM on Iteration per C-CTX-1)
 
-The coherence review is complete. The plan is ready for implementation.
+The platform is regression-proof for the `/start` flow. Now improve UX by making errors visible to users.
 
 ### Current State
 
 - Branch: `solver-ralph-7`
-- SR-PLAN-V6: **Complete** (MVP UI Integration)
-- SR-PLAN-V7: **Ready for Implementation (Amended)**
-- Coherence Review: **Complete** — ontological corrections applied
+- SR-PLAN-V7 Phase V7-1: **Complete**
+- SR-PLAN-V7 Phase V7-2: **Pending** (next)
 
 ### Assignment
 
-**Execute SR-PLAN-V7 Phase V7-1: Integration Tests for `/start` Endpoint**
+**Execute SR-PLAN-V7 Phase V7-2: Error Handling & UX Feedback**
 
-Create integration tests to ensure the `/start` orchestration endpoint is regression-proof before extending the platform.
+Add toast notifications, loading states, and retry logic so users understand when operations succeed or fail.
 
 ### Deliverables
 
 | File | Action | Description |
 |------|--------|-------------|
-| `crates/sr-api/tests/integration/work_surface_start_test.rs` | CREATE | Integration tests for `/start` |
+| `ui/src/components/Toast.tsx` | CREATE | Toast notification component |
+| `ui/src/components/ToastContext.tsx` | CREATE | Context provider for toast state |
+| `ui/src/components/ApiErrorHandler.tsx` | CREATE | Translate API errors to user messages |
+| `ui/src/pages/WorkSurfaceCompose.tsx` | MODIFY | Add loading states, error toasts, retry logic |
+| `ui/src/App.tsx` | MODIFY | Wrap with ToastProvider |
 
-### Test Cases to Implement
+### Key Requirements (from SR-PLAN-V7 §V7-2)
 
-| Test | Description | Validates |
-|------|-------------|-----------|
-| `start_happy_path` | Active Work Surface → Loop created → activated → Iteration started | Core flow |
-| `start_idempotent` | Call twice → second returns `already_started: true` | Idempotency |
-| `start_rejects_inactive` | Non-active Work Surface → HTTP 412 | Precondition |
-| `start_activates_created_loop` | Existing CREATED Loop → activates and starts | Edge case |
-| `start_human_on_loop_created` | Verify `LoopCreated` has HUMAN actor | Audit trail |
-| `start_system_on_iteration` | Verify `IterationStarted` has SYSTEM actor | C-CTX-1 compliance |
+**Toast Component:**
+```typescript
+interface Toast {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  duration?: number; // ms, default 5000
+}
+```
+
+**API Error Mapping:**
+
+| HTTP Status | User Message |
+|-------------|--------------|
+| 401 | "Session expired. Please sign in again." |
+| 403 | "You don't have permission to perform this action." |
+| 412 `WORK_SURFACE_NOT_ACTIVE` | "Work Surface is not active." |
+| 500 | "Something went wrong. Please try again." |
+
+**Loading States:**
+- Spinner during "Create Work Surface" button click
+- Disable button while request in flight
+- Show progress: "Creating Work Surface..." → "Starting work..." → redirect
+
+**Retry Logic:**
+- On 5xx: retry up to 2 times with exponential backoff
+- On 4xx: show error toast, don't retry
 
 ### Acceptance Criteria
 
-- [ ] All 6 test cases pass
-- [ ] `cargo test --package sr-api` passes
-- [ ] Tests cover the acceptance criteria from SR-PLAN-V6 §4
+- [ ] Toast component renders success/error messages
+- [ ] API errors show user-friendly messages
+- [ ] Loading spinner shows during create + start sequence
+- [ ] Retry logic handles transient failures
+- [ ] `npm run type-check` passes
+- [ ] `npm run build` passes
 
 ### First Action
 
-1. Read `docs/planning/SR-PLAN-V7.md` §V7-1 for detailed requirements
-2. Examine existing test patterns in `crates/sr-api/tests/`
-3. Create `work_surface_start_test.rs` with the 6 test cases
-
-### Reference Documents
-
-- `docs/planning/SR-PLAN-V7.md` — Implementation plan (amended)
-- `docs/platform/SR-SPEC.md` — §2.3.12 Work Surfaces API
-- `docs/platform/SR-WORK-SURFACE.md` — §5.5 Starting work via /start endpoint
-- `crates/sr-api/src/handlers/work_surfaces.rs` — Implementation to test
-
-### Important Notes
-
-- The `/start` endpoint was implemented in SR-PLAN-V6 Phase V6-1
-- Actor mediation pattern: `LoopCreated` uses HUMAN actor, `IterationStarted` uses SYSTEM actor
-- Idempotency: calling `/start` twice should return `already_started: true` on second call
-- Existing integration test patterns may be in `crates/sr-api/tests/integration/`
+1. Read `docs/planning/SR-PLAN-V7.md` §V7-2 for full requirements
+2. Examine existing UI patterns in `ui/src/components/`
+3. Create Toast component and context
+4. Integrate into WorkSurfaceCompose page
 

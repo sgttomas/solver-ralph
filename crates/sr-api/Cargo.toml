@@ -45,3 +45,7 @@ ulid = { workspace = true }
 [[test]]
 name = "semantic_ralph_loop_e2e"
 path = "tests/integration/semantic_ralph_loop_e2e.rs"
+
+[[test]]
+name = "work_surface_start_test"
+path = "tests/integration/work_surface_start_test.rs"

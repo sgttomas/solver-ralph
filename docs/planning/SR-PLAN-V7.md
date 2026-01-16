@@ -126,11 +126,11 @@ Multiple iterations are useful, but the workflow functions without them. Once at
 | `start_system_on_iteration` | Verify `IterationStarted` has SYSTEM actor | C-CTX-1 compliance |
 
 **Acceptance Criteria:**
-- [ ] All 6 test cases pass
-- [ ] `cargo test --package sr-api` passes
-- [ ] Tests cover the acceptance criteria from SR-PLAN-V6 §4
+- [x] All 6 test cases pass
+- [x] `cargo test --package sr-api` passes
+- [x] Tests cover the acceptance criteria from SR-PLAN-V6 §4
 
-**Effort:** ~1 session
+**Effort:** ~1 session (✅ Complete)
 
 ---
 
