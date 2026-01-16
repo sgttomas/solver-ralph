@@ -1,7 +1,8 @@
-# SR-PLAN-V7: MVP Stabilization & Evidence Foundation
+# SR-PLAN-V7: MVP Stabilization & Attachment Foundation
 
-**Status:** Ready for Implementation
+**Status:** Ready for Implementation (Amended)
 **Created:** 2026-01-16
+**Amended:** 2026-01-16 (Ontological corrections per coherence review)
 **Depends On:** SR-PLAN-V6 (UI Integration complete)
 **Implements:** SR-CHARTER §Immediate Objective (Milestone 1: Semantic Work Unit Runtime)
 
@@ -9,14 +10,22 @@
 
 ## Executive Summary
 
-SR-PLAN-V7 validates the completed MVP and adds the most architecturally significant extension: **Evidence Upload**. Evidence is foundational to SR-CONTRACT's verification model — currently stage completion accepts text only, but real semantic work requires file-based evidence.
+SR-PLAN-V7 validates the completed MVP and adds the most architecturally significant extension: **Supporting Artifact Upload**. Human users need a simple way to upload supporting files (PDFs, documents) to attach to their work.
 
 **Goal:** Validate first, then extend thoughtfully.
 
+**Ontological Clarification (Amendment):** This plan distinguishes between:
+- **Evidence Bundles** (`domain.evidence_bundle`): Oracle-generated semantic bundles with full manifests, run IDs, and verdicts. These satisfy C-EVID-1 requirements.
+- **Attachments** (`record.attachment`): Human-uploaded supporting files that are content-addressed and immutable but are NOT oracle output and do NOT claim verification semantics.
+
+This distinction preserves SR-CONTRACT's epistemological clarity: only oracle-produced Evidence Bundles can satisfy verification gates (C-VER-1); human attachments provide supporting context for audit and reference.
+
+**Note:** The evidence backend infrastructure already exists (812 lines in `evidence.rs`, 440 lines in `minio.rs`). V7-3 adds a simple attachment upload endpoint for human users, reusing the content-addressed storage infrastructure.
+
 ```
-V7-1 (Tests) → V7-2 (Error Handling) → V7-3 (Evidence Backend) → V7-4 (Evidence UI) → V7-5 (Iterations)
-     └──────────────────────────────┘   └─────────────────────────────────────────┘   └─────────────────┘
-              Stable MVP                        Evidence Foundation                    Full Workflow
+V7-1 (Tests) → V7-2 (Error Handling) → V7-3 (Attachment Endpoint) → V7-4 (Attachment UI) → V7-5 (Iterations)
+     └──────────────────────────────┘   └────────────────────────────────────────────────┘   └─────────────────┘
+              Stable MVP                           Attachment Foundation                        Full Workflow
 ```
 
 ---
@@ -47,8 +56,10 @@ The MVP UI integration is complete:
 |-----|--------|
 | No integration tests for `/start` endpoint | Regressions possible as we extend |
 | Silent failures in UI | Users don't know when errors occur |
-| Text-only evidence | Can't support real semantic oracle verification |
+| No simple file upload for human attachments | Existing Evidence API requires full oracle manifests; users can't easily attach supporting files |
 | Single iteration only | Can't retry or iterate on stuck work |
+
+**Note:** The evidence backend exists (`POST /evidence` for oracle bundles, MinIO storage, content-addressing). What's missing is a simple attachment upload endpoint for human users to add supporting files.
 
 ---
 
@@ -60,18 +71,34 @@ The `/start` endpoint is a critical orchestration point. Before building more fe
 - **Integration tests** to catch regressions
 - **Error handling** so users understand failures
 
-### 2.2 Why Evidence Before Iterations (V7-3, V7-4 before V7-5)
+### 2.2 Why Attachments (not "Evidence Upload") (V7-3, V7-4)
 
-Per SR-CONTRACT:
-- **C-VER-1:** "A Candidate MAY be marked 'Verified' only when Evidence Bundle exists"
-- **C-EVID-1:** Evidence Bundles have required manifest fields
-- **C-EVID-2:** Evidence Bundles MUST be immutable, content-addressed
+**Ontological Distinction (Critical):**
 
-Evidence is foundational to the verification model. Iterations without proper evidence capture are less useful — you can retry, but you can't prove what happened.
+Per SR-CONTRACT §2.3, an **Evidence Bundle** is defined as "Oracle output; non-authoritative verification artifacts (including semantic measurements)." Human-uploaded files are NOT oracle output — they are supporting documents.
+
+Per SR-CONTRACT C-EVID-1, Evidence Bundles require:
+- Candidate reference
+- Oracle suite hash
+- Governed artifact references
+- Per-oracle results with PASS/FAIL verdicts
+
+Human-uploaded files cannot satisfy these requirements because they are not produced by oracle runs.
+
+**Solution:** Introduce `record.attachment` — a content-addressed, immutable artifact type for human-uploaded supporting files that:
+- Shares storage infrastructure with Evidence Bundles (MinIO, content-addressing)
+- Does NOT claim to be oracle output
+- Does NOT satisfy verification gates (C-VER-1)
+- CAN be referenced by Iterations and Candidates for audit/context
+- Has a simpler manifest without oracle-specific fields
+
+**Storage semantics preserved:**
+- Per SR-SPEC §1.9.2: Content-addressed storage (`sha256/{hash}`)
+- Per C-EVID-2: Immutable once stored (same guarantees apply to attachments)
 
 ### 2.3 Why Multiple Iterations Last (V7-5)
 
-Multiple iterations are useful, but the workflow functions without them. Once evidence upload works, iteration history becomes more valuable because each iteration can be compared by its evidence.
+Multiple iterations are useful, but the workflow functions without them. Once attachment upload works, iteration history becomes more valuable because each iteration can reference its supporting artifacts.
 
 ---
 
@@ -162,64 +189,124 @@ interface Toast {
 
 ---
 
-### Phase V7-3: Evidence Upload (Backend)
+### Phase V7-3: Attachment Upload Endpoint (Backend)
 
-**Objective:** Enable file-based evidence upload to MinIO.
+**Objective:** Add a simple file upload endpoint for human-provided supporting files (attachments).
+
+**Context:** The existing `POST /api/v1/evidence` endpoint (812 lines in `evidence.rs`) requires a full `EvidenceManifest` with oracle results, run IDs, and verdicts. This is designed for oracle-generated semantic bundles per C-EVID-1. For human users uploading supporting files (PDFs, documents), we need a separate endpoint that creates `record.attachment` artifacts.
+
+**Ontological Note:** Attachments are NOT Evidence Bundles. They share storage infrastructure but have distinct semantics:
+- Evidence Bundles → oracle output → can satisfy verification gates
+- Attachments → human uploads → supporting context for audit/reference only
 
 **Deliverables:**
 
 | File | Action | Description |
 |------|--------|-------------|
-| `crates/sr-api/src/handlers/evidence.rs` | CREATE | Evidence upload handler |
-| `crates/sr-api/src/main.rs` | MODIFY | Register evidence routes |
+| `crates/sr-api/src/handlers/attachments.rs` | CREATE | Attachment upload handler |
+| `crates/sr-api/src/main.rs` | MODIFY | Register new route |
 
 **New Endpoint:**
 
-`POST /api/v1/evidence`
+`POST /api/v1/attachments`
 - **Content-Type:** `multipart/form-data`
-- **Body:** `file` (the evidence file)
+- **Body:** `file` field with the uploaded file
 - **Response:**
 ```json
 {
+  "attachment_id": "attach_01J...",
   "content_hash": "sha256:abc123...",
   "size_bytes": 12345,
   "media_type": "application/pdf",
-  "stored_at": "2026-01-16T12:00:00Z"
+  "filename": "supporting-doc.pdf",
+  "uploaded_by": "oidc_sub:...",
+  "uploaded_at": "2026-01-16T12:00:00Z"
+}
+```
+
+**Attachment Manifest Schema:**
+```json
+{
+  "artifact_type": "record.attachment",
+  "attachment_id": "attach_01J...",
+  "content_hash": "sha256:...",
+  "size_bytes": 12345,
+  "media_type": "application/pdf",
+  "filename": "original-filename.pdf",
+  "uploaded_by": {
+    "actor_kind": "HUMAN",
+    "actor_id": "oidc_sub:..."
+  },
+  "uploaded_at": "2026-01-16T12:00:00Z"
 }
 ```
 
 **Implementation Requirements:**
 
-Per SR-SPEC §1.9.2 (Evidence Immutability):
-- Store in MinIO bucket `evidence-public`
+Per SR-SPEC §1.9.2 (reusing Evidence storage infrastructure):
+- Store in MinIO bucket `attachments` (new bucket, separate from `evidence-public`)
 - Object key: `sha256/{hash}` (content-addressed)
 - Compute hash server-side (don't trust client)
 - Prevent overwriting existing objects at same key
 
-Per SR-CONTRACT C-EVID-2:
-- Evidence Bundles MUST be immutable, content-addressed
+Immutability guarantees (same as C-EVID-2 but for attachments):
+- Attachments MUST be immutable once stored
 - Protected against modification
+- Content-addressed for integrity
 
 **Handler Logic:**
 ```rust
-pub async fn upload_evidence(
+pub async fn upload_attachment(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     mut multipart: Multipart,
-) -> ApiResult<Json<EvidenceUploadResponse>> {
+) -> ApiResult<Json<AttachmentUploadResponse>> {
     // 1. Extract file from multipart
     // 2. Read into bytes, compute sha256
-    // 3. Check if object already exists (idempotent)
-    // 4. Store to MinIO with content-addressed key
-    // 5. Return hash and metadata
+    // 3. Detect media type from file content/extension
+    // 4. Generate attachment_id (attach_<ULID>)
+    // 5. Create attachment manifest:
+    //    - artifact_type: "record.attachment"
+    //    - NO oracle fields (no run_id, no verdict, no results)
+    // 6. Check if object already exists (idempotent)
+    // 7. Store to MinIO with content-addressed key
+    // 8. Emit AttachmentRecorded event
+    // 9. Return attachment metadata
 }
 ```
 
+**Event Emission:**
+
+For auditability per C-EVT-1, emit `AttachmentRecorded` event:
+```json
+{
+  "event_type": "AttachmentRecorded",
+  "stream_kind": "ATTACHMENT",
+  "stream_id": "attach:{attachment_id}",
+  "payload": {
+    "attachment_id": "attach_01J...",
+    "content_hash": "sha256:...",
+    "media_type": "application/pdf",
+    "size_bytes": 12345,
+    "filename": "original-filename.pdf"
+  },
+  "actor_kind": "HUMAN",
+  "actor_id": "oidc_sub:..."
+}
+```
+
+**Why Separate from Evidence:**
+- Existing `POST /evidence` is for oracle-generated semantic bundles (C-EVID-1 compliant)
+- New `POST /attachments` is for human-uploaded supporting files
+- Different `artifact_type` distinguishes them (`record.attachment` vs `evidence.gate_packet`)
+- Preserves ontological clarity: only Evidence Bundles satisfy verification gates
+
 **Acceptance Criteria:**
-- [ ] `POST /evidence` accepts file upload
-- [ ] Returns content hash (sha256)
+- [ ] `POST /attachments` accepts multipart file upload
+- [ ] Returns attachment_id and content hash (sha256)
 - [ ] Stores in MinIO with content-addressed key
 - [ ] Idempotent: re-upload same file returns same hash
+- [ ] Emits `AttachmentRecorded` event
 - [ ] `cargo build --package sr-api` passes
 - [ ] `cargo test --package sr-api` passes
 
@@ -227,22 +314,28 @@ pub async fn upload_evidence(
 
 ---
 
-### Phase V7-4: Evidence Upload (Frontend)
+### Phase V7-4: Attachment Upload (Frontend)
 
-**Objective:** Wire the UI to use the evidence upload capability.
+**Objective:** Wire the UI to use the attachment upload capability.
 
 **Deliverables:**
 
 | File | Action | Description |
 |------|--------|-------------|
-| `ui/src/components/EvidenceUploader.tsx` | CREATE | Drag-drop file upload component |
-| `ui/src/components/EvidencePreview.tsx` | CREATE | Preview uploaded evidence |
-| `ui/src/components/StageCompletionForm.tsx` | MODIFY | Add file upload option |
+| `ui/src/components/AttachmentUploader.tsx` | CREATE | Drag-drop file upload component |
+| `ui/src/components/AttachmentPreview.tsx` | CREATE | Preview uploaded attachment |
+| `ui/src/components/StageCompletionForm.tsx` | MODIFY | Add attachment upload option |
 
-**EvidenceUploader Component:**
+**AttachmentUploader Component:**
 ```typescript
-interface EvidenceUploaderProps {
-  onUploadComplete: (evidence: { content_hash: string; size_bytes: number; media_type: string }) => void;
+interface AttachmentUploaderProps {
+  onUploadComplete: (attachment: {
+    attachment_id: string;
+    content_hash: string;
+    size_bytes: number;
+    media_type: string;
+    filename: string;
+  }) => void;
   onError: (error: string) => void;
   accept?: string; // e.g., ".pdf,.md,.json"
   maxSizeMB?: number; // default 10
@@ -257,45 +350,67 @@ interface EvidenceUploaderProps {
 - Size validation (client-side)
 - Show uploaded file info after success
 
-**EvidencePreview Component:**
+**AttachmentPreview Component:**
 ```typescript
-interface EvidencePreviewProps {
+interface AttachmentPreviewProps {
+  attachmentId: string;
   contentHash: string;
   mediaType: string;
   sizeBytes: number;
+  filename: string;
   onRemove?: () => void;
 }
 ```
 
 **Features:**
 - Show file icon based on media type
-- Display hash (truncated) and size
+- Display filename and size
+- Show hash (truncated) for verification
 - "Remove" button to clear selection
 
 **StageCompletionForm Changes:**
 
-Current form has text input only. Add tabbed interface:
-- **Tab 1: Notes** — existing text input
-- **Tab 2: Upload Evidence** — new file upload
+Current form already has:
+- Evidence bundle selector dropdown (`EvidenceBundleSelector.tsx`)
+- Oracle result status selection
+- Waiver references input
+
+Add tabbed interface for artifact source:
+- **Tab 1: Select Evidence Bundle** — current `EvidenceBundleSelector` dropdown (oracle-produced)
+- **Tab 2: Upload Supporting File** — new `AttachmentUploader` component (human-uploaded)
+
+**Semantic distinction in UI:**
+- Tab 1 label: "Evidence Bundle (Oracle)" — for verification-grade artifacts
+- Tab 2 label: "Supporting Attachment" — for human-uploaded context files
 
 When submitting:
-- If file uploaded: include `evidence_bundle_ref: content_hash` in request
-- If text only: use existing behavior
+- If Evidence Bundle selected via Tab 1: use `evidence_bundle_ref` (existing behavior, satisfies C-VER-1)
+- If Attachment uploaded via Tab 2: call `POST /attachments`, then include returned `attachment_id` as `attachment_refs[]` (supplementary, does NOT satisfy C-VER-1)
 
 **UX Flow:**
 1. User clicks "Complete Stage"
-2. Form shows tabs: "Notes" | "Upload Evidence"
-3. User selects tab and fills in content
-4. If Upload: file uploads to `/evidence`, progress shown
-5. On success: preview shows, "Complete" button enabled
-6. Submit stage completion with evidence ref
+2. Form shows artifact source tabs: "Evidence Bundle (Oracle)" | "Supporting Attachment"
+3. User selects artifact source:
+   - Tab 1: Choose from dropdown of existing oracle-produced bundles
+   - Tab 2: Drag-drop or browse to upload supporting file
+4. If Upload: file uploads to `POST /attachments`, progress shown
+5. On success: preview shows uploaded file info
+6. User fills in gate result and optional waiver refs
+7. Submit stage completion:
+   - With `evidence_bundle_ref` if oracle evidence selected (for gate satisfaction)
+   - With `attachment_refs[]` if supporting file uploaded (for audit context)
+
+**Important UX Note:** The UI should make clear that:
+- Evidence Bundles (Tab 1) are required for verification gates per C-VER-1
+- Attachments (Tab 2) provide supporting context but do NOT satisfy verification requirements
 
 **Acceptance Criteria:**
-- [ ] EvidenceUploader supports drag-drop and click-to-browse
+- [ ] AttachmentUploader supports drag-drop and click-to-browse
 - [ ] Upload progress bar shows during upload
-- [ ] EvidencePreview shows uploaded file info
-- [ ] StageCompletionForm has tabbed interface
-- [ ] Stage completion can include evidence_bundle_ref
+- [ ] AttachmentPreview shows uploaded file info
+- [ ] StageCompletionForm has tabbed interface with clear semantic labels
+- [ ] Stage completion can include `attachment_refs[]` for supporting files
+- [ ] UI clearly distinguishes Evidence Bundles from Attachments
 - [ ] `npm run type-check` passes
 - [ ] `npm run build` passes
 
@@ -330,7 +445,8 @@ When submitting:
       "started_at": "2026-01-16T12:00:00Z",
       "completed_at": "2026-01-16T12:30:00Z",
       "status": "completed",
-      "stage_id": "stage:FRAME"
+      "stage_id": "stage:FRAME",
+      "attachment_refs": ["attach_01J..."]
     }
   ],
   "loop_id": "loop_...",
@@ -356,7 +472,7 @@ interface IterationHistoryProps {
 **Features:**
 - Timeline view showing iterations
 - Each iteration shows: number, stage, status, duration
-- Expandable to show iteration details (artifacts, evidence)
+- Expandable to show iteration details (evidence bundles, attachments)
 - "New Iteration" button (when enabled)
 
 **WorkSurfaceDetail Integration:**
@@ -388,18 +504,20 @@ interface IterationHistoryProps {
 - [ ] Loading states provide feedback during operations
 - [ ] No regressions in existing MVP workflow
 
-### 4.2 Checkpoint: Evidence Foundation (after V7-4)
+### 4.2 Checkpoint: Attachment Foundation (after V7-4)
 
-- [ ] Evidence files can be uploaded via UI
-- [ ] Uploaded evidence stored in MinIO (content-addressed)
-- [ ] Stage completion can reference uploaded evidence
-- [ ] Evidence is immutable and retrievable by hash
+- [ ] Supporting files can be uploaded via UI as Attachments
+- [ ] Uploaded attachments stored in MinIO (content-addressed)
+- [ ] Stage completion can reference attachments for context
+- [ ] Attachments are immutable and retrievable by hash
+- [ ] UI clearly distinguishes Evidence Bundles (oracle) from Attachments (human)
+- [ ] Ontological distinction preserved: only Evidence Bundles satisfy C-VER-1
 
 ### 4.3 Checkpoint: Full Workflow (after V7-5)
 
 - [ ] Iteration history visible on Work Surface detail
 - [ ] New iterations can be started from UI
-- [ ] Each iteration tracked with its evidence
+- [ ] Each iteration tracked with its evidence and attachments
 - [ ] Complete workflow supports retry/iteration pattern
 
 ---
@@ -410,9 +528,10 @@ interface IterationHistoryProps {
 
 | Document | Relevant Sections |
 |----------|-------------------|
-| SR-CONTRACT | C-EVID-1..C-EVID-6 (Evidence integrity) |
+| SR-CONTRACT | C-EVID-1..C-EVID-6 (Evidence integrity), C-VER-1 (Verification requires Evidence) |
 | SR-SPEC | §1.9 (Evidence bundle model), §2.3.3 (Runs and evidence) |
 | SR-WORK-SURFACE | §5.5 (Starting work via /start endpoint) |
+| SR-TYPES | §4 (Platform domain types — `record.attachment` to be added) |
 
 ### Prior Plans
 
@@ -426,9 +545,11 @@ interface IterationHistoryProps {
 | File | Purpose |
 |------|---------|
 | `crates/sr-api/src/handlers/work_surfaces.rs` | Work Surface handlers (extend for iterations) |
-| `crates/sr-api/src/handlers/evidence.rs` | Evidence handlers (to be created) |
-| `crates/sr-adapters/src/evidence_store.rs` | MinIO evidence storage adapter |
-| `ui/src/components/StageCompletionForm.tsx` | Stage completion (extend for evidence upload) |
+| `crates/sr-api/src/handlers/evidence.rs` | Evidence handlers (reference for storage patterns) |
+| `crates/sr-api/src/handlers/attachments.rs` | Attachment handlers (NEW in V7-3) |
+| `crates/sr-adapters/src/minio.rs` | MinIO storage adapter (reuse for attachments) |
+| `ui/src/components/StageCompletionForm.tsx` | Stage completion (extend for attachment upload) |
+| `ui/src/components/EvidenceBundleSelector.tsx` | Existing bundle selector dropdown |
 
 ---
 
@@ -438,8 +559,8 @@ interface IterationHistoryProps {
 |-------|-------|--------|------------|
 | V7-1 | Integration tests | 1 session | 1 |
 | V7-2 | Error handling & UX | 1 session | 2 |
-| V7-3 | Evidence upload (backend) | 1 session | 3 |
-| V7-4 | Evidence upload (frontend) | 1-2 sessions | 4-5 |
+| V7-3 | Attachment upload (backend) | 1 session | 3 |
+| V7-4 | Attachment upload (frontend) | 1-2 sessions | 4-5 |
 | V7-5 | Multiple iterations | 2 sessions | 6-7 |
 
 **Total:** ~6-7 sessions for complete execution
@@ -473,18 +594,21 @@ interface IterationHistoryProps {
                 │                               │
                 ▼                               │
 ┌───────────────────────────────┐               │
-│  V7-3: Evidence Backend       │               │
-│  - POST /evidence endpoint    │               │
-│  - MinIO storage              │               │
-│  - Content-addressed keys     │               │
+│  V7-3: Attachment Endpoint    │               │
+│  - POST /attachments          │               │
+│  - record.attachment type     │               │
+│  - Uses existing MinIO infra  │               │
+│  - NOT Evidence Bundle        │               │
 └───────────────────────────────┘               │
                 │                               │
                 ▼                               │
 ┌───────────────────────────────┐               │
-│  V7-4: Evidence Frontend      │               │
-│  - EvidenceUploader.tsx       │               │
-│  - EvidencePreview.tsx        │               │
+│  V7-4: Attachment Frontend    │               │
+│  - AttachmentUploader.tsx     │               │
+│  - AttachmentPreview.tsx      │               │
 │  - StageCompletionForm mods   │               │
+│  - Clear Evidence/Attachment  │               │
+│    distinction in UI          │               │
 └───────────────────────────────┘               │
                 │                               │
                 └───────────────┬───────────────┘
@@ -497,3 +621,46 @@ interface IterationHistoryProps {
 │  - WorkSurfaceDetail integration                                │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Appendix C: Ontological Clarification (Amendment Record)
+
+**Date:** 2026-01-16
+**Reason:** Pre-implementation coherence review identified ontological gap
+
+### Problem Statement
+
+The original SR-PLAN-V7 proposed creating "Evidence Bundles" from human file uploads using `artifact_type: "evidence.human_upload"`. This conflated two ontologically distinct concepts:
+
+1. **Evidence Bundles** (`domain.evidence_bundle`): Per SR-CONTRACT §2.3, these are "Oracle output; non-authoritative verification artifacts." They require full manifests per C-EVID-1 (candidate reference, oracle suite hash, governed artifact refs, per-oracle results).
+
+2. **Human-uploaded files**: Supporting documents that are NOT oracle output and cannot satisfy C-EVID-1 requirements.
+
+### Resolution
+
+Introduce `record.attachment` as a distinct artifact type:
+- Content-addressed and immutable (shares C-EVID-2 storage semantics)
+- Does NOT claim to be Evidence Bundle
+- Does NOT satisfy verification gates (C-VER-1)
+- Simpler manifest without oracle-specific fields
+- Can be referenced by Iterations and Candidates for audit context
+
+### Contract Compliance
+
+| Contract | Original Plan | Amended Plan |
+|----------|---------------|--------------|
+| C-EVID-1 | ❌ Not satisfied (no oracle fields) | ✅ N/A (attachments not Evidence Bundles) |
+| C-EVID-2 | ✅ Satisfied | ✅ Satisfied (same storage semantics) |
+| C-VER-1 | ⚠️ Confused (implied human files = verification) | ✅ Clear (only oracle Evidence satisfies verification) |
+
+### Terminology Changes
+
+| Original Term | Amended Term |
+|---------------|--------------|
+| `POST /evidence/files` | `POST /attachments` |
+| `evidence.human_upload` | `record.attachment` |
+| `evidence_bundle_ref` (for uploads) | `attachment_refs[]` |
+| "Evidence Upload" | "Attachment Upload" |
+| `EvidenceUploader.tsx` | `AttachmentUploader.tsx` |
+| `EvidencePreview.tsx` | `AttachmentPreview.tsx` |

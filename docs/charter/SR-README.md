@@ -63,7 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
-| SR-PLAN-V7 | **pending** | MVP Stabilization & Evidence Foundation |
+| SR-PLAN-V7 | **ready** | MVP Stabilization & Attachment Foundation |
 | SR-PLAN-V6 | **complete** | UI Integration for MVP Workflow (V6-1, V6-2, V6-3 complete) |
 | SR-PLAN-V5 | **complete** | Semantic Ralph Loop End-to-End Integration (Phases 5a-5d) |
 | SR-PLAN-V4 | **complete** | Work Surface Composition (Phase 4) — All phases complete |
@@ -72,209 +72,142 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 ---
 
-## SR-PLAN-V6 Implementation Status
+## SR-PLAN-V7 Implementation Status
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Coherence Review | ✅ Complete | `docs/reviews/SR-PLAN-V6-COHERENCE-REVIEW.md` — PASS_WITH_NOTES |
-| V6-1: Backend | ✅ Complete | `POST /work-surfaces/{id}/start` endpoint implemented |
-| V6-2: Frontend | ✅ Complete | Wizard calls `/start` after Work Surface creation |
-| V6-3: E2E Verification | ✅ Complete | Complete human workflow verified end-to-end |
+| Coherence Review | ✅ Complete | Ontological review completed, plan amended |
+| V7-1: Integration Tests | ⏳ Pending | Integration tests for `/start` endpoint |
+| V7-2: Error Handling | ⏳ Pending | Toast notifications, loading states, retry logic |
+| V7-3: Attachment Backend | ⏳ Pending | `POST /attachments` endpoint |
+| V7-4: Attachment Frontend | ⏳ Pending | AttachmentUploader, AttachmentPreview components |
+| V7-5: Multiple Iterations | ⏳ Pending | Iteration history and new iteration support |
 
 ---
 
-## Previous Session Summary (V6-1 Backend)
+## Previous Session Summary (V7 Coherence Review)
 
-### What Was Done
-
-1. **Implemented `start_work_surface` handler** in `crates/sr-api/src/handlers/work_surfaces.rs`:
-   - `StartWorkResponse` struct for API response
-   - `start_work_surface` handler with idempotency logic
-   - `create_loop_internal` — creates Loop with HUMAN actor and default directive_ref
-   - `activate_loop_internal` — activates CREATED loops
-   - `start_iteration_as_system` — starts iteration with SYSTEM actor (`system:work-surface-start`)
-   - `fetch_work_surface_refs` — populates iteration refs from Work Surface context
-
-2. **Added `PreconditionFailed` error variant** to `crates/sr-api/src/handlers/error.rs`
-
-3. **Registered route** in `crates/sr-api/src/main.rs`:
-   - `POST /api/v1/work-surfaces/:work_surface_id/start`
-
-4. **Updated canonical documentation**:
-   - `docs/platform/SR-SPEC.md` — Added §2.3.12 Work Surfaces (all Work Surface API endpoints)
-   - `docs/platform/SR-WORK-SURFACE.md` — Added §5.5 Starting work via /start endpoint
-
-### Verification
-
-- `cargo build --package sr-api` ✅ (warnings only)
-- `cargo test --package sr-api` ✅ (36 passed)
-
-### Files Modified
-
-| File | Lines Added |
-|------|-------------|
-| `crates/sr-api/src/handlers/work_surfaces.rs` | ~250 |
-| `crates/sr-api/src/handlers/error.rs` | ~10 |
-| `crates/sr-api/src/main.rs` | ~4 |
-| `docs/platform/SR-SPEC.md` | ~45 |
-| `docs/platform/SR-WORK-SURFACE.md` | ~42 |
-
-### Notes for Next Instance
-
-- The `get_loop_by_work_unit` method was already present in `projections.rs` (from an earlier partial implementation attempt)
-- All acceptance criteria from SR-PLAN-V6 §4 (Phase V6-1) are satisfied
-- Documentation was updated to close a gap: Work Surface API endpoints were not previously documented in SR-SPEC
-
----
-
-## Previous Session Summary (V6-2 Frontend)
-
-### What Was Done
-
-1. **Modified `handleSubmit` in `ui/src/pages/WorkSurfaceCompose.tsx`** (lines 170-231):
-   - Added Step 2 after Work Surface creation to call `POST /work-surfaces/{id}/start`
-   - Graceful error handling: if `/start` fails, still navigate to detail page
-   - Handles `already_started: true` response by logging info message
-   - Uses inline `fetch()` pattern per SR-PLAN-V6 §5.1 (no centralized API client)
-
-2. **Updated SR-README.md** with V6-2 completion status and V6-3 prompt
-
-### Verification
-
-- `npm run type-check` ✅ (no errors)
-- `npm run build` ✅ (built successfully)
-- Commit: `e4ff9c7` pushed to `solver-ralph-7`
-
-### Files Modified
-
-| File | Lines Changed |
-|------|---------------|
-| `ui/src/pages/WorkSurfaceCompose.tsx` | ~25 (modified `handleSubmit`) |
-| `docs/charter/SR-README.md` | Updated status and next prompt |
-
-### Notes for Next Instance
-
-- The UI codebase uses **inline `fetch()` calls**, not a centralized API client — this is intentional per SR-PLAN-V6 §5.1
-- The wizard file is `ui/src/pages/WorkSurfaceCompose.tsx` (not `components/`)
-- All acceptance criteria from SR-PLAN-V6 §4 (Phase V6-2) are satisfied
-
----
-
-## Previous Session Summary (V6-3 E2E Verification)
-
-**Session Goal:** Execute SR-PLAN-V6 Phase V6-3 — verify that the complete MVP workflow functions end-to-end through the UI.
+**Session Goal:** Evaluate SR-PLAN-V7 for ontological, epistemological, and semantic consistency with canonical SR-* documents before implementation.
 
 ### What Was Accomplished
 
-1. **Environment Setup**
-   - Started API server: `SR_AUTH_TEST_MODE=true cargo run --package sr-api` (port 3000)
-   - Started UI dev server: `cd ui && npm run dev` (port 3002)
+1. **Read and analyzed canonical documents:**
+   - SR-README (assignment and context)
+   - SR-PLAN-V7 (original plan)
+   - SR-SPEC (platform mechanics, especially §1.9 Evidence bundle model)
+   - SR-SEMANTIC-ORACLE-SPEC (oracle interface requirements)
+   - SR-CONTRACT (binding invariants, especially C-EVID-1, C-EVID-2, C-VER-1)
 
-2. **Complete Workflow Verification**
-   - Created Intake (`intake:01KF3ZQB1ADK3X8AK31KZGQECB`)
-   - Activated Intake
-   - Created Work Surface (`ws:01KF3ZS01HS3AYV7VJWDZQT4NR`)
-   - Called `/start` endpoint — verified Loop/Iteration creation (V6-1 deliverable)
-   - Completed all 4 stages: FRAME → OPTIONS → DRAFT → FINAL
-   - Recorded approval for FINAL stage (approval gating works)
-   - Work Surface reached **completed** status
+2. **Identified ontological gap in original SR-PLAN-V7:**
+   - Original plan proposed `artifact_type: "evidence.human_upload"` for human file uploads
+   - This conflated two ontologically distinct concepts:
+     - **Evidence Bundles** (`domain.evidence_bundle`): Oracle output with full manifests per C-EVID-1
+     - **Human uploads**: Supporting files that are NOT oracle output
+   - Human-uploaded files cannot satisfy C-EVID-1 requirements (no candidate ref, no oracle suite hash, no per-oracle results)
+   - Using "evidence" terminology for human uploads would violate C-VER-1 semantics
 
-3. **Documentation Updates**
-   - Updated SR-README.md with V6-3 completion summary
-   - Updated SR-PLAN-V6.md status to **Complete**
-   - Marked all acceptance criteria as satisfied
-   - Added SR-PLAN-V7 to Feature Implementation Plans table
-   - Added next instance prompt for SR-PLAN-V7
+3. **Produced coherence review with verdict: COHERENT WITH NOTES**
+   - Ontology: Gap identified (Evidence Bundle definition)
+   - Epistemology: Consistent (no authority leakage)
+   - Semantics: Minor naming clarification needed
 
-### Commits
+4. **Amended SR-PLAN-V7 with ontological corrections:**
+   - Introduced `record.attachment` as distinct artifact type
+   - Changed endpoint from `POST /evidence/files` to `POST /attachments`
+   - Changed `artifact_type` from `evidence.human_upload` to `record.attachment`
+   - Renamed UI components: `EvidenceUploader.tsx` → `AttachmentUploader.tsx`
+   - Added clear semantic distinction in UI between Evidence Bundles (oracle) and Attachments (human)
+   - Added Appendix C documenting the amendment rationale
 
-| Hash | Description |
-|------|-------------|
-| `22bc8a2` | docs: complete SR-PLAN-V6 Phase V6-3 E2E verification |
-| `8813f9d` | docs: add SR-PLAN-V7 to implementation plans and next instance prompt |
+### Key Ontological Distinction (Amendment)
 
-### Acceptance Criteria (All Satisfied)
+| Concept | Type Key | Source | Satisfies C-VER-1? |
+|---------|----------|--------|-------------------|
+| **Evidence Bundle** | `domain.evidence_bundle` | Oracle output | ✅ Yes |
+| **Attachment** | `record.attachment` | Human upload | ❌ No |
 
-- [x] Full workflow completes without curl commands
-- [x] All stages can be completed via UI endpoints
-- [x] Approval flow works for FINAL stage
-- [x] No console errors during workflow
+This preserves SR-CONTRACT's epistemological clarity: only oracle-produced Evidence Bundles can satisfy verification gates.
 
-### Work Surface Final State
+### Files Modified
 
-```json
-{
-  "status": "completed",
-  "current_stage_id": "stage:FINAL",
-  "completed_at": "2026-01-16T18:07:16.785895+00:00",
-  "stage_status": {
-    "stage:FRAME": { "status": "completed" },
-    "stage:OPTIONS": { "status": "completed" },
-    "stage:DRAFT": { "status": "completed" },
-    "stage:FINAL": { "status": "completed" }
-  }
-}
-```
+| File | Change |
+|------|--------|
+| `docs/planning/SR-PLAN-V7.md` | Comprehensive amendment with ontological corrections |
 
-### Milestone Reached
+### Contract Compliance After Amendment
 
-**SR-PLAN-V6 is now complete.** The MVP UI integration is fully functional:
-- V6-1 (Backend): `/start` endpoint implemented
-- V6-2 (Frontend): Wizard wired to call `/start`
-- V6-3 (E2E Verification): Complete workflow verified
+| Contract | Status |
+|----------|--------|
+| C-EVID-1 | ✅ N/A (attachments are not Evidence Bundles) |
+| C-EVID-2 | ✅ Satisfied (same storage semantics for immutability) |
+| C-VER-1 | ✅ Clear (only oracle Evidence satisfies verification) |
+| C-CTX-1 | ✅ Satisfied (V7-5 iteration creation remains SYSTEM-mediated) |
 
 ---
 
-## SR-PLAN-V6 Complete
-
-All phases of SR-PLAN-V6 have been successfully completed:
-
-| Phase | Status | Summary |
-|-------|--------|---------|
-| Coherence Review | ✅ | Plan validated for coherence |
-| V6-1: Backend | ✅ | `/start` endpoint implemented |
-| V6-2: Frontend | ✅ | Wizard wired to call `/start` |
-| V6-3: E2E Verification | ✅ | Complete workflow verified |
-
-The MVP UI integration is now complete. Users can:
-1. Create and activate an Intake
-2. Use the wizard to create a Work Surface (auto-starts work)
-3. Complete all stages via the UI
-4. Record approvals for approval-gated stages
-5. See the Work Surface reach "completed" status
-
----
-
-## Next Instance Prompt: Plan SR-PLAN-V7 (MVP Stabilization & Evidence Foundation)
+## Next Instance Prompt: Execute SR-PLAN-V7 Phase V7-1
 
 ### Context
 
-SR-PLAN-V6 is complete. The MVP workflow is now fully functional end-to-end through the UI:
-- Intakes can be created and activated
-- Work Surfaces can be created via wizard (auto-starts Loop/Iteration)
-- All stages can be completed with approval gating
-- Work Surfaces reach "completed" status
+SR-PLAN-V7 has been reviewed for coherence and **amended** to correct an ontological gap. The plan now correctly distinguishes:
+- **Evidence Bundles** (`domain.evidence_bundle`): Oracle-generated, satisfies C-VER-1
+- **Attachments** (`record.attachment`): Human-uploaded supporting files, does NOT satisfy C-VER-1
+
+The coherence review is complete. The plan is ready for implementation.
 
 ### Current State
 
 - Branch: `solver-ralph-7`
-- MVP UI Integration: **Complete** (SR-PLAN-V6)
-- All prior plans (V3, V4, V5, V6): **Complete**
+- SR-PLAN-V6: **Complete** (MVP UI Integration)
+- SR-PLAN-V7: **Ready for Implementation (Amended)**
+- Coherence Review: **Complete** — ontological corrections applied
 
 ### Assignment
 
-Complete the planning phase before execution, see **SR-PLAN-V7: MVP Stabilization & Evidence Foundation**.
+**Execute SR-PLAN-V7 Phase V7-1: Integration Tests for `/start` Endpoint**
 
-**Goal:** Validate the completed MVP, then add the most architecturally significant extension (Evidence Upload) which is core to the semantic oracle model.
+Create integration tests to ensure the `/start` orchestration endpoint is regression-proof before extending the platform.
+
+### Deliverables
+
+| File | Action | Description |
+|------|--------|-------------|
+| `crates/sr-api/tests/integration/work_surface_start_test.rs` | CREATE | Integration tests for `/start` |
+
+### Test Cases to Implement
+
+| Test | Description | Validates |
+|------|-------------|-----------|
+| `start_happy_path` | Active Work Surface → Loop created → activated → Iteration started | Core flow |
+| `start_idempotent` | Call twice → second returns `already_started: true` | Idempotency |
+| `start_rejects_inactive` | Non-active Work Surface → HTTP 412 | Precondition |
+| `start_activates_created_loop` | Existing CREATED Loop → activates and starts | Edge case |
+| `start_human_on_loop_created` | Verify `LoopCreated` has HUMAN actor | Audit trail |
+| `start_system_on_iteration` | Verify `IterationStarted` has SYSTEM actor | C-CTX-1 compliance |
+
+### Acceptance Criteria
+
+- [ ] All 6 test cases pass
+- [ ] `cargo test --package sr-api` passes
+- [ ] Tests cover the acceptance criteria from SR-PLAN-V6 §4
 
 ### First Action
 
-Read `docs/planning/SR-PLAN-V7.md` for the detailed implementation plan and requirements.
+1. Read `docs/planning/SR-PLAN-V7.md` §V7-1 for detailed requirements
+2. Examine existing test patterns in `crates/sr-api/tests/`
+3. Create `work_surface_start_test.rs` with the 6 test cases
 
 ### Reference Documents
 
-- `docs/planning/SR-PLAN-V7.md` — Implementation plan (to be created by human authority)
-- `docs/platform/SR-SPEC.md` — Platform mechanics
-- `docs/platform/SR-CONTRACT.md` — Binding invariants (especially C-EV-* for evidence)
-- `docs/platform/SR-SEMANTIC-ORACLE-SPEC.md` — Semantic oracle interface
+- `docs/planning/SR-PLAN-V7.md` — Implementation plan (amended)
+- `docs/platform/SR-SPEC.md` — §2.3.12 Work Surfaces API
+- `docs/platform/SR-WORK-SURFACE.md` — §5.5 Starting work via /start endpoint
+- `crates/sr-api/src/handlers/work_surfaces.rs` — Implementation to test
+
+### Important Notes
+
+- The `/start` endpoint was implemented in SR-PLAN-V6 Phase V6-1
+- Actor mediation pattern: `LoopCreated` uses HUMAN actor, `IterationStarted` uses SYSTEM actor
+- Idempotency: calling `/start` twice should return `already_started: true` on second call
+- Existing integration test patterns may be in `crates/sr-api/tests/integration/`
 
