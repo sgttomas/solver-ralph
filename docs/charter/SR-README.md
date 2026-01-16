@@ -518,47 +518,59 @@ With V7-5 done, SR-PLAN-V7 is fully complete:
 
 ---
 
-## Next Instance Prompt: Implement SR-PLAN-V8 Phase V8-1
+## Next Instance Prompt: Coherence Review of SR-PLAN-V8
 
 ### Context
 
-SR-PLAN-V8 is authored and ready for implementation. Phase V8-1 is the foundational phase — Oracle Suite Registry.
+SR-PLAN-V8 has been authored but not yet validated against the actual codebase. Before implementation begins, we need to verify that the plan's assumptions about existing infrastructure, type definitions, and integration points are accurate.
 
 ### Current State
 
-- Branch: `solver-ralph-7` (V7 complete, V8 plan authored)
+- Branch: `solver-ralph-8` (V7 complete, V8 plan authored)
 - SR-PLAN-V7: **Complete** (all phases)
-- SR-PLAN-V8: **Authored** (ready for V8-1 implementation)
+- SR-PLAN-V8: **Authored** (pending coherence review)
 
 ### Assignment
 
-**Implement SR-PLAN-V8 Phase V8-1: Oracle Suite Registry**
+**Evaluate SR-PLAN-V8 for coherence with the existing codebase**
 
-Create persistent storage and API for oracle suite definitions.
+The plan makes several assumptions about what exists and how components fit together. Your task is to verify these assumptions by examining the actual code and identifying any gaps, conflicts, or necessary adjustments.
 
-### Key Deliverables (from SR-PLAN-V8)
+### Key Questions to Answer
 
-| File | Action | Description |
-|------|--------|-------------|
-| `crates/sr-domain/src/entities/oracle_suite.rs` | CREATE | Oracle suite domain entity |
-| `crates/sr-adapters/src/postgres_oracle_registry.rs` | CREATE | PostgreSQL repository |
-| `crates/sr-api/src/handlers/oracle_suites.rs` | CREATE | Suite management endpoints |
-| `migrations/YYYYMMDD_oracle_suite_registry.sql` | CREATE | Database schema |
+1. **Oracle Runner Integration:**
+   - Does `oracle_runner.rs` actually implement the `OracleRunner` trait from `sr-ports`?
+   - What is the current state of the `/runs` endpoint in `runs.rs`? Does it already call the oracle runner, or is it a stub?
+   - How does the existing `EvidenceManifestBuilder` work, and does V8-2's proposed integration align with it?
 
-### Acceptance Criteria (from SR-PLAN-V8)
+2. **Type Consistency:**
+   - Do the proposed domain types (`OracleSuite`, `OracleSuiteStatus`) conflict with or duplicate anything in `sr-domain`?
+   - Are there existing types in `oracle_runner.rs` (like `OracleSuiteDefinition`) that should be reused vs. replaced?
 
-- [ ] `POST /oracle-suites` registers suite with computed hash
-- [ ] `GET /oracle-suites/{id}` retrieves suite definition
-- [ ] Suite hash computed from deterministic serialization of definition
-- [ ] PostgreSQL adapter implements `OracleSuiteRegistry`
-- [ ] `cargo test --package sr-api` passes
-- [ ] `cargo test --package sr-adapters` passes
+3. **Database Patterns:**
+   - What patterns do existing migrations follow? (naming, structure, conventions)
+   - How do other PostgreSQL adapters implement their repository traits?
 
-### First Action
+4. **API Patterns:**
+   - How are other handlers structured in `sr-api`? What's the standard for request/response types?
+   - What's the route registration pattern in `main.rs`?
 
-1. Read SR-PLAN-V8 §V8-1 for detailed specifications
-2. Create database migration for `oracle_suites` table
-3. Implement domain entity and port trait
-4. Implement PostgreSQL adapter
-5. Add API handlers
+5. **Evidence Store Integration:**
+   - How does the existing `MinioEvidenceStore` work with `PodmanOracleRunner`?
+   - Is there a mismatch between V8's proposed flow and what's already wired?
+
+### Deliverable
+
+Produce a coherence assessment with one of these verdicts:
+- **COHERENT**: Plan aligns with codebase; proceed to implementation
+- **COHERENT WITH AMENDMENTS**: Plan mostly aligns but needs specific corrections (list them)
+- **REQUIRES REVISION**: Significant misalignment; plan needs rewriting before implementation
+
+### First Actions
+
+1. Read `crates/sr-ports/src/lib.rs` to understand the port trait definitions
+2. Read `crates/sr-api/src/handlers/runs.rs` to understand current `/runs` implementation
+3. Read `crates/sr-adapters/src/evidence.rs` to understand evidence manifest building
+4. Examine existing migrations in `migrations/` for naming conventions
+5. Compare V8's proposed types against existing types in `sr-domain` and `oracle_runner.rs`
 
