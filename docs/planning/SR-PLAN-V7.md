@@ -178,14 +178,14 @@ interface Toast {
 - On permanent failure (4xx), show error toast, don't retry
 
 **Acceptance Criteria:**
-- [ ] Toast component renders success/error messages
-- [ ] API errors show user-friendly messages
-- [ ] Loading spinner shows during create + start sequence
-- [ ] Retry logic handles transient failures
-- [ ] `npm run type-check` passes
-- [ ] `npm run build` passes
+- [x] Toast component renders success/error messages
+- [x] API errors show user-friendly messages
+- [x] Loading spinner shows during create + start sequence
+- [x] Retry logic handles transient failures
+- [x] `npm run type-check` passes
+- [x] `npm run build` passes
 
-**Effort:** ~1 session
+**Effort:** ~1 session (✅ Complete)
 
 ---
 

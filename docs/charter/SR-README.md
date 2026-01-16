@@ -91,7 +91,7 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 |-------|--------|-------------|
 | Coherence Review | ✅ Complete | Ontological review completed, plan amended |
 | V7-1: Integration Tests | ✅ Complete | Integration tests for `/start` endpoint |
-| V7-2: Error Handling | ⏳ Pending | Toast notifications, loading states, retry logic |
+| V7-2: Error Handling | ✅ Complete | Toast notifications, loading states, retry logic |
 | V7-3: Attachment Backend | ⏳ Pending | `POST /attachments` endpoint |
 | V7-4: Attachment Frontend | ⏳ Pending | AttachmentUploader, AttachmentPreview components |
 | V7-5: Multiple Iterations | ⏳ Pending | Iteration history and new iteration support |
@@ -200,83 +200,108 @@ This preserves SR-CONTRACT's epistemological clarity: only oracle-produced Evide
 
 ---
 
-## Next Instance Prompt: Execute SR-PLAN-V7 Phase V7-2
+## Previous Session Summary (V7-2 Error Handling)
+
+**Session Goal:** Implement SR-PLAN-V7 Phase V7-2 — Toast notifications, loading states, and retry logic.
+
+### What Was Accomplished
+
+1. **Created toast notification system:**
+   - `Toast.tsx`: Component with auto-dismiss, slide animation, accessibility (role="alert" for errors)
+   - `Toast.module.css`: Styles using design tokens from theme.css
+   - `ToastContext.tsx`: Provider with `useToast` hook for app-wide access
+   - `ApiErrorHandler.ts`: Error mapping + retry logic with exponential backoff
+
+2. **Integrated into WorkSurfaceCompose page:**
+   - Replaced console.warn/info with toast notifications
+   - Added progress state: "Creating Work Surface..." → "Starting work..." → redirect
+   - Used `fetchWithRetry` for transient failure handling (5xx retries)
+   - Show success toast on completion, warning if start fails, error on create failure
+
+3. **Wrapped app with ToastProvider:**
+   - Updated `main.tsx` to wrap RouterProvider with ToastProvider
+   - Exported new components from `components/index.ts`
+
+4. **All checks pass:** `npm run type-check` and `npm run build` succeed
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `ui/src/components/Toast.tsx` | Created — Toast notification component |
+| `ui/src/components/Toast.module.css` | Created — Toast styles |
+| `ui/src/components/ToastContext.tsx` | Created — Provider + useToast hook |
+| `ui/src/components/ApiErrorHandler.ts` | Created — Error mapping + retry logic |
+| `ui/src/pages/WorkSurfaceCompose.tsx` | Modified — Toast integration, progress states |
+| `ui/src/main.tsx` | Modified — ToastProvider wrapper |
+| `ui/src/components/index.ts` | Modified — New exports |
+
+### Commits
+
+- `bb9b910` feat(ui): add toast notifications and error handling (V7-2)
+
+---
+
+## Next Instance Prompt: Execute SR-PLAN-V7 Phase V7-3
 
 ### Context
 
-V7-1 is complete. The `/start` endpoint now has integration test coverage ensuring:
-- Happy path works (Loop created, activated, Iteration started)
-- Idempotency (second call returns `already_started: true`)
-- Precondition enforcement (412 for non-active Work Surface)
-- Actor mediation (HUMAN on Loop, SYSTEM on Iteration per C-CTX-1)
+V7-2 is complete. The UI now has:
+- Toast notification system for success/error/warning/info messages
+- User-friendly error messages mapped from HTTP status codes
+- Retry logic for transient failures (5xx with exponential backoff)
+- Progress states during Work Surface creation
 
-The platform is regression-proof for the `/start` flow. Now improve UX by making errors visible to users.
+The UX is now resilient and informative. Next: add attachment upload capability.
 
 ### Current State
 
 - Branch: `solver-ralph-7`
-- SR-PLAN-V7 Phase V7-1: **Complete**
-- SR-PLAN-V7 Phase V7-2: **Pending** (next)
+- SR-PLAN-V7 Phase V7-1: **Complete** (Integration tests)
+- SR-PLAN-V7 Phase V7-2: **Complete** (Error handling)
+- SR-PLAN-V7 Phase V7-3: **Pending** (next)
 
 ### Assignment
 
-**Execute SR-PLAN-V7 Phase V7-2: Error Handling & UX Feedback**
+**Execute SR-PLAN-V7 Phase V7-3: Attachment Upload Endpoint (Backend)**
 
-Add toast notifications, loading states, and retry logic so users understand when operations succeed or fail.
+Add `POST /api/v1/attachments` endpoint for human-uploaded supporting files.
 
-### Deliverables
+### Key Requirements (from SR-PLAN-V7 §V7-3)
 
-| File | Action | Description |
-|------|--------|-------------|
-| `ui/src/components/Toast.tsx` | CREATE | Toast notification component |
-| `ui/src/components/ToastContext.tsx` | CREATE | Context provider for toast state |
-| `ui/src/components/ApiErrorHandler.tsx` | CREATE | Translate API errors to user messages |
-| `ui/src/pages/WorkSurfaceCompose.tsx` | MODIFY | Add loading states, error toasts, retry logic |
-| `ui/src/App.tsx` | MODIFY | Wrap with ToastProvider |
+**Ontological Note:** Attachments are NOT Evidence Bundles. They:
+- Share storage infrastructure (MinIO, content-addressing)
+- Do NOT claim to be oracle output
+- Do NOT satisfy verification gates (C-VER-1)
+- Have `artifact_type: "record.attachment"`
 
-### Key Requirements (from SR-PLAN-V7 §V7-2)
+**Endpoint:** `POST /api/v1/attachments`
+- Content-Type: `multipart/form-data`
+- Body: `file` field with uploaded file
+- Response: `{ attachment_id, content_hash, size_bytes, media_type, filename, uploaded_by, uploaded_at }`
 
-**Toast Component:**
-```typescript
-interface Toast {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  message: string;
-  duration?: number; // ms, default 5000
-}
-```
+**Storage:**
+- MinIO bucket: `attachments` (new bucket, separate from `evidence-public`)
+- Object key: `sha256/{hash}` (content-addressed)
+- Compute hash server-side
+- Prevent overwriting existing objects
 
-**API Error Mapping:**
-
-| HTTP Status | User Message |
-|-------------|--------------|
-| 401 | "Session expired. Please sign in again." |
-| 403 | "You don't have permission to perform this action." |
-| 412 `WORK_SURFACE_NOT_ACTIVE` | "Work Surface is not active." |
-| 500 | "Something went wrong. Please try again." |
-
-**Loading States:**
-- Spinner during "Create Work Surface" button click
-- Disable button while request in flight
-- Show progress: "Creating Work Surface..." → "Starting work..." → redirect
-
-**Retry Logic:**
-- On 5xx: retry up to 2 times with exponential backoff
-- On 4xx: show error toast, don't retry
+**Event:** Emit `AttachmentRecorded` event for auditability per C-EVT-1
 
 ### Acceptance Criteria
 
-- [ ] Toast component renders success/error messages
-- [ ] API errors show user-friendly messages
-- [ ] Loading spinner shows during create + start sequence
-- [ ] Retry logic handles transient failures
-- [ ] `npm run type-check` passes
-- [ ] `npm run build` passes
+- [ ] `POST /attachments` accepts multipart file upload
+- [ ] Returns attachment_id and content hash (sha256)
+- [ ] Stores in MinIO with content-addressed key
+- [ ] Idempotent: re-upload same file returns same hash
+- [ ] Emits `AttachmentRecorded` event
+- [ ] `cargo build --package sr-api` passes
+- [ ] `cargo test --package sr-api` passes
 
 ### First Action
 
-1. Read `docs/planning/SR-PLAN-V7.md` §V7-2 for full requirements
-2. Examine existing UI patterns in `ui/src/components/`
-3. Create Toast component and context
-4. Integrate into WorkSurfaceCompose page
+1. Read SR-PLAN-V7 §V7-3 for full requirements
+2. Examine `crates/sr-api/src/handlers/evidence.rs` for storage patterns
+3. Examine `crates/sr-adapters/src/minio.rs` for MinIO adapter
+4. Create `attachments.rs` handler
 
