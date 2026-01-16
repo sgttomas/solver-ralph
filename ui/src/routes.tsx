@@ -25,10 +25,14 @@ import { VerificationProfileDetail } from "./pages/VerificationProfileDetail";
 import { Templates } from "./pages/Templates";
 import { TemplateDetail } from "./pages/TemplateDetail";
 import { Workflows } from "./pages/Workflows";
-import { Context } from "./pages/Context";
-import { ContextDocumentDetail } from "./pages/ContextDocumentDetail";
+import { Intakes } from "./pages/Intakes";
+import { IntakeCreate } from "./pages/IntakeCreate";
 import { IntakeDetail } from "./pages/IntakeDetail";
-import { ContextBundleDetail } from "./pages/ContextBundleDetail";
+import { IntakeEdit } from "./pages/IntakeEdit";
+import { References } from "./pages/References";
+import { ReferenceDocumentDetail } from "./pages/ReferenceDocumentDetail";
+import { ReferenceBundleDetail } from "./pages/ReferenceBundleDetail";
+import { GovernedArtifactDetail } from "./pages/GovernedArtifactDetail";
 import { Audit } from "./pages/Audit";
 import { Settings } from "./pages/Settings";
 
@@ -74,11 +78,17 @@ export const router = createBrowserRouter([
       // Workflows
       { path: "/workflows", element: <Workflows /> },
 
-      // Context (documents/intakes/bundles)
-      { path: "/context", element: <Context /> },
-      { path: "/context/:documentId", element: <ContextDocumentDetail /> },
-      { path: "/context/intakes/:intakeId", element: <IntakeDetail /> },
-      { path: "/context/bundles/:bundleId", element: <ContextBundleDetail /> },
+      // Intakes
+      { path: "/intakes", element: <Intakes /> },
+      { path: "/intakes/new", element: <IntakeCreate /> },
+      { path: "/intakes/:intakeId", element: <IntakeDetail /> },
+      { path: "/intakes/:intakeId/edit", element: <IntakeEdit /> },
+
+      // References (renamed from Context)
+      { path: "/references", element: <References /> },
+      { path: "/references/documents/:documentId", element: <ReferenceDocumentDetail /> },
+      { path: "/references/bundles/:bundleId", element: <ReferenceBundleDetail /> },
+      { path: "/references/governed-artifacts/:artifactId", element: <GovernedArtifactDetail /> },
 
       // Audit Log
       { path: "/audit", element: <Audit /> },

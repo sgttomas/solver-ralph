@@ -80,38 +80,155 @@ Continue implementing the Intakes & References infrastructure per **SR-PLAN-V3.m
 |-------|--------|-------------|
 | Phase 0a | **Complete** | Core Infrastructure — TypedRef module, Intake domain, database migrations, event definitions |
 | Phase 0b | **Complete** | Intake API — Intake handler with CRUD + lifecycle operations |
-| Phase 0c | Pending | References API — References browser backend |
-| Phase 1 | Pending | UI Structure — Sidebar and route reorganization |
+| Phase 0c | **Complete** | References API — References browser backend (15 endpoints) |
+| Phase 1 | **Complete** | UI Structure — Sidebar and route reorganization |
 | Phase 2 | Pending | Intakes UI — Full Intake CRUD UI |
 | Phase 3 | Pending | References UI — References browser UI |
 
 ### Next Step
 
-Begin **Phase 0c: References API** — implement the References browser backend per SR-PLAN-V3 §2.
+Begin **Phase 2: Intakes UI** — implement full Intake CRUD UI per SR-PLAN-V3 §3 (Phase 2).
+
+### Deliverables (Phase 2)
+
+1. **Intakes list page** (`ui/src/pages/Intakes.tsx`)
+   - Filter by status, kind
+   - Search by title
+   - Status badges (Draft=yellow, Active=green, Archived=gray)
+   - Pagination
+
+2. **Intake create form** (`ui/src/pages/IntakeCreate.tsx`)
+   - All SR-WORK-SURFACE §3.1 fields
+   - Deliverables array editor
+   - Constraints list editor
+   - Definitions key-value editor
+   - Input references selector (links to References browser)
+   - Unknowns list editor
+   - Completion criteria list editor
+
+3. **Intake detail page** (`ui/src/pages/IntakeDetail.tsx`)
+   - Display all fields
+   - Lifecycle actions based on status:
+     - Draft: [Edit] [Activate] [Delete]
+     - Active: [Fork to New Draft] [Archive] [Create Work Surface]
+     - Archived: [Fork to New Draft]
+   - Display content hash for Active/Archived
+
+4. **Intake edit form** (`ui/src/pages/IntakeEdit.tsx`)
+   - Same as create, but pre-populated
+   - Only available for Draft status
 
 ### Required Reading
 
-1. **`docs/planning/SR-PLAN-V3.md`** §2 — References API specification
-2. **`docs/platform/SR-SPEC.md`** §1.5.3 — TypedRef schema and RefRelation enum
-3. Review existing implementation:
-   - `crates/sr-domain/src/refs.rs` — StrongTypedRef, RefKind, RefRelation
-   - `crates/sr-api/src/handlers/intakes.rs` — Pattern for handler implementation
+1. **`docs/planning/SR-PLAN-V3.md`** §3 (Phase 2) — Intakes UI specification
+2. **Backend API endpoints:**
+   - `crates/sr-api/src/handlers/intakes.rs` — Intakes API (CRUD + lifecycle)
+3. **SR-WORK-SURFACE** §3.1 — Intake schema and required fields
 
 ### Verification
 
-After Phase 0c, run:
-- `cargo build` — No errors
-- `cargo test` — All pass
+After Phase 2:
+```bash
+cd ui
+npm run type-check    # No TypeScript errors
+npm run build         # Build succeeds
+npm run dev           # Manual check: full Intakes CRUD workflow
+```
 
 ### Constraints
 
-- **Backend-first** — Complete Phase 0 before UI phases
-- **Follow SR-PLAN-V3** — All types, schemas, and APIs are specified
-- **Stop after each phase** — Wait for instructions before proceeding
+- **Phase 1 complete** — UI structure is ready
+- **Follow SR-PLAN-V3** — All components and interactions are specified
+- **Use existing API** — Backend Intakes API is ready (Phase 0b complete)
+- **Stop after phase** — Wait for instructions before proceeding to Phase 3
 
 ---
 
 ## Summary of Previous Development Iterations
+
+### Session: 2026-01-15 — Phase 1 Implementation
+
+**Objective:** Implement Phase 1 of SR-PLAN-V3 (UI Structure Reorganization).
+
+**Work Performed:**
+
+1. **Sidebar Navigation Update** (`ui/src/layout/Sidebar.tsx`)
+   - Added "Intakes" navigation item after Loops
+   - Renamed "Context" to "References"
+   - Position: Loops → Intakes → References → Prompts
+
+2. **Route Updates** (`ui/src/routes.tsx`)
+   - Added 4 Intakes routes: `/intakes`, `/intakes/new`, `/intakes/:intakeId`, `/intakes/:intakeId/edit`
+   - Added 4 References routes: `/references`, `/references/documents/:documentId`, `/references/bundles/:bundleId`, `/references/governed-artifacts/:artifactId`
+   - Removed old Context routes
+
+3. **File Renames**
+   | Old | New |
+   |-----|-----|
+   | `Context.tsx` | `References.tsx` |
+   | `ContextDocumentDetail.tsx` | `ReferenceDocumentDetail.tsx` |
+   | `ContextBundleDetail.tsx` | `ReferenceBundleDetail.tsx` |
+
+4. **New Stub Pages Created**
+   - `Intakes.tsx` — List page stub
+   - `IntakeCreate.tsx` — Create form stub
+   - `IntakeEdit.tsx` — Edit form stub
+   - `GovernedArtifactDetail.tsx` — Detail view stub
+
+5. **Updated Files**
+   - `IntakeDetail.tsx` — Updated breadcrumb to link to `/intakes`
+   - `ui/src/pages/index.ts` — Updated exports
+
+**Verification:** `npm run type-check` and `npm run build` pass.
+
+---
+
+### Session: 2026-01-15 — Phase 0c Implementation
+
+**Objective:** Implement Phase 0c of SR-PLAN-V3 (References API — References browser backend).
+
+**Work Performed:**
+
+1. **References Handler** (Complete)
+   - Created `crates/sr-api/src/handlers/references.rs` (~645 lines)
+   - 15 endpoints for unified References browser API
+   - `ReferencesState` combining AppState, OracleRegistryState, and TemplateRegistryState
+   - Standardized `{ refs, total, page, page_size }` response format per SR-PLAN-V3 §2.2
+
+2. **Endpoints Implemented:**
+   | Endpoint | Source | Status |
+   |----------|--------|--------|
+   | `GET /api/v1/references` | Aggregated | ✅ |
+   | `GET /api/v1/references/governed-artifacts` | `proj.governed_artifacts` | ✅ |
+   | `GET /api/v1/references/governed-artifacts/:id` | `proj.governed_artifacts` | ✅ |
+   | `GET /api/v1/references/candidates` | `proj.candidates` | ✅ |
+   | `GET /api/v1/references/evidence-bundles` | `proj.evidence_bundles` | ✅ |
+   | `GET /api/v1/references/evidence-bundles/:hash` | `proj.evidence_bundles` | ✅ |
+   | `GET /api/v1/references/oracle-suites` | OracleSuiteRegistry | ✅ |
+   | `GET /api/v1/references/procedure-templates` | TemplateRegistry | ✅ |
+   | `GET /api/v1/references/exceptions` | `proj.exceptions` | ✅ |
+   | `GET /api/v1/references/iteration-summaries` | `proj.iterations` | ✅ |
+   | `GET /api/v1/references/agent-definitions` | Stub (empty) | ⚡ |
+   | `GET /api/v1/references/gating-policies` | TemplateRegistry | ✅ |
+   | `GET /api/v1/references/intakes` | `proj.intakes` | ✅ |
+   | `POST /api/v1/references/documents` | Stub (501) | ⚡ |
+   | `GET /api/v1/references/documents/:id` | Stub (404) | ⚡ |
+
+3. **Supporting Changes:**
+   - Updated `crates/sr-api/src/handlers/mod.rs` — Added references module
+   - Updated `crates/sr-api/src/handlers/error.rs` — Added `NotImplemented` error variant
+   - Updated `crates/sr-api/src/main.rs` — Added 15 routes and `ReferencesState` initialization
+
+4. **Documentation Updates:**
+   - Updated `docs/charter/SR-README.md` — Phase 0c marked complete, next step updated to Phase 1
+
+**Verification:** `cargo build` and `cargo test --workspace` pass (170+ tests).
+
+**Notes:**
+- Agent Definitions stubbed (no current data source — deferred to future phase)
+- Document upload/retrieval stubbed (storage infrastructure not yet implemented)
+
+---
 
 ### Session: 2026-01-16 (Part 3) — Phase 0a & 0b Implementation
 

@@ -115,7 +115,7 @@ export function IntakeDetail(): JSX.Element {
       <div className={styles.container}>
         <div className={styles.placeholder}>
           <p className={styles.error}>Error: {error || 'Intake not found'}</p>
-          <Link to="/context" className={styles.link}>Back to Context</Link>
+          <Link to="/intakes" className={styles.link}>Back to Intakes</Link>
         </div>
       </div>
     );
@@ -125,9 +125,7 @@ export function IntakeDetail(): JSX.Element {
     <div className={styles.container}>
       {/* Breadcrumb */}
       <div className={styles.breadcrumb}>
-        <Link to="/context" className={styles.breadcrumbLink}>Context</Link>
-        <span className={styles.breadcrumbSeparator}>/</span>
-        <span>Intakes</span>
+        <Link to="/intakes" className={styles.breadcrumbLink}>Intakes</Link>
         <span className={styles.breadcrumbSeparator}>/</span>
         <span>{intake.title}</span>
       </div>
