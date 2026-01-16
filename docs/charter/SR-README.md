@@ -12,7 +12,7 @@ refs:
 
 # SR-README
 
-Tasks are no longer assigned by SR-PLAN because the build out phase is complete.  We are now in auditing, quality control, and implementation testing.
+Tasks are no longer assigned by SR-PLAN because the build out phase is complete.  See below for the Comprehensive Implementation Plan for the next phase of build out and implementation.
 
 Begin your task assignment by reading SR-CHARTER.  The project documentation constitutes a total development plan and specification with detailed instructions on types and contracts.  Always read the SR-* files that appear related to the task before going to read the code files.  Documentation leads development for this project.  Documentation is how you know your ontology, epistemology, and semantics.
 
@@ -57,260 +57,98 @@ Canonical index for the SR-* document set.
 | SR-TEMPLATES | `platform/` | User configuration registry |
 | SR-README | `charter/` | This index |
 
+## Prompt for Next Instance: Intakes & References Plan Review
 
+### Task
 
+Review and finalize the implementation plan for **Intakes** and **References** UI/API infrastructure. Produce a V3 plan that resolves all identified issues and is implementation-ready.
 
-## Development Session Summary (2026-01-14)
+### Required Reading (in order)
 
-**Branch:** `solver-ralph-2`
+1. **This file** (SR-README) - Project context and canonical document index
+2. **`docs/planning/SR-PLAN-V2.md`** - The current plan with embedded review notes marking 10 issues to resolve
+3. **Core governance docs** (for verification):
+   - `docs/platform/SR-CONTRACT.md` - Binding invariants (highest precedence)
+   - `docs/platform/SR-SPEC.md` - Platform mechanics, TypedRef schema (§1.5.3), iteration context refs (§3.2.1.1)
+   - `docs/platform/SR-TYPES.md` - Type taxonomy (`record.intake`, status enums)
+   - `docs/platform/SR-WORK-SURFACE.md` - Intake schema definition (§3)
 
-### Completed Work
+### Deliverable
 
-#### 1. UI Redesign Integration
-Integrated the Chirality AI governance console UI with existing functional pages:
-- Restored `AuthProvider` wrapper in `main.tsx`
-- Added auth check and loading state in `AppLayout.tsx`
-- Connected all functional pages in `routes.tsx` (Loops, LoopDetail, IterationDetail, CandidateDetail, Evidence, EvidenceDetail, Approvals, PromptLoop)
-- Added user info display and logout button to `Topbar.tsx`
-- Fixed ESLint errors in `AuthProvider.tsx` and `PromptLoop.tsx`
+Write `docs/planning/SR-PLAN-V3.md` that:
 
-#### 2. Custom Logo
-- Added custom logo image (`ui/public/logo.png`) to replace the orange square placeholder in the sidebar
+1. Resolves all 10 issues marked as `[REVIEW NOTE]` in SR-PLAN-V2
+2. Includes complete Rust structs, PostgreSQL schemas, event definitions, API specs with JSON examples
+3. Splits Phase 0 into manageable sub-phases
+4. Documents any intentional deviations from SR-* specifications
 
-#### 3. UI Terminology Updates
-Renamed user-facing labels throughout the UI to better reflect the platform's concepts:
+### Constraints
 
-| Old Term | New Term | Rationale |
-|----------|----------|-----------|
-| Loops | Workflows | Clearer terminology for workflow collections |
-| Prompt Loop | Tasks | Simplified name for the task interface |
-| Evidence | Artifacts | More general term for oracle outputs |
-| Documents | Context | Better reflects the purpose |
+- **Do NOT begin implementation** - This is planning only
+- **Backend-first** - Phase 0 before UI phases
+- **Intakes are top-level nav** - Separate from References
+- **No backward compatibility** - Clean implementation aligned with specs
 
-#### 4. Sidebar Navigation Reordering
-Final sidebar order (top to bottom):
-1. Overview
-2. Agents
-3. Protocols
-4. Workflows
-5. Tasks
-6. Context
-7. Artifacts
-8. Approvals
-9. Audit Log
-10. Settings
+### Success Criteria
 
-### Quality Status
-- TypeScript type-check: PASS
-- ESLint: PASS
-- UI build: PASS
-- Rust tests: 27 passed, 0 failed
-- E2E harness tests: 16 passed, 0 failed
-
-### Commits (chronological)
-1. `1151fa1` - Integrate Chirality AI UI with functional pages and auth
-2. `917fbc8` - Fix ESLint errors in AuthProvider and PromptLoop
-3. `989362d` - Add custom logo to sidebar
-4. `abfbb63` - Rename UI labels: Loops→Workflows, Prompt Loop→Tasks
-5. `bedf193` - Rename loop references to task on Task page
-6. `07a6ae7` - Update search placeholder: loops → workflows
-7. `6668e22` - Rename Evidence to Artifacts throughout UI
-8. `6627184` - Rename Documents to Context in UI
-9. `3befa4e` - Reorder sidebar navigation items
-
-### Notes
-- Dev auth bypass: `VITE_DEV_AUTH_BYPASS=true`
-- Backend auth bypass: `SR_AUTH_TEST_MODE=true`
-- The `src/pages/PromptLoop.tsx` is the FUNCTIONAL one with SSE streaming; `src/screens/PromptLoopScreen.tsx` is a wireframe (can be removed)
+V3 is complete when all items in the "Review Issues Summary" table in SR-PLAN-V2 are resolved and the plan includes verification checklists for each phase.
 
 ---
 
-## Development Session Summary (2026-01-15)
+## Summary of Previous Development Iteration
 
-**Branch:** `solver-ralph-2`
+### Session: 2026-01-16 — Intakes & References Implementation Planning
 
-### Completed Work: Templates UI (Phase 1)
+**Objective:** Develop a comprehensive implementation plan for Intakes UI/API and References browser, aligned with SR-* governance framework.
 
-Implemented the Templates management page per SR-TEMPLATES.md, enabling users to browse, view, and instantiate templates from the 11 template categories.
+**Work Performed:**
 
-#### 1. Backend API (Rust)
+1. **Context Gathering**
+   - Read SR-README and SR-CHARTER for project orientation
+   - Read SR-WORK-SURFACE for authoritative Intake schema (§3)
+   - Read SR-CONTRACT for binding invariants (commitment objects, event attribution, typed refs)
+   - Read SR-SPEC for platform mechanics (TypedRef schema §1.5.3, iteration context refs §3.2.1.1)
+   - Read SR-TYPES for type taxonomy (`record.intake`, status enums)
+   - Read SR-PROCEDURE-KIT for procedure template structure
+   - Read SR-SEMANTIC-ORACLE-SPEC for oracle interface
 
-Created new Template Registry API in `crates/sr-api/src/handlers/templates.rs`:
+2. **Codebase Exploration**
+   - Discovered `Context.tsx` exists with Intakes tab, but **NO backend `/api/v1/context` endpoint**
+   - Found existing `IntakeDetail.tsx` (read-only)
+   - Confirmed no `handlers/intakes.rs` or `handlers/references.rs` exist
+   - Identified that `Sidebar.tsx` shows "Prompts" not "Intakes"
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/templates` | List all template instances (filterable by category) |
-| GET | `/api/v1/templates/:id` | Get template instance detail with schema |
-| POST | `/api/v1/templates` | Create new template instance |
-| GET | `/api/v1/templates/schemas` | List all template schemas |
-| GET | `/api/v1/templates/schemas/:type_key` | Get schema detail |
+3. **V1 Plan Development**
+   - Identified need for Phase 0 (backend) before UI work
+   - Proposed renaming Context → References
+   - Proposed Intakes as top-level nav item
 
-**Template Categories (7 user-facing tabs):**
-1. **Work Surface** - Intakes, Procedure Templates, Work Surface Instances
-2. **Execution** - Budget Configs, Gating Policies
-3. **Oracle** - Oracle Suite Definitions
-4. **Verification** - Verification Profiles
-5. **Semantic** - Semantic Sets
-6. **Context** - Iteration Context Refs
-7. **Exceptions** - Waivers, Deviations, Deferrals
+4. **V2 Plan Development**
+   - Added detailed Rust struct definitions
+   - Added API endpoint specifications
+   - Added UI component layouts
+   - Aligned terminology with SR-* documents
 
-#### 2. Frontend UI (React/TypeScript)
+5. **Ontological/Epistemological/Semantic Review**
+   - Identified 10 issues requiring resolution:
+     - High priority: Unify ref schemas, add event specs, add PostgreSQL schema, align status terminology
+     - Medium priority: Clarify by-hash retrieval, standardize API responses, complete RefRelation enum
+     - Lower priority: Split Phase 0, review existing templates.rs, add missing ref categories
 
-| Page | Route | Features |
-|------|-------|----------|
-| `Templates.tsx` | `/templates` | Category tabs, schema browser with expandable fields, instance list |
-| `TemplateDetail.tsx` | `/templates/:category/:templateId` | Full schema info, field tables, references, raw JSON viewer |
+6. **Artifacts Created**
+   - `docs/planning/SR-PLAN-V2.md` — Full implementation plan with embedded `[REVIEW NOTE]` markers for each issue
+   - Updated `docs/charter/SR-README.md` — Added prompt for next instance
 
-#### 3. Files Created/Modified
+**User Decisions Established:**
+- Intakes are a top-level nav item (separate from References)
+- Show all intakes regardless of status, with filter
+- No backward compatibility needed — clean implementation
+- Backend-first (Phase 0 before UI)
+- "References" is acceptable user-facing term (renamed from "Context")
+- "Prompts" stays as-is (lower priority)
 
-| File | Change |
-|------|--------|
-| `crates/sr-api/src/handlers/templates.rs` | NEW - Template registry (~600 lines) |
-| `crates/sr-api/src/handlers/mod.rs` | Export templates module |
-| `crates/sr-api/src/main.rs` | Add TemplateRegistryState, wire routes |
-| `ui/src/pages/Templates.tsx` | NEW - Templates list page |
-| `ui/src/pages/TemplateDetail.tsx` | NEW - Template detail page |
-| `ui/src/pages/index.ts` | Export new pages |
-| `ui/src/routes.tsx` | Add template routes |
-| `ui/src/layout/Sidebar.tsx` | Add Templates nav item |
+**Next Steps:**
+The next instance should read SR-PLAN-V2.md, verify the 10 identified issues against the governance docs, and produce SR-PLAN-V3.md with all issues resolved and implementation-ready detail.
 
-### Quality Status
-- Backend: `cargo build` PASS, 22 tests pass
-- Frontend: `npm run type-check && npm run build` PASS
+**No code was modified.** This was a planning-only session.
 
----
-
-## Completed Work: Templates UI (Phase 2) - Starter Templates
-
-### Overview
-
-Seeded the Templates registry with 11 starter reference templates demonstrating correct schema usage per SR-TEMPLATES. These are read-only examples users can clone.
-
-### Starter Templates Created
-
-| # | Type Key | Name | Category |
-|---|----------|------|----------|
-| 1 | `record.intake` | Standard Research Memo Intake | WorkSurface |
-| 2 | `config.procedure_template` | Research Memo Procedure | WorkSurface |
-| 3 | `domain.work_surface` | Example Work Surface Binding | WorkSurface |
-| 4 | `budget_config` | Standard Budget Policy | Execution |
-| 5 | `config.gating_policy` | Hybrid Gating Policy | Execution |
-| 6 | `verification_profile` | Project Standard Profile | Verification |
-| 7 | `config.semantic_set` | Research Memo Quality Set | SemanticSets |
-| 8 | `record.waiver` | Example Waiver Template | Exceptions |
-| 9 | `record.deviation` | Example Deviation Template | Exceptions |
-| 10 | `record.deferral` | Example Deferral Template | Exceptions |
-| 11 | `oracle_suite` | Custom Verification Suite | Oracle |
-
-### Implementation Details
-
-**Backend (`templates.rs`):**
-- Added `build_starter_instances()` method creating 11 templates
-- ID format: `tmpl_starter_{type_key_suffix}` (e.g., `tmpl_starter_intake`)
-- Status: `"reference"` (read-only)
-- Created by: `"system"`
-- Seeded on `TemplateRegistry::new()`
-
-**Frontend (Templates.tsx):**
-- Reference templates sorted first in each category
-- "Reference" badge (info tone - blue) on status pill
-- Clone button for reference templates
-- Clone creates editable copy with "(Copy)" suffix
-
-**Frontend (TemplateDetail.tsx):**
-- Read-only banner for reference templates
-- Clone Template button in header
-- Info banner explaining reference templates
-
-**UI Components:**
-- Added `--info` CSS variable (#2e5b8c) to theme.css
-- Added `info` tone to Pill component
-
-### Quality Status
-- Backend: `cargo build` PASS, 24 tests pass
-- Frontend: `npm run type-check && npm run build` PASS
-
----
-
-## Completed Work: Templates UI (Phase 3) - Clone & Edit Workflow
-
-### Overview
-
-Enhanced the Templates UI with full clone and edit capabilities, allowing users to create customized instances from reference templates.
-
-### New API Endpoint
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| PUT | `/api/v1/templates/:id` | Update template name and/or content |
-
-**Constraints:**
-- Reference templates (`status: "reference"`) cannot be updated directly
-- Must clone first to create editable copy
-
-### Frontend Enhancements
-
-**Templates.tsx - Starter Templates Section:**
-- Dedicated card-based layout for reference templates
-- Each card shows template name, type key, and "Reference" badge
-- **View** button → opens detail page
-- **Use Template** button → clones and opens edit mode
-
-**Templates.tsx - Your Templates Section:**
-- Table view for user-created template instances
-- Shows ID, name, type, status, hash, and created date
-
-**TemplateDetail.tsx - Clone & Edit:**
-- **Clone Template** button in reference banner (prominent placement)
-- **Use Template** button in header for reference templates
-- **Edit** button in header for user templates
-- Edit mode with:
-  - Template name input field
-  - JSON content textarea with syntax highlighting
-  - Save/Cancel buttons
-  - JSON validation before save
-- Auto-opens edit mode after cloning (`?edit=true` query param)
-
-### User Workflow
-
-1. Navigate to **Templates** in sidebar
-2. Select category tab (Work Surface, Oracle, etc.)
-3. View **Starter Templates** cards
-4. Click **Use Template** or **Clone Template**
-5. Customize name and JSON content for specific use case
-6. Click **Save Changes**
-7. New template appears in **Your Templates** section
-
-### Quality Status
-- Backend: `cargo build` PASS, 26 tests pass
-- Frontend: `npm run type-check && npm run build` PASS
-
-### Commits (2026-01-15 continued)
-- `75edc76` - Implement Templates UI with starter reference templates (Phase 1+2)
-- `2d4bc59` - Update SR-README.md with Phase 2 completion summary
-- `b1eb5aa` - Add starter templates visibility and user clone/edit workflow
-- `1658b78` - Add debug info card to Templates page for troubleshooting
-- `b286520` - Add Clone Template button to reference banner, remove debug code
-
----
-
-## Implementation Status
-
-### Templates UI - COMPLETE
-
-| Feature | Status |
-|---------|--------|
-| Template schemas (14 types) | ✅ Implemented |
-| Starter reference templates (11) | ✅ Implemented |
-| List/browse by category | ✅ Implemented |
-| View template details | ✅ Implemented |
-| Clone reference templates | ✅ Implemented |
-| Edit user templates | ✅ Implemented |
-| Create from schema | ⏳ Future |
-| Template versioning | ⏳ Future |
-| Portal approval integration | ⏳ Future |
-
-### Notes
-- Backend auth bypass: `SR_AUTH_TEST_MODE=true`
-- Frontend auth bypass: `VITE_DEV_AUTH_BYPASS=true`
-- Templates nav item added to sidebar
