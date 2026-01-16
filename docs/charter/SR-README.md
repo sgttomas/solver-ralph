@@ -63,6 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
+| SR-PLAN-V5 | **in progress** | Semantic Ralph Loop End-to-End Integration (Phases 5a-5d) |
 | SR-PLAN-V4 | **complete** | Work Surface Composition (Phase 4) — All phases complete |
 | SR-PLAN-V3 | **complete** | Intakes & References implementation (Phases 0-3) |
 | SR-PLAN-V2 | superseded | Intakes & References draft (10 unresolved issues) |
@@ -137,6 +138,45 @@ SR-PLAN-V4 (Work Surface Composition) is now fully implemented. All four phases 
 
 ## Summary of Previous Development Iterations
 
+### Session: 2026-01-15 — SR-PLAN-V5 Planning & Canonical Doc Updates
+
+**Objective:** Plan the Semantic Ralph Loop end-to-end integration (MVP completion) and update canonical specifications.
+
+**Work Performed:**
+
+1. **Gap Analysis**
+   - Reviewed SR-CHARTER §Immediate Objective (MVP requirements)
+   - Identified three integration gaps: Stage Advancement UI, Loop-Work Surface Binding, Approval-Gated Stages
+   - Explored codebase: loops.rs, iterations.rs, work_surfaces.rs, approvals.rs, governor.rs
+
+2. **SR-PLAN-V5 Created** (`docs/planning/SR-PLAN-V5.md`)
+   - Phase 5a: Stage Advancement UI — "Complete Stage" button in WorkSurfaceDetail
+   - Phase 5b: Loop ↔ Work Surface Binding — Loops inherit context automatically
+   - Phase 5c: Approval-Gated Stages — Trust boundaries enforced via portal approvals
+   - Phase 5d: End-to-End Integration Test — Prove complete workflow
+
+3. **Canonical Specification Updates**
+   - **SR-PROCEDURE-KIT §1:** Added `requires_approval` field to stage schema
+   - **SR-PROCEDURE-KIT §2:** Updated baseline template with approval requirements:
+     - FRAME, OPTIONS, DRAFT: `requires_approval: false`
+     - SEMANTIC_EVAL, FINAL: `requires_approval: true` (trust boundaries)
+   - **SR-CHANGE §0.4:** Logged specification change (G:MINOR classification)
+
+**Files Created/Modified:**
+
+| File | Action | Description |
+|------|--------|-------------|
+| `docs/planning/SR-PLAN-V5.md` | CREATE | Comprehensive E2E integration plan |
+| `docs/platform/SR-PROCEDURE-KIT.md` | EDIT | Added `requires_approval` field |
+| `docs/build-governance/SR-CHANGE.md` | EDIT | Added version 0.4 entry |
+| `docs/charter/SR-README.md` | EDIT | Added SR-PLAN-V5 status section |
+
+**No code was modified.** This was a planning and specification session.
+
+**Next Step:** Implement Phase 5a (Stage Advancement UI) per SR-PLAN-V5.
+
+---
+
 ### Session: 2026-01-15 — Phase 4d Implementation (Work Surface UI)
 
 **Objective:** Implement Phase 4d (Work Surface UI) per SR-PLAN-V4 §6.
@@ -189,9 +229,46 @@ SR-PLAN-V4 (Work Surface Composition) is now fully implemented. All four phases 
 
 ---
 
+## SR-PLAN-V5 Implementation Status
+
+**Status: IN PROGRESS**
+
+SR-PLAN-V5 (Semantic Ralph Loop End-to-End Integration) connects the infrastructure from V3+V4 into a functioning end-to-end workflow, completing the MVP per SR-CHARTER §Immediate Objective.
+
+### Phase Overview
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 5a | Pending | Stage Advancement UI — "Complete Stage" button in WorkSurfaceDetail |
+| Phase 5b | Pending | Loop ↔ Work Surface Binding — Loops inherit context automatically |
+| Phase 5c | Pending | Approval-Gated Stages — Trust boundaries enforced via portal approvals |
+| Phase 5d | Pending | End-to-End Integration Test — Prove the complete workflow |
+
+### Key Design Decisions (Resolved in SR-PLAN-V5)
+
+| Question | Resolution |
+|----------|------------|
+| Approval requirement location | In Procedure Template stage definitions via `requires_approval` field |
+| Approval enforcement | Stage completion checks for recorded approval at `portal:stage-gate:<stage_id>` |
+| Loop-Work Surface binding | Loop creation validates Work Surface exists; iterations auto-inherit context |
+| Trust boundary stages | SEMANTIC_EVAL and FINAL stages require approval in baseline template |
+
+### Planned Deliverables
+
+```
+ui/src/components/StageCompletionForm.tsx  — Stage completion form
+ui/src/components/EvidenceBundleSelector.tsx — Evidence picker
+ui/src/pages/WorkSurfaceDetail.tsx — Add stage completion UI
+crates/sr-api/src/handlers/loops.rs — Work Surface validation
+crates/sr-api/src/handlers/work_surfaces.rs — Approval check
+crates/sr-api/tests/integration/semantic_ralph_loop_e2e.rs — E2E test
+```
+
+---
+
 ## Prompt for Next Instance
 
-SR-PLAN-V4 is complete. Review SR-CHARTER to identify the next feature or task to implement.
+Evaluate the proposed implementation plan SR-PLAN-V5 Phase 5a (Stage Advancement UI). See `docs/planning/SR-PLAN-V5.md` for full specification.  Is this plan complete for the intended purpose?  Do you agree with the plan? Explain your rationale.  To do this properly you need to understand the canonical documents in the context of this SR-PLAN-V5.  Review the list of canonical documents and read thoroughly any applicable documents.  Review the codebase and read any pertinent files.  Then produce your report of findings and any recommendations to mitigate errors and omissions.
 
 ---
 

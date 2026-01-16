@@ -55,6 +55,18 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **SR-TYPES §7.7:** Expanded Work Surface schema with full field definitions including `WorkSurfaceId` (format: `ws:<ULID>`), `WorkSurfaceStatus` enum, `StageCompletionStatus` enum, and `StageStatusRecord` structure.
 - **Classification:** G:MINOR (additive; backward-compatible; existing baselines remain interpretable).
 
+### 0.4  (2026-01-15)
+
+- **SR-PROCEDURE-KIT §1:** Added `requires_approval` field to stage schema alignment table. This boolean field indicates whether a stage represents a trust boundary requiring HUMAN approval via portal before transition. Default is `false`.
+- **SR-PROCEDURE-KIT §2:** Updated baseline template GENERIC-KNOWLEDGE-WORK to include `requires_approval` for all stages:
+  - `stage:FRAME` — `false`
+  - `stage:OPTIONS` — `false`
+  - `stage:DRAFT` — `false`
+  - `stage:SEMANTIC_EVAL` — `true` (trust boundary: human must verify oracle results)
+  - `stage:FINAL` — `true` (trust boundary: human must approve final candidate)
+- **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
+- **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
+
 ---
 
 ## 1. What requires change control

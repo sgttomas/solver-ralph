@@ -53,6 +53,7 @@ A procedure template MUST declare:
 | `required_oracle_suites[]` | "Required oracle suites:" | |
 | `gate_rule` | Implicit | Default: `all_required_oracles_pass` unless stated |
 | `transition_on_pass` | "Transition on pass:" | |
+| `requires_approval` | "Requires approval:" | Trust boundary flag; if `true`, stage completion requires HUMAN approval via portal before transition (default: `false`) |
 
 ---
 
@@ -77,6 +78,8 @@ This baseline template is intentionally abstract. It is suitable when you want a
 **Required oracle suites (examples):**
 - `suite:SR-SUITE-STRUCTURE` (required sections present; schema validation)
 
+**Requires approval:** `false`
+
 **Transition on pass:** `stage:OPTIONS`
 
 ---
@@ -91,6 +94,8 @@ This baseline template is intentionally abstract. It is suitable when you want a
 
 **Required oracle suites (examples):**
 - `suite:SR-SUITE-NONTRIVIALITY` (guards against vacuous options)
+
+**Requires approval:** `false`
 
 **Transition on pass:** `stage:DRAFT`
 
@@ -107,6 +112,8 @@ This baseline template is intentionally abstract. It is suitable when you want a
 - `suite:SR-SUITE-STRUCTURE`
 - `suite:SR-SUITE-TRACEABILITY`
 
+**Requires approval:** `false`
+
 **Transition on pass:** `stage:SEMANTIC_EVAL`
 
 ---
@@ -122,6 +129,8 @@ This baseline template is intentionally abstract. It is suitable when you want a
 **Required oracle suites:**
 - `suite:SR-SUITE-SEMANTIC:<domain_or_stage>` (implementation-defined; see SR-SEMANTIC-ORACLE-SPEC)
 
+**Requires approval:** `true` — Semantic evaluation represents a trust boundary; human must verify oracle results before proceeding to final stage.
+
 **Transition on pass:** `stage:FINAL`
 
 ---
@@ -133,11 +142,13 @@ This baseline template is intentionally abstract. It is suitable when you want a
 - `candidate/final.md` (or equivalent)
 - `evidence/gate_packet.json` (recorded by platform as `evidence.gate_packet`)
 
-*Clarification:* `evidence/gate_packet.json` is the **manifest carrier** for the iteration’s Evidence Bundle(s) (domain object `domain.evidence_bundle`). The bundle MUST bind to `candidate_id`, `procedure_template_id`, `stage_id`, and any relevant `suite_hash` values so replay can determine “what was verified”.
+*Clarification:* `evidence/gate_packet.json` is the **manifest carrier** for the iteration's Evidence Bundle(s) (domain object `domain.evidence_bundle`). The bundle MUST bind to `candidate_id`, `procedure_template_id`, `stage_id`, and any relevant `suite_hash` values so replay can determine "what was verified".
 
 **Required oracle suites:**
 - `suite:SR-SUITE-REFS` (no ghost inputs; refs integrity)
 - stage-appropriate semantic suite (if required by profile)
+
+**Requires approval:** `true` — Terminal stage represents a trust boundary; human must approve final candidate before work surface completion.
 
 **Transition on pass:** terminal
 
