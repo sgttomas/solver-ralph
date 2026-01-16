@@ -1811,6 +1811,44 @@ To protect the integrity of governance artifacts and evidence:
 - `RunCompleted`
 - `EvidenceBundleRecorded`
 
+**Oracle Execution (SR-PLAN-V8 V8-2)**
+- `OracleExecutionStarted`
+
+  **Event type:** `OracleExecutionStarted`
+  **Stream kind:** `RUN`
+  **Stream id:** `run:{run_id}`
+
+  **Payload (v1):**
+  ```jsonc
+  {
+    "run_id": "run_01J...",
+    "candidate_id": "cand_01J...",
+    "suite_id": "suite:core-v1",
+    "suite_hash": "sha256:...",
+    "workspace_path": "/tmp/sr-workspaces/cand_01J...",
+    "started_at": "2026-01-16T..."
+  }
+  ```
+
+- `OracleExecutionCompleted`
+
+  **Payload (v1):**
+  ```jsonc
+  {
+    "run_id": "run_01J...",
+    "candidate_id": "cand_01J...",
+    "suite_id": "suite:core-v1",
+    "status": "PASS|FAIL|ERROR",
+    "evidence_bundle_hash": "sha256:...",
+    "environment_fingerprint": { ... },
+    "duration_ms": 12345,
+    "completed_at": "2026-01-16T...",
+    "error": null
+  }
+  ```
+
+  **Note:** These events are emitted by the `OracleExecutionWorker` which subscribes to `RunStarted` events and orchestrates oracle suite execution. TAMPER detection (C-OR-2) is performed before execution by validating the suite hash against the registry.
+
 **Oracle suites**
 - `OracleSuiteRegistered`
 - `OracleSuiteUpdated`
