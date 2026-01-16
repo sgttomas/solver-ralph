@@ -158,6 +158,15 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 | `crates/sr-adapters/src/candidate_store.rs` | CREATED — Workspace materializer |
 | `crates/sr-adapters/src/oracle_worker.rs` | CREATED — Event-driven worker |
 | `crates/sr-adapters/src/lib.rs` | MODIFIED — Exports new modules |
+| `docs/platform/SR-SPEC.md` | MODIFIED — Added OracleExecution events to Appendix A |
+| `docs/planning/SR-PLAN-V8.md` | MODIFIED — Marked V8-2 acceptance criteria complete |
+
+### Git Commits
+
+| Commit | Description |
+|--------|-------------|
+| `b4ffac4` | V8-2: Complete Event-Driven Oracle Execution Worker |
+| `d5d863c` | docs: Add OracleExecution events to SR-SPEC Appendix A |
 
 ### Implementation Notes
 
