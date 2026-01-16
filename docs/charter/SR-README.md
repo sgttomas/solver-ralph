@@ -63,6 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
+| SR-PLAN-V6 | **draft** | UI Integration for MVP Workflow (pending research & validation) |
 | SR-PLAN-V5 | **complete** | Semantic Ralph Loop End-to-End Integration (Phases 5a-5d) |
 | SR-PLAN-V4 | **complete** | Work Surface Composition (Phase 4) — All phases complete |
 | SR-PLAN-V3 | **complete** | Intakes & References implementation (Phases 0-3) |
@@ -465,67 +466,112 @@ All four phases of SR-PLAN-V5 are implemented and verified:
 
 ---
 
-## Next Instance Prompt: Clean Up Compiler Warnings
+## Next Instance Prompt: Research & Validate SR-PLAN-V6
 
 ### Context
 
-The Semantic Ralph Loop MVP (SR-PLAN-V5) is complete. The E2E integration tests are passing. The remaining task is to clean up compiler warnings across the codebase.
+The Semantic Ralph Loop MVP API (SR-PLAN-V5) is complete and proven via E2E tests. The next milestone is making the MVP **usable by humans** through UI integration. A draft plan exists at `docs/planning/SR-PLAN-V6.md` but requires research and validation before implementation.
 
 ### Current State
 
 - Branch: `solver-ralph-6`
-- All tests passing: `cargo test --workspace`
-- E2E tests passing: `cargo test --package sr-api --test semantic_ralph_loop_e2e -- --ignored`
-- API runs successfully with `SR_AUTH_TEST_MODE=true cargo run --package sr-api`
+- MVP API complete and tested
+- Draft plan: `docs/planning/SR-PLAN-V6.md`
+- UI codebase exists in `ui/` (needs inventory)
 
 ### Assignment
 
-Remove all compiler warnings from `sr-adapters` and `sr-api` crates. There are approximately 54 warnings total:
+Research, validate, and expand SR-PLAN-V6 into a comprehensive implementation plan. This is a **research and planning task**, not an implementation task.
 
-**sr-adapters (37 warnings):**
-- Unused imports in: `governor.rs`, `graph.rs`, `infisical.rs`, `integrity.rs`, `oracle_runner.rs`, `oracle_suite.rs`, `outbox.rs`, `projections.rs`, `restricted.rs`, `semantic_worker.rs`, `worker.rs`, `nats.rs`
-- Unused variables in: `governor.rs`, `infisical.rs`, `nats.rs`, `oracle_suite.rs`, `semantic_suite.rs`, `semantic_worker.rs`
-- Dead code (never read fields): `governor.rs`, `infisical.rs`, `nats.rs`, `restricted.rs`, `semantic_worker.rs`
+### Research Tasks
 
-**sr-api (17 warnings):**
-- Unused imports in: `auth.rs`, `config.rs`, `approvals.rs`, `evidence.rs`, `iterations.rs`, `loops.rs`, `oracles.rs`, `runs.rs`, `work_surfaces.rs`, `main.rs`
-- Unused variable in: `evidence.rs`
+**1. UI Codebase Inventory**
 
-### Approach
+Explore the existing UI to understand patterns and what already exists:
 
-1. Use `cargo fix --lib -p sr-adapters` and `cargo fix --bin "sr-api" -p sr-api` to auto-fix what can be auto-fixed
-2. Manually review and fix dead code warnings (decide whether to use `#[allow(dead_code)]` for intentionally unused fields or remove them)
-3. Prefix intentionally unused variables with `_`
-4. Verify with `cargo build --workspace 2>&1 | grep -c warning` (should be 0)
-5. Run `cargo test --workspace` to ensure nothing broke
-6. Commit and push
+```bash
+ls -la ui/src/
+ls -la ui/src/components/
+ls -la ui/src/pages/
+ls -la ui/src/api/ || ls -la ui/src/services/
+cat ui/package.json  # Dependencies
+cat ui/src/App.tsx   # Routing structure
+```
+
+Document findings:
+- Routing library (React Router?)
+- Styling approach (Tailwind? CSS modules?)
+- State management (React Query? Redux? Context?)
+- Existing components relevant to the plan
+- Existing API client code
+
+**2. Validate Assumptions in SR-PLAN-V6**
+
+The draft plan makes assumptions that need validation:
+- [ ] Does StageCompletionForm exist from Phase 5a?
+- [ ] Is there existing Work Surface UI from Phase 4?
+- [ ] What API client patterns exist?
+- [ ] Does the portal ID convention match: `portal:STAGE_COMPLETION:{stage_id}`?
+
+**3. API Response Shape Verification**
+
+With API running, capture actual response shapes:
+
+```bash
+SR_AUTH_TEST_MODE=true cargo run --package sr-api &
+sleep 3
+curl -s http://localhost:3000/api/v1/work-surfaces -H "Authorization: Bearer test" | jq . > /tmp/work-surfaces-response.json
+curl -s http://localhost:3000/api/v1/templates?category=work-surface -H "Authorization: Bearer test" | jq . > /tmp/templates-response.json
+```
+
+Verify TypeScript types in plan match actual API responses.
+
+**4. Documentation Review**
+
+Read for context that may affect the plan:
+- `docs/platform/SR-SPEC.md` — Any UI guidance?
+- `docs/platform/SR-WORK-SURFACE.md` — Work surface UX implications
+- `docs/platform/SR-INTENT.md` — Design rationale
+
+**5. Refine SR-PLAN-V6**
+
+Based on research, update the plan:
+- Add/remove/modify phases as needed
+- Update file paths to match existing structure
+- Resolve open questions
+- Add any discovered constraints or dependencies
+- Ensure deliverables are specific (file paths, not abstractions)
+
+### Deliverables
+
+1. **Updated `docs/planning/SR-PLAN-V6.md`** with:
+   - Research findings incorporated
+   - Assumptions validated or corrected
+   - Open questions resolved
+   - Concrete file paths for all deliverables
+   - Status changed from "Draft" to "Ready for Implementation"
+
+2. **Session notes in SR-README.md** documenting:
+   - What was discovered about the UI codebase
+   - Key decisions made
+   - Any blockers or concerns
 
 ### Guidelines
 
-- For dead code that is part of a planned but unimplemented feature, use `#[allow(dead_code)]` with a comment explaining why
-- For dead code that was scaffolding from earlier phases and is no longer needed, remove it
-- Check the SR-* documentation if unsure whether something is planned for future use
-- Do NOT change any logic - only clean up unused code
+- This is **research and planning**, not implementation
+- Read code to understand patterns, don't modify it yet
+- If you discover the UI is more/less complete than expected, adjust the plan
+- If you find blockers (e.g., UI won't start, missing dependencies), document them
+- The goal is a plan detailed enough that the NEXT instance can implement without exploration
 
 ### Verification
 
-```bash
-# After fixes, these should produce no warnings:
-cargo build --workspace 2>&1 | grep "^warning:" | wc -l  # Should be 0
-cargo test --workspace  # All tests should pass
-cargo test --package sr-api --test semantic_ralph_loop_e2e -- --ignored  # E2E should pass
-```
-
-### Commit Message Template
-
-```
-Clean up compiler warnings in sr-adapters and sr-api
-
-- Remove unused imports across multiple files
-- Prefix intentionally unused variables with underscore
-- Add #[allow(dead_code)] for planned-but-unimplemented features
-- Remove obsolete scaffolding code
-
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
-```
+The plan is ready when:
+- [ ] All research tasks completed
+- [ ] UI codebase structure documented
+- [ ] Existing components inventoried
+- [ ] API response shapes verified
+- [ ] SR-PLAN-V6 updated with findings
+- [ ] Open questions resolved or explicitly deferred
+- [ ] File paths are concrete, not abstract
 
