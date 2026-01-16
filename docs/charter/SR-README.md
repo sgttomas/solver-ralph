@@ -68,11 +68,11 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 ---
 
-## Prompt for Next Instance: Intakes & References Implementation
+## Prompt for Next Instance: Phase 3 — References UI
 
 ### Task
 
-Continue implementing the Intakes & References infrastructure per **SR-PLAN-V3.md**.
+Implement **Phase 3: References Browser UI** per SR-PLAN-V3 §3.
 
 ### Current Progress
 
@@ -85,153 +85,180 @@ Continue implementing the Intakes & References infrastructure per **SR-PLAN-V3.m
 | Phase 2 | **Complete** | Intakes UI — Full Intake CRUD UI |
 | Phase 3 | Pending | References UI — References browser UI |
 
-### Next Step
+### Current State
 
-Begin **Phase 3: References UI** — implement References browser UI per SR-PLAN-V3 §3 (Phase 3).
+**References.tsx exists** but uses old `/api/v1/context` endpoint. It has:
+- Tab-based UI (Documents, Intakes, Bundles)
+- File upload functionality
+- Basic stats overview
 
-### Current UI Structure (Phase 1 Output)
+**This needs to be refactored** to use the new References API (Phase 0c) with:
+- Category sidebar per SR-PLAN-V3 §2.1 (12 categories)
+- Category-specific list views
+- Proper pagination
+- Search within category
 
-**Sidebar navigation** (`ui/src/layout/Sidebar.tsx`):
-- Loops → **Intakes** → **References** → Prompts
+### Backend API Available (Phase 0c)
 
-**Routes** (`ui/src/routes.tsx`):
-```
-/intakes                  → Intakes.tsx (stub - implement in Phase 2)
-/intakes/new              → IntakeCreate.tsx (stub - implement in Phase 2)
-/intakes/:intakeId        → IntakeDetail.tsx (exists, needs lifecycle actions)
-/intakes/:intakeId/edit   → IntakeEdit.tsx (stub - implement in Phase 2)
-/references               → References.tsx (functional, renamed from Context)
-/references/documents/:id → ReferenceDocumentDetail.tsx
-/references/bundles/:id   → ReferenceBundleDetail.tsx
-/references/governed-artifacts/:id → GovernedArtifactDetail.tsx (stub)
-```
-
-**Stub pages to implement** (currently show placeholder text):
-- `ui/src/pages/Intakes.tsx` — List page
-- `ui/src/pages/IntakeCreate.tsx` — Create form
-- `ui/src/pages/IntakeEdit.tsx` — Edit form
-
-**Existing page to enhance**:
-- `ui/src/pages/IntakeDetail.tsx` — Needs lifecycle action buttons
-
-### Backend API Available (Phase 0b)
-
-The Intakes API is fully implemented in `crates/sr-api/src/handlers/intakes.rs`:
+References API implemented in `crates/sr-api/src/handlers/references.rs`:
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/api/v1/intakes` | Create draft intake |
-| GET | `/api/v1/intakes` | List intakes (query: `status`, `kind`, `page`, `page_size`) |
-| GET | `/api/v1/intakes/:intake_id` | Get intake by ID |
-| GET | `/api/v1/intakes/by-hash/:content_hash` | Get intake(s) by content hash |
-| PUT | `/api/v1/intakes/:intake_id` | Update draft intake |
-| DELETE | `/api/v1/intakes/:intake_id` | Delete draft intake |
-| POST | `/api/v1/intakes/:intake_id/activate` | Transition draft → active |
-| POST | `/api/v1/intakes/:intake_id/archive` | Transition active → archived |
-| POST | `/api/v1/intakes/:intake_id/fork` | Fork to new draft |
+| GET | `/api/v1/references` | List all refs (query: `kind`, `rel`, `page`, `page_size`) |
+| GET | `/api/v1/references/governed-artifacts` | List governed artifacts |
+| GET | `/api/v1/references/governed-artifacts/:id` | Get governed artifact detail |
+| GET | `/api/v1/references/candidates` | List candidates |
+| GET | `/api/v1/references/evidence-bundles` | List evidence bundles |
+| GET | `/api/v1/references/evidence-bundles/:hash` | Get evidence bundle detail |
+| GET | `/api/v1/references/oracle-suites` | List oracle suites |
+| GET | `/api/v1/references/procedure-templates` | List procedure templates |
+| GET | `/api/v1/references/exceptions` | List active exceptions |
+| GET | `/api/v1/references/iteration-summaries` | List iteration summaries |
+| GET | `/api/v1/references/agent-definitions` | List agent definitions |
+| GET | `/api/v1/references/gating-policies` | List gating policies |
+| GET | `/api/v1/references/intakes` | List intakes |
+| POST | `/api/v1/references/documents` | Upload document (multipart) |
+| GET | `/api/v1/references/documents/:id` | Get document detail |
 
-### Intake Schema (SR-WORK-SURFACE §3.1)
-
-Required fields for intake creation/editing:
-
+**Response Format** (all list endpoints):
 ```typescript
-interface IntakeForm {
-  work_unit_id: string;        // e.g., "wu:research-rate-limiting"
-  title: string;               // Human-readable title
-  kind: WorkKind;              // research_memo | decision_record | ontology_build | analysis_report | design_document | review_response
-  objective: string;           // ONE sentence
-  audience: string;            // Target audience
-  deliverables: Deliverable[]; // { name, format, path, description? }
-  constraints: string[];       // Length, tone, required sections, etc.
-  definitions: Record<string, string>; // Term definitions
-  inputs: TypedRef[];          // Content-addressed references
-  unknowns: string[];          // Questions to resolve
-  completion_criteria: string[]; // Success criteria
+interface ReferencesListResponse {
+  refs: TypedRef[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+interface TypedRef {
+  kind: string;           // e.g., "GovernedArtifact", "Intake", "Candidate"
+  id: string;             // Identifier
+  rel: string;            // Relationship type
+  meta?: {
+    content_hash?: string;
+    version?: string;
+    type_key?: string;
+    selector?: string;
+  };
+  label?: string;         // Human-readable label
 }
 ```
 
-### Deliverables (Phase 2)
+### Reference Categories (SR-PLAN-V3 §2.1)
 
-1. **Intakes list page** (`ui/src/pages/Intakes.tsx`)
-   - Fetch from `GET /api/v1/intakes`
-   - Filter by status (draft/active/archived), kind
-   - Search by title
-   - Status badges: Draft=yellow (`warning`), Active=green (`success`), Archived=gray (`neutral`)
-   - Pagination using `page` and `page_size` query params
-   - "New Intake" button → `/intakes/new`
-   - Click row → `/intakes/:intakeId`
+| Category | RefKind | Endpoint |
+|----------|---------|----------|
+| Governing Artifacts | `GovernedArtifact` | `/references/governed-artifacts` |
+| Procedure Templates | `ProcedureTemplate` | `/references/procedure-templates` |
+| Oracle Suites | `OracleSuite` | `/references/oracle-suites` |
+| Uploaded Documents | `GovernedArtifact` | `/references/documents` |
+| Evidence Bundles | `EvidenceBundle` | `/references/evidence-bundles` |
+| Iteration Summaries | `Iteration` | `/references/iteration-summaries` |
+| Candidates | `Candidate` | `/references/candidates` |
+| Active Exceptions | `Deviation`/`Deferral`/`Waiver` | `/references/exceptions` |
+| Agent Definitions | `AgentDefinition` | `/references/agent-definitions` |
+| Gating Policies | `GatingPolicy` | `/references/gating-policies` |
+| Intakes | `Intake` | `/references/intakes` |
 
-2. **Intake create form** (`ui/src/pages/IntakeCreate.tsx`)
-   - POST to `/api/v1/intakes`
-   - All SR-WORK-SURFACE §3.1 fields
-   - Array editors for: deliverables, constraints, unknowns, completion_criteria
-   - Key-value editor for definitions
-   - Input references selector (TypedRef picker - can be simplified for Phase 2)
-   - On success → navigate to `/intakes/:intakeId`
+### Current Routes
 
-3. **Intake detail page** (`ui/src/pages/IntakeDetail.tsx`) — **Enhance existing**
-   - Add lifecycle action buttons based on status:
-     - Draft: [Edit] → `/intakes/:id/edit`, [Activate] → POST activate, [Delete] → DELETE
-     - Active: [Fork to New Draft] → POST fork, [Archive] → POST archive
-     - Archived: [Fork to New Draft] → POST fork
-   - Display content_hash for Active/Archived intakes
-   - Show activated_at, activated_by for Active intakes
+```
+/references                           → References.tsx (refactor needed)
+/references/documents/:documentId     → ReferenceDocumentDetail.tsx (exists)
+/references/bundles/:bundleId         → ReferenceBundleDetail.tsx (exists)
+/references/governed-artifacts/:id    → GovernedArtifactDetail.tsx (stub)
+```
 
-4. **Intake edit form** (`ui/src/pages/IntakeEdit.tsx`)
-   - Fetch from `GET /api/v1/intakes/:intake_id`
-   - PUT to `/api/v1/intakes/:intake_id`
-   - Same form as create, pre-populated
-   - Only accessible for Draft status (redirect if not draft)
+### Deliverables (Phase 3)
+
+1. **Refactor References.tsx**
+   - Replace tab-based UI with category sidebar
+   - Category sidebar on left, list view on right
+   - Each category shows count badge
+   - Selected category fetches from corresponding endpoint
+   - Pagination using `page` and `page_size`
+   - Search input (client-side filter on label/id)
+   - Keep document upload functionality
+
+2. **Category List View Component**
+   - Reusable component for displaying TypedRef[] list
+   - Columns: Label/ID, Kind, Relation, Content Hash (truncated)
+   - Click row → navigate to appropriate detail page
+   - Loading and empty states
+
+3. **Detail View Pages**
+   - `GovernedArtifactDetail.tsx` — Implement (currently stub)
+   - `ReferenceDocumentDetail.tsx` — Verify/update if needed
+   - `ReferenceBundleDetail.tsx` — Verify/update if needed
+   - For Intakes: link to `/intakes/:id` (already complete)
+
+### UI Layout Sketch
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ References                                              │
+├─────────────┬───────────────────────────────────────────┤
+│ Categories  │  [Search input]                  [Upload] │
+│             │───────────────────────────────────────────│
+│ • Governing │  | Label        | Kind    | Hash       | │
+│   Artifacts │  |──────────────|─────────|────────────| │
+│ • Templates │  | SR-CONTRACT  | Govern  | sha256:abc | │
+│ • Suites    │  | SR-SPEC      | Govern  | sha256:def | │
+│ • Documents │  | ...          |         |            | │
+│ • Bundles   │  │                                      │ │
+│ • Iterations│  ├──────────────────────────────────────┤ │
+│ • Candidates│  │ Page 1 of 3        [<] [1] [2] [3] [>]│ │
+│ • Exceptions│  └──────────────────────────────────────┘ │
+│ • Agents    │                                           │
+│ • Policies  │                                           │
+│ • Intakes   │                                           │
+└─────────────┴───────────────────────────────────────────┘
+```
 
 ### UI Patterns Reference
 
-Existing pages to reference for patterns:
-- `ui/src/pages/Loops.tsx` — List page with filters and pagination
-- `ui/src/pages/LoopDetail.tsx` — Detail page with action buttons
-- `ui/src/pages/Templates.tsx` — Complex forms
-- `ui/src/ui/index.tsx` — Shared components (Card, Pill, Button, etc.)
-- `ui/src/styles/pages.module.css` — Shared page styles
+From Phase 2 implementation:
+- `ui/src/pages/Intakes.tsx` — List page with filters, pagination
+- `ui/src/pages/IntakeDetail.tsx` — Detail page with sections
+- `ui/src/components/ArrayStringEditor.tsx` — Reusable editors
+- `ui/src/styles/pages.module.css` — Shared styles
 
 Auth pattern:
 ```typescript
 const auth = useAuth();
-fetch(`${config.apiUrl}/api/v1/intakes`, {
+fetch(`${config.apiUrl}/api/v1/references/governed-artifacts`, {
   headers: { Authorization: `Bearer ${auth.user.access_token}` }
 });
 ```
 
 ### Required Reading
 
-1. **`docs/planning/SR-PLAN-V3.md`** §3 (Phase 2) — Full Intakes UI specification
-2. **`docs/platform/SR-WORK-SURFACE.md`** §3.1 — Intake schema definition
-3. **`crates/sr-api/src/handlers/intakes.rs`** — Backend API implementation
-4. **`ui/src/pages/Loops.tsx`** — Reference for list page pattern
-5. **`ui/src/pages/LoopDetail.tsx`** — Reference for detail page with actions
+1. **`docs/planning/SR-PLAN-V3.md`** §2 & §3 (Phase 3) — References API & UI specification
+2. **`crates/sr-api/src/handlers/references.rs`** — Backend API implementation
+3. **`ui/src/pages/References.tsx`** — Current implementation to refactor
+4. **`ui/src/pages/Intakes.tsx`** — Reference for list page pattern (Phase 2)
 
 ### Verification
 
-After Phase 2:
+After Phase 3:
 ```bash
 cd ui
 npm run type-check    # No TypeScript errors
 npm run build         # Build succeeds
 npm run dev           # Manual verification:
-                      #   - Navigate to /intakes
-                      #   - Create new intake
-                      #   - View intake detail
-                      #   - Edit draft intake
-                      #   - Activate intake
-                      #   - Fork active intake
-                      #   - Archive active intake
+                      #   - Navigate to /references
+                      #   - Click each category, verify list loads
+                      #   - Verify pagination works
+                      #   - Click item, verify detail page loads
+                      #   - Upload document, verify it appears
 ```
 
 ### Constraints
 
-- **Phase 1 complete** — UI structure and routes are ready
-- **Follow SR-PLAN-V3** — All components and interactions are specified
-- **Use existing API** — Backend Intakes API is ready (Phase 0b complete)
-- **Use existing patterns** — Follow Loops.tsx/LoopDetail.tsx patterns
-- **Stop after phase** — Wait for instructions before proceeding to Phase 3
+- **Phase 0c complete** — Backend References API is ready
+- **Phase 2 complete** — Can reference Intakes.tsx patterns
+- **Follow SR-PLAN-V3** — Category structure and endpoints are specified
+- **Preserve upload functionality** — Keep document upload in refactored page
+- **Stop after phase** — This completes the Intakes & References implementation
 
 ---
 
