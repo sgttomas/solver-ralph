@@ -82,12 +82,12 @@ Continue implementing the Intakes & References infrastructure per **SR-PLAN-V3.m
 | Phase 0b | **Complete** | Intake API — Intake handler with CRUD + lifecycle operations |
 | Phase 0c | **Complete** | References API — References browser backend (15 endpoints) |
 | Phase 1 | **Complete** | UI Structure — Sidebar and route reorganization |
-| Phase 2 | Pending | Intakes UI — Full Intake CRUD UI |
+| Phase 2 | **Complete** | Intakes UI — Full Intake CRUD UI |
 | Phase 3 | Pending | References UI — References browser UI |
 
 ### Next Step
 
-Begin **Phase 2: Intakes UI** — implement full Intake CRUD UI per SR-PLAN-V3 §3 (Phase 2).
+Begin **Phase 3: References UI** — implement References browser UI per SR-PLAN-V3 §3 (Phase 3).
 
 ### Current UI Structure (Phase 1 Output)
 
@@ -236,6 +236,49 @@ npm run dev           # Manual verification:
 ---
 
 ## Summary of Previous Development Iterations
+
+### Session: 2026-01-15 — Phase 2 Implementation
+
+**Objective:** Implement Phase 2 of SR-PLAN-V3 (Intakes UI — Full Intake CRUD UI).
+
+**Work Performed:**
+
+1. **Shared Editor Components Created**
+   - `ArrayStringEditor.tsx` — Reusable array editor for constraints, unknowns, completion_criteria
+   - `DeliverablesEditor.tsx` — Editor for deliverables array (name, format, path, description)
+   - `DefinitionsEditor.tsx` — Key-value editor for term definitions
+   - `InputsEditor.tsx` — TypedRef picker for input references
+   - `IntakeLifecycleActions.tsx` — Status-based action buttons with confirmation dialogs
+
+2. **IntakeDetail.tsx Updated**
+   - Fixed endpoint: `/api/v1/context/intakes/` → `/api/v1/intakes/`
+   - Updated TypeScript interfaces to match backend response
+   - Added lifecycle action buttons (Edit, Activate, Fork, Archive)
+   - Added sections: Definitions, Unknowns, Completion Criteria
+   - Added display for activated_at/activated_by and archived_at/archived_by
+
+3. **Intakes.tsx Implemented**
+   - Full list page with status and kind filters
+   - Client-side search by title, objective, or ID
+   - Pagination with page size selector
+   - Status badges: draft=warning, active=success, archived=neutral
+   - Clickable rows navigate to detail page
+
+4. **IntakeCreate.tsx Implemented**
+   - Form with all SR-WORK-SURFACE §3.1 fields
+   - Uses shared editor components
+   - Validation and error handling
+   - POSTs to `/api/v1/intakes`
+
+5. **IntakeEdit.tsx Implemented**
+   - Fetches existing intake data
+   - Redirects if intake is not draft (immutable)
+   - PUTs to `/api/v1/intakes/:intake_id`
+   - Work Unit ID and Kind are read-only after creation
+
+**Verification:** `npm run type-check` and `npm run build` pass.
+
+---
 
 ### Session: 2026-01-15 — Phase 1 Implementation
 
