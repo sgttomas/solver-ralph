@@ -34,7 +34,7 @@ When troubleshooting, refer to the appropriate SR-* documents.
 
 ## Canonical document paths
 
-Canonical index for the SR-* document set. 
+Canonical index for the SR-* document set.
 
 | doc_id | Folder | Purpose |
 |--------|--------|---------|
@@ -57,87 +57,136 @@ Canonical index for the SR-* document set.
 | SR-TEMPLATES | `platform/` | User configuration registry |
 | SR-README | `charter/` | This index |
 
-## Prompt for Next Instance: Intakes & References Plan Review
+### Feature Implementation Plans
 
-### Task
+The `docs/planning/` folder contains feature-specific implementation plans that are subordinate to SR-PLAN. These plans detail specific feature implementations and are not permanent governance documents — they become historical artifacts once implementation is complete.
 
-Review and finalize the implementation plan for **Intakes** and **References** UI/API infrastructure. Produce a V3 plan that resolves all identified issues and is implementation-ready.
-
-### Required Reading (in order)
-
-1. **This file** (SR-README) - Project context and canonical document index
-2. **`docs/planning/SR-PLAN-V2.md`** - The current plan with embedded review notes marking 10 issues to resolve
-3. **Core governance docs** (for verification):
-   - `docs/platform/SR-CONTRACT.md` - Binding invariants (highest precedence)
-   - `docs/platform/SR-SPEC.md` - Platform mechanics, TypedRef schema (§1.5.3), iteration context refs (§3.2.1.1)
-   - `docs/platform/SR-TYPES.md` - Type taxonomy (`record.intake`, status enums)
-   - `docs/platform/SR-WORK-SURFACE.md` - Intake schema definition (§3)
-
-### Deliverable
-
-Write `docs/planning/SR-PLAN-V3.md` that:
-
-1. Resolves all 10 issues marked as `[REVIEW NOTE]` in SR-PLAN-V2
-2. Includes complete Rust structs, PostgreSQL schemas, event definitions, API specs with JSON examples
-3. Splits Phase 0 into manageable sub-phases
-4. Documents any intentional deviations from SR-* specifications
-
-### Constraints
-
-- **Do NOT begin implementation** - This is planning only
-- **Backend-first** - Phase 0 before UI phases
-- **Intakes are top-level nav** - Separate from References
-- **No backward compatibility** - Clean implementation aligned with specs
-
-### Success Criteria
-
-V3 is complete when all items in the "Review Issues Summary" table in SR-PLAN-V2 are resolved and the plan includes verification checklists for each phase.
+| doc_id | Status | Purpose |
+|--------|--------|---------|
+| SR-PLAN-V3 | active | Intakes & References implementation (Phases 0-3) |
+| SR-PLAN-V2 | superseded | Intakes & References draft (10 unresolved issues) |
 
 ---
 
-## Summary of Previous Development Iteration
+## Prompt for Next Instance: Intakes & References Implementation
 
-### Session: 2026-01-16 — Intakes & References Implementation Planning
+### Task
 
-**Objective:** Develop a comprehensive implementation plan for Intakes UI/API and References browser, aligned with SR-* governance framework.
+Continue implementing the Intakes & References infrastructure per **SR-PLAN-V3.md**.
+
+### Current Progress
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 0a | **Complete** | Core Infrastructure — TypedRef module, Intake domain, database migrations, event definitions |
+| Phase 0b | **Complete** | Intake API — Intake handler with CRUD + lifecycle operations |
+| Phase 0c | Pending | References API — References browser backend |
+| Phase 1 | Pending | UI Structure — Sidebar and route reorganization |
+| Phase 2 | Pending | Intakes UI — Full Intake CRUD UI |
+| Phase 3 | Pending | References UI — References browser UI |
+
+### Next Step
+
+Begin **Phase 0c: References API** — implement the References browser backend per SR-PLAN-V3 §2.
+
+### Required Reading
+
+1. **`docs/planning/SR-PLAN-V3.md`** §2 — References API specification
+2. **`docs/platform/SR-SPEC.md`** §1.5.3 — TypedRef schema and RefRelation enum
+3. Review existing implementation:
+   - `crates/sr-domain/src/refs.rs` — StrongTypedRef, RefKind, RefRelation
+   - `crates/sr-api/src/handlers/intakes.rs` — Pattern for handler implementation
+
+### Verification
+
+After Phase 0c, run:
+- `cargo build` — No errors
+- `cargo test` — All pass
+
+### Constraints
+
+- **Backend-first** — Complete Phase 0 before UI phases
+- **Follow SR-PLAN-V3** — All types, schemas, and APIs are specified
+- **Stop after each phase** — Wait for instructions before proceeding
+
+---
+
+## Summary of Previous Development Iterations
+
+### Session: 2026-01-16 (Part 3) — Phase 0a & 0b Implementation
+
+**Objective:** Implement Phases 0a and 0b of SR-PLAN-V3 (Core Infrastructure and Intake API).
 
 **Work Performed:**
 
-1. **Context Gathering**
-   - Read SR-README and SR-CHARTER for project orientation
-   - Read SR-WORK-SURFACE for authoritative Intake schema (§3)
-   - Read SR-CONTRACT for binding invariants (commitment objects, event attribution, typed refs)
-   - Read SR-SPEC for platform mechanics (TypedRef schema §1.5.3, iteration context refs §3.2.1.1)
-   - Read SR-TYPES for type taxonomy (`record.intake`, status enums)
+1. **Phase 0a: Core Infrastructure** (Complete)
+   - Created `crates/sr-domain/src/refs.rs` — StrongTypedRef with RefKind, RefRelation enums
+   - Created `crates/sr-domain/src/intake.rs` — IntakeUlidId, IntakeStatus enum, ManagedIntake, lifecycle events
+   - Created `migrations/005_intakes.sql` — intake_status enum, work_kind enum, proj.intakes table
+   - Updated `crates/sr-domain/src/events.rs` — Added StreamKind::Intake and new EventTypes
+
+2. **Phase 0b: Intake API** (Complete)
+   - Created `crates/sr-api/src/handlers/intakes.rs` (~940 lines) — Full CRUD + lifecycle handler
+   - Updated `crates/sr-api/src/main.rs` — Added intake routes
+   - Updated `crates/sr-api/src/handlers/mod.rs` — Registered intakes module
+   - Updated `crates/sr-adapters/src/projections.rs` — Added intake event projection handlers
+   - Updated `crates/sr-adapters/src/postgres.rs` — Added StreamKind::Intake handling
+
+3. **Documentation Updates**
+   - Updated `docs/charter/SR-README.md` — Added Feature Implementation Plans section
+   - Updated `docs/program/SR-PLAN.md` — Added `implemented_by` ref to SR-PLAN-V3
+
+**Verification:** `cargo build` and `cargo test --workspace` pass (30 tests in sr-api).
+
+---
+
+### Session: 2026-01-16 (Part 2) — SR-PLAN-V3 Finalization
+
+**Objective:** Resolve all 10 issues from SR-PLAN-V2 and produce an implementation-ready V3 plan.
+
+**Work Performed:**
+
+1. **Document Review**
+   - Read SR-PLAN-V2 and identified all 10 `[REVIEW NOTE]` issues
+   - Read SR-CONTRACT for binding invariants (C-EVT-1, C-EVID-6, commitment objects)
+   - Read SR-SPEC for TypedRef schema (§1.5.3), RefRelation enum, event patterns
+   - Read SR-TYPES for status enums (§3.1) and type taxonomy
+   - Read SR-WORK-SURFACE for Intake schema (§3.1)
    - Read SR-PROCEDURE-KIT for procedure template structure
-   - Read SR-SEMANTIC-ORACLE-SPEC for oracle interface
+   - Reviewed existing `handlers/templates.rs` (Issue #9)
 
-2. **Codebase Exploration**
-   - Discovered `Context.tsx` exists with Intakes tab, but **NO backend `/api/v1/context` endpoint**
-   - Found existing `IntakeDetail.tsx` (read-only)
-   - Confirmed no `handlers/intakes.rs` or `handlers/references.rs` exist
-   - Identified that `Sidebar.tsx` shows "Prompts" not "Intakes"
+2. **Issue Resolutions**
+   - **Issue #1:** Unified InputRef and TypedRef into single schema
+   - **Issue #2:** Defined complete event model (IntakeCreated, IntakeUpdated, IntakeActivated, IntakeArchived, IntakeForked)
+   - **Issue #3:** Created full PostgreSQL schema for `proj.intakes`
+   - **Issue #4:** Aligned status terminology with SR-TYPES §3.1 (draft/active/archived → draft/governed/archived)
+   - **Issue #5:** Clarified by-hash retrieval returns all statuses per C-EVID-6
+   - **Issue #6:** Standardized all References API responses to `{ refs, total, page, page_size }`
+   - **Issue #7:** Verified RefRelation enum is complete per SR-SPEC §1.5.3
+   - **Issue #8:** Split Phase 0 into 0a (Core Infrastructure), 0b (Intake API), 0c (References API)
+   - **Issue #9:** Confirmed templates.rs handles schemas, not runtime; new handler needed
+   - **Issue #10:** Added Agent Definitions and Gating Policies to ref categories
 
-3. **V1 Plan Development**
-   - Identified need for Phase 0 (backend) before UI work
-   - Proposed renaming Context → References
-   - Proposed Intakes as top-level nav item
+3. **Artifacts Created**
+   - `docs/planning/SR-PLAN-V3.md` — Implementation-ready plan with all issues resolved
+   - Updated `docs/charter/SR-README.md` — Updated prompt for implementation phase
 
-4. **V2 Plan Development**
-   - Added detailed Rust struct definitions
-   - Added API endpoint specifications
-   - Added UI component layouts
-   - Aligned terminology with SR-* documents
+**No code was modified.** This was a planning-only session.
 
-5. **Ontological/Epistemological/Semantic Review**
-   - Identified 10 issues requiring resolution:
-     - High priority: Unify ref schemas, add event specs, add PostgreSQL schema, align status terminology
-     - Medium priority: Clarify by-hash retrieval, standardize API responses, complete RefRelation enum
-     - Lower priority: Split Phase 0, review existing templates.rs, add missing ref categories
+---
 
-6. **Artifacts Created**
-   - `docs/planning/SR-PLAN-V2.md` — Full implementation plan with embedded `[REVIEW NOTE]` markers for each issue
-   - Updated `docs/charter/SR-README.md` — Added prompt for next instance
+### Session: 2026-01-16 (Part 1) — Initial Planning
+
+**Objective:** Develop a comprehensive implementation plan for Intakes UI/API and References browser.
+
+**Work Performed:**
+- Context gathering from SR-* governance docs
+- Codebase exploration (found missing backend endpoints)
+- V1 and V2 plan development
+- Identified 10 issues requiring resolution
+
+**Artifacts Created:**
+- `docs/planning/SR-PLAN-V2.md` — Plan with embedded `[REVIEW NOTE]` markers
 
 **User Decisions Established:**
 - Intakes are a top-level nav item (separate from References)
@@ -146,9 +195,4 @@ V3 is complete when all items in the "Review Issues Summary" table in SR-PLAN-V2
 - Backend-first (Phase 0 before UI)
 - "References" is acceptable user-facing term (renamed from "Context")
 - "Prompts" stays as-is (lower priority)
-
-**Next Steps:**
-The next instance should read SR-PLAN-V2.md, verify the 10 identified issues against the governance docs, and produce SR-PLAN-V3.md with all issues resolved and implementation-ready detail.
-
-**No code was modified.** This was a planning-only session.
 

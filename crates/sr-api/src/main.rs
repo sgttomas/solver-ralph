@@ -20,13 +20,13 @@ use axum::{
     extract::State,
     http::StatusCode,
     middleware,
-    routing::{get, post},
+    routing::{get, post, put},
     Json, Router,
 };
 use config::ApiConfig;
 use handlers::{
-    approvals, candidates, decisions, evidence, exceptions, freeze, iterations, loops, oracles,
-    prompt_loop::{prompt_loop, prompt_loop_stream}, runs, templates,
+    approvals, candidates, decisions, evidence, exceptions, freeze, intakes, iterations, loops,
+    oracles, prompt_loop::{prompt_loop, prompt_loop_stream}, runs, templates,
 };
 use observability::{metrics_endpoint, request_context_middleware, Metrics, MetricsState};
 use serde::{Deserialize, Serialize};
@@ -325,6 +325,34 @@ fn create_router(
         )
         .with_state(template_state);
 
+    // Intake routes - Per SR-PLAN-V3 Phase 0b
+    let intake_routes = Router::new()
+        .route(
+            "/api/v1/intakes",
+            get(intakes::list_intakes).post(intakes::create_intake),
+        )
+        .route("/api/v1/intakes/:intake_id", get(intakes::get_intake))
+        .route(
+            "/api/v1/intakes/:intake_id",
+            put(intakes::update_intake),
+        )
+        .route(
+            "/api/v1/intakes/:intake_id/activate",
+            post(intakes::activate_intake),
+        )
+        .route(
+            "/api/v1/intakes/:intake_id/archive",
+            post(intakes::archive_intake),
+        )
+        .route(
+            "/api/v1/intakes/:intake_id/fork",
+            post(intakes::fork_intake),
+        )
+        .route(
+            "/api/v1/intakes/by-hash/:content_hash",
+            get(intakes::get_intake_by_hash),
+        );
+
     // Combine all routes (D-33: request context middleware for correlation tracking)
     Router::new()
         .merge(public_routes)
@@ -341,6 +369,7 @@ fn create_router(
         .merge(prompt_routes)
         .merge(oracle_routes)
         .merge(template_routes)
+        .merge(intake_routes)
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(request_context_middleware))
         .layer(TraceLayer::new_for_http())

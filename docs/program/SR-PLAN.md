@@ -30,6 +30,9 @@ refs:
   to: SR-PROCEDURE-KIT
 - rel: informs
   to: SR-MODEL
+- rel: implemented_by
+  to: SR-PLAN-V3
+  note: Feature implementation plan for Intakes & References (docs/planning/)
 ---
 
 # SR-PLAN — SOLVER-Ralph Build Plan (with Semantic Ralph Loop support)

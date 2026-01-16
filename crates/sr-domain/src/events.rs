@@ -44,6 +44,8 @@ pub enum StreamKind {
     Exception,
     OracleSuite,
     Freeze,
+    /// Intake stream per SR-PLAN-V3 §1.6
+    Intake,
 }
 
 /// Event envelope per SR-SPEC §1.5.2
@@ -137,4 +139,11 @@ pub enum EventType {
     StageEntered,
     StageCompleted,
     SemanticOracleEvaluated,
+
+    // Intake events per SR-PLAN-V3 §1.6
+    IntakeCreated,
+    IntakeUpdated,
+    IntakeActivated,
+    IntakeArchived,
+    IntakeForked,
 }

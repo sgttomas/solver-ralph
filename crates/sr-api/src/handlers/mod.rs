@@ -3,6 +3,8 @@
 //! Per SR-SPEC §2: HTTP endpoints for loops, iterations, candidates, runs,
 //! approvals, exceptions, decisions, freeze records, evidence, and oracles.
 //! Enforces domain transition rules and HUMAN-only actions where required.
+//!
+//! Per SR-PLAN-V3: Intake management endpoints for draft, activate, archive, fork.
 
 pub mod approvals;
 pub mod candidates;
@@ -11,6 +13,7 @@ pub mod error;
 pub mod evidence;
 pub mod exceptions;
 pub mod freeze;
+pub mod intakes;
 pub mod iterations;
 pub mod loops;
 pub mod oracles;

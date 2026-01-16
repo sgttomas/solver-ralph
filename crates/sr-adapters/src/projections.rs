@@ -246,6 +246,13 @@ impl ProjectionBuilder {
             "EvidenceBundleRecorded" => self.apply_evidence_bundle_recorded(&mut tx, event).await,
             "EvidenceAssociated" => self.apply_evidence_associated(&mut tx, event).await,
 
+            // Intake events (SR-PLAN-V3)
+            "IntakeCreated" => self.apply_intake_created(&mut tx, event).await,
+            "IntakeUpdated" => self.apply_intake_updated(&mut tx, event).await,
+            "IntakeActivated" => self.apply_intake_activated(&mut tx, event).await,
+            "IntakeArchived" => self.apply_intake_archived(&mut tx, event).await,
+            "IntakeForked" => self.apply_intake_forked(&mut tx, event).await,
+
             // Events we acknowledge but don't project
             "StopTriggered"
             | "OracleSuiteRegistered"
@@ -317,6 +324,7 @@ impl ProjectionBuilder {
             "proj.runs",
             "proj.approvals",
             "proj.exceptions",
+            "proj.intakes",
             "proj.freeze_records",
             "proj.decisions",
             "proj.governed_artifacts",
@@ -1303,6 +1311,281 @@ impl ProjectionBuilder {
 
         debug!(content_hash = %content_hash, "Evidence association recorded");
 
+        Ok(())
+    }
+
+    // ========================================================================
+    // Intake Event Handlers (SR-PLAN-V3)
+    // ========================================================================
+
+    async fn apply_intake_created(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let intake_id = payload["intake_id"].as_str().unwrap_or(&event.stream_id);
+
+        let work_unit_id = payload["work_unit_id"].as_str().unwrap_or("");
+        let title = payload["title"].as_str().unwrap_or("");
+        let kind = payload["kind"].as_str().unwrap_or("research_memo");
+        let objective = payload["objective"].as_str().unwrap_or("");
+        let audience = payload["audience"].as_str().unwrap_or("");
+        let deliverables = &payload["deliverables"];
+        let constraints = &payload["constraints"];
+        let definitions = &payload["definitions"];
+        let inputs = &payload["inputs"];
+        let unknowns = &payload["unknowns"];
+        let completion_criteria = &payload["completion_criteria"];
+        let supersedes = payload["supersedes"].as_str();
+        let version = payload["version"].as_i64().unwrap_or(1) as i32;
+
+        sqlx::query(
+            r#"
+            INSERT INTO proj.intakes (
+                intake_id, work_unit_id, title, kind, objective, audience,
+                deliverables, constraints, definitions, inputs, unknowns, completion_criteria,
+                status, version, supersedes, created_at, created_by_kind, created_by_id,
+                last_event_id, last_global_seq
+            ) VALUES ($1, $2, $3, $4::work_kind, $5, $6, $7, $8, $9, $10, $11, $12, 'draft', $13, $14, $15, $16, $17, $18, $19)
+            "#,
+        )
+        .bind(intake_id)
+        .bind(work_unit_id)
+        .bind(title)
+        .bind(kind)
+        .bind(objective)
+        .bind(audience)
+        .bind(deliverables)
+        .bind(constraints)
+        .bind(definitions)
+        .bind(inputs)
+        .bind(unknowns)
+        .bind(completion_criteria)
+        .bind(version)
+        .bind(supersedes)
+        .bind(event.occurred_at)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(intake_id = %intake_id, "Intake projection created");
+        Ok(())
+    }
+
+    async fn apply_intake_updated(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let intake_id = payload["intake_id"].as_str().unwrap_or(&event.stream_id);
+        let changes = &payload["changes"];
+
+        // Build dynamic update query based on what changed
+        let mut updates: Vec<String> = Vec::new();
+
+        if changes.get("title").is_some() {
+            updates.push("title = changes->>'title'".to_string());
+        }
+        if changes.get("objective").is_some() {
+            updates.push("objective = changes->>'objective'".to_string());
+        }
+        if changes.get("audience").is_some() {
+            updates.push("audience = changes->>'audience'".to_string());
+        }
+        if changes.get("deliverables").is_some() {
+            updates.push("deliverables = changes->'deliverables'".to_string());
+        }
+        if changes.get("constraints").is_some() {
+            updates.push("constraints = changes->'constraints'".to_string());
+        }
+        if changes.get("definitions").is_some() {
+            updates.push("definitions = changes->'definitions'".to_string());
+        }
+        if changes.get("inputs").is_some() {
+            updates.push("inputs = changes->'inputs'".to_string());
+        }
+        if changes.get("unknowns").is_some() {
+            updates.push("unknowns = changes->'unknowns'".to_string());
+        }
+        if changes.get("completion_criteria").is_some() {
+            updates.push("completion_criteria = changes->'completion_criteria'".to_string());
+        }
+
+        // Apply updates directly using JSON merge
+        if let Some(title) = changes.get("title").and_then(|v| v.as_str()) {
+            sqlx::query("UPDATE proj.intakes SET title = $1 WHERE intake_id = $2")
+                .bind(title)
+                .bind(intake_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        if let Some(objective) = changes.get("objective").and_then(|v| v.as_str()) {
+            sqlx::query("UPDATE proj.intakes SET objective = $1 WHERE intake_id = $2")
+                .bind(objective)
+                .bind(intake_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        if let Some(audience) = changes.get("audience").and_then(|v| v.as_str()) {
+            sqlx::query("UPDATE proj.intakes SET audience = $1 WHERE intake_id = $2")
+                .bind(audience)
+                .bind(intake_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        if let Some(deliverables) = changes.get("deliverables") {
+            sqlx::query("UPDATE proj.intakes SET deliverables = $1 WHERE intake_id = $2")
+                .bind(deliverables)
+                .bind(intake_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        if let Some(constraints) = changes.get("constraints") {
+            sqlx::query("UPDATE proj.intakes SET constraints = $1 WHERE intake_id = $2")
+                .bind(constraints)
+                .bind(intake_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        if let Some(definitions) = changes.get("definitions") {
+            sqlx::query("UPDATE proj.intakes SET definitions = $1 WHERE intake_id = $2")
+                .bind(definitions)
+                .bind(intake_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        if let Some(inputs) = changes.get("inputs") {
+            sqlx::query("UPDATE proj.intakes SET inputs = $1 WHERE intake_id = $2")
+                .bind(inputs)
+                .bind(intake_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        if let Some(unknowns) = changes.get("unknowns") {
+            sqlx::query("UPDATE proj.intakes SET unknowns = $1 WHERE intake_id = $2")
+                .bind(unknowns)
+                .bind(intake_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        if let Some(completion_criteria) = changes.get("completion_criteria") {
+            sqlx::query("UPDATE proj.intakes SET completion_criteria = $1 WHERE intake_id = $2")
+                .bind(completion_criteria)
+                .bind(intake_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+
+        // Update event tracking
+        sqlx::query(
+            "UPDATE proj.intakes SET last_event_id = $1, last_global_seq = $2 WHERE intake_id = $3",
+        )
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .bind(intake_id)
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(intake_id = %intake_id, "Intake projection updated");
+        Ok(())
+    }
+
+    async fn apply_intake_activated(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let intake_id = payload["intake_id"].as_str().unwrap_or(&event.stream_id);
+        let content_hash = payload["content_hash"].as_str().unwrap_or("");
+
+        sqlx::query(
+            r#"
+            UPDATE proj.intakes
+            SET status = 'active', content_hash = $1, activated_at = $2,
+                activated_by_kind = $3, activated_by_id = $4,
+                last_event_id = $5, last_global_seq = $6
+            WHERE intake_id = $7
+            "#,
+        )
+        .bind(content_hash)
+        .bind(event.occurred_at)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .bind(intake_id)
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(intake_id = %intake_id, content_hash = %content_hash, "Intake activated");
+        Ok(())
+    }
+
+    async fn apply_intake_archived(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let intake_id = payload["intake_id"].as_str().unwrap_or(&event.stream_id);
+        let reason = payload["reason"].as_str();
+
+        sqlx::query(
+            r#"
+            UPDATE proj.intakes
+            SET status = 'archived', archived_at = $1, archived_by_kind = $2, archived_by_id = $3,
+                archive_reason = $4, last_event_id = $5, last_global_seq = $6
+            WHERE intake_id = $7
+            "#,
+        )
+        .bind(event.occurred_at)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(reason)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .bind(intake_id)
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(intake_id = %intake_id, "Intake archived");
+        Ok(())
+    }
+
+    async fn apply_intake_forked(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        // IntakeForked just records the lineage - the IntakeCreated event already created the row
+        // We just need to ensure the supersedes field is set correctly
+        let payload = &event.payload;
+        let intake_id = payload["intake_id"].as_str().unwrap_or(&event.stream_id);
+        let source_intake_id = payload["source_intake_id"].as_str();
+        let version = payload["version"].as_i64().unwrap_or(1) as i32;
+
+        sqlx::query(
+            r#"
+            UPDATE proj.intakes
+            SET supersedes = $1, version = $2, last_event_id = $3, last_global_seq = $4
+            WHERE intake_id = $5
+            "#,
+        )
+        .bind(source_intake_id)
+        .bind(version)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .bind(intake_id)
+        .execute(&mut **tx)
+        .await?;
+
+        debug!(intake_id = %intake_id, source = ?source_intake_id, "Intake fork recorded");
         Ok(())
     }
 }

@@ -343,6 +343,7 @@ fn stream_kind_to_str(kind: &StreamKind) -> &'static str {
         StreamKind::Exception => "EXCEPTION",
         StreamKind::OracleSuite => "ORACLE_SUITE",
         StreamKind::Freeze => "FREEZE",
+        StreamKind::Intake => "INTAKE",
     }
 }
 
@@ -366,6 +367,8 @@ fn infer_stream_kind(stream_id: &str) -> StreamKind {
         StreamKind::OracleSuite
     } else if stream_id.starts_with("freeze_") {
         StreamKind::Freeze
+    } else if stream_id.starts_with("intake:") {
+        StreamKind::Intake
     } else {
         StreamKind::Governance
     }
