@@ -1727,21 +1727,20 @@ impl ProjectionBuilder {
         let evidence_bundle_ref = payload["evidence_bundle_ref"].as_str();
 
         // Update stage_status to mark stage as completed
+        // Note: nested jsonb_set calls to update multiple fields in one assignment
         sqlx::query(
             r#"
             UPDATE proj.work_surfaces
             SET stage_status = jsonb_set(
-                    stage_status,
-                    array[$1, 'status'],
-                    '"completed"'::jsonb
-                ),
-                stage_status = jsonb_set(
-                    stage_status,
-                    array[$1, 'completed_at'],
-                    to_jsonb($2::text)
-                ),
-                stage_status = jsonb_set(
-                    stage_status,
+                    jsonb_set(
+                        jsonb_set(
+                            stage_status,
+                            array[$1, 'status'],
+                            '"completed"'::jsonb
+                        ),
+                        array[$1, 'completed_at'],
+                        to_jsonb($2::text)
+                    ),
                     array[$1, 'evidence_bundle_ref'],
                     to_jsonb($3::text)
                 ),

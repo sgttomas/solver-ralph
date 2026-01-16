@@ -512,7 +512,7 @@ pub async fn list_work_surfaces(
     let mut sql = String::from(
         r#"
         SELECT ws.work_surface_id, ws.work_unit_id, ws.intake_id, ws.procedure_template_id,
-               ws.current_stage_id, ws.status, ws.bound_at,
+               ws.current_stage_id, ws.status::text, ws.bound_at,
                i.title as intake_title
         FROM proj.work_surfaces ws
         LEFT JOIN proj.intakes i ON ws.intake_id = i.intake_id
@@ -1195,7 +1195,13 @@ async fn get_procedure_template_from_registry(
         if let Some(proc_id) = template.content.get("procedure_template_id") {
             if proc_id.as_str() == Some(template_id) {
                 // Deserialize the content to ProcedureTemplate
-                return serde_json::from_value(template.content.clone()).ok();
+                match serde_json::from_value::<ProcedureTemplate>(template.content.clone()) {
+                    Ok(pt) => return Some(pt),
+                    Err(e) => {
+                        tracing::error!("Failed to deserialize ProcedureTemplate: {}", e);
+                        return None;
+                    }
+                }
             }
         }
 
@@ -1258,7 +1264,7 @@ async fn get_intake_projection(
 ) -> Result<IntakeProjection, ApiError> {
     let row = sqlx::query(
         r#"
-        SELECT status, kind, content_hash
+        SELECT status::text, kind::text, content_hash
         FROM proj.intakes
         WHERE intake_id = $1
         "#,
@@ -1290,7 +1296,7 @@ async fn get_work_surface_projection(
         r#"
         SELECT work_surface_id, work_unit_id, intake_id, intake_content_hash,
                procedure_template_id, procedure_template_hash, current_stage_id,
-               status, stage_status, current_oracle_suites, params, content_hash,
+               status::text, stage_status, current_oracle_suites, params, content_hash,
                bound_at, bound_by_kind, bound_by_id, completed_at, archived_at,
                archived_by_kind, archived_by_id
         FROM proj.work_surfaces

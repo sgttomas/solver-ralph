@@ -330,9 +330,9 @@ pub async fn get_intake_by_hash(
 ) -> ApiResult<Json<ListIntakesResponse>> {
     let rows = sqlx::query(
         r#"
-        SELECT intake_id, work_unit_id, content_hash, title, kind, objective, audience,
+        SELECT intake_id, work_unit_id, content_hash, title, kind::text, objective, audience,
                deliverables, constraints, definitions, inputs, unknowns, completion_criteria,
-               status, version, supersedes, created_at, created_by_kind, created_by_id,
+               status::text, version, supersedes, created_at, created_by_kind, created_by_id,
                activated_at, activated_by_kind, activated_by_id,
                archived_at, archived_by_kind, archived_by_id
         FROM proj.intakes
@@ -370,11 +370,12 @@ pub async fn list_intakes(
     let offset = (query.page.saturating_sub(1)) * query.page_size;
 
     // Build dynamic query
+    // Note: kind and status are PostgreSQL enums, cast to text for Rust String compatibility
     let mut sql = String::from(
         r#"
-        SELECT intake_id, work_unit_id, content_hash, title, kind, objective, audience,
+        SELECT intake_id, work_unit_id, content_hash, title, kind::text, objective, audience,
                deliverables, constraints, definitions, inputs, unknowns, completion_criteria,
-               status, version, supersedes, created_at, created_by_kind, created_by_id,
+               status::text, version, supersedes, created_at, created_by_kind, created_by_id,
                activated_at, activated_by_kind, activated_by_id,
                archived_at, archived_by_kind, archived_by_id
         FROM proj.intakes
@@ -947,9 +948,9 @@ async fn get_intake_projection(
 ) -> Result<IntakeResponse, ApiError> {
     let row = sqlx::query(
         r#"
-        SELECT intake_id, work_unit_id, content_hash, title, kind, objective, audience,
+        SELECT intake_id, work_unit_id, content_hash, title, kind::text, objective, audience,
                deliverables, constraints, definitions, inputs, unknowns, completion_criteria,
-               status, version, supersedes, created_at, created_by_kind, created_by_id,
+               status::text, version, supersedes, created_at, created_by_kind, created_by_id,
                activated_at, activated_by_kind, activated_by_id,
                archived_at, archived_by_kind, archived_by_id
         FROM proj.intakes

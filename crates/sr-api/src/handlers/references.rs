@@ -873,7 +873,7 @@ async fn get_intakes_refs(
 
     let rows = sqlx::query(
         r#"
-        SELECT intake_id, title, status, content_hash
+        SELECT intake_id, title, status::text, content_hash
         FROM proj.intakes
         ORDER BY created_at DESC
         LIMIT $1 OFFSET $2

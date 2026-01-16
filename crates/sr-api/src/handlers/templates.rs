@@ -231,6 +231,8 @@ impl TemplateRegistry {
                 refs: vec![],
             },
             // 2. Procedure Template - Research Memo Procedure
+            // Note: This uses the same structure as sr-domain's generic_knowledge_work_template()
+            // to ensure proper deserialization into ProcedureTemplate struct
             TemplateInstance {
                 id: "tmpl_starter_procedure".to_string(),
                 type_key: "config.procedure_template".to_string(),
@@ -238,80 +240,122 @@ impl TemplateRegistry {
                 category: TemplateCategory::WorkSurface,
                 status: "reference".to_string(),
                 content_hash: compute_content_hash(&serde_json::json!({
+                    "artifact_type": "config.procedure_template",
+                    "artifact_version": "v1",
                     "procedure_template_id": "proc:RESEARCH-MEMO",
                     "kind": ["research_memo"],
+                    "name": "Research Memo Procedure",
+                    "description": "Stage-gated workflow for research memos",
                     "terminal_stage_id": "stage:FINAL",
+                    "initial_stage_id": "stage:FRAME",
                     "stages": [
                         {
                             "stage_id": "stage:FRAME",
                             "stage_name": "Frame",
                             "purpose": "Restate objective, extract constraints",
+                            "required_outputs": [],
+                            "steps": [],
                             "required_oracle_suites": ["suite:SR-SUITE-GOV"],
                             "gate_rule": "all_required_oracles_pass",
-                            "transition_on_pass": "stage:OPTIONS"
+                            "transition_on_pass": "stage:OPTIONS",
+                            "requires_portal": false,
+                            "requires_approval": false
                         },
                         {
                             "stage_id": "stage:OPTIONS",
                             "stage_name": "Options Analysis",
                             "purpose": "Generate multiple candidate approaches",
+                            "required_outputs": [],
+                            "steps": [],
                             "required_oracle_suites": ["suite:SR-SUITE-GOV", "suite:SR-SUITE-CORE"],
                             "gate_rule": "all_required_oracles_pass",
-                            "transition_on_pass": "stage:DRAFT"
+                            "transition_on_pass": "stage:DRAFT",
+                            "requires_portal": false,
+                            "requires_approval": false
                         },
                         {
                             "stage_id": "stage:DRAFT",
                             "stage_name": "Draft",
                             "purpose": "Produce candidate deliverable",
+                            "required_outputs": [],
+                            "steps": [],
                             "required_oracle_suites": ["suite:SR-SUITE-CORE"],
                             "gate_rule": "all_required_oracles_pass",
-                            "transition_on_pass": "stage:FINAL"
+                            "transition_on_pass": "stage:FINAL",
+                            "requires_portal": false,
+                            "requires_approval": false
                         },
                         {
                             "stage_id": "stage:FINAL",
                             "stage_name": "Final",
                             "purpose": "Package final candidate and evidence",
+                            "required_outputs": [],
+                            "steps": [],
                             "required_oracle_suites": ["suite:SR-SUITE-CORE", "suite:SR-SUITE-FULL"],
                             "gate_rule": "all_required_oracles_pass",
-                            "transition_on_pass": "terminal"
+                            "transition_on_pass": null,
+                            "requires_portal": false,
+                            "requires_approval": true
                         }
                     ]
                 })),
                 content: serde_json::json!({
+                    "artifact_type": "config.procedure_template",
+                    "artifact_version": "v1",
                     "procedure_template_id": "proc:RESEARCH-MEMO",
                     "kind": ["research_memo"],
+                    "name": "Research Memo Procedure",
+                    "description": "Stage-gated workflow for research memos",
                     "terminal_stage_id": "stage:FINAL",
+                    "initial_stage_id": "stage:FRAME",
                     "stages": [
                         {
                             "stage_id": "stage:FRAME",
                             "stage_name": "Frame",
                             "purpose": "Restate objective, extract constraints",
+                            "required_outputs": [],
+                            "steps": [],
                             "required_oracle_suites": ["suite:SR-SUITE-GOV"],
                             "gate_rule": "all_required_oracles_pass",
-                            "transition_on_pass": "stage:OPTIONS"
+                            "transition_on_pass": "stage:OPTIONS",
+                            "requires_portal": false,
+                            "requires_approval": false
                         },
                         {
                             "stage_id": "stage:OPTIONS",
                             "stage_name": "Options Analysis",
                             "purpose": "Generate multiple candidate approaches",
+                            "required_outputs": [],
+                            "steps": [],
                             "required_oracle_suites": ["suite:SR-SUITE-GOV", "suite:SR-SUITE-CORE"],
                             "gate_rule": "all_required_oracles_pass",
-                            "transition_on_pass": "stage:DRAFT"
+                            "transition_on_pass": "stage:DRAFT",
+                            "requires_portal": false,
+                            "requires_approval": false
                         },
                         {
                             "stage_id": "stage:DRAFT",
                             "stage_name": "Draft",
                             "purpose": "Produce candidate deliverable",
+                            "required_outputs": [],
+                            "steps": [],
                             "required_oracle_suites": ["suite:SR-SUITE-CORE"],
                             "gate_rule": "all_required_oracles_pass",
-                            "transition_on_pass": "stage:FINAL"
+                            "transition_on_pass": "stage:FINAL",
+                            "requires_portal": false,
+                            "requires_approval": false
                         },
                         {
                             "stage_id": "stage:FINAL",
                             "stage_name": "Final",
                             "purpose": "Package final candidate and evidence",
+                            "required_outputs": [],
+                            "steps": [],
                             "required_oracle_suites": ["suite:SR-SUITE-CORE", "suite:SR-SUITE-FULL"],
                             "gate_rule": "all_required_oracles_pass",
-                            "transition_on_pass": "terminal"
+                            "transition_on_pass": null,
+                            "requires_portal": false,
+                            "requires_approval": true
                         }
                     ]
                 }),
