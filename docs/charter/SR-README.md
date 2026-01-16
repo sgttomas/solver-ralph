@@ -463,3 +463,69 @@ All four phases of SR-PLAN-V5 are implemented and verified:
 - **Phase 5c:** Approval-Gated Stages
 - **Phase 5d:** End-to-End Integration Test
 
+---
+
+## Next Instance Prompt: Clean Up Compiler Warnings
+
+### Context
+
+The Semantic Ralph Loop MVP (SR-PLAN-V5) is complete. The E2E integration tests are passing. The remaining task is to clean up compiler warnings across the codebase.
+
+### Current State
+
+- Branch: `solver-ralph-6`
+- All tests passing: `cargo test --workspace`
+- E2E tests passing: `cargo test --package sr-api --test semantic_ralph_loop_e2e -- --ignored`
+- API runs successfully with `SR_AUTH_TEST_MODE=true cargo run --package sr-api`
+
+### Assignment
+
+Remove all compiler warnings from `sr-adapters` and `sr-api` crates. There are approximately 54 warnings total:
+
+**sr-adapters (37 warnings):**
+- Unused imports in: `governor.rs`, `graph.rs`, `infisical.rs`, `integrity.rs`, `oracle_runner.rs`, `oracle_suite.rs`, `outbox.rs`, `projections.rs`, `restricted.rs`, `semantic_worker.rs`, `worker.rs`, `nats.rs`
+- Unused variables in: `governor.rs`, `infisical.rs`, `nats.rs`, `oracle_suite.rs`, `semantic_suite.rs`, `semantic_worker.rs`
+- Dead code (never read fields): `governor.rs`, `infisical.rs`, `nats.rs`, `restricted.rs`, `semantic_worker.rs`
+
+**sr-api (17 warnings):**
+- Unused imports in: `auth.rs`, `config.rs`, `approvals.rs`, `evidence.rs`, `iterations.rs`, `loops.rs`, `oracles.rs`, `runs.rs`, `work_surfaces.rs`, `main.rs`
+- Unused variable in: `evidence.rs`
+
+### Approach
+
+1. Use `cargo fix --lib -p sr-adapters` and `cargo fix --bin "sr-api" -p sr-api` to auto-fix what can be auto-fixed
+2. Manually review and fix dead code warnings (decide whether to use `#[allow(dead_code)]` for intentionally unused fields or remove them)
+3. Prefix intentionally unused variables with `_`
+4. Verify with `cargo build --workspace 2>&1 | grep -c warning` (should be 0)
+5. Run `cargo test --workspace` to ensure nothing broke
+6. Commit and push
+
+### Guidelines
+
+- For dead code that is part of a planned but unimplemented feature, use `#[allow(dead_code)]` with a comment explaining why
+- For dead code that was scaffolding from earlier phases and is no longer needed, remove it
+- Check the SR-* documentation if unsure whether something is planned for future use
+- Do NOT change any logic - only clean up unused code
+
+### Verification
+
+```bash
+# After fixes, these should produce no warnings:
+cargo build --workspace 2>&1 | grep "^warning:" | wc -l  # Should be 0
+cargo test --workspace  # All tests should pass
+cargo test --package sr-api --test semantic_ralph_loop_e2e -- --ignored  # E2E should pass
+```
+
+### Commit Message Template
+
+```
+Clean up compiler warnings in sr-adapters and sr-api
+
+- Remove unused imports across multiple files
+- Prefix intentionally unused variables with underscore
+- Add #[allow(dead_code)] for planned-but-unimplemented features
+- Remove obsolete scaffolding code
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
