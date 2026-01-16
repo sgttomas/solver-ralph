@@ -161,11 +161,11 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## Next Instance Prompt: Philosophical Coherence Review of SR-PLAN-V8
+## Next Instance Prompt: Philosophical Consistency Review of SR-PLAN-V8
 
 ### Context
 
-SR-PLAN-V8 has been amended following codebase coherence review. Before implementation begins, we need a philosophical coherence review to ensure the plan aligns with the canonical SR-* documents in terms of ontology, epistemology, and semantics.
+SR-PLAN-V8 has been amended following codebase coherence review. Before implementation begins, we need a philosophical consistency review to ensure the plan aligns with the canonical SR-* documents in terms of ontology, epistemology, and semantics.
 
 ### Current State
 
@@ -175,7 +175,7 @@ SR-PLAN-V8 has been amended following codebase coherence review. Before implemen
 
 ### Assignment
 
-**Review SR-PLAN-V8 for philosophical coherence with canonical documents**
+**Review SR-PLAN-V8 for philosophical consistency with canonical documents**
 
 Evaluate SR-PLAN-V8 (`docs/planning/SR-PLAN-V8.md`) against the canonical governance documents along three philosophical dimensions.
 
@@ -192,34 +192,22 @@ Evaluate SR-PLAN-V8 (`docs/planning/SR-PLAN-V8.md`) against the canonical govern
 
 ### Evaluation Dimensions
 
-**Ontology (What exists):**
-- Are the entities proposed in V8 (OracleSuiteRecord, OracleExecutionWorker, IntegrityCondition, etc.) consistent with the domain model defined in SR-SPEC?
-- Do the new event types (OracleExecutionStarted, OracleExecutionCompleted) align with the event sourcing ontology?
-- Is there entity duplication or confusion between sr-ports, sr-domain, and sr-adapters?
-- Do the proposed entities respect the authority boundaries defined in SR-DIRECTIVE?
+**Ontology**
 
-**Epistemology (How we know):**
-- Does the evidence model in V8 satisfy C-EVID-* contracts for what constitutes proof?
-- Are the integrity conditions (TAMPER/GAP/FLAKE/ENV_MISMATCH) sufficient to establish trust?
-- Does the event-driven worker pattern preserve the auditability guarantees?
-- Can verification gates derive decisions solely from recorded evidence (no out-of-band knowledge)?
-- Does the plan respect SR-DIRECTIVE's requirements for what must be recorded vs. computed?
+**Epistemology**
 
-**Semantics (What it means):**
-- Do the semantic oracle outputs (residual/coverage/violations) correctly operationalize the meaning-matrix concept from SR-SEMANTIC-ORACLE-SPEC?
-- Is the relationship between `DecisionStatus` (Pass/Fail/Indeterminate/Waived) and gate outcomes well-defined?
-- Are the integrity condition names and their blocking behaviors semantically precise?
-- Do the oracle profiles (GOV-CORE, STRICT-CORE, STRICT-FULL) align with SR-DIRECTIVE's verification requirements?
+**Semantics**
+
 
 ### Deliverables
 
-1. **Coherence Report** — Structured analysis identifying:
+1. **Consistency Report** — Structured analysis identifying:
    - Alignments (where V8 correctly implements canonical requirements)
    - Tensions (where V8 may conflict with or underspecify canonical requirements)
    - Gaps (canonical requirements not addressed by V8)
 
 2. **SR-README Update** — Revise this file with:
-   - V8 status update (philosophical review complete)
+   - V8 status update (consistency review complete)
    - Summary of findings (if noteworthy)
    - Next prompt for V8 implementation
 
@@ -228,7 +216,7 @@ Evaluate SR-PLAN-V8 (`docs/planning/SR-PLAN-V8.md`) against the canonical govern
 - **Do NOT implement code** — this is a review and documentation task only
 - Focus on conceptual coherence, not implementation details
 - Be precise about which SR-* section supports or contradicts each claim
-- If you find the plan philosophically sound, say so briefly and move on
+- If you find the plan philosophically consistent, say so briefly and move on
 
 ### First Actions
 
