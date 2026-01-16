@@ -11,6 +11,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
 import { Card, Button, Pill, truncateHash } from '../ui';
+import { StageCompletionForm } from '../components/StageCompletionForm';
 import styles from '../styles/pages.module.css';
 
 interface ActorInfo {
@@ -59,6 +60,7 @@ export function WorkSurfaceDetail(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [showCompletionForm, setShowCompletionForm] = useState(false);
 
   const fetchWorkSurface = useCallback(async () => {
     if (!auth.user?.access_token || !workSurfaceId) return;
@@ -312,24 +314,56 @@ export function WorkSurfaceDetail(): JSX.Element {
             </div>
 
             {/* Current stage info */}
-            <div
-              style={{
-                padding: 'var(--space3)',
-                backgroundColor: 'var(--bg)',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div style={{ fontWeight: 600, marginBottom: 'var(--space2)' }}>
-                Current Stage: {formatStageId(workSurface.current_stage_id)}
-              </div>
-              {workSurface.current_oracle_suites && workSurface.current_oracle_suites.length > 0 && (
-                <div style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                  Oracle Suites:{' '}
-                  {workSurface.current_oracle_suites.map((s) => s.suite_id).join(', ')}
+            {(() => {
+              const currentStageRecord = stages.find(s => s.status === 'entered');
+              const canComplete = workSurface.status === 'active' && currentStageRecord !== undefined;
+
+              return (
+                <div
+                  style={{
+                    padding: 'var(--space3)',
+                    backgroundColor: 'var(--bg)',
+                    borderRadius: 'var(--radius)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space2)' }}>
+                    <div style={{ fontWeight: 600 }}>
+                      Current Stage: {formatStageId(workSurface.current_stage_id)}
+                    </div>
+                    {canComplete && !showCompletionForm && (
+                      <Button
+                        variant="primary"
+                        onClick={() => setShowCompletionForm(true)}
+                      >
+                        Complete Stage
+                      </Button>
+                    )}
+                  </div>
+                  {workSurface.current_oracle_suites && workSurface.current_oracle_suites.length > 0 && (
+                    <div style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                      Oracle Suites:{' '}
+                      {workSurface.current_oracle_suites.map((s) => s.suite_id).join(', ')}
+                    </div>
+                  )}
+
+                  {/* Stage Completion Form - per SR-PLAN-V5 Phase 5a */}
+                  {showCompletionForm && canComplete && (
+                    <StageCompletionForm
+                      workSurfaceId={workSurface.work_surface_id}
+                      stageId={workSurface.current_stage_id}
+                      stageName={formatStageId(workSurface.current_stage_id)}
+                      oracleSuites={workSurface.current_oracle_suites || []}
+                      onComplete={() => {
+                        setShowCompletionForm(false);
+                        fetchWorkSurface();
+                      }}
+                      onCancel={() => setShowCompletionForm(false)}
+                    />
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
         )}
       </Card>
