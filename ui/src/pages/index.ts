@@ -30,5 +30,8 @@ export { References } from './References';
 export { ReferenceDocumentDetail } from './ReferenceDocumentDetail';
 export { ReferenceBundleDetail } from './ReferenceBundleDetail';
 export { GovernedArtifactDetail } from './GovernedArtifactDetail';
+export { WorkSurfaces } from './WorkSurfaces';
+export { WorkSurfaceCompose } from './WorkSurfaceCompose';
+export { WorkSurfaceDetail } from './WorkSurfaceDetail';
 export { Audit } from './Audit';
 export { Settings } from './Settings';

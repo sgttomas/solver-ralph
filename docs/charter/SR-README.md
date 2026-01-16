@@ -63,7 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
-| SR-PLAN-V4 | **in progress** | Work Surface Composition (Phase 4) — Phases 4a-4c complete, 4d pending |
+| SR-PLAN-V4 | **complete** | Work Surface Composition (Phase 4) — All phases complete |
 | SR-PLAN-V3 | **complete** | Intakes & References implementation (Phases 0-3) |
 | SR-PLAN-V2 | superseded | Intakes & References draft (10 unresolved issues) |
 
@@ -101,11 +101,9 @@ All phases of the Intakes & References implementation (SR-PLAN-V3) are now compl
 
 ## SR-PLAN-V4 Implementation Status
 
-**Status: READY FOR IMPLEMENTATION**
+**Status: COMPLETE**
 
-SR-PLAN-V4 (Work Surface Composition) has passed coherence review. The review report is at `docs/reviews/SR-PLAN-V4-COHERENCE-REVIEW.md`. The plan is at `docs/planning/SR-PLAN-V4.md`.
-
-**Coherence Review Summary:** The plan is coherent with canonical SR-* specifications. Three minor issues were identified (status enum naming, RefKind::Stage consideration, SQL type naming) — all can be addressed during implementation without plan revision.
+SR-PLAN-V4 (Work Surface Composition) is now fully implemented. All four phases are complete.
 
 ### Phase Overview
 
@@ -114,7 +112,7 @@ SR-PLAN-V4 (Work Surface Composition) has passed coherence review. The review re
 | Phase 4a | **Complete** | Core Infrastructure — WorkSurfaceId, events, database migrations |
 | Phase 4b | **Complete** | Work Surface API — 9 endpoints for CRUD, stage transitions, compatibility |
 | Phase 4c | **Complete** | Event Integration — IterationStarted refs, EvidenceBundleRecorded binding, Governor stop trigger |
-| Phase 4d | Pending | Work Surface UI — List, composition wizard, detail with stage progress |
+| Phase 4d | **Complete** | Work Surface UI — List, composition wizard, detail with stage progress |
 
 ### Key Design Decisions (Resolved in SR-PLAN-V4)
 
@@ -127,7 +125,7 @@ SR-PLAN-V4 (Work Surface Composition) has passed coherence review. The review re
 | Relationship to Loops | Work Surface 1:1 with Work Unit (not Loop); multiple Loops share same Work Surface |
 | UI workflow | Step-by-step wizard (Select Intake → Select Template → Review & Confirm) |
 
-### Planned Routes
+### Implemented Routes
 
 ```
 /work-surfaces                        → WorkSurfaces.tsx (list with filters)
@@ -137,100 +135,67 @@ SR-PLAN-V4 (Work Surface Composition) has passed coherence review. The review re
 
 ---
 
-## Prompt for Next Instance: Implement SR-PLAN-V4 Phase 4d (Work Surface UI)
+## Summary of Previous Development Iterations
 
-**Phase 4c Status:** COMPLETE (2026-01-15) — Event Integration implemented (IterationStarted refs, EvidenceBundleRecorded context, Governor stop trigger)
+### Session: 2026-01-15 — Phase 4d Implementation (Work Surface UI)
 
-### Task
+**Objective:** Implement Phase 4d (Work Surface UI) per SR-PLAN-V4 §6.
 
-Implement **Phase 4d: Work Surface UI** from SR-PLAN-V4.
-
-This phase implements the frontend UI for Work Surfaces, enabling users to create, view, and manage Work Surface bindings through a step-by-step composition wizard.
-
-### Required Reading
-
-1. `docs/planning/SR-PLAN-V4.md` — Full implementation plan (especially §6 Phase 4d specification)
-2. `docs/platform/SR-WORK-SURFACE.md` — Work Surface specification
-3. `crates/sr-api/src/handlers/work_surfaces.rs` — Work Surface API (Phase 4b output, 9 endpoints)
-4. `ui/src/pages/Intakes.tsx` — Reference for list page patterns
-5. `ui/src/pages/IntakeCreate.tsx` — Reference for form patterns and shared editor components
-
-### Deliverables
+**Work Performed:**
 
 1. **Work Surfaces List Page** (`ui/src/pages/WorkSurfaces.tsx`)
    - Filter by status (active, completed, archived)
-   - Search by work unit, intake title
-   - Status badges with appropriate colors
+   - Client-side search by work unit ID, intake title
    - Pagination with page size selector
-   - Row click navigation to detail page
+   - Status badges with appropriate colors
+   - Clickable rows navigate to detail page
 
 2. **Work Surface Composition Wizard** (`ui/src/pages/WorkSurfaceCompose.tsx`)
    - Step 1: Select Intake (filter by kind, show only active intakes)
-   - Step 2: Select compatible Procedure Template (use `/api/v1/work-surfaces/compatible-templates`)
+   - Step 2: Select compatible Procedure Template (uses `/api/v1/work-surfaces/compatible-templates`)
    - Step 3: Review binding summary & confirm
    - Success: Navigate to Work Surface detail page
-   - Cancel: Return to list
 
 3. **Work Surface Detail Page** (`ui/src/pages/WorkSurfaceDetail.tsx`)
    - Header with status badge and archive action
    - Binding summary card (Intake, Procedure Template, Work Unit)
-   - Stage progress visualization (show all stages, highlight current)
-   - Stage status cards with completion info and evidence links
-   - Actions: Archive (if active), View Intake, View Template
+   - Stage progress visualization (visual progress bar with completed/current/pending indicators)
+   - Stage history table with status, timestamps, iteration counts
+   - Actions: Archive (if active), View Intake link
 
 4. **Route Updates** (`ui/src/routes.tsx`)
-   ```
-   /work-surfaces                        → WorkSurfaces.tsx
-   /work-surfaces/new                    → WorkSurfaceCompose.tsx
-   /work-surfaces/:workSurfaceId         → WorkSurfaceDetail.tsx
-   ```
+   - Added 3 Work Surface routes
 
 5. **Sidebar Navigation** (`ui/src/layout/Sidebar.tsx`)
-   - Add "Work Surfaces" navigation item after Intakes
-   - Position: Loops → Intakes → Work Surfaces → References → Prompts
+   - Added "Work Surfaces" navigation item after Intakes
 
-### API Endpoints to Use
+6. **Page Exports** (`ui/src/pages/index.ts`)
+   - Exported 3 new page components
 
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /api/v1/work-surfaces` | List with filters |
-| `POST /api/v1/work-surfaces` | Create/bind Work Surface |
-| `GET /api/v1/work-surfaces/:id` | Get detail |
-| `GET /api/v1/work-surfaces/compatible-templates?intake_id=:id` | Get compatible templates for wizard |
-| `POST /api/v1/work-surfaces/:id/archive` | Archive Work Surface |
+**Files Created/Modified:**
 
-### Verification Checklist
+| File | Action | Lines |
+|------|--------|-------|
+| `ui/src/pages/WorkSurfaces.tsx` | CREATE | ~290 |
+| `ui/src/pages/WorkSurfaceCompose.tsx` | CREATE | ~400 |
+| `ui/src/pages/WorkSurfaceDetail.tsx` | CREATE | ~380 |
+| `ui/src/routes.tsx` | EDIT | +6 |
+| `ui/src/layout/Sidebar.tsx` | EDIT | +1 |
+| `ui/src/pages/index.ts` | EDIT | +3 |
 
-- [ ] `npm run type-check` passes
-- [ ] `npm run build` passes
-- [ ] Work Surfaces list page displays with filters and pagination
-- [ ] Composition wizard allows step-by-step Work Surface creation
-- [ ] Detail page shows binding summary and stage progress
-- [ ] Navigation updated with Work Surfaces item
-- [ ] All routes functional
+**Verification:** `npm run type-check` and `npm run build` pass.
 
-### UI Patterns to Follow
-
-- Use existing CSS classes from `ui/src/styles/pages.module.css`
-- Follow `Intakes.tsx` pattern for list page structure
-- Follow `IntakeCreate.tsx` pattern for wizard steps
-- Use `IntakeDetail.tsx` pattern for detail page cards
-- Use Spark Design components (Button, Card, Input, Select, etc.)
-
-### Key Files to Create/Modify
-
-| File | Action | Description |
-|------|--------|-------------|
-| `ui/src/pages/WorkSurfaces.tsx` | CREATE | List page |
-| `ui/src/pages/WorkSurfaceCompose.tsx` | CREATE | Composition wizard |
-| `ui/src/pages/WorkSurfaceDetail.tsx` | CREATE | Detail page |
-| `ui/src/pages/index.ts` | EDIT | Export new pages |
-| `ui/src/routes.tsx` | EDIT | Add 3 routes |
-| `ui/src/layout/Sidebar.tsx` | EDIT | Add nav item |
+**SR-PLAN-V4 Status:** COMPLETE — All 4 phases implemented.
 
 ---
 
-## Summary of Previous Development Iterations
+## Prompt for Next Instance
+
+SR-PLAN-V4 is complete. Review SR-CHARTER to identify the next feature or task to implement.
+
+---
+
+## Prior Development Sessions
 
 ### Session: 2026-01-15 — Phase 4c Implementation (Event Integration)
 

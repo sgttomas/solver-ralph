@@ -10,6 +10,7 @@ const items = [
   { to: "/workflows", label: "Workflows" },
   { to: "/loops", label: "Loops" },
   { to: "/intakes", label: "Intakes" },
+  { to: "/work-surfaces", label: "Work Surfaces" },
   { to: "/references", label: "References" },
   { to: "/prompts", label: "Prompts" },
   { to: "/artifacts", label: "Artifacts" },

@@ -33,6 +33,9 @@ import { References } from "./pages/References";
 import { ReferenceDocumentDetail } from "./pages/ReferenceDocumentDetail";
 import { ReferenceBundleDetail } from "./pages/ReferenceBundleDetail";
 import { GovernedArtifactDetail } from "./pages/GovernedArtifactDetail";
+import { WorkSurfaces } from "./pages/WorkSurfaces";
+import { WorkSurfaceCompose } from "./pages/WorkSurfaceCompose";
+import { WorkSurfaceDetail } from "./pages/WorkSurfaceDetail";
 import { Audit } from "./pages/Audit";
 import { Settings } from "./pages/Settings";
 
@@ -83,6 +86,11 @@ export const router = createBrowserRouter([
       { path: "/intakes/new", element: <IntakeCreate /> },
       { path: "/intakes/:intakeId", element: <IntakeDetail /> },
       { path: "/intakes/:intakeId/edit", element: <IntakeEdit /> },
+
+      // Work Surfaces
+      { path: "/work-surfaces", element: <WorkSurfaces /> },
+      { path: "/work-surfaces/new", element: <WorkSurfaceCompose /> },
+      { path: "/work-surfaces/:workSurfaceId", element: <WorkSurfaceDetail /> },
 
       // References (renamed from Context)
       { path: "/references", element: <References /> },
