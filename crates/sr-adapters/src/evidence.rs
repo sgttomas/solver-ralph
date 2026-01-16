@@ -68,6 +68,23 @@ pub struct EvidenceManifest {
     /// Additional metadata (extensible, sorted by key)
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub metadata: BTreeMap<String, serde_json::Value>,
+
+    // ---- Work Surface Context (SR-PLAN-V4 Phase 4c) ----
+
+    /// Procedure template ID this evidence is associated with
+    /// Per SR-SPEC §1.9.1: Evidence bundles should include stage context
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub procedure_template_id: Option<String>,
+
+    /// Stage ID within the procedure template
+    /// Per SR-SPEC §1.9.1: Evidence bundles should include stage context
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage_id: Option<String>,
+
+    /// Work Surface ID this evidence was recorded under
+    /// Per SR-PLAN-V4 Phase 4c: Links evidence to the Work Surface binding
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub work_surface_id: Option<String>,
 }
 
 /// Individual oracle result within a suite
@@ -332,6 +349,10 @@ pub struct EvidenceManifestBuilder {
     results: Vec<OracleResult>,
     artifacts: Vec<EvidenceArtifact>,
     metadata: BTreeMap<String, serde_json::Value>,
+    // Work Surface context (SR-PLAN-V4 Phase 4c)
+    procedure_template_id: Option<String>,
+    stage_id: Option<String>,
+    work_surface_id: Option<String>,
 }
 
 impl EvidenceManifestBuilder {
@@ -348,6 +369,9 @@ impl EvidenceManifestBuilder {
             results: Vec::new(),
             artifacts: Vec::new(),
             metadata: BTreeMap::new(),
+            procedure_template_id: None,
+            stage_id: None,
+            work_surface_id: None,
         }
     }
 
@@ -395,6 +419,32 @@ impl EvidenceManifestBuilder {
 
     pub fn add_metadata(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.metadata.insert(key.into(), value);
+        self
+    }
+
+    /// Set Work Surface context per SR-PLAN-V4 Phase 4c
+    ///
+    /// This binds the evidence to a specific (procedure_template_id, stage_id, work_surface_id) triple.
+    pub fn work_surface_context(
+        mut self,
+        procedure_template_id: impl Into<String>,
+        stage_id: impl Into<String>,
+        work_surface_id: impl Into<String>,
+    ) -> Self {
+        self.procedure_template_id = Some(procedure_template_id.into());
+        self.stage_id = Some(stage_id.into());
+        self.work_surface_id = Some(work_surface_id.into());
+        self
+    }
+
+    /// Set just procedure template and stage (without full work surface binding)
+    pub fn procedure_context(
+        mut self,
+        procedure_template_id: impl Into<String>,
+        stage_id: impl Into<String>,
+    ) -> Self {
+        self.procedure_template_id = Some(procedure_template_id.into());
+        self.stage_id = Some(stage_id.into());
         self
     }
 
@@ -475,6 +525,10 @@ impl EvidenceManifestBuilder {
             verdict,
             artifacts: self.artifacts,
             metadata: self.metadata,
+            // Work Surface context (SR-PLAN-V4 Phase 4c)
+            procedure_template_id: self.procedure_template_id,
+            stage_id: self.stage_id,
+            work_surface_id: self.work_surface_id,
         };
 
         // Validate before returning
@@ -770,5 +824,68 @@ mod tests {
         let json = manifest.to_deterministic_json().unwrap();
         let validated = ManifestValidationOracle::validate_json(&json).unwrap();
         assert_eq!(validated, manifest);
+    }
+
+    #[test]
+    fn test_work_surface_context() {
+        let now = DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let manifest = EvidenceManifestBuilder::new()
+            .bundle_id("bundle-ws-001")
+            .run_id("run-001")
+            .candidate_id("candidate-001")
+            .oracle_suite("suite.core.v1", "abc123")
+            .run_times(now, now + Duration::seconds(5))
+            .environment_fingerprint(serde_json::json!({}))
+            .work_surface_context("proc:template-001", "stage:draft", "ws:001")
+            .add_result(OracleResult {
+                oracle_id: "test".to_string(),
+                oracle_name: "Test".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 100,
+                error_message: None,
+                artifact_refs: vec![],
+                output: None,
+            })
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            manifest.procedure_template_id,
+            Some("proc:template-001".to_string())
+        );
+        assert_eq!(manifest.stage_id, Some("stage:draft".to_string()));
+        assert_eq!(manifest.work_surface_id, Some("ws:001".to_string()));
+
+        // Verify it serializes correctly
+        let json = manifest.to_deterministic_json().unwrap();
+        let json_str = String::from_utf8_lossy(&json);
+        assert!(json_str.contains("procedure_template_id"));
+        assert!(json_str.contains("stage_id"));
+        assert!(json_str.contains("work_surface_id"));
+
+        // Verify roundtrip
+        let parsed = EvidenceManifest::from_json(&json).unwrap();
+        assert_eq!(parsed.procedure_template_id, manifest.procedure_template_id);
+        assert_eq!(parsed.stage_id, manifest.stage_id);
+        assert_eq!(parsed.work_surface_id, manifest.work_surface_id);
+    }
+
+    #[test]
+    fn test_work_surface_context_optional() {
+        // Verify that manifests without Work Surface context still work
+        let manifest = sample_manifest();
+        assert!(manifest.procedure_template_id.is_none());
+        assert!(manifest.stage_id.is_none());
+        assert!(manifest.work_surface_id.is_none());
+
+        // Verify serialization doesn't include empty optional fields
+        let json = manifest.to_deterministic_json().unwrap();
+        let json_str = String::from_utf8_lossy(&json);
+        assert!(!json_str.contains("procedure_template_id"));
+        assert!(!json_str.contains("stage_id"));
+        assert!(!json_str.contains("work_surface_id"));
     }
 }

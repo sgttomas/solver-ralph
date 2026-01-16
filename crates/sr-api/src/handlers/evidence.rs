@@ -47,6 +47,13 @@ pub struct UploadEvidenceResponse {
     pub candidate_id: String,
     pub verdict: String,
     pub stored_at: String,
+    // Work Surface context (SR-PLAN-V4 Phase 4c)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub procedure_template_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub work_surface_id: Option<String>,
 }
 
 /// Response for retrieving evidence
@@ -195,7 +202,8 @@ pub async fn upload_evidence(
     let event_id = EventId::new();
     let now = Utc::now();
 
-    let payload = serde_json::json!({
+    // Build payload with optional Work Surface context per SR-PLAN-V4 Phase 4c
+    let mut payload = serde_json::json!({
         "content_hash": content_hash,
         "bundle_id": body.manifest.bundle_id,
         "run_id": body.manifest.run_id,
@@ -205,6 +213,17 @@ pub async fn upload_evidence(
         "verdict": format!("{:?}", body.manifest.verdict),
         "artifact_count": body.manifest.artifacts.len()
     });
+
+    // Add Work Surface context fields if present (SR-PLAN-V4 Phase 4c)
+    if let Some(ref proc_id) = body.manifest.procedure_template_id {
+        payload["procedure_template_id"] = serde_json::json!(proc_id);
+    }
+    if let Some(ref stage_id) = body.manifest.stage_id {
+        payload["stage_id"] = serde_json::json!(stage_id);
+    }
+    if let Some(ref ws_id) = body.manifest.work_surface_id {
+        payload["work_surface_id"] = serde_json::json!(ws_id);
+    }
 
     let event = EventEnvelope {
         event_id: event_id.clone(),
@@ -270,6 +289,10 @@ pub async fn upload_evidence(
         candidate_id: body.manifest.candidate_id,
         verdict: format!("{:?}", body.manifest.verdict),
         stored_at: now.to_rfc3339(),
+        // Work Surface context (SR-PLAN-V4 Phase 4c)
+        procedure_template_id: body.manifest.procedure_template_id,
+        stage_id: body.manifest.stage_id,
+        work_surface_id: body.manifest.work_surface_id,
     }))
 }
 

@@ -65,6 +65,8 @@ pub enum StopCondition {
     IntegrityCondition,
     /// Loop closed
     LoopClosed,
+    /// Work Surface missing or archived per SR-PLAN-V4 Phase 4c
+    WorkSurfaceMissing,
 }
 
 /// Iteration start preconditions per SR-SPEC
@@ -82,6 +84,9 @@ pub struct IterationPreconditions {
     pub no_stop_triggers: bool,
     /// All required approvals in place (if any pending)
     pub approvals_satisfied: bool,
+    /// Work Surface available for this work unit per SR-PLAN-V4 Phase 4c
+    /// This is only checked when work_unit_id is specified for the loop
+    pub work_surface_available: bool,
 }
 
 impl IterationPreconditions {
@@ -93,6 +98,7 @@ impl IterationPreconditions {
             && self.delay_elapsed
             && self.no_stop_triggers
             && self.approvals_satisfied
+            && self.work_surface_available
     }
 
     /// Get the first unsatisfied precondition (for error reporting)
@@ -109,6 +115,8 @@ impl IterationPreconditions {
             Some("stop_trigger_active")
         } else if !self.approvals_satisfied {
             Some("pending_approvals")
+        } else if !self.work_surface_available {
+            Some("work_surface_missing")
         } else {
             None
         }
@@ -145,6 +153,11 @@ pub struct LoopTrackingState {
     pub pending_portal_approvals: HashSet<String>,
     /// Cost units consumed
     pub cost_consumed: u64,
+    /// Work unit ID associated with this loop (per SR-PLAN-V4 Phase 4c)
+    /// When set, the governor will validate Work Surface availability
+    pub work_unit_id: Option<String>,
+    /// Cached Work Surface ID when work_unit_id is set and Work Surface is available
+    pub work_surface_id: Option<String>,
 }
 
 impl LoopTrackingState {
@@ -161,6 +174,33 @@ impl LoopTrackingState {
             stop_triggers: Vec::new(),
             pending_portal_approvals: HashSet::new(),
             cost_consumed: 0,
+            work_unit_id: None,
+            work_surface_id: None,
+        }
+    }
+
+    /// Create a new loop tracking state with a work unit ID
+    /// This enables Work Surface validation per SR-PLAN-V4 Phase 4c
+    pub fn new_with_work_unit(
+        loop_id: String,
+        budget: LoopBudget,
+        created_at: DateTime<Utc>,
+        work_unit_id: String,
+    ) -> Self {
+        Self {
+            loop_id,
+            loop_state: LoopState::Created,
+            budget,
+            iteration_count: 0,
+            current_iteration_id: None,
+            current_iteration_state: None,
+            created_at,
+            last_iteration_at: None,
+            stop_triggers: Vec::new(),
+            pending_portal_approvals: HashSet::new(),
+            cost_consumed: 0,
+            work_unit_id: Some(work_unit_id),
+            work_surface_id: None,
         }
     }
 }
@@ -485,6 +525,14 @@ impl<E: EventStore> LoopGovernor<E> {
             true
         };
 
+        // Check Work Surface availability per SR-PLAN-V4 Phase 4c
+        // If work_unit_id is set, we require work_surface_id to be set (validated)
+        // If work_unit_id is None, no Work Surface validation is needed
+        let work_surface_available = match &state.work_unit_id {
+            Some(_) => state.work_surface_id.is_some(),
+            None => true, // No Work Surface validation required
+        };
+
         Ok(IterationPreconditions {
             loop_active: state.loop_state == LoopState::Active,
             no_incomplete_iteration: state.current_iteration_id.is_none()
@@ -494,6 +542,7 @@ impl<E: EventStore> LoopGovernor<E> {
             delay_elapsed,
             no_stop_triggers: state.stop_triggers.is_empty(),
             approvals_satisfied: state.pending_portal_approvals.is_empty(),
+            work_surface_available,
         })
     }
 
@@ -753,6 +802,87 @@ impl<E: EventStore> LoopGovernor<E> {
 
         Ok(())
     }
+
+    /// Set Work Surface ID for a loop per SR-PLAN-V4 Phase 4c
+    ///
+    /// Call this after validating that a Work Surface exists for the work unit.
+    /// This enables the governor to pass the work_surface_available precondition.
+    #[instrument(skip(self))]
+    pub async fn set_work_surface(
+        &self,
+        loop_id: &str,
+        work_surface_id: String,
+    ) -> Result<(), GovernorError> {
+        let mut loops = self.loops.write().await;
+        let state = loops.get_mut(loop_id).ok_or(GovernorError::LoopNotFound {
+            loop_id: loop_id.to_string(),
+        })?;
+
+        state.work_surface_id = Some(work_surface_id.clone());
+
+        debug!(
+            loop_id = %loop_id,
+            work_surface_id = %work_surface_id,
+            "Work Surface set for loop"
+        );
+
+        Ok(())
+    }
+
+    /// Clear Work Surface ID for a loop (e.g., when archived)
+    ///
+    /// This will cause the work_surface_available precondition to fail.
+    #[instrument(skip(self))]
+    pub async fn clear_work_surface(&self, loop_id: &str) -> Result<(), GovernorError> {
+        let mut loops = self.loops.write().await;
+        let state = loops.get_mut(loop_id).ok_or(GovernorError::LoopNotFound {
+            loop_id: loop_id.to_string(),
+        })?;
+
+        if state.work_surface_id.is_some() {
+            state.work_surface_id = None;
+            debug!(loop_id = %loop_id, "Work Surface cleared for loop");
+        }
+
+        Ok(())
+    }
+
+    /// Set work unit ID for a loop per SR-PLAN-V4 Phase 4c
+    ///
+    /// This enables Work Surface validation for the loop.
+    #[instrument(skip(self))]
+    pub async fn set_work_unit(
+        &self,
+        loop_id: &str,
+        work_unit_id: String,
+    ) -> Result<(), GovernorError> {
+        let mut loops = self.loops.write().await;
+        let state = loops.get_mut(loop_id).ok_or(GovernorError::LoopNotFound {
+            loop_id: loop_id.to_string(),
+        })?;
+
+        state.work_unit_id = Some(work_unit_id.clone());
+
+        debug!(
+            loop_id = %loop_id,
+            work_unit_id = %work_unit_id,
+            "Work unit set for loop (Work Surface validation enabled)"
+        );
+
+        Ok(())
+    }
+
+    /// Get the Work Surface ID for a loop (if set)
+    pub async fn get_work_surface_id(&self, loop_id: &str) -> Option<String> {
+        let loops = self.loops.read().await;
+        loops.get(loop_id).and_then(|s| s.work_surface_id.clone())
+    }
+
+    /// Get the work unit ID for a loop (if set)
+    pub async fn get_work_unit_id(&self, loop_id: &str) -> Option<String> {
+        let loops = self.loops.read().await;
+        loops.get(loop_id).and_then(|s| s.work_unit_id.clone())
+    }
 }
 
 // ============================================================================
@@ -774,6 +904,7 @@ mod tests {
         pre.delay_elapsed = true;
         pre.no_stop_triggers = true;
         pre.approvals_satisfied = true;
+        pre.work_surface_available = true;
 
         assert!(pre.all_satisfied());
     }
@@ -806,6 +937,51 @@ mod tests {
         assert_eq!(state.iteration_count, 0);
         assert!(state.current_iteration_id.is_none());
         assert!(state.stop_triggers.is_empty());
+        assert!(state.work_unit_id.is_none());
+        assert!(state.work_surface_id.is_none());
+    }
+
+    #[test]
+    fn test_loop_tracking_state_with_work_unit() {
+        let state = LoopTrackingState::new_with_work_unit(
+            "loop_test".to_string(),
+            LoopBudget::default(),
+            Utc::now(),
+            "wu_test".to_string(),
+        );
+
+        assert_eq!(state.loop_state, LoopState::Created);
+        assert_eq!(state.work_unit_id, Some("wu_test".to_string()));
+        assert!(state.work_surface_id.is_none());
+    }
+
+    #[test]
+    fn test_work_surface_missing_stop_condition() {
+        let condition = StopCondition::WorkSurfaceMissing;
+        let json = serde_json::to_string(&condition).unwrap();
+        assert_eq!(json, "\"WORK_SURFACE_MISSING\"");
+
+        let parsed: StopCondition = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, StopCondition::WorkSurfaceMissing);
+    }
+
+    #[test]
+    fn test_work_surface_available_precondition() {
+        let mut pre = IterationPreconditions::default();
+        pre.loop_active = true;
+        pre.no_incomplete_iteration = true;
+        pre.budget_available = true;
+        pre.delay_elapsed = true;
+        pre.no_stop_triggers = true;
+        pre.approvals_satisfied = true;
+        // work_surface_available defaults to false
+
+        assert!(!pre.all_satisfied());
+        assert_eq!(pre.first_unsatisfied(), Some("work_surface_missing"));
+
+        pre.work_surface_available = true;
+        assert!(pre.all_satisfied());
+        assert_eq!(pre.first_unsatisfied(), None);
     }
 
     #[test]

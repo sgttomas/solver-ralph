@@ -32,6 +32,9 @@ pub enum ApiError {
     NotImplemented { feature: String },
     /// Internal server error
     Internal { message: String },
+    /// Work Surface not found for work unit per SR-PLAN-V4 Phase 4c
+    /// This is a precondition failure when starting iterations
+    WorkSurfaceNotFound { work_unit_id: String },
 }
 
 /// Error response body
@@ -78,6 +81,18 @@ impl IntoResponse for ApiError {
                     None,
                 )
             }
+            ApiError::WorkSurfaceNotFound { work_unit_id } => (
+                StatusCode::PRECONDITION_FAILED,
+                format!(
+                    "No active Work Surface found for work unit: {}. \
+                     Bind a Work Surface before starting iterations.",
+                    work_unit_id
+                ),
+                Some(serde_json::json!({
+                    "work_unit_id": work_unit_id,
+                    "error_code": "WORK_SURFACE_MISSING"
+                })),
+            ),
         };
 
         let body = ErrorResponse {

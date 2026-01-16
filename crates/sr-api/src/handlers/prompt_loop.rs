@@ -1311,5 +1311,9 @@ fn build_evidence_manifest(
             description: Some("LLM-generated answer".to_string()),
         }],
         metadata: Default::default(),
+        // Work Surface context (SR-PLAN-V4 Phase 4c) - not applicable to prompt loop
+        procedure_template_id: None,
+        stage_id: None,
+        work_surface_id: None,
     })
 }

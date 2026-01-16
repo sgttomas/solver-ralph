@@ -63,7 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
-| SR-PLAN-V4 | **in progress** | Work Surface Composition (Phase 4) — Phases 4a-4b complete, 4c-4d pending |
+| SR-PLAN-V4 | **in progress** | Work Surface Composition (Phase 4) — Phases 4a-4c complete, 4d pending |
 | SR-PLAN-V3 | **complete** | Intakes & References implementation (Phases 0-3) |
 | SR-PLAN-V2 | superseded | Intakes & References draft (10 unresolved issues) |
 
@@ -113,7 +113,7 @@ SR-PLAN-V4 (Work Surface Composition) has passed coherence review. The review re
 |-------|--------|-------------|
 | Phase 4a | **Complete** | Core Infrastructure — WorkSurfaceId, events, database migrations |
 | Phase 4b | **Complete** | Work Surface API — 9 endpoints for CRUD, stage transitions, compatibility |
-| Phase 4c | Pending | Event Integration — IterationStarted refs, EvidenceBundleRecorded binding |
+| Phase 4c | **Complete** | Event Integration — IterationStarted refs, EvidenceBundleRecorded binding, Governor stop trigger |
 | Phase 4d | Pending | Work Surface UI — List, composition wizard, detail with stage progress |
 
 ### Key Design Decisions (Resolved in SR-PLAN-V4)
@@ -137,73 +137,165 @@ SR-PLAN-V4 (Work Surface Composition) has passed coherence review. The review re
 
 ---
 
-## Prompt for Next Instance: Implement SR-PLAN-V4 Phase 4c (Event Integration)
+## Prompt for Next Instance: Implement SR-PLAN-V4 Phase 4d (Work Surface UI)
 
-**Phase 4b Status:** COMPLETE (2026-01-15) — Work Surface API implemented (9 endpoints)
+**Phase 4c Status:** COMPLETE (2026-01-15) — Event Integration implemented (IterationStarted refs, EvidenceBundleRecorded context, Governor stop trigger)
 
 ### Task
 
-Implement **Phase 4c: Event Integration** from SR-PLAN-V4.
+Implement **Phase 4d: Work Surface UI** from SR-PLAN-V4.
 
-This phase integrates Work Surface context into iteration and evidence events, enabling the Semantic Ralph Loop to reference Work Surface bindings during iteration execution.
+This phase implements the frontend UI for Work Surfaces, enabling users to create, view, and manage Work Surface bindings through a step-by-step composition wizard.
 
 ### Required Reading
 
-1. `docs/planning/SR-PLAN-V4.md` — Full implementation plan (especially §6 Phase 4c specification)
-2. `docs/platform/SR-CONTRACT.md` — C-CTX-1, C-CTX-2 invariants (iteration context must be complete, no ghost inputs)
-3. `docs/platform/SR-SPEC.md` — §3.2.1.1 IterationStarted event structure
-4. `crates/sr-api/src/handlers/work_surfaces.rs` — Work Surface API (Phase 4b output)
-5. `crates/sr-adapters/src/governor.rs` — Loop Governor that emits IterationStarted events
+1. `docs/planning/SR-PLAN-V4.md` — Full implementation plan (especially §6 Phase 4d specification)
+2. `docs/platform/SR-WORK-SURFACE.md` — Work Surface specification
+3. `crates/sr-api/src/handlers/work_surfaces.rs` — Work Surface API (Phase 4b output, 9 endpoints)
+4. `ui/src/pages/Intakes.tsx` — Reference for list page patterns
+5. `ui/src/pages/IntakeCreate.tsx` — Reference for form patterns and shared editor components
 
 ### Deliverables
 
-1. **IterationStarted Integration**
-   - Update iteration creation to fetch Work Surface refs from `/api/v1/work-surfaces/:id/iteration-context`
-   - Include Work Surface refs in `IterationStarted.refs[]`:
-     - `Intake` ref (with content_hash)
-     - `ProcedureTemplate` ref (with content_hash, current_stage_id)
-     - `OracleSuite` refs for current stage
-   - Per C-CTX-2: All context must be derivable from refs (no ghost inputs)
+1. **Work Surfaces List Page** (`ui/src/pages/WorkSurfaces.tsx`)
+   - Filter by status (active, completed, archived)
+   - Search by work unit, intake title
+   - Status badges with appropriate colors
+   - Pagination with page size selector
+   - Row click navigation to detail page
 
-2. **EvidenceBundleRecorded Integration**
-   - Include `procedure_template_id` and `stage_id` in evidence bundle metadata
-   - Evidence binds to (candidate, stage, work_surface) triple
+2. **Work Surface Composition Wizard** (`ui/src/pages/WorkSurfaceCompose.tsx`)
+   - Step 1: Select Intake (filter by kind, show only active intakes)
+   - Step 2: Select compatible Procedure Template (use `/api/v1/work-surfaces/compatible-templates`)
+   - Step 3: Review binding summary & confirm
+   - Success: Navigate to Work Surface detail page
+   - Cancel: Return to list
 
-3. **Loop Governor Updates** (`crates/sr-adapters/src/governor.rs`)
-   - Validate Work Surface exists for iteration
-   - Add stop trigger: `WORK_SURFACE_MISSING` — Loop cannot iterate without active Work Surface
+3. **Work Surface Detail Page** (`ui/src/pages/WorkSurfaceDetail.tsx`)
+   - Header with status badge and archive action
+   - Binding summary card (Intake, Procedure Template, Work Unit)
+   - Stage progress visualization (show all stages, highlight current)
+   - Stage status cards with completion info and evidence links
+   - Actions: Archive (if active), View Intake, View Template
 
-4. **Error Handling**
-   - `WorkSurfaceNotFound` error when starting iteration without active Work Surface for Work Unit
-   - Graceful handling when Work Surface is archived mid-loop
+4. **Route Updates** (`ui/src/routes.tsx`)
+   ```
+   /work-surfaces                        → WorkSurfaces.tsx
+   /work-surfaces/new                    → WorkSurfaceCompose.tsx
+   /work-surfaces/:workSurfaceId         → WorkSurfaceDetail.tsx
+   ```
+
+5. **Sidebar Navigation** (`ui/src/layout/Sidebar.tsx`)
+   - Add "Work Surfaces" navigation item after Intakes
+   - Position: Loops → Intakes → Work Surfaces → References → Prompts
+
+### API Endpoints to Use
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/v1/work-surfaces` | List with filters |
+| `POST /api/v1/work-surfaces` | Create/bind Work Surface |
+| `GET /api/v1/work-surfaces/:id` | Get detail |
+| `GET /api/v1/work-surfaces/compatible-templates?intake_id=:id` | Get compatible templates for wizard |
+| `POST /api/v1/work-surfaces/:id/archive` | Archive Work Surface |
 
 ### Verification Checklist
 
-- [ ] `cargo build` passes
-- [ ] `cargo test --workspace` passes
-- [ ] IterationStarted events include Work Surface refs (Intake, Template, OracleSuites)
-- [ ] EvidenceBundleRecorded includes procedure_template_id and stage_id
-- [ ] Loop governor refuses to start iteration without active Work Surface
-- [ ] Stop trigger `WORK_SURFACE_MISSING` emitted when required
+- [ ] `npm run type-check` passes
+- [ ] `npm run build` passes
+- [ ] Work Surfaces list page displays with filters and pagination
+- [ ] Composition wizard allows step-by-step Work Surface creation
+- [ ] Detail page shows binding summary and stage progress
+- [ ] Navigation updated with Work Surfaces item
+- [ ] All routes functional
 
-### Constraints
+### UI Patterns to Follow
 
-- **Per C-CTX-1:** Iteration context must be immutable commitment objects (referenced by hash)
-- **Per C-CTX-2:** No ghost inputs — all context must be derivable from IterationStarted.refs[]
-- **Event sourcing** — All mutations via events, projections update state
+- Use existing CSS classes from `ui/src/styles/pages.module.css`
+- Follow `Intakes.tsx` pattern for list page structure
+- Follow `IntakeCreate.tsx` pattern for wizard steps
+- Use `IntakeDetail.tsx` pattern for detail page cards
+- Use Spark Design components (Button, Card, Input, Select, etc.)
 
-### Key Files to Modify
+### Key Files to Create/Modify
 
-| File | Changes |
-|------|---------|
-| `crates/sr-adapters/src/governor.rs` | Add Work Surface validation, stop trigger |
-| `crates/sr-domain/src/events.rs` | May need to update IterationStarted structure |
-| `crates/sr-api/src/handlers/iterations.rs` | Update iteration creation to include refs |
-| `crates/sr-api/src/handlers/evidence.rs` | Include stage context in evidence recording |
+| File | Action | Description |
+|------|--------|-------------|
+| `ui/src/pages/WorkSurfaces.tsx` | CREATE | List page |
+| `ui/src/pages/WorkSurfaceCompose.tsx` | CREATE | Composition wizard |
+| `ui/src/pages/WorkSurfaceDetail.tsx` | CREATE | Detail page |
+| `ui/src/pages/index.ts` | EDIT | Export new pages |
+| `ui/src/routes.tsx` | EDIT | Add 3 routes |
+| `ui/src/layout/Sidebar.tsx` | EDIT | Add nav item |
 
 ---
 
 ## Summary of Previous Development Iterations
+
+### Session: 2026-01-15 — Phase 4c Implementation (Event Integration)
+
+**Objective:** Implement Phase 4c (Event Integration) per SR-PLAN-V4 §6.
+
+**Work Performed:**
+
+1. **Loop Governor Updates** (`crates/sr-adapters/src/governor.rs`)
+   - Added `WorkSurfaceMissing` variant to `StopCondition` enum
+   - Added `work_surface_available` field to `IterationPreconditions`
+   - Updated `all_satisfied()` and `first_unsatisfied()` methods
+   - Added `work_unit_id` and `work_surface_id` fields to `LoopTrackingState`
+   - Added constructor `new_with_work_unit()` for loops with Work Surface validation
+   - Added methods: `set_work_surface()`, `clear_work_surface()`, `set_work_unit()`, `get_work_surface_id()`, `get_work_unit_id()`
+   - Added unit tests for new functionality
+
+2. **Evidence Manifest Updates** (`crates/sr-adapters/src/evidence.rs`)
+   - Added optional fields to `EvidenceManifest`: `procedure_template_id`, `stage_id`, `work_surface_id`
+   - Updated `EvidenceManifestBuilder` with `work_surface_context()` and `procedure_context()` methods
+   - Updated `build()` to include new fields
+   - Added tests for Work Surface context serialization and roundtrip
+
+3. **Evidence Handler Updates** (`crates/sr-api/src/handlers/evidence.rs`)
+   - Updated `UploadEvidenceResponse` to include Work Surface context fields
+   - Updated `EvidenceBundleRecorded` event payload to include `procedure_template_id`, `stage_id`, `work_surface_id` when present
+
+4. **Iterations Handler Updates** (`crates/sr-api/src/handlers/iterations.rs`)
+   - Added optional `work_unit_id` field to `StartIterationRequest`
+   - When `work_unit_id` is provided:
+     - Queries `proj.work_surfaces` for active Work Surface
+     - Returns `WorkSurfaceNotFound` error if none exists
+     - Fetches and includes Work Surface refs (Intake, ProcedureTemplate, OracleSuites) per SR-SPEC §3.2.1.1
+   - Refs include content hashes per C-CTX-1 (immutable commitment objects)
+
+5. **Error Handling** (`crates/sr-api/src/handlers/error.rs`)
+   - Added `WorkSurfaceNotFound` error variant
+   - Returns HTTP 412 PRECONDITION_FAILED with `error_code: "WORK_SURFACE_MISSING"`
+
+6. **Test Fixes**
+   - Updated `crates/sr-adapters/src/integrity.rs` test manifest
+   - Updated `crates/sr-api/src/handlers/prompt_loop.rs` manifest
+
+**Files Modified:**
+
+| File | Action | Lines |
+|------|--------|-------|
+| `crates/sr-adapters/src/governor.rs` | EDIT | +120 |
+| `crates/sr-adapters/src/evidence.rs` | EDIT | +90 |
+| `crates/sr-api/src/handlers/error.rs` | EDIT | +15 |
+| `crates/sr-api/src/handlers/evidence.rs` | EDIT | +20 |
+| `crates/sr-api/src/handlers/iterations.rs` | EDIT | +100 |
+| `crates/sr-adapters/src/integrity.rs` | EDIT | +4 |
+| `crates/sr-api/src/handlers/prompt_loop.rs` | EDIT | +4 |
+
+**Verification:** `cargo build` passes, `cargo test --workspace` passes (all tests).
+
+**Key Implementation Details:**
+- `StartIterationRequest.work_unit_id` is optional for backward compatibility
+- When provided, iteration creation queries `proj.work_surfaces WHERE work_unit_id = $1 AND status = 'active'`
+- Work Surface refs use `rel: "depends_on"` per SR-SPEC TypedRef patterns
+- EvidenceManifest fields use `#[serde(skip_serializing_if = "Option::is_none")]` for backward compatibility
+
+**Next Step:** Implement Phase 4d (Work Surface UI) per the prompt above.
+
+---
 
 ### Session: 2026-01-15 — Phase 4b Implementation (Work Surface API)
 

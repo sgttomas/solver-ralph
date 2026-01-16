@@ -30,6 +30,10 @@ pub struct StartIterationRequest {
     pub loop_id: String,
     #[serde(default)]
     pub refs: Vec<TypedRefRequest>,
+    /// Optional work unit ID per SR-PLAN-V4 Phase 4c
+    /// When provided, Work Surface refs will be fetched and included in the iteration
+    #[serde(default)]
+    pub work_unit_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -143,6 +147,12 @@ pub struct IterationActionResponse {
 /// Start a new iteration (SYSTEM-only per SR-SPEC §2.2)
 ///
 /// POST /api/v1/iterations
+///
+/// When work_unit_id is provided (SR-PLAN-V4 Phase 4c):
+/// - Validates that an active Work Surface exists for the work unit
+/// - Fetches and includes Work Surface refs (Intake, ProcedureTemplate, OracleSuites)
+/// - Per C-CTX-1: All refs are content-addressed for immutability
+/// - Per C-CTX-2: All context is derivable from IterationStarted.refs[]
 #[instrument(skip(state, user, body), fields(user_id = %user.actor_id))]
 pub async fn start_iteration(
     State(state): State<AppState>,
@@ -182,7 +192,8 @@ pub async fn start_iteration(
     let event_id = EventId::new();
     let now = Utc::now();
 
-    let refs: Vec<TypedRef> = body
+    // Start with provided refs
+    let mut refs: Vec<TypedRef> = body
         .refs
         .into_iter()
         .map(|r| TypedRef {
@@ -193,11 +204,98 @@ pub async fn start_iteration(
         })
         .collect();
 
-    let payload = serde_json::json!({
+    // SR-PLAN-V4 Phase 4c: Fetch Work Surface refs if work_unit_id is provided
+    let work_surface_id = if let Some(ref work_unit_id) = body.work_unit_id {
+        // Query for active Work Surface
+        let ws_row = sqlx::query(
+            r#"
+            SELECT work_surface_id, intake_id, intake_content_hash,
+                   procedure_template_id, procedure_template_hash,
+                   current_stage_id, current_oracle_suites
+            FROM proj.work_surfaces
+            WHERE work_unit_id = $1 AND status = 'active'
+            "#,
+        )
+        .bind(work_unit_id)
+        .fetch_optional(state.projections.pool())
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?
+        .ok_or_else(|| ApiError::WorkSurfaceNotFound {
+            work_unit_id: work_unit_id.clone(),
+        })?;
+
+        use sqlx::Row;
+        let ws_id: String = ws_row.get("work_surface_id");
+        let intake_id: String = ws_row.get("intake_id");
+        let intake_hash: String = ws_row.get("intake_content_hash");
+        let proc_id: String = ws_row.get("procedure_template_id");
+        let proc_hash: String = ws_row.get("procedure_template_hash");
+        let stage_id: String = ws_row.get("current_stage_id");
+        let oracle_suites: serde_json::Value = ws_row.get("current_oracle_suites");
+
+        // Add Intake ref per SR-SPEC §3.2.1.1
+        refs.push(TypedRef {
+            kind: "Intake".to_string(),
+            id: intake_id,
+            rel: "depends_on".to_string(),
+            meta: serde_json::json!({
+                "content_hash": intake_hash,
+            }),
+        });
+
+        // Add ProcedureTemplate ref per SR-SPEC §3.2.1.1
+        refs.push(TypedRef {
+            kind: "ProcedureTemplate".to_string(),
+            id: proc_id,
+            rel: "depends_on".to_string(),
+            meta: serde_json::json!({
+                "content_hash": proc_hash,
+                "current_stage_id": stage_id,
+            }),
+        });
+
+        // Add OracleSuite refs per SR-SPEC §3.2.1.1
+        if let Some(suites) = oracle_suites.as_array() {
+            for suite in suites {
+                if let (Some(suite_id), Some(suite_hash)) =
+                    (suite.get("suite_id"), suite.get("suite_hash"))
+                {
+                    refs.push(TypedRef {
+                        kind: "OracleSuite".to_string(),
+                        id: suite_id.as_str().unwrap_or_default().to_string(),
+                        rel: "depends_on".to_string(),
+                        meta: serde_json::json!({
+                            "content_hash": suite_hash.as_str().unwrap_or_default(),
+                        }),
+                    });
+                }
+            }
+        }
+
+        info!(
+            work_unit_id = %work_unit_id,
+            work_surface_id = %ws_id,
+            "Work Surface refs included in iteration context"
+        );
+
+        Some(ws_id)
+    } else {
+        None
+    };
+
+    // Build payload
+    let mut payload = serde_json::json!({
         "loop_id": body.loop_id,
         "sequence": next_sequence,
         "refs": refs
     });
+
+    // Include work_surface_id in payload if present
+    if let Some(ref ws_id) = work_surface_id {
+        payload["work_surface_id"] = serde_json::json!(ws_id);
+    }
 
     let event = EventEnvelope {
         event_id: event_id.clone(),
@@ -231,6 +329,7 @@ pub async fn start_iteration(
         iteration_id = %iteration_id.as_str(),
         loop_id = %body.loop_id,
         sequence = next_sequence,
+        work_surface_id = ?work_surface_id,
         "Iteration started"
     );
 
