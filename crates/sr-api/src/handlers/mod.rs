@@ -18,6 +18,7 @@ pub mod iterations;
 pub mod loops;
 pub mod oracles;
 pub mod prompt_loop;
+pub mod references;
 pub mod runs;
 pub mod templates;
 

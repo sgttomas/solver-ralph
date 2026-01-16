@@ -28,6 +28,8 @@ pub enum ApiError {
         current_state: String,
         action: String,
     },
+    /// Feature not implemented
+    NotImplemented { feature: String },
     /// Internal server error
     Internal { message: String },
 }
@@ -62,6 +64,11 @@ impl IntoResponse for ApiError {
                     "current_state": current_state,
                     "action": action
                 })),
+            ),
+            ApiError::NotImplemented { feature } => (
+                StatusCode::NOT_IMPLEMENTED,
+                format!("{} is not yet implemented", feature),
+                None,
             ),
             ApiError::Internal { message } => {
                 tracing::error!(error = %message, "Internal server error");

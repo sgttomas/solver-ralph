@@ -26,7 +26,7 @@ use axum::{
 use config::ApiConfig;
 use handlers::{
     approvals, candidates, decisions, evidence, exceptions, freeze, intakes, iterations, loops,
-    oracles, prompt_loop::{prompt_loop, prompt_loop_stream}, runs, templates,
+    oracles, prompt_loop::{prompt_loop, prompt_loop_stream}, references, runs, templates,
 };
 use observability::{metrics_endpoint, request_context_middleware, Metrics, MetricsState};
 use serde::{Deserialize, Serialize};
@@ -131,12 +131,16 @@ async fn protected_info(user: AuthenticatedUser) -> Json<serde_json::Value> {
     }))
 }
 
+/// References state for references endpoints (SR-PLAN-V3 Phase 0c)
+pub use references::ReferencesState;
+
 /// Create the API router with all routes (D-33: includes metrics and observability)
 fn create_router(
     state: AppState,
     metrics_state: MetricsState,
     oracle_state: OracleRegistryState,
     template_state: TemplateRegistryState,
+    references_state: ReferencesState,
 ) -> Router {
     // Public routes (no authentication required)
     let public_routes = Router::new()
@@ -353,6 +357,67 @@ fn create_router(
             get(intakes::get_intake_by_hash),
         );
 
+    // References routes - Per SR-PLAN-V3 Phase 0c
+    let references_routes = Router::new()
+        .route("/api/v1/references", get(references::list_references))
+        .route(
+            "/api/v1/references/governed-artifacts",
+            get(references::list_governed_artifacts),
+        )
+        .route(
+            "/api/v1/references/governed-artifacts/:id",
+            get(references::get_governed_artifact),
+        )
+        .route(
+            "/api/v1/references/candidates",
+            get(references::list_candidates),
+        )
+        .route(
+            "/api/v1/references/evidence-bundles",
+            get(references::list_evidence_bundles),
+        )
+        .route(
+            "/api/v1/references/evidence-bundles/:hash",
+            get(references::get_evidence_bundle),
+        )
+        .route(
+            "/api/v1/references/oracle-suites",
+            get(references::list_oracle_suites),
+        )
+        .route(
+            "/api/v1/references/procedure-templates",
+            get(references::list_procedure_templates),
+        )
+        .route(
+            "/api/v1/references/exceptions",
+            get(references::list_exceptions),
+        )
+        .route(
+            "/api/v1/references/iteration-summaries",
+            get(references::list_iteration_summaries),
+        )
+        .route(
+            "/api/v1/references/agent-definitions",
+            get(references::list_agent_definitions),
+        )
+        .route(
+            "/api/v1/references/gating-policies",
+            get(references::list_gating_policies),
+        )
+        .route(
+            "/api/v1/references/intakes",
+            get(references::list_intakes_as_refs),
+        )
+        .route(
+            "/api/v1/references/documents",
+            post(references::upload_document),
+        )
+        .route(
+            "/api/v1/references/documents/:id",
+            get(references::get_document),
+        )
+        .with_state(references_state);
+
     // Combine all routes (D-33: request context middleware for correlation tracking)
     Router::new()
         .merge(public_routes)
@@ -370,6 +435,7 @@ fn create_router(
         .merge(oracle_routes)
         .merge(template_routes)
         .merge(intake_routes)
+        .merge(references_routes)
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(request_context_middleware))
         .layer(TraceLayer::new_for_http())
@@ -506,7 +572,7 @@ async fn main() {
     // Create oracle registry state (SR-SEMANTIC-ORACLE-SPEC)
     let oracle_registry = Arc::new(OracleSuiteRegistry::with_core_suites());
     let oracle_state = OracleRegistryState {
-        registry: oracle_registry,
+        registry: oracle_registry.clone(),
     };
 
     info!("Oracle registry initialized with core suites");
@@ -514,13 +580,22 @@ async fn main() {
     // Create template registry state (SR-TEMPLATES)
     let template_registry = Arc::new(TemplateRegistry::new());
     let template_state = TemplateRegistryState {
-        registry: template_registry,
+        registry: template_registry.clone(),
     };
 
     info!("Template registry initialized with schemas");
 
+    // Create references state (SR-PLAN-V3 Phase 0c)
+    let references_state = ReferencesState {
+        app_state: state.clone(),
+        oracle_registry,
+        template_registry,
+    };
+
+    info!("References state initialized");
+
     // Create router (D-33: includes metrics endpoint and request tracing)
-    let app = create_router(state, metrics_state, oracle_state, template_state);
+    let app = create_router(state, metrics_state, oracle_state, template_state, references_state);
 
     // Start server
     let bind_addr = config.bind_addr();
