@@ -77,9 +77,11 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
   - `oracles/schema-validation.sh` — JSON schema validation oracle
   - `oracles/lint.sh` — Code linting oracle (advisory classification)
   - `README.md` — Suite documentation
-- **Oracle output schema:** All oracles produce `sr.oracle_result.v1` JSON format with:
-  - `schema`, `oracle_id`, `status`, `started_at`, `completed_at`, `duration_ms`
-  - `exit_code`, `summary`, `details`, `artifacts`
+- **SR-SPEC §1.9.1.1:** Added `sr.oracle_result.v1` schema documentation:
+  - Individual oracle output format (distinct from `evidence.gate_packet` manifest)
+  - Required fields: `schema`, `oracle_id`, `status`, `started_at`, `completed_at`, `duration_ms`, `exit_code`, `summary`
+  - Optional fields: `details`, `artifacts`
+  - Relationship to Evidence Bundle aggregation
 - **Environment constraints:** Suite declares `runsc` runtime, `network:disabled`, `workspace_readonly:true`
 - **Classification matrix:** 3 required oracles (build, unit-tests, schema-validation) + 1 advisory (lint)
 - **sr-adapters tests:** Added 6 integration tests validating suite.json parsing and GAP detection

@@ -537,6 +537,44 @@ The platform domain type key for an Evidence Bundle is `domain.evidence_bundle` 
 
 The manifest MAY reference separate content-addressed blobs (logs, reports). The manifest itself is the minimum structured record.
 
+#### 1.9.1.1 Oracle result schema (`sr.oracle_result.v1`)
+
+Individual oracle scripts produce JSON output conforming to this schema. The `PodmanOracleRunner` collects these outputs from `/scratch/reports/<name>.json` and aggregates them into `results[]` entries within the Evidence Bundle manifest.
+
+```jsonc
+{
+  "schema": "sr.oracle_result.v1",
+  "oracle_id": "oracle:build",           // Oracle identifier from suite definition
+  "status": "PASS",                       // PASS | FAIL
+  "started_at": "2026-01-16T12:00:00Z",   // ISO8601 timestamp
+  "completed_at": "2026-01-16T12:01:30Z", // ISO8601 timestamp
+  "duration_ms": 90000,                   // Execution duration in milliseconds
+  "exit_code": 0,                         // Process exit code (0 = success)
+  "summary": "Build completed successfully",  // Human-readable summary
+  "details": {                            // Oracle-specific structured data
+    "project_type": "rust",
+    "warnings": 0,
+    "errors": 0
+  },
+  "artifacts": []                         // Optional artifact references
+}
+```
+
+**Required fields:**
+- `schema` — MUST be `"sr.oracle_result.v1"`
+- `oracle_id` — MUST match the `oracle_id` in the suite definition
+- `status` — MUST be `"PASS"` or `"FAIL"`
+- `started_at`, `completed_at` — ISO8601 timestamps
+- `duration_ms` — non-negative integer
+- `exit_code` — integer (0 indicates success)
+- `summary` — human-readable string
+
+**Optional fields:**
+- `details` — oracle-specific structured data (schema varies by oracle)
+- `artifacts` — array of artifact references produced by the oracle
+
+**Relationship to Evidence Bundle:** Each oracle's `sr.oracle_result.v1` output is transformed into an `OracleResult` entry in the `results[]` array of the `evidence.gate_packet` manifest. The transformation preserves `oracle_id`, `status`, timestamps, and links to any produced artifacts.
+
 #### 1.9.2 Evidence immutability (MinIO)
 
 Evidence Bundles MUST be stored in content-addressed storage:
