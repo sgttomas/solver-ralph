@@ -483,15 +483,15 @@ interface IterationHistoryProps {
   - Stop trigger fired (REPEATED_FAILURE, etc.)
 
 **Acceptance Criteria:**
-- [ ] `GET /work-surfaces/{id}/iterations` returns iteration list
-- [ ] `POST /work-surfaces/{id}/iterations` starts new iteration as SYSTEM
-- [ ] IterationHistory shows timeline of iterations
-- [ ] "New Iteration" button starts new iteration
-- [ ] `cargo test --package sr-api` passes
-- [ ] `npm run type-check` passes
-- [ ] `npm run build` passes
+- [x] `GET /work-surfaces/{id}/iterations` returns iteration list
+- [x] `POST /work-surfaces/{id}/iterations` starts new iteration as SYSTEM
+- [x] IterationHistory shows timeline of iterations
+- [x] "New Iteration" button starts new iteration
+- [x] `cargo test --package sr-api` passes
+- [x] `npm run type-check` passes
+- [x] `npm run build` passes
 
-**Effort:** ~2 sessions
+**Effort:** ~1 session (✅ Complete)
 
 ---
 
