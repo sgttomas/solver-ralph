@@ -63,7 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
-| SR-PLAN-V4 | **ready** | Work Surface Composition (Phase 4) — implementation-ready |
+| SR-PLAN-V4 | **pending review** | Work Surface Composition (Phase 4) — awaiting coherence review |
 | SR-PLAN-V3 | **complete** | Intakes & References implementation (Phases 0-3) |
 | SR-PLAN-V2 | superseded | Intakes & References draft (10 unresolved issues) |
 
@@ -101,9 +101,9 @@ All phases of the Intakes & References implementation (SR-PLAN-V3) are now compl
 
 ## SR-PLAN-V4 Implementation Status
 
-**Status: READY FOR IMPLEMENTATION**
+**Status: PENDING COHERENCE REVIEW**
 
-SR-PLAN-V4 (Work Surface Composition) is complete and ready for implementation. The plan is at `docs/planning/SR-PLAN-V4.md`.
+SR-PLAN-V4 (Work Surface Composition) is complete and awaiting coherence review against canonical SR-* documents. The plan is at `docs/planning/SR-PLAN-V4.md`.
 
 ### Phase Overview
 
@@ -135,7 +135,94 @@ SR-PLAN-V4 (Work Surface Composition) is complete and ready for implementation. 
 
 ---
 
-## Prompt for Next Instance: Implement SR-PLAN-V4 Phase 4a (Core Infrastructure)
+## Prompt for Next Instance: Review SR-PLAN-V4 for Coherence with Canonical Documents
+
+### Task
+
+Review `docs/planning/SR-PLAN-V4.md` for **coherence and consistency** with the canonical SR-* documents in terms of **ontology**, **epistemology**, and **semantics**. This is a pre-implementation validation gate to ensure the plan faithfully implements the governed specifications.
+
+### Review Scope
+
+**Ontology** (What entities exist and how they relate):
+- Do the domain model entities (`ManagedWorkSurface`, `WorkSurfaceId`, `StageStatusRecord`) correctly represent the concepts in SR-WORK-SURFACE §5?
+- Are the relationships between Work Surface, Intake, Procedure Template, Stage, and Oracle Suite correctly modeled?
+- Does the 1:1 Work Surface ↔ Work Unit relationship align with SR-CONTRACT §2.3 (Work Unit definition)?
+- Are the RefKind and RefRelation values used in the plan consistent with SR-SPEC §1.5.3?
+
+**Epistemology** (What can be known and how it is established):
+- Does the plan correctly distinguish Commitment Objects from Proposals per SR-CONTRACT §2.8?
+- Is the immutability boundary (binding refs vs. stage progression) correctly placed?
+- Does the evidence binding (`EvidenceBundleRecorded` with `procedure_template_id`, `stage_id`) satisfy SR-SPEC §1.9.1?
+- Are the iteration context refs (`IterationStarted.refs[]`) sufficient to satisfy C-CTX-1 and C-CTX-2 (no ghost inputs)?
+
+**Semantics** (What terms mean and how they are used):
+- Are status enum values (`active`, `completed`, `archived`) consistent with SR-TYPES §3.1?
+- Is the `gate_result` structure aligned with SR-PROCEDURE-KIT gate rule semantics?
+- Does the oracle suite binding (per-stage, with `suite_hash`) align with SR-SEMANTIC-ORACLE-SPEC §2?
+- Are event names and payloads consistent with SR-SPEC Appendix A patterns?
+
+### Required Reading (in order)
+
+| Document | Focus Sections | Purpose |
+|----------|----------------|---------|
+| `docs/planning/SR-PLAN-V4.md` | Full document | The plan under review |
+| `docs/platform/SR-CONTRACT.md` | §2.3 (Candidate, Run, Loop), §2.8 (Commitment Objects), C-CTX-1, C-CTX-2 | Binding invariants |
+| `docs/platform/SR-WORK-SURFACE.md` | §2 (Core concepts), §5 (Work Surface Instance) | Primary specification |
+| `docs/platform/SR-SPEC.md` | §1.5.3 (TypedRef), §1.9 (Evidence), §3.2.1.1 (Iteration Context), Appendix A | Event patterns |
+| `docs/platform/SR-TYPES.md` | §3.1 (Status enums), §4.3 (Platform domain types) | Type definitions |
+| `docs/platform/SR-PROCEDURE-KIT.md` | §1-2 (Stage structure, gate rules) | Stage machine semantics |
+| `docs/platform/SR-SEMANTIC-ORACLE-SPEC.md` | §2-4 (Suite identity, binding) | Oracle binding |
+
+### Deliverable
+
+Produce a **review report** with the following structure:
+
+```markdown
+# SR-PLAN-V4 Coherence Review
+
+## Summary
+[One paragraph: Overall assessment — Coherent / Minor Issues / Major Issues]
+
+## Ontology Findings
+| Item | Specification | Plan | Status | Notes |
+|------|---------------|------|--------|-------|
+| ... | ... | ... | ✅/⚠️/❌ | ... |
+
+## Epistemology Findings
+| Item | Specification | Plan | Status | Notes |
+|------|---------------|------|--------|-------|
+| ... | ... | ... | ✅/⚠️/❌ | ... |
+
+## Semantics Findings
+| Item | Specification | Plan | Status | Notes |
+|------|---------------|------|--------|-------|
+| ... | ... | ... | ✅/⚠️/❌ | ... |
+
+## Recommended Changes
+[Numbered list of specific changes to SR-PLAN-V4, if any]
+
+## Conclusion
+[Ready for implementation / Requires revision]
+```
+
+### Actions After Review
+
+- **If Coherent:** Update SR-README to mark review complete and proceed to Phase 4a implementation prompt
+- **If Minor Issues:** Document issues, propose fixes, update SR-PLAN-V4 if fixes are unambiguous
+- **If Major Issues:** Document issues, do NOT update SR-PLAN-V4, escalate for user decision
+
+### Constraints
+
+- **Do not implement** — This task is review only
+- **Be thorough** — Check every major claim in the plan against source specifications
+- **Be specific** — Cite section numbers when identifying discrepancies
+- **Preserve intent** — If the plan makes reasonable choices within spec latitude, note as acceptable
+
+---
+
+## Prompt for After Review: Implement SR-PLAN-V4 Phase 4a (Core Infrastructure)
+
+*This prompt should be used after the coherence review passes.*
 
 ### Task
 
