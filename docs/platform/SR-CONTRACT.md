@@ -457,6 +457,17 @@ To prevent drift between documents, schemas, and code, the following terms are c
 
 **Verified by:** Oracle (hash validation) + Portal (policy audit).
 
+#### C-EVID-2 Clarification: Attachments vs Evidence Bundles
+
+**Attachments** (type key: `record.attachment`) are human-uploaded supporting files that share the same immutable, content-addressed storage semantics as Evidence Bundles (C-EVID-2). However, Attachments are **NOT** Evidence Bundles:
+
+- Attachments have `artifact_type: record.attachment` (not `domain.evidence_bundle`)
+- Attachments are stored in a separate `attachments` bucket
+- Attachments do **NOT** satisfy C-VER-1 verification requirements
+- Attachments cannot substitute for oracle-produced evidence in any verification claim
+
+Attachments serve as supporting context for audit and human review (e.g., PDFs, images, documents attached to Work Surfaces), but they carry no verification authority.
+
 ### C-EVID-3: Evidence Attribution
 
 **Requirement:** Evidence MUST include actor type, stable identity, and timestamp.

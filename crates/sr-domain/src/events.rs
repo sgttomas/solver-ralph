@@ -48,6 +48,8 @@ pub enum StreamKind {
     Intake,
     /// Work Surface stream per SR-PLAN-V4 §1.2
     WorkSurface,
+    /// Attachment stream for human-uploaded supporting files (SR-PLAN-V7 §V7-3)
+    Attachment,
 }
 
 /// Event envelope per SR-SPEC §1.5.2

@@ -231,7 +231,7 @@ Every persisted event MUST conform to the following envelope:
 {
   "event_id": "evt_01J...ULID",
   "stream_id": "loop:loop_01J...",
-  "stream_kind": "LOOP|ITERATION|CANDIDATE|RUN|APPROVAL|DECISION|GOVERNANCE|EXCEPTION|ORACLE_SUITE|FREEZE|WORK_SURFACE|INTAKE",
+  "stream_kind": "LOOP|ITERATION|CANDIDATE|RUN|APPROVAL|DECISION|GOVERNANCE|EXCEPTION|ORACLE_SUITE|FREEZE|WORK_SURFACE|INTAKE|ATTACHMENT",
   "stream_seq": 42,
   "global_seq": 184467,              // REQUIRED in this SR-SPEC (PostgreSQL reference implementation)
   "event_type": "LoopCreated",        // namespaced in code (see Appendix A)
@@ -1862,6 +1862,26 @@ To protect the integrity of governance artifacts and evidence:
 - `IntakeActivated`
 - `IntakeArchived`
 - `IntakeForked`
+
+**Attachment (SR-PLAN-V7 V7-3)**
+- `AttachmentRecorded`
+
+  **Event type:** `AttachmentRecorded`
+  **Stream kind:** `ATTACHMENT`
+  **Stream id:** `attach:{attachment_id}`
+
+  **Payload (v1):**
+  ```jsonc
+  {
+    "attachment_id": "attach_01J...ULID",
+    "content_hash": "sha256:<hex>",
+    "media_type": "application/pdf",
+    "size_bytes": 12345,
+    "filename": "supporting-doc.pdf"
+  }
+  ```
+
+  **Note:** Attachments are human-uploaded supporting files with `artifact_type: record.attachment`. They share MinIO storage infrastructure but are **NOT** Evidence Bundles. Attachments do **NOT** satisfy C-VER-1 verification requirements — only oracle-produced Evidence Bundles can do that.
 
 ### Appendix B: Graph edge types (v1)
 

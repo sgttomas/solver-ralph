@@ -302,13 +302,13 @@ For auditability per C-EVT-1, emit `AttachmentRecorded` event:
 - Preserves ontological clarity: only Evidence Bundles satisfy verification gates
 
 **Acceptance Criteria:**
-- [ ] `POST /attachments` accepts multipart file upload
-- [ ] Returns attachment_id and content hash (sha256)
-- [ ] Stores in MinIO with content-addressed key
-- [ ] Idempotent: re-upload same file returns same hash
-- [ ] Emits `AttachmentRecorded` event
-- [ ] `cargo build --package sr-api` passes
-- [ ] `cargo test --package sr-api` passes
+- [x] `POST /attachments` accepts multipart file upload
+- [x] Returns attachment_id and content hash (sha256)
+- [x] Stores in MinIO with content-addressed key
+- [x] Idempotent: re-upload same file returns same hash
+- [x] Emits `AttachmentRecorded` event
+- [x] `cargo build --package sr-api` passes
+- [x] `cargo test --package sr-api` passes
 
 **Effort:** ~1 session
 

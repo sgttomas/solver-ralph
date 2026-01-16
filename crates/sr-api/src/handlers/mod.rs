@@ -5,8 +5,10 @@
 //! Enforces domain transition rules and HUMAN-only actions where required.
 //!
 //! Per SR-PLAN-V3: Intake management endpoints for draft, activate, archive, fork.
+//! Per SR-PLAN-V7: Attachment upload endpoint for human-uploaded supporting files.
 
 pub mod approvals;
+pub mod attachments;
 pub mod candidates;
 pub mod decisions;
 pub mod error;

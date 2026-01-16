@@ -345,6 +345,7 @@ fn stream_kind_to_str(kind: &StreamKind) -> &'static str {
         StreamKind::Freeze => "FREEZE",
         StreamKind::Intake => "INTAKE",
         StreamKind::WorkSurface => "WORK_SURFACE",
+        StreamKind::Attachment => "ATTACHMENT",
     }
 }
 
@@ -372,6 +373,8 @@ fn infer_stream_kind(stream_id: &str) -> StreamKind {
         StreamKind::Intake
     } else if stream_id.starts_with("work_surface:") {
         StreamKind::WorkSurface
+    } else if stream_id.starts_with("attach:") {
+        StreamKind::Attachment
     } else {
         StreamKind::Governance
     }

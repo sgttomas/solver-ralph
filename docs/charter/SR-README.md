@@ -92,7 +92,7 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 | Coherence Review | ✅ Complete | Ontological review completed, plan amended |
 | V7-1: Integration Tests | ✅ Complete | Integration tests for `/start` endpoint |
 | V7-2: Error Handling | ✅ Complete | Toast notifications, loading states, retry logic |
-| V7-3: Attachment Backend | ⏳ Pending | `POST /attachments` endpoint |
+| V7-3: Attachment Backend | ✅ Complete | `POST /attachments` endpoint |
 | V7-4: Attachment Frontend | ⏳ Pending | AttachmentUploader, AttachmentPreview components |
 | V7-5: Multiple Iterations | ⏳ Pending | Iteration history and new iteration support |
 
@@ -251,66 +251,148 @@ This preserves SR-CONTRACT's epistemological clarity: only oracle-produced Evide
 
 ---
 
-## Next Instance Prompt: Execute SR-PLAN-V7 Phase V7-3
+## Previous Session Summary (V7-3 Attachment Backend)
+
+**Session Goal:** Implement SR-PLAN-V7 Phase V7-3 — Attachment Upload Endpoint (Backend)
+
+### What Was Accomplished
+
+1. **Implemented attachment upload endpoint and supporting infrastructure:**
+
+   | Component | File | Purpose |
+   |-----------|------|---------|
+   | `MinioAttachmentStore` | `crates/sr-adapters/src/attachment_store.rs` | Content-addressed storage in `attachments` bucket |
+   | `upload_attachment` handler | `crates/sr-api/src/handlers/attachments.rs` | `POST /api/v1/attachments` multipart handler |
+   | `StreamKind::Attachment` | `crates/sr-domain/src/events.rs` | New stream kind for attachment events |
+
+2. **Key implementation details:**
+   - Accepts `multipart/form-data` with `file` field
+   - Computes SHA-256 hash server-side for content addressing
+   - Stores in MinIO `attachments` bucket at `sha256/{hash}`
+   - Idempotent: re-uploading same content returns same hash without re-writing
+   - Emits `AttachmentRecorded` event per C-EVT-1 for audit trail
+   - Auto-detects media type from filename extension
+
+3. **Updated canonical documents:**
+   - **SR-SPEC §1.5.2:** Added `ATTACHMENT` to StreamKind enum
+   - **SR-SPEC Appendix A:** Added `AttachmentRecorded` event with payload schema
+   - **SR-TYPES §4.4:** Added `record.attachment` type
+   - **SR-CONTRACT §7 (C-EVID-2):** Added clarification distinguishing attachments from evidence bundles
+   - **SR-CHANGE §0.6:** Documented all canonical changes (G:MINOR classification)
+
+4. **All checks pass:**
+   - `cargo build --package sr-api` ✅
+   - `cargo test --package sr-api` ✅ (41 tests)
+   - `cargo test --package sr-adapters attachment_store` ✅ (3 tests)
+
+### Files Created
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `crates/sr-adapters/src/attachment_store.rs` | ~270 | MinIO attachment store adapter |
+| `crates/sr-api/src/handlers/attachments.rs` | ~250 | Upload handler with multipart processing |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `crates/sr-api/Cargo.toml` | Added multipart feature, ulid dependency |
+| `crates/sr-domain/src/events.rs` | Added `StreamKind::Attachment` |
+| `crates/sr-adapters/src/lib.rs` | Registered and exported attachment_store module |
+| `crates/sr-adapters/src/postgres.rs` | Added Attachment handling in stream_kind functions |
+| `crates/sr-api/src/handlers/mod.rs` | Registered attachments module |
+| `crates/sr-api/src/main.rs` | Added route, state initialization, imports |
+| `docs/platform/SR-SPEC.md` | StreamKind enum + AttachmentRecorded event |
+| `docs/platform/SR-TYPES.md` | Added `record.attachment` type |
+| `docs/platform/SR-CONTRACT.md` | Added C-EVID-2 clarification |
+| `docs/build-governance/SR-CHANGE.md` | Version 0.6 change log entry |
+
+### Ontological Clarity Preserved
+
+| Concept | Type Key | Storage | Satisfies C-VER-1? |
+|---------|----------|---------|-------------------|
+| Evidence Bundle | `domain.evidence_bundle` | `evidence` bucket | ✅ Yes |
+| Attachment | `record.attachment` | `attachments` bucket | ❌ No |
+
+---
+
+## Next Instance Prompt: Execute SR-PLAN-V7 Phase V7-4
 
 ### Context
 
-V7-2 is complete. The UI now has:
-- Toast notification system for success/error/warning/info messages
-- User-friendly error messages mapped from HTTP status codes
-- Retry logic for transient failures (5xx with exponential backoff)
-- Progress states during Work Surface creation
+V7-3 is complete. The backend now supports attachment uploads:
+- `POST /api/v1/attachments` accepts multipart file uploads
+- Files stored content-addressed in MinIO `attachments` bucket
+- Returns `attachment_id`, `content_hash`, `size_bytes`, `media_type`, `filename`, `uploaded_by`, `uploaded_at`
+- `AttachmentRecorded` event emitted for audit trail
 
-The UX is now resilient and informative. Next: add attachment upload capability.
+The API is ready for UI integration. Next: add attachment upload UI components.
 
 ### Current State
 
 - Branch: `solver-ralph-7`
 - SR-PLAN-V7 Phase V7-1: **Complete** (Integration tests)
 - SR-PLAN-V7 Phase V7-2: **Complete** (Error handling)
-- SR-PLAN-V7 Phase V7-3: **Pending** (next)
+- SR-PLAN-V7 Phase V7-3: **Complete** (Attachment backend)
+- SR-PLAN-V7 Phase V7-4: **Pending** (next)
 
 ### Assignment
 
-**Execute SR-PLAN-V7 Phase V7-3: Attachment Upload Endpoint (Backend)**
+**Execute SR-PLAN-V7 Phase V7-4: Attachment Frontend**
 
-Add `POST /api/v1/attachments` endpoint for human-uploaded supporting files.
+Add UI components for uploading and displaying attachments on Work Surfaces.
 
-### Key Requirements (from SR-PLAN-V7 §V7-3)
+### Key Requirements (from SR-PLAN-V7 §V7-4)
 
-**Ontological Note:** Attachments are NOT Evidence Bundles. They:
-- Share storage infrastructure (MinIO, content-addressing)
-- Do NOT claim to be oracle output
-- Do NOT satisfy verification gates (C-VER-1)
-- Have `artifact_type: "record.attachment"`
+**Ontological Note:** Attachments are NOT Evidence Bundles in the UI:
+- Evidence = oracle-produced, verification authority
+- Attachments = human-uploaded supporting files, no verification authority
+- UI must maintain this distinction visually and semantically
 
-**Endpoint:** `POST /api/v1/attachments`
-- Content-Type: `multipart/form-data`
-- Body: `file` field with uploaded file
-- Response: `{ attachment_id, content_hash, size_bytes, media_type, filename, uploaded_by, uploaded_at }`
+**Components to create:**
+1. `AttachmentUploader.tsx` — Drag-and-drop file upload component
+2. `AttachmentPreview.tsx` — Display uploaded attachment metadata
+3. `AttachmentList.tsx` — List attachments for a Work Surface (if needed)
 
-**Storage:**
-- MinIO bucket: `attachments` (new bucket, separate from `evidence-public`)
-- Object key: `sha256/{hash}` (content-addressed)
-- Compute hash server-side
-- Prevent overwriting existing objects
+**Integration points:**
+- Add to `WorkSurfaceDetail.tsx` page
+- Use existing toast system for success/error feedback
+- Handle upload progress states
 
-**Event:** Emit `AttachmentRecorded` event for auditability per C-EVT-1
+**API integration:**
+```typescript
+// Upload
+POST /api/v1/attachments
+Content-Type: multipart/form-data
+Body: file field
+
+// Response
+{
+  attachment_id: string,
+  content_hash: string,
+  size_bytes: number,
+  media_type: string,
+  filename: string,
+  uploaded_by: string,
+  uploaded_at: string
+}
+```
 
 ### Acceptance Criteria
 
-- [ ] `POST /attachments` accepts multipart file upload
-- [ ] Returns attachment_id and content hash (sha256)
-- [ ] Stores in MinIO with content-addressed key
-- [ ] Idempotent: re-upload same file returns same hash
-- [ ] Emits `AttachmentRecorded` event
-- [ ] `cargo build --package sr-api` passes
-- [ ] `cargo test --package sr-api` passes
+- [ ] `AttachmentUploader` component with drag-and-drop support
+- [ ] `AttachmentPreview` displays attachment metadata (filename, size, type)
+- [ ] Upload progress indicator during file transfer
+- [ ] Success/error toast notifications
+- [ ] Attachments displayed on Work Surface detail page
+- [ ] Visual distinction from Evidence Bundles (different styling/section)
+- [ ] `npm run type-check` passes
+- [ ] `npm run build` passes
 
 ### First Action
 
-1. Read SR-PLAN-V7 §V7-3 for full requirements
-2. Examine `crates/sr-api/src/handlers/evidence.rs` for storage patterns
-3. Examine `crates/sr-adapters/src/minio.rs` for MinIO adapter
-4. Create `attachments.rs` handler
+1. Read SR-PLAN-V7 §V7-4 for full requirements
+2. Examine `ui/src/pages/WorkSurfaceDetail.tsx` for integration point
+3. Review existing component patterns in `ui/src/components/`
+4. Create `AttachmentUploader.tsx` with drag-and-drop
 

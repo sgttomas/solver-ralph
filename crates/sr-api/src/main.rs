@@ -25,14 +25,17 @@ use axum::{
 };
 use config::ApiConfig;
 use handlers::{
-    approvals, candidates, decisions, evidence, exceptions, freeze, intakes, iterations, loops,
-    oracles, prompt_loop::{prompt_loop, prompt_loop_stream}, references, runs, templates,
-    work_surfaces,
+    approvals, attachments, candidates, decisions, evidence, exceptions, freeze, intakes,
+    iterations, loops, oracles, prompt_loop::{prompt_loop, prompt_loop_stream}, references, runs,
+    templates, work_surfaces,
 };
 use observability::{metrics_endpoint, request_context_middleware, Metrics, MetricsState};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use sr_adapters::{MinioConfig, MinioEvidenceStore, PostgresEventStore, ProjectionBuilder};
+use sr_adapters::{
+    AttachmentStoreConfig, MinioAttachmentStore, MinioConfig, MinioEvidenceStore,
+    PostgresEventStore, ProjectionBuilder,
+};
 use sr_adapters::oracle_suite::OracleSuiteRegistry;
 use std::sync::Arc;
 use std::time::Instant;
@@ -60,6 +63,9 @@ pub use templates::{TemplateRegistry, TemplateRegistryState};
 
 /// Work Surface state for work surface endpoints (SR-PLAN-V4)
 pub use work_surfaces::WorkSurfaceState;
+
+/// Attachment state for attachment upload endpoints (SR-PLAN-V7 V7-3)
+pub use attachments::AttachmentState;
 
 /// Health check response
 #[derive(Serialize)]
@@ -146,6 +152,7 @@ fn create_router(
     template_state: TemplateRegistryState,
     references_state: ReferencesState,
     work_surface_state: WorkSurfaceState,
+    attachment_state: AttachmentState,
 ) -> Router {
     // Public routes (no authentication required)
     let public_routes = Router::new()
@@ -406,6 +413,11 @@ fn create_router(
         )
         .with_state(work_surface_state);
 
+    // Attachment routes - Per SR-PLAN-V7 Phase V7-3
+    let attachment_routes = Router::new()
+        .route("/api/v1/attachments", post(attachments::upload_attachment))
+        .with_state(attachment_state);
+
     // References routes - Per SR-PLAN-V3 Phase 0c
     let references_routes = Router::new()
         .route("/api/v1/references", get(references::list_references))
@@ -485,6 +497,7 @@ fn create_router(
         .merge(template_routes)
         .merge(intake_routes)
         .merge(work_surface_routes)
+        .merge(attachment_routes)
         .merge(references_routes)
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(request_context_middleware))
@@ -602,6 +615,15 @@ async fn main() {
 
     info!("MinIO evidence store initialized");
 
+    // Create attachment store (MinIO) - SR-PLAN-V7 Phase V7-3
+    let attachment_store = Arc::new(
+        MinioAttachmentStore::new(AttachmentStoreConfig::from_env())
+            .await
+            .expect("Failed to initialize MinIO attachment store"),
+    );
+
+    info!("MinIO attachment store initialized");
+
     // Create application state
     let state = AppState {
         config: config.clone(),
@@ -644,6 +666,14 @@ async fn main() {
 
     info!("Work surface state initialized");
 
+    // Create attachment state (SR-PLAN-V7 Phase V7-3)
+    let attachment_state = AttachmentState {
+        app_state: state.clone(),
+        attachment_store,
+    };
+
+    info!("Attachment state initialized");
+
     // Create references state (SR-PLAN-V3 Phase 0c)
     let references_state = ReferencesState {
         app_state: state.clone(),
@@ -654,7 +684,15 @@ async fn main() {
     info!("References state initialized");
 
     // Create router (D-33: includes metrics endpoint and request tracing)
-    let app = create_router(state, metrics_state, oracle_state, template_state, references_state, work_surface_state);
+    let app = create_router(
+        state,
+        metrics_state,
+        oracle_state,
+        template_state,
+        references_state,
+        work_surface_state,
+        attachment_state,
+    );
 
     // Start server
     let bind_addr = config.bind_addr();

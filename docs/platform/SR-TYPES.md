@@ -293,6 +293,7 @@ These record types support platform operation.
 | `record.intervention_note` | record | record | Human intervention note |
 | `record.intake` | record | record | Structured intake for a work unit (objective, scope, constraints) |
 | `record.procedure_instance` | record | record | Work-unit-specific binding of a procedure template and stage state |
+| `record.attachment` | record | record | Human-uploaded supporting file (does NOT satisfy C-VER-1) |
 
 ### 4.5 Configuration Types
 

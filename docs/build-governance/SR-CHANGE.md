@@ -67,6 +67,25 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
 - **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
 
+### 0.6  (2026-01-16)
+
+- **SR-SPEC §1.5.2:** Added `ATTACHMENT` to StreamKind enum for human-uploaded supporting files.
+- **SR-SPEC Appendix A:** Added `AttachmentRecorded` event to canonical event registry with:
+  - Event type, stream kind (`ATTACHMENT`), stream id format (`attach:{attachment_id}`)
+  - Payload schema (v1) including `attachment_id`, `content_hash`, `media_type`, `size_bytes`, `filename`
+  - Clarification note distinguishing attachments from evidence bundles
+- **SR-TYPES §4.4:** Added `record.attachment` to Operational Record Types table:
+  - Authority Kind: `record`
+  - Normative Status: `record`
+  - Purpose: "Human-uploaded supporting file (does NOT satisfy C-VER-1)"
+- **SR-CONTRACT §7 (C-EVID-2):** Added clarification subsection "C-EVID-2 Clarification: Attachments vs Evidence Bundles" documenting:
+  - Attachments share C-EVID-2 immutable, content-addressed storage semantics
+  - Attachments do NOT satisfy C-VER-1 verification requirements
+  - Attachments use separate `attachments` bucket and `artifact_type: record.attachment`
+  - Attachments serve as supporting context only, not verification authority
+- **Rationale:** Documents SR-PLAN-V7 Phase V7-3 implementation of attachment upload endpoint. Attachments enable humans to upload supporting files (PDFs, images, documents) to Work Surfaces while maintaining clear ontological separation from oracle-produced Evidence Bundles.
+- **Classification:** G:MINOR (additive; backward-compatible; existing baselines remain interpretable; no changes to verification semantics).
+
 ### 0.5  (2026-01-16)
 
 - **SR-SPEC §2.3.1:** Added `work_surface_id` to Loop creation endpoint documentation:

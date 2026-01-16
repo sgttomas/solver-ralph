@@ -19,7 +19,9 @@
 //! - Semantic oracle suite implementation (D-39)
 //! - Event Manager: work-unit + stage projection + eligible-set computation (D-40)
 //! - Reference semantic worker (D-41)
+//! - MinIO attachment store adapter (SR-PLAN-V7 V7-3)
 
+pub mod attachment_store;
 pub mod config;
 pub mod event_manager;
 pub mod evidence;
@@ -64,6 +66,7 @@ pub use integrity::{
     IntegrityChecker, IntegrityCheckerConfig, IntegrityError, IntegrityViolation,
     ProfileVerificationResult, StopTrigger, StopTriggerType, TamperCheckResult, ViolationSeverity,
 };
+pub use attachment_store::{AttachmentStoreConfig, AttachmentStoreError, MinioAttachmentStore};
 pub use minio::{MinioConfig, MinioEvidenceStore};
 pub use nats::{
     create_envelope, serialize_envelope, streams, subjects, MessageEnvelope, NatsConfig,
