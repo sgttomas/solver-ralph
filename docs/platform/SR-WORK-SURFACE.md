@@ -235,6 +235,48 @@ When a Loop is created with an explicit `work_unit` parameter, the platform vali
 - The relationship is unidirectional: Loop → Work Surface. The Work Surface does not maintain a back-reference to Loops.
 - Multiple Loops MAY reference the same Work Surface (e.g., parallel exploration of different approaches for the same work unit).
 
+### 5.5 Starting work via /start endpoint (normative)
+
+The platform provides a single orchestration endpoint to fully initialize work on a Work Surface:
+
+`POST /work-surfaces/{work_surface_id}/start`
+
+This endpoint performs the complete initialization sequence:
+
+1. **Creates a Loop** bound to the Work Surface's `work_unit_id`
+   - Uses authenticated caller's identity (typically `actor_kind=HUMAN`) on `LoopCreated` event
+   - Sets default `directive_ref` to `{ kind: "doc", id: "SR-DIRECTIVE", rel: "governs", meta: {} }`
+
+2. **Activates the Loop** (CREATED → ACTIVE transition)
+
+3. **Starts an Iteration** as SYSTEM actor
+   - `IterationStarted` event uses `actor_kind=SYSTEM`, `actor_id=system:work-surface-start`
+   - Iteration refs are populated from the Work Surface context (Intake, Procedure Template, current stage, oracle suites)
+
+**Response:**
+```json
+{
+  "work_surface_id": "ws_...",
+  "loop_id": "loop_...",
+  "iteration_id": "iter_...",
+  "already_started": false
+}
+```
+
+**Idempotency:** The endpoint is idempotent. If a Loop already exists for the work unit:
+- If ACTIVE with `iteration_count > 0`: returns existing IDs with `already_started: true`
+- If exists but not ACTIVE: activates and starts iteration
+- If exists and ACTIVE but no iteration: starts iteration
+
+**Precondition:** Work Surface MUST be in `active` status. Returns HTTP 412 with error code `WORK_SURFACE_NOT_ACTIVE` if the Work Surface is not active.
+
+**Actor mediation rationale:** Per SR-SPEC §2.2, iteration creation MUST be SYSTEM-mediated. The `/start` endpoint handles this automatically while preserving human audit trail on Loop creation. This is the recommended way for UI clients to orchestrate work initiation.
+
+**Relationship to direct Loop/Iteration APIs:**
+- Clients MAY still use `POST /loops` and `POST /loops/{id}/iterations` directly for advanced use cases
+- The `/start` endpoint is a convenience orchestration that handles the common case correctly
+- When using `/start`, clients do not need to separately manage Loop creation, activation, and iteration start
+
 ---
 
 ## 6. Artifact layout conventions (recommended)

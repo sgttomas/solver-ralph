@@ -76,106 +76,149 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Coherence Review | ✅ Complete | `docs/reviews/SR-PLAN-V6-COHERENCE-REVIEW.md` — PASS_WITH_NOTES |
-| V6-1: Backend | ⏳ Pending | Add `POST /work-surfaces/{id}/start` endpoint |
+| V6-1: Backend | ✅ Complete | `POST /work-surfaces/{id}/start` endpoint implemented |
 | V6-2: Frontend | ⏳ Pending | Wire wizard to call `/start` after creation |
 | V6-3: E2E Verification | ⏳ Pending | Document and verify complete human workflow |
 
 ---
 
-## Next Instance Prompt: Implement SR-PLAN-V6 Phase V6-1 (Backend)
+## Previous Session Summary (V6-1 Backend)
+
+### What Was Done
+
+1. **Implemented `start_work_surface` handler** in `crates/sr-api/src/handlers/work_surfaces.rs`:
+   - `StartWorkResponse` struct for API response
+   - `start_work_surface` handler with idempotency logic
+   - `create_loop_internal` — creates Loop with HUMAN actor and default directive_ref
+   - `activate_loop_internal` — activates CREATED loops
+   - `start_iteration_as_system` — starts iteration with SYSTEM actor (`system:work-surface-start`)
+   - `fetch_work_surface_refs` — populates iteration refs from Work Surface context
+
+2. **Added `PreconditionFailed` error variant** to `crates/sr-api/src/handlers/error.rs`
+
+3. **Registered route** in `crates/sr-api/src/main.rs`:
+   - `POST /api/v1/work-surfaces/:work_surface_id/start`
+
+4. **Updated canonical documentation**:
+   - `docs/platform/SR-SPEC.md` — Added §2.3.12 Work Surfaces (all Work Surface API endpoints)
+   - `docs/platform/SR-WORK-SURFACE.md` — Added §5.5 Starting work via /start endpoint
+
+### Verification
+
+- `cargo build --package sr-api` ✅ (warnings only)
+- `cargo test --package sr-api` ✅ (36 passed)
+
+### Files Modified
+
+| File | Lines Added |
+|------|-------------|
+| `crates/sr-api/src/handlers/work_surfaces.rs` | ~250 |
+| `crates/sr-api/src/handlers/error.rs` | ~10 |
+| `crates/sr-api/src/main.rs` | ~4 |
+| `docs/platform/SR-SPEC.md` | ~45 |
+| `docs/platform/SR-WORK-SURFACE.md` | ~42 |
+
+### Notes for Next Instance
+
+- The `get_loop_by_work_unit` method was already present in `projections.rs` (from an earlier partial implementation attempt)
+- All acceptance criteria from SR-PLAN-V6 §4 (Phase V6-1) are satisfied
+- Documentation was updated to close a gap: Work Surface API endpoints were not previously documented in SR-SPEC
+
+---
+
+## Next Instance Prompt: Implement SR-PLAN-V6 Phase V6-2 (Frontend)
 
 ### Context
 
-SR-PLAN-V6 has passed coherence and consistency review (see `docs/reviews/SR-PLAN-V6-COHERENCE-REVIEW.md`). The plan is verified to be consistent with canonical SR-* documents and ready for implementation.
+Phase V6-1 (Backend) is complete. The `POST /work-surfaces/{id}/start` endpoint is implemented and documented. Now the frontend wizard needs to call this endpoint after Work Surface creation.
 
 ### Current State
 
 - Branch: `solver-ralph-7`
-- SR-PLAN-V6 status: "Ready for Implementation" — coherence verified
-- Coherence review: PASS_WITH_NOTES (minor terminology variances follow existing codebase patterns)
-- Implementation pseudocode provided in SR-PLAN-V6 §4 (Phase V6-1)
+- Backend: `/work-surfaces/{id}/start` endpoint fully implemented
+- Frontend: Wizard creates Work Surface but does not start work automatically
+- Gap: User must manually start work after wizard completes
 
 ### Assignment
 
-Implement **Phase V6-1: Backend — Start Work Endpoint** as specified in `docs/planning/SR-PLAN-V6.md` §4.
+Implement **Phase V6-2: Frontend — Wire Wizard to Start Endpoint** as specified in `docs/planning/SR-PLAN-V6.md` §4.
 
-This phase adds the `POST /work-surfaces/{id}/start` endpoint that creates a Loop, activates it, and starts an Iteration as SYSTEM actor — enabling the UI wizard to fully orchestrate work surface creation.
+This phase updates the React wizard to call `POST /work-surfaces/{id}/start` after successful Work Surface creation, completing the one-click workflow.
 
 ### Files to Modify
 
-Per SR-PLAN-V6 §4 (Phase V6-1):
+Per SR-PLAN-V6 §4 (Phase V6-2):
 
 | File | Action | Description |
 |------|--------|-------------|
-| `crates/sr-adapters/src/projections.rs` | EDIT | Add `get_loop_by_work_unit` method for idempotency |
-| `crates/sr-api/src/handlers/work_surfaces.rs` | EDIT | Add `start_work_surface` handler |
-| `crates/sr-api/src/main.rs` | EDIT | Register `/work-surfaces/{id}/start` route |
+| `ui/src/lib/api.ts` | EDIT | Add `startWorkSurface(id)` API function |
+| `ui/src/components/WorkSurfaceWizard.tsx` | EDIT | Call start after successful bind |
 
 ### Implementation Requirements
 
-Per SR-PLAN-V6 §3.6-3.8 and §4:
+Per SR-PLAN-V6 §4:
 
-1. **SYSTEM Actor Mediation (§3.6)**
-   - `IterationStarted` event MUST use `actor_kind: ActorKind::System`
-   - Use `actor_id: "system:work-surface-start"` as the system identity
-   - HUMAN actor is recorded on `LoopCreated` event (audit trail)
+1. **API Client Function**
+   ```typescript
+   export async function startWorkSurface(workSurfaceId: string): Promise<StartWorkResponse> {
+     const response = await fetch(`${API_BASE}/work-surfaces/${workSurfaceId}/start`, {
+       method: 'POST',
+       headers: getAuthHeaders(),
+     });
+     if (!response.ok) throw new ApiError(response);
+     return response.json();
+   }
+   ```
 
-2. **Directive Ref Default (§3.7)**
-   - Use default directive_ref: `{kind: "doc", id: "SR-DIRECTIVE", rel: "governs", meta: {}}`
-   - This follows existing codebase pattern in `prompt_loop.rs`
+2. **Wizard Integration**
+   - After successful `bindWorkSurface()` call, immediately call `startWorkSurface()`
+   - Handle the response to show `loop_id` and `iteration_id` to user
+   - Handle `already_started: true` case gracefully (not an error)
+   - Handle 412 error if Work Surface is not active
 
-3. **Idempotency (§3.8)**
-   - Query for existing Loop bound to `work_unit_id` before creating
-   - If Loop exists and is ACTIVE with iteration, return existing IDs (`already_started: true`)
-   - If Loop exists but not ACTIVE, activate and start iteration
-   - If no Loop exists, create → activate → start iteration
-
-4. **Iteration Context Refs**
-   - Populate `refs[]` from Work Surface context via `fetch_work_surface_refs`
-   - Must include: Intake, Procedure Template, oracle suites, governing artifacts
-   - Per C-CTX-1/C-CTX-2: all context derivable from `IterationStarted.refs[]`
+3. **UX Considerations**
+   - Show loading state during start
+   - On success: display confirmation with loop/iteration IDs
+   - On `already_started`: show "Work already in progress" message
+   - On error: show actionable error message
 
 ### Acceptance Criteria
 
-From SR-PLAN-V6 §4 (Phase V6-1):
+From SR-PLAN-V6 §4 (Phase V6-2):
 
-- [ ] `POST /work-surfaces/{id}/start` creates Loop, activates, starts Iteration
-- [ ] Iteration is emitted with `actor_kind=SYSTEM`, `actor_id="system:work-surface-start"`
-- [ ] Loop uses default `directive_ref` pointing to SR-DIRECTIVE
-- [ ] Returns `{ work_surface_id, loop_id, iteration_id, already_started }`
-- [ ] 412 if Work Surface not active
-- [ ] Idempotent: returns existing IDs with `already_started: true` if called again
-- [ ] HUMAN actor recorded on LoopCreated event (audit trail)
+- [ ] `startWorkSurface` API function added to `api.ts`
+- [ ] Wizard calls `/start` after successful Work Surface creation
+- [ ] Success shows loop_id and iteration_id to user
+- [ ] `already_started: true` handled gracefully
+- [ ] Error states displayed appropriately
+- [ ] No breaking changes to existing wizard flow
 
 ### Reference Documents
 
-- `docs/planning/SR-PLAN-V6.md` — Implementation plan with pseudocode
-- `docs/reviews/SR-PLAN-V6-COHERENCE-REVIEW.md` — Coherence verification
-- `docs/platform/SR-SPEC.md` §2.2 — SYSTEM actor requirements
-- `docs/platform/SR-SPEC.md` §2.3.1 — Loop creation with work_unit binding
-- `docs/platform/SR-WORK-SURFACE.md` §5.4 — Loop ↔ Work Surface binding semantics
+- `docs/planning/SR-PLAN-V6.md` — Implementation plan
+- `docs/platform/SR-SPEC.md` §2.3.12 — Work Surface API documentation
+- `docs/platform/SR-WORK-SURFACE.md` §5.5 — /start endpoint semantics
 
 ### Reference Code
 
-- `crates/sr-api/src/handlers/loops.rs` — Loop creation/activation patterns
-- `crates/sr-api/src/handlers/iterations.rs` — Iteration start patterns
-- `crates/sr-domain/src/governor.rs` — SYSTEM actor pattern (line ~729)
-- `crates/sr-domain/src/prompt_loop.rs` — directive_ref default pattern (line ~92)
+- `ui/src/lib/api.ts` — Existing API client patterns
+- `ui/src/components/WorkSurfaceWizard.tsx` — Current wizard implementation
+- `crates/sr-api/src/handlers/work_surfaces.rs` — Backend response structure
 
 ### Guidelines
 
-- Follow existing codebase patterns for consistency
-- Use the pseudocode in SR-PLAN-V6 §4 as implementation guide
-- Run `cargo build --package sr-api` and `cargo test --package sr-api` to verify
-- Commit after implementation with descriptive message
+- Follow existing React/TypeScript patterns in the UI codebase
+- Use existing error handling and loading state patterns
+- Test the full wizard flow end-to-end after changes
+- Run `npm run build` and `npm run lint` to verify
 
 ### Phase Complete When
 
-- [ ] `get_loop_by_work_unit` projection method added
-- [ ] `start_work_surface` handler implemented
-- [ ] Route registered in main.rs
+- [ ] `startWorkSurface` API function implemented
+- [ ] Wizard integration complete
 - [ ] All acceptance criteria met
-- [ ] `cargo build` passes
-- [ ] `cargo test` passes
+- [ ] `npm run build` passes
+- [ ] `npm run lint` passes
+- [ ] Manual test of wizard flow succeeds
 - [ ] Committed and pushed
 

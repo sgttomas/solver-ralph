@@ -13,6 +13,7 @@
 //! - POST   /api/v1/work-surfaces/:id/archive                  - Archive Work Surface
 //! - GET    /api/v1/work-surfaces/compatibility                - Check compatibility
 //! - GET    /api/v1/work-surfaces/compatible-templates         - List compatible templates
+//! - POST   /api/v1/work-surfaces/:id/start                    - Start work (create Loop + Iteration)
 
 use axum::{
     extract::{Path, Query, State},
@@ -24,7 +25,7 @@ use sr_domain::work_surface::{
     ContentAddressedRef, ManagedWorkSurface, OracleSuiteBinding, ProcedureTemplate, StageId,
     WorkKind, WorkSurfaceId, WorkUnitId, validate_work_kind_compatibility,
 };
-use sr_domain::{EventEnvelope, EventId, StreamKind, TypedRef};
+use sr_domain::{ActorKind, EventEnvelope, EventId, IterationId, LoopId, StreamKind, TypedRef};
 use sr_domain::entities::ContentHash;
 use sr_domain::events::{GateResult, GateResultStatus, OracleResultSummary};
 use sr_ports::EventStore;
@@ -1367,6 +1368,363 @@ fn row_to_work_surface_summary(row: &sqlx::postgres::PgRow) -> WorkSurfaceSummar
         status: row.get::<String, _>("status"),
         bound_at: row.get::<DateTime<Utc>, _>("bound_at").to_rfc3339(),
     }
+}
+
+// ============================================================================
+// Start Work Surface (SR-PLAN-V6 Phase V6-1)
+// ============================================================================
+
+/// Response for starting work on a Work Surface
+#[derive(Debug, Serialize)]
+pub struct StartWorkResponse {
+    pub work_surface_id: String,
+    pub loop_id: String,
+    pub iteration_id: String,
+    pub already_started: bool,
+}
+
+/// Start work on a Work Surface (HUMAN-callable, SYSTEM-mediated iteration)
+///
+/// POST /api/v1/work-surfaces/{id}/start
+///
+/// Per SR-PLAN-V6 §3.6-3.8:
+/// - Creates Loop bound to work_unit (or reuses existing)
+/// - Activates Loop if needed
+/// - Starts Iteration as SYSTEM actor
+/// - Idempotent: safe to retry
+#[instrument(skip(state, user), fields(user_id = %user.actor_id))]
+pub async fn start_work_surface(
+    State(state): State<WorkSurfaceState>,
+    user: AuthenticatedUser,
+    Path(work_surface_id): Path<String>,
+) -> ApiResult<Json<StartWorkResponse>> {
+    // 1. Get work surface and verify active
+    let ws = get_work_surface_projection(&state.app_state, &work_surface_id).await?;
+    if ws.status != "active" {
+        return Err(ApiError::PreconditionFailed {
+            code: "WORK_SURFACE_NOT_ACTIVE".to_string(),
+            message: format!("Work Surface status is '{}', must be 'active'", ws.status),
+        });
+    }
+
+    // 2. Check for existing Loop (idempotency per §3.8)
+    let existing_loop = state
+        .app_state
+        .projections
+        .get_loop_by_work_unit(&ws.work_unit_id)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
+
+    let (loop_id, already_started) = match existing_loop {
+        Some(loop_proj) if loop_proj.state == "ACTIVE" && loop_proj.iteration_count > 0 => {
+            // Already fully started - idempotent return
+            let iterations = state
+                .app_state
+                .projections
+                .get_iterations(&loop_proj.loop_id)
+                .await
+                .map_err(|e| ApiError::Internal {
+                    message: e.to_string(),
+                })?;
+            let latest_iter = iterations.last().ok_or_else(|| ApiError::Internal {
+                message: "Loop has iteration_count > 0 but no iterations found".to_string(),
+            })?;
+            return Ok(Json(StartWorkResponse {
+                work_surface_id,
+                loop_id: loop_proj.loop_id,
+                iteration_id: latest_iter.iteration_id.clone(),
+                already_started: true,
+            }));
+        }
+        Some(loop_proj) => {
+            // Loop exists but needs activation or iteration
+            (loop_proj.loop_id, false)
+        }
+        None => {
+            // Create new Loop
+            let new_loop_id = create_loop_internal(&state, &ws, &user).await?;
+            (new_loop_id, false)
+        }
+    };
+
+    // 3. Activate Loop if not ACTIVE
+    let loop_proj = state
+        .app_state
+        .projections
+        .get_loop(&loop_id)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?
+        .ok_or_else(|| ApiError::Internal {
+            message: "Loop just created/found is missing".to_string(),
+        })?;
+
+    if loop_proj.state == "CREATED" {
+        activate_loop_internal(&state.app_state, &loop_id, &user).await?;
+    }
+
+    // 4. Start Iteration as SYSTEM (per §3.6)
+    let iteration_id = start_iteration_as_system(&state, &loop_id, &ws).await?;
+
+    info!(
+        work_surface_id = %work_surface_id,
+        loop_id = %loop_id,
+        iteration_id = %iteration_id,
+        "Work started on Work Surface"
+    );
+
+    Ok(Json(StartWorkResponse {
+        work_surface_id,
+        loop_id,
+        iteration_id,
+        already_started,
+    }))
+}
+
+/// Create Loop with default directive_ref (per SR-PLAN-V6 §3.7)
+async fn create_loop_internal(
+    state: &WorkSurfaceState,
+    ws: &WorkSurfaceResponse,
+    user: &AuthenticatedUser,
+) -> Result<String, ApiError> {
+    let loop_id = LoopId::new();
+    let event_id = EventId::new();
+    let now = Utc::now();
+
+    // Default directive_ref per §3.7
+    let directive_ref = serde_json::json!({
+        "kind": "doc",
+        "id": "SR-DIRECTIVE",
+        "rel": "governs",
+        "meta": {}
+    });
+
+    let payload = serde_json::json!({
+        "goal": format!("Process work surface {}", ws.work_surface_id),
+        "work_unit": ws.work_unit_id,
+        "work_surface_id": ws.work_surface_id,
+        "budgets": {
+            "max_iterations": 5,
+            "max_oracle_runs": 25,
+            "max_wallclock_hours": 16
+        },
+        "directive_ref": directive_ref
+    });
+
+    let event = EventEnvelope {
+        event_id: event_id.clone(),
+        stream_id: loop_id.as_str().to_string(),
+        stream_kind: StreamKind::Loop,
+        stream_seq: 1,
+        global_seq: None,
+        event_type: "LoopCreated".to_string(),
+        occurred_at: now,
+        actor_kind: user.actor_kind.clone(), // HUMAN creates the Loop
+        actor_id: user.actor_id.clone(),
+        correlation_id: None,
+        causation_id: None,
+        supersedes: vec![],
+        refs: vec![TypedRef {
+            kind: "Loop".to_string(),
+            id: loop_id.as_str().to_string(),
+            rel: "self".to_string(),
+            meta: serde_json::Value::Null,
+        }],
+        payload,
+        envelope_hash: compute_envelope_hash(&event_id),
+    };
+
+    state
+        .app_state
+        .event_store
+        .append(loop_id.as_str(), 0, vec![event])
+        .await?;
+
+    state
+        .app_state
+        .projections
+        .process_events(&*state.app_state.event_store)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
+
+    info!(loop_id = %loop_id.as_str(), "Loop created for Work Surface");
+
+    Ok(loop_id.as_str().to_string())
+}
+
+/// Activate a loop (CREATED -> ACTIVE)
+async fn activate_loop_internal(
+    state: &AppState,
+    loop_id: &str,
+    user: &AuthenticatedUser,
+) -> Result<(), ApiError> {
+    let event_id = EventId::new();
+    let now = Utc::now();
+
+    // Read current stream to get version
+    let events = state.event_store.read_stream(loop_id, 0, 1000).await?;
+    let current_version = events.len() as u64;
+
+    let event = EventEnvelope {
+        event_id: event_id.clone(),
+        stream_id: loop_id.to_string(),
+        stream_kind: StreamKind::Loop,
+        stream_seq: current_version + 1,
+        global_seq: None,
+        event_type: "LoopActivated".to_string(),
+        occurred_at: now,
+        actor_kind: user.actor_kind.clone(),
+        actor_id: user.actor_id.clone(),
+        correlation_id: None,
+        causation_id: None,
+        supersedes: vec![],
+        refs: vec![],
+        payload: serde_json::json!({}),
+        envelope_hash: compute_envelope_hash(&event_id),
+    };
+
+    state
+        .event_store
+        .append(loop_id, current_version, vec![event])
+        .await?;
+
+    state
+        .projections
+        .process_events(&*state.event_store)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
+
+    info!(loop_id = %loop_id, "Loop activated");
+
+    Ok(())
+}
+
+/// Start iteration as SYSTEM actor (per SR-PLAN-V6 §3.6)
+async fn start_iteration_as_system(
+    state: &WorkSurfaceState,
+    loop_id: &str,
+    ws: &WorkSurfaceResponse,
+) -> Result<String, ApiError> {
+    // Per §3.6: Use SYSTEM actor for iteration start
+    let system_actor_kind = ActorKind::System;
+    let system_actor_id = "system:work-surface-start".to_string();
+
+    let iteration_id = IterationId::new();
+    let event_id = EventId::new();
+    let now = Utc::now();
+
+    // Get iteration sequence
+    let iterations = state
+        .app_state
+        .projections
+        .get_iterations(loop_id)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
+    let sequence = (iterations.len() + 1) as u32;
+
+    // Fetch Work Surface refs for iteration context
+    let refs = fetch_work_surface_refs(ws);
+
+    let payload = serde_json::json!({
+        "loop_id": loop_id,
+        "sequence": sequence,
+        "work_surface_id": ws.work_surface_id,
+        "refs": refs
+    });
+
+    let event = EventEnvelope {
+        event_id: event_id.clone(),
+        stream_id: iteration_id.as_str().to_string(),
+        stream_kind: StreamKind::Iteration,
+        stream_seq: 1,
+        global_seq: None,
+        event_type: "IterationStarted".to_string(),
+        occurred_at: now,
+        actor_kind: system_actor_kind, // SYSTEM per §3.6
+        actor_id: system_actor_id,
+        correlation_id: Some(loop_id.to_string()),
+        causation_id: None,
+        supersedes: vec![],
+        refs,
+        payload,
+        envelope_hash: compute_envelope_hash(&event_id),
+    };
+
+    state
+        .app_state
+        .event_store
+        .append(iteration_id.as_str(), 0, vec![event])
+        .await?;
+
+    state
+        .app_state
+        .projections
+        .process_events(&*state.app_state.event_store)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
+
+    info!(
+        iteration_id = %iteration_id.as_str(),
+        loop_id = %loop_id,
+        sequence = sequence,
+        "Iteration started as SYSTEM"
+    );
+
+    Ok(iteration_id.as_str().to_string())
+}
+
+/// Fetch Work Surface refs for iteration context (per C-CTX-1/C-CTX-2)
+fn fetch_work_surface_refs(ws: &WorkSurfaceResponse) -> Vec<TypedRef> {
+    let mut refs = Vec::new();
+
+    // 1. Intake ref
+    refs.push(TypedRef {
+        kind: "Intake".to_string(),
+        id: ws.intake_id.clone(),
+        rel: "depends_on".to_string(),
+        meta: serde_json::json!({
+            "content_hash": ws.intake_content_hash,
+        }),
+    });
+
+    // 2. Procedure Template ref
+    refs.push(TypedRef {
+        kind: "ProcedureTemplate".to_string(),
+        id: ws.procedure_template_id.clone(),
+        rel: "depends_on".to_string(),
+        meta: serde_json::json!({
+            "content_hash": ws.procedure_template_hash,
+            "current_stage_id": ws.current_stage_id,
+        }),
+    });
+
+    // 3. Oracle Suite refs for current stage
+    let suites: Vec<OracleSuiteBinding> =
+        serde_json::from_value(ws.current_oracle_suites.clone()).unwrap_or_default();
+
+    for suite in suites {
+        refs.push(TypedRef {
+            kind: "OracleSuite".to_string(),
+            id: suite.suite_id.clone(),
+            rel: "depends_on".to_string(),
+            meta: serde_json::json!({
+                "content_hash": suite.suite_hash.as_str(),
+            }),
+        });
+    }
+
+    refs
 }
 
 #[cfg(test)]

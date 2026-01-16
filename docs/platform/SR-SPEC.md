@@ -1295,6 +1295,51 @@ Per SR-SEMANTIC-ORACLE-SPEC: Oracle suites emit structured semantic measurements
   Body: `{ profile_id, name, description, required_suites[], optional_suites?, waivable_failures?, integrity_conditions?, applicable_deliverables[], metadata? }`
   **Constraint:** `profile_id` MUST start with `profile:`
 
+#### 2.3.12 Work Surfaces
+
+Work Surface endpoints manage the binding context for Semantic Ralph Loops. See SR-WORK-SURFACE for schema definitions.
+
+- `POST /work-surfaces` → Create/bind a Work Surface
+  Body: `{ work_unit_id, intake_id, procedure_template_id, params? }`
+  Emits: `WorkSurfaceBound`, `StageEntered`
+  Response includes: `{ work_surface_id, work_unit_id, intake_id, procedure_template_id, current_stage_id, status }`
+
+- `GET /work-surfaces` → List work surfaces
+  Query params: `?status=active&work_unit_id=...&limit=...&offset=...`
+  Returns: `{ work_surfaces[], total, limit, offset }`
+
+- `GET /work-surfaces/{work_surface_id}` → Get Work Surface details
+  Returns: Full Work Surface projection including intake, procedure template, current stage, and oracle suite bindings.
+
+- `POST /work-surfaces/{work_surface_id}/stages/{stage_id}/complete` → Complete a stage
+  Body: `{ evidence_bundle_ref?, gate_result, notes? }`
+  Emits: `StageCompleted`, optionally `StageEntered` (for next stage) or `WorkSurfaceCompleted` (if terminal)
+  **Constraint:** Stage completion MAY require Portal approval depending on procedure template gate requirements.
+
+- `POST /work-surfaces/{work_surface_id}/start` → Start work (orchestration endpoint)
+  Creates Loop bound to `work_unit_id`, activates Loop, and starts Iteration as SYSTEM actor.
+  Returns: `{ work_surface_id, loop_id, iteration_id, already_started }`
+
+  **Idempotency:** Safe to retry. If Loop already exists for the work unit:
+  - If ACTIVE with `iteration_count > 0`: returns existing IDs with `already_started: true`
+  - If exists but not fully initialized: completes activation and starts iteration
+
+  **Precondition:** Work Surface MUST be in `active` status (HTTP 412 `WORK_SURFACE_NOT_ACTIVE` if not).
+
+  **Actor mediation (per §2.2):**
+  - `LoopCreated` event uses authenticated caller's identity (typically `actor_kind=HUMAN`)
+  - `IterationStarted` event uses `actor_kind=SYSTEM`, `actor_id=system:work-surface-start`
+  - This satisfies the invariant that iteration creation is SYSTEM-mediated while preserving human audit trail for Loop creation.
+
+  **Default directive_ref:** When creating the Loop, uses `{ kind: "doc", id: "SR-DIRECTIVE", rel: "governs", meta: {} }` as the default directive reference.
+
+- `POST /work-surfaces/{work_surface_id}/archive` → Archive a Work Surface
+  Emits: `WorkSurfaceArchived`
+  **Constraint:** Work Surface MUST be in `completed` or `active` status.
+
+- `GET /work-surfaces/{work_surface_id}/iteration-context` → Get iteration context refs
+  Returns: `{ refs[] }` — the typed reference set for starting an iteration, derived from the Work Surface's current state.
+
 
 ### 2.4 API response conventions
 

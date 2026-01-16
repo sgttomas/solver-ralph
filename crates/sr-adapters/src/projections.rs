@@ -2029,6 +2029,46 @@ impl ProjectionBuilder {
         }))
     }
 
+    /// Get a loop by work_unit ID (for idempotency checks per SR-PLAN-V6 §3.8)
+    ///
+    /// Returns the most recently created Loop bound to the given work_unit.
+    /// Used by the `/work-surfaces/{id}/start` endpoint to check if a Loop
+    /// already exists before creating a new one.
+    pub async fn get_loop_by_work_unit(
+        &self,
+        work_unit_id: &str,
+    ) -> Result<Option<LoopProjection>, ProjectionError> {
+        let result = sqlx::query(
+            r#"
+            SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
+                   created_by_kind, created_by_id, created_at, activated_at,
+                   closed_at, iteration_count
+            FROM proj.loops WHERE work_unit = $1
+            ORDER BY created_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(work_unit_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result.map(|row| LoopProjection {
+            loop_id: row.get("loop_id"),
+            goal: row.get("goal"),
+            work_unit: row.get("work_unit"),
+            work_surface_id: row.get("work_surface_id"),
+            state: row.get("state"),
+            budgets: row.get("budgets"),
+            directive_ref: row.get("directive_ref"),
+            created_by_kind: row.get("created_by_kind"),
+            created_by_id: row.get("created_by_id"),
+            created_at: row.get("created_at"),
+            activated_at: row.get("activated_at"),
+            closed_at: row.get("closed_at"),
+            iteration_count: row.get("iteration_count"),
+        }))
+    }
+
     /// Get iterations for a loop
     pub async fn get_iterations(
         &self,

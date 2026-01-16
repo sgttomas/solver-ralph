@@ -42,6 +42,9 @@ pub enum ApiError {
         portal_id: String,
         work_surface_id: String,
     },
+    /// Generic precondition failed per SR-PLAN-V6
+    /// Used when a resource exists but is not in the required state
+    PreconditionFailed { code: String, message: String },
 }
 
 /// Error response body
@@ -116,6 +119,13 @@ impl IntoResponse for ApiError {
                     "portal_id": portal_id,
                     "work_surface_id": work_surface_id,
                     "error_code": "APPROVAL_REQUIRED"
+                })),
+            ),
+            ApiError::PreconditionFailed { code, message } => (
+                StatusCode::PRECONDITION_FAILED,
+                message.clone(),
+                Some(serde_json::json!({
+                    "error_code": code
                 })),
             ),
         };

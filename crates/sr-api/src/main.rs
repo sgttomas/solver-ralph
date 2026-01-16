@@ -400,6 +400,10 @@ fn create_router(
             "/api/v1/work-surfaces/:work_surface_id/archive",
             post(work_surfaces::archive_work_surface),
         )
+        .route(
+            "/api/v1/work-surfaces/:work_surface_id/start",
+            post(work_surfaces::start_work_surface),
+        )
         .with_state(work_surface_state);
 
     // References routes - Per SR-PLAN-V3 Phase 0c
