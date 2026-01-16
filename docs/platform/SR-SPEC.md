@@ -1129,10 +1129,19 @@ All endpoints are under `/api/v1`.
 
 #### 2.3.1 Loops
 
-- `POST /loops` → Create a loop  
-  Body: `{ goal, work_unit, budgets, directive_ref }`  
+- `POST /loops` → Create a loop
+  Body: `{ goal, work_unit?, budgets, directive_ref }`
   Emits: `LoopCreated`
-  Notes: `work_unit` SHOULD be stable for the loop lifetime; it is used to select the default `config.gating_policy` unless explicitly referenced in `IterationStarted.refs[]`.
+  Response includes: `{ loop_id, state, event_id, work_surface_id? }`
+
+  **Work Unit and Work Surface binding (normative):**
+  - `work_unit` is OPTIONAL. If omitted, defaults to `loop_id`.
+  - When `work_unit` is explicitly provided, the system MUST validate that an active Work Surface exists for that work unit.
+  - If no active Work Surface exists for the provided `work_unit`, the system MUST return HTTP 412 with error code `WORK_SURFACE_MISSING`.
+  - When validation succeeds, the `LoopCreated` event payload and API response MUST include `work_surface_id`.
+  - `work_unit` SHOULD be stable for the loop lifetime; it is used to select the default `config.gating_policy` unless explicitly referenced in `IterationStarted.refs[]`.
+
+  **Iteration context inheritance:** When a Loop is bound to a Work Surface (`work_surface_id` is set), iterations started without an explicit `work_unit_id` MUST auto-inherit the Loop's `work_unit` for Work Surface context resolution (see §3.2.1.1).
 
 - `GET /loops/{loop_id}` → Query loop state (projection)
 
@@ -1718,6 +1727,27 @@ To protect the integrity of governance artifacts and evidence:
 
 **Loop**
 - `LoopCreated`
+
+  **Payload (v1):**
+  ```jsonc
+  {
+    "goal": "string",
+    "work_unit": "string",           // defaults to loop_id if not provided
+    "work_surface_id": "string|null", // present when Loop is bound to Work Surface
+    "budgets": {
+      "max_iterations": 5,
+      "max_oracle_runs": 25,
+      "max_wallclock_hours": 16
+    },
+    "directive_ref": {
+      "kind": "GovernedArtifact",
+      "id": "SR-DIRECTIVE",
+      "rel": "governed_by",
+      "meta": { "version": "...", "content_hash": "sha256:..." }
+    }
+  }
+  ```
+
 - `LoopActivated`
 - `IterationStarted`
 - `IterationCompleted`

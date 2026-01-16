@@ -216,6 +216,25 @@ params:
 
 (Canonical evidence artifact type key: `domain.evidence_bundle`.)
 
+### 5.4 Loop ↔ Work Surface binding (normative)
+
+When a Loop is created with an explicit `work_unit` parameter, the platform validates that an active Work Surface exists for that work unit and captures the binding:
+
+**Binding semantics:**
+- If `work_unit` is explicitly provided during Loop creation, the platform MUST validate an active Work Surface exists for that `work_unit_id`.
+- If validation succeeds, the Loop's `work_surface_id` field is populated with the Work Surface identifier.
+- If no active Work Surface exists, Loop creation MUST fail with error code `WORK_SURFACE_MISSING` (HTTP 412).
+- If `work_unit` is omitted, it defaults to the `loop_id` and no Work Surface binding occurs (the Loop is "unbound").
+
+**Iteration context inheritance:**
+- When a Loop is bound to a Work Surface (`work_surface_id` is set), iterations started without an explicit `work_unit_id` MUST auto-inherit the Loop's `work_unit` for Work Surface context resolution.
+- This enables the platform to automatically include the Work Surface refs (Intake, Procedure Template, current stage, oracle suites) in the iteration context without requiring the caller to specify them explicitly.
+
+**Projection model:**
+- The Loop projection (`proj.loops`) includes `work_surface_id` as an optional field.
+- The relationship is unidirectional: Loop → Work Surface. The Work Surface does not maintain a back-reference to Loops.
+- Multiple Loops MAY reference the same Work Surface (e.g., parallel exploration of different approaches for the same work unit).
+
 ---
 
 ## 6. Artifact layout conventions (recommended)

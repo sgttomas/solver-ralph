@@ -64,6 +64,7 @@ export interface LoopListItem {
   id: string;
   goal: string;
   work_unit: string | null;
+  work_surface_id: string | null; // SR-PLAN-V5 Phase 5b: bound Work Surface
   state: LoopState;
   iteration_count: number;
   max_iterations: number;
@@ -180,6 +181,7 @@ export function useLoops(): UseLoopsReturn {
         id: (loop.loop_id || loop.id) as string,
         goal: (loop.goal || loop.name || '') as string,
         work_unit: (loop.work_unit || null) as string | null,
+        work_surface_id: (loop.work_surface_id || null) as string | null, // SR-PLAN-V5 Phase 5b
         state: ((loop.state || loop.status || 'CREATED') as string).toUpperCase() as LoopState,
         iteration_count: (loop.iteration_count || 0) as number,
         max_iterations: ((loop.budgets as LoopBudgets)?.max_iterations || 5) as number,

@@ -547,6 +547,8 @@ In semantic work, a work unit is executed via a **Work Surface** (Intake + Proce
 - `id` — stable identifier
 - `state` — current coarse state
 - `work_kind` — kind of semantic work (e.g., research_memo, decision_record, ontology_build)
+- `work_unit` — work unit identifier (defaults to `id` if not explicitly provided)
+- `work_surface_id` — identifier of the bound Work Surface, if any (populated when Loop is created with explicit `work_unit` that has an active Work Surface; enables iteration context inheritance)
 - `work_surface_ref` — reference to the work surface / procedure instance (incl. intake)
 - `depends_on` — prerequisite work units (semantic dependency ordering)
 - `constraints` — scope, budget, tools, stop triggers

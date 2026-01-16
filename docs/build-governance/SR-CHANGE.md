@@ -67,6 +67,23 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
 - **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
 
+### 0.5  (2026-01-16)
+
+- **SR-SPEC §2.3.1:** Added `work_surface_id` to Loop creation endpoint documentation:
+  - When `work_unit` is explicitly provided, the system validates an active Work Surface exists and returns HTTP 412 `WORK_SURFACE_MISSING` if not found.
+  - `LoopCreated` event payload and API response include `work_surface_id` when bound.
+  - Documented iteration context inheritance from Loop's `work_unit` when Loop has bound Work Surface.
+- **SR-SPEC Appendix A:** Added `LoopCreated` payload schema (v1) with `work_surface_id` field.
+- **SR-TYPES §7.1:** Added `work_unit` and `work_surface_id` fields to Work Unit (Loop) key fields:
+  - `work_unit` — work unit identifier (defaults to `id` if not explicitly provided)
+  - `work_surface_id` — identifier of the bound Work Surface, if any (enables iteration context inheritance)
+- **SR-WORK-SURFACE §5.4:** Added new section "Loop ↔ Work Surface binding (normative)" documenting:
+  - Binding semantics (validation, population, error handling)
+  - Iteration context inheritance behavior
+  - Projection model (unidirectional Loop → Work Surface relationship)
+- **Rationale:** Documents Phase 5b implementation of Loop ↔ Work Surface binding per SR-PLAN-V5 §4. Enables semantic loops to bind to Work Surfaces at creation time and auto-inherit context for iterations.
+- **Classification:** G:MINOR (additive; backward-compatible; existing Loops without `work_surface_id` continue to function as unbound loops).
+
 ---
 
 ## 1. What requires change control

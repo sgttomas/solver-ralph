@@ -69,6 +69,7 @@ interface Loop {
   id: string;
   goal: string;
   work_unit: string | null;
+  work_surface_id: string | null; // SR-PLAN-V5 Phase 5b: bound Work Surface
   state: 'CREATED' | 'ACTIVE' | 'PAUSED' | 'CLOSED';
   created_at: string;
   activated_at: string | null;
@@ -143,6 +144,7 @@ export function LoopDetail(): JSX.Element {
         id: loopData.loop_id || loopData.id,
         goal: loopData.goal || '',
         work_unit: loopData.work_unit || null,
+        work_surface_id: loopData.work_surface_id || null, // SR-PLAN-V5 Phase 5b
         state: (loopData.state || 'CREATED').toUpperCase(),
         created_at: loopData.created_at,
         activated_at: loopData.activated_at || null,
@@ -310,53 +312,61 @@ export function LoopDetail(): JSX.Element {
         )}
       </Card>
 
-      {/* Work Surface Card */}
-      {loop.work_surface && (
+      {/* Work Surface Card - SR-PLAN-V5 Phase 5b: Show when bound */}
+      {(loop.work_surface_id || loop.work_surface) && (
         <Card title="Work Surface" className={styles.cardSpacing}>
-          {loop.work_surface.intake_id && (
+          {loop.work_surface_id && (
+            <div className={styles.infoRow}>
+              <span className={styles.infoLabel}>Work Surface ID</span>
+              <Link to={`/work-surfaces/${loop.work_surface_id}`} className={styles.link}>
+                <code className={styles.mono}>{loop.work_surface_id}</code>
+              </Link>
+            </div>
+          )}
+          {loop.work_surface?.intake_id && (
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Intake</span>
               <div>
-                <Link to={`/context/intakes/${loop.work_surface.intake_id}`} className={styles.link}>
-                  {loop.work_surface.intake_title || loop.work_surface.intake_id}
+                <Link to={`/context/intakes/${loop.work_surface?.intake_id}`} className={styles.link}>
+                  {loop.work_surface?.intake_title || loop.work_surface?.intake_id}
                 </Link>
-                {loop.work_surface.intake_objective && (
+                {loop.work_surface?.intake_objective && (
                   <p style={{ margin: 'var(--space1) 0 0 0', fontSize: '0.8125rem', color: 'var(--muted)' }}>
-                    {loop.work_surface.intake_objective}
+                    {loop.work_surface?.intake_objective}
                   </p>
                 )}
               </div>
             </div>
           )}
-          {loop.work_surface.procedure_template_id && (
+          {loop.work_surface?.procedure_template_id && (
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Procedure</span>
-              <Link to={`/protocols/${loop.work_surface.procedure_template_id}`} className={styles.link}>
-                {loop.work_surface.procedure_template_name || loop.work_surface.procedure_template_id}
+              <Link to={`/protocols/${loop.work_surface?.procedure_template_id}`} className={styles.link}>
+                {loop.work_surface?.procedure_template_name || loop.work_surface?.procedure_template_id}
               </Link>
             </div>
           )}
-          {loop.work_surface.current_stage_id && (
+          {loop.work_surface?.current_stage_id && (
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Current Stage</span>
               <div>
-                <code className={styles.mono}>{loop.work_surface.current_stage_id}</code>
-                {loop.work_surface.current_stage_name && (
+                <code className={styles.mono}>{loop.work_surface?.current_stage_id}</code>
+                {loop.work_surface?.current_stage_name && (
                   <span style={{ marginLeft: 'var(--space2)', color: 'var(--muted)' }}>
-                    ({loop.work_surface.current_stage_name})
+                    ({loop.work_surface?.current_stage_name})
                   </span>
                 )}
               </div>
             </div>
           )}
-          {loop.work_surface.oracle_suite_id && (
+          {loop.work_surface?.oracle_suite_id && (
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Oracle Suite</span>
               <div>
-                <code className={styles.mono}>{loop.work_surface.oracle_suite_id}</code>
-                {loop.work_surface.oracle_suite_hash && (
+                <code className={styles.mono}>{loop.work_surface?.oracle_suite_id}</code>
+                {loop.work_surface?.oracle_suite_hash && (
                   <span style={{ marginLeft: 'var(--space2)', fontSize: '0.75rem', color: 'var(--muted)' }}>
-                    {truncateHash(loop.work_surface.oracle_suite_hash, 12)}
+                    {truncateHash(loop.work_surface?.oracle_suite_hash, 12)}
                   </span>
                 )}
               </div>

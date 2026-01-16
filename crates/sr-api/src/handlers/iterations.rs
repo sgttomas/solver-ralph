@@ -204,8 +204,22 @@ pub async fn start_iteration(
         })
         .collect();
 
-    // SR-PLAN-V4 Phase 4c: Fetch Work Surface refs if work_unit_id is provided
-    let work_surface_id = if let Some(ref work_unit_id) = body.work_unit_id {
+    // SR-PLAN-V5 Phase 5b: Auto-populate work_unit_id from Loop if not provided
+    // Only auto-inherit when the Loop has a bound Work Surface
+    let effective_work_unit_id = match &body.work_unit_id {
+        Some(id) => Some(id.clone()),
+        None => {
+            // Auto-inherit from Loop if it has a bound Work Surface
+            if loop_projection.work_surface_id.is_some() {
+                Some(loop_projection.work_unit.clone())
+            } else {
+                None
+            }
+        }
+    };
+
+    // SR-PLAN-V4 Phase 4c: Fetch Work Surface refs if work_unit_id is available
+    let work_surface_id = if let Some(ref work_unit_id) = effective_work_unit_id {
         // Query for active Work Surface
         let ws_row = sqlx::query(
             r#"

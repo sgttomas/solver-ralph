@@ -363,21 +363,23 @@ impl ProjectionBuilder {
 
         let goal = payload["goal"].as_str().unwrap_or("");
         let work_unit = payload["work_unit"].as_str().unwrap_or(loop_id);
+        let work_surface_id = payload["work_surface_id"].as_str(); // SR-PLAN-V5 Phase 5b
         let budgets = &payload["budgets"];
         let directive_ref = &payload["directive_ref"];
 
         sqlx::query(
             r#"
             INSERT INTO proj.loops (
-                loop_id, goal, work_unit, state, budgets, directive_ref,
+                loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                 created_by_kind, created_by_id, created_at, iteration_count,
                 last_event_id, last_global_seq
-            ) VALUES ($1, $2, $3, 'CREATED', $4, $5, $6, $7, $8, 0, $9, $10)
+            ) VALUES ($1, $2, $3, $4, 'CREATED', $5, $6, $7, $8, $9, 0, $10, $11)
             "#,
         )
         .bind(loop_id)
         .bind(goal)
         .bind(work_unit)
+        .bind(work_surface_id)
         .bind(budgets)
         .bind(directive_ref)
         .bind(actor_kind_str(&event.actor_kind))
@@ -1858,6 +1860,7 @@ pub struct LoopProjection {
     pub loop_id: String,
     pub goal: String,
     pub work_unit: String,
+    pub work_surface_id: Option<String>, // SR-PLAN-V5 Phase 5b: bound Work Surface
     pub state: String,
     pub budgets: serde_json::Value,
     pub directive_ref: serde_json::Value,
@@ -2000,7 +2003,7 @@ impl ProjectionBuilder {
     pub async fn get_loop(&self, loop_id: &str) -> Result<Option<LoopProjection>, ProjectionError> {
         let result = sqlx::query(
             r#"
-            SELECT loop_id, goal, work_unit, state, budgets, directive_ref,
+            SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                    created_by_kind, created_by_id, created_at, activated_at,
                    closed_at, iteration_count
             FROM proj.loops WHERE loop_id = $1
@@ -2014,6 +2017,7 @@ impl ProjectionBuilder {
             loop_id: row.get("loop_id"),
             goal: row.get("goal"),
             work_unit: row.get("work_unit"),
+            work_surface_id: row.get("work_surface_id"),
             state: row.get("state"),
             budgets: row.get("budgets"),
             directive_ref: row.get("directive_ref"),
@@ -2129,7 +2133,7 @@ impl ProjectionBuilder {
         let rows = if let Some(s) = state {
             sqlx::query(
                 r#"
-                SELECT loop_id, goal, work_unit, state, budgets, directive_ref,
+                SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                        created_by_kind, created_by_id, created_at, activated_at,
                        closed_at, iteration_count
                 FROM proj.loops WHERE state = $1
@@ -2145,7 +2149,7 @@ impl ProjectionBuilder {
         } else {
             sqlx::query(
                 r#"
-                SELECT loop_id, goal, work_unit, state, budgets, directive_ref,
+                SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                        created_by_kind, created_by_id, created_at, activated_at,
                        closed_at, iteration_count
                 FROM proj.loops
@@ -2165,6 +2169,7 @@ impl ProjectionBuilder {
                 loop_id: row.get("loop_id"),
                 goal: row.get("goal"),
                 work_unit: row.get("work_unit"),
+                work_surface_id: row.get("work_surface_id"),
                 state: row.get("state"),
                 budgets: row.get("budgets"),
                 directive_ref: row.get("directive_ref"),

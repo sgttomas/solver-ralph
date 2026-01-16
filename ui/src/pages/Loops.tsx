@@ -151,6 +151,7 @@ export function Loops(): JSX.Element {
                 <tr>
                   <th className={styles.th}>Goal</th>
                   <th className={styles.th}>Work Unit</th>
+                  <th className={styles.th}>Work Surface</th>
                   <th className={styles.th}>State</th>
                   <th
                     className={`${styles.th} ${loopStyles.sortable}`}
@@ -187,6 +188,15 @@ export function Loops(): JSX.Element {
                       </td>
                       <td className={styles.td}>
                         {loop.work_unit || <span className={loopStyles.muted}>-</span>}
+                      </td>
+                      <td className={styles.td}>
+                        {loop.work_surface_id ? (
+                          <Link to={`/work-surfaces/${loop.work_surface_id}`} className={styles.link}>
+                            <code className={loopStyles.stageCode}>{loop.work_surface_id}</code>
+                          </Link>
+                        ) : (
+                          <span className={loopStyles.muted}>—</span>
+                        )}
                       </td>
                       <td className={styles.td}>
                         <Pill tone={getStatusTone(loop.state)}>{loop.state}</Pill>

@@ -81,6 +81,7 @@ pub struct LoopResponse {
     pub loop_id: String,
     pub goal: String,
     pub work_unit: String,
+    pub work_surface_id: Option<String>, // SR-PLAN-V5 Phase 5b: bound Work Surface
     pub state: String,
     pub budgets: LoopBudgets,
     pub directive_ref: serde_json::Value,
@@ -154,9 +155,36 @@ pub async fn create_loop(
     let now = Utc::now();
 
     let budgets = body.budgets.unwrap_or_default();
+    let work_unit_provided = body.work_unit.is_some();
     let work_unit = body
         .work_unit
         .unwrap_or_else(|| loop_id.as_str().to_string());
+
+    // SR-PLAN-V5 Phase 5b: Validate Work Surface exists if work_unit explicitly provided
+    // Only validate when user provides work_unit; don't validate auto-generated loop_id default
+    let work_surface_id = if work_unit_provided {
+        let ws_id: Option<String> = sqlx::query_scalar(
+            r#"SELECT work_surface_id FROM proj.work_surfaces
+               WHERE work_unit_id = $1 AND status = 'active'"#,
+        )
+        .bind(&work_unit)
+        .fetch_optional(state.projections.pool())
+        .await
+        .map_err(|e: sqlx::Error| ApiError::Internal {
+            message: e.to_string(),
+        })?;
+
+        match ws_id {
+            Some(id) => Some(id),
+            None => {
+                return Err(ApiError::WorkSurfaceNotFound {
+                    work_unit_id: work_unit.clone(),
+                })
+            }
+        }
+    } else {
+        None
+    };
 
     let directive_ref = TypedRef {
         kind: body.directive_ref.kind,
@@ -168,6 +196,7 @@ pub async fn create_loop(
     let payload = serde_json::json!({
         "goal": body.goal,
         "work_unit": work_unit,
+        "work_surface_id": work_surface_id, // SR-PLAN-V5 Phase 5b: Include when bound
         "budgets": {
             "max_iterations": budgets.max_iterations,
             "max_oracle_runs": budgets.max_oracle_runs,
@@ -468,6 +497,7 @@ fn projection_to_response(p: LoopProjection) -> LoopResponse {
         loop_id: p.loop_id,
         goal: p.goal,
         work_unit: p.work_unit,
+        work_surface_id: p.work_surface_id, // SR-PLAN-V5 Phase 5b
         state: p.state,
         budgets,
         directive_ref: p.directive_ref,
