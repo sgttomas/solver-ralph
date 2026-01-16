@@ -63,7 +63,7 @@ The `docs/planning/` folder contains feature-specific implementation plans that 
 
 | doc_id | Status | Purpose |
 |--------|--------|---------|
-| SR-PLAN-V4 | pending | Work Surface Composition (Phase 4) — to be created |
+| SR-PLAN-V4 | **ready** | Work Surface Composition (Phase 4) — implementation-ready |
 | SR-PLAN-V3 | **complete** | Intakes & References implementation (Phases 0-3) |
 | SR-PLAN-V2 | superseded | Intakes & References draft (10 unresolved issues) |
 
@@ -99,107 +99,144 @@ All phases of the Intakes & References implementation (SR-PLAN-V3) are now compl
 
 ---
 
-## Prompt for Next Instance: Create SR-PLAN-V4 (Work Surface Composition)
+## SR-PLAN-V4 Implementation Status
+
+**Status: READY FOR IMPLEMENTATION**
+
+SR-PLAN-V4 (Work Surface Composition) is complete and ready for implementation. The plan is at `docs/planning/SR-PLAN-V4.md`.
+
+### Phase Overview
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 4a | Pending | Core Infrastructure — WorkSurfaceId, events, database migrations |
+| Phase 4b | Pending | Work Surface API — 9 endpoints for CRUD, stage transitions, compatibility |
+| Phase 4c | Pending | Event Integration — IterationStarted refs, EvidenceBundleRecorded binding |
+| Phase 4d | Pending | Work Surface UI — List, composition wizard, detail with stage progress |
+
+### Key Design Decisions (Resolved in SR-PLAN-V4)
+
+| Question | Resolution |
+|----------|------------|
+| Compatibility checking | Intake `kind` must match Procedure Template's `kind[]`; binding fails otherwise |
+| Stage initialization | New Work Surface starts at template's initial stage; `StageEntered` emitted immediately |
+| Oracle suite binding | Per-stage binding (not once for whole Work Surface); resolved dynamically on stage entry |
+| Immutability | Binding refs immutable; only stage progression mutable via events |
+| Relationship to Loops | Work Surface 1:1 with Work Unit (not Loop); multiple Loops share same Work Surface |
+| UI workflow | Step-by-step wizard (Select Intake → Select Template → Review & Confirm) |
+
+### Planned Routes
+
+```
+/work-surfaces                        → WorkSurfaces.tsx (list with filters)
+/work-surfaces/new                    → WorkSurfaceCompose.tsx (composition wizard)
+/work-surfaces/:workSurfaceId         → WorkSurfaceDetail.tsx (detail with stage progress)
+```
+
+---
+
+## Prompt for Next Instance: Implement SR-PLAN-V4 Phase 4a (Core Infrastructure)
 
 ### Task
 
-Create a comprehensive implementation plan for **Phase 4: Work Surface Composition**. This plan should be written to `docs/planning/SR-PLAN-V4.md` and follow the structure and quality of SR-PLAN-V3.
-
-**Objective:** Design the architecture for binding Intake + Procedure Template + Oracle Suite into **Work Surface Instances** that drive Semantic Ralph Loop iterations.
-
-### What Exists (Prerequisites)
-
-| Component | Location | Status |
-|-----------|----------|--------|
-| **Intake domain** | `crates/sr-domain/src/intake.rs` | Complete — CRUD + lifecycle (draft/active/archived) |
-| **Intake API** | `crates/sr-api/src/handlers/intakes.rs` | Complete — 8 endpoints |
-| **Intake UI** | `ui/src/pages/Intakes*.tsx` | Complete — list, create, edit, detail, lifecycle actions |
-| **Procedure Templates** | `crates/sr-api/src/handlers/templates.rs` | Exists — registry with list/get |
-| **Oracle Suites** | `crates/sr-adapters/src/oracle_suite/` | Exists — registry with list/get |
-| **References API** | `crates/sr-api/src/handlers/references.rs` | Complete — unified browser for all ref types |
-| **References UI** | `ui/src/pages/References.tsx` | Complete — category sidebar browser |
-
-### What Needs to Be Built
-
-Per **SR-WORK-SURFACE §5**, a Work Surface Instance binds:
-
-```yaml
-artifact_type: domain.work_surface
-work_unit_id: WU-...
-intake_ref:
-  id: intake:...
-  content_hash: sha256:...
-procedure_template_ref:
-  id: proc:...
-  content_hash: sha256:...
-stage_id: stage:FRAME
-oracle_suites:
-  - suite_id: suite:SR-SUITE-STRUCTURE
-    suite_hash: sha256:...
-params:
-  threshold: 0.9
-```
-
-The plan must address:
-
-1. **Domain Model** — `WorkSurface` struct with refs to Intake, Procedure Template, current stage
-2. **Database Schema** — `proj.work_surfaces` table with appropriate indexes
-3. **Events** — `WorkSurfaceBound`, `StageTransitioned` (per SR-CONTRACT)
-4. **API Endpoints** — CRUD + stage transitions + iteration context compilation
-5. **UI** — Composition wizard, Work Surface detail view, stage progress visualization
-6. **Integration** — How `IterationStarted` binds to Work Surface Instance (SR-SPEC §1.9)
+Implement **Phase 4a: Core Infrastructure** from SR-PLAN-V4.
 
 ### Required Reading
 
-Before writing the plan, read these documents thoroughly:
+1. `docs/planning/SR-PLAN-V4.md` — Full implementation plan (especially §1 Domain Model, §2 Database Schema)
+2. `docs/platform/SR-WORK-SURFACE.md` — Primary specification (§5 Work Surface Instance)
+3. `crates/sr-domain/src/work_surface.rs` — Existing domain model (already has `WorkSurfaceInstance`, extend it)
 
-| Document | Sections | Purpose |
-|----------|----------|---------|
-| **SR-WORK-SURFACE** | §2 (concepts), §4 (Procedure Template), §5 (Work Surface Instance) | Primary specification |
-| **SR-PROCEDURE-KIT** | §1-2 (stage structure, gate rules) | Stage machine mechanics |
-| **SR-SEMANTIC-ORACLE-SPEC** | §2-4 (suite identity, binding) | Oracle suite hash binding |
-| **SR-CONTRACT** | §2.8 (Commitment Objects), C-CTX-1, C-CTX-2 | Binding invariants |
-| **SR-SPEC** | §1.9 (IterationStarted), §1.5.3 (TypedRef) | Event integration |
-| **SR-TYPES** | §4.3 (`domain.work_surface`) | Type registry |
-| **SR-PLAN-V3** | Full document | Reference for plan structure and quality |
+### Deliverables
 
-### Key Design Questions to Address
+1. **Work Surface ID type** (`crates/sr-domain/src/work_surface.rs`)
+   - `WorkSurfaceId` with ULID generation (format: `ws:<ULID>`)
+   - `WorkSurfaceStatus` enum (active, completed, archived)
+   - `StageCompletionStatus` enum (pending, entered, completed, skipped)
+   - `StageStatusRecord` struct
+   - `ManagedWorkSurface` struct (runtime representation with lifecycle)
 
-1. **Compatibility checking** — How to validate that an Intake's `kind` matches Procedure Template's supported kinds?
-2. **Stage initialization** — Which stage does a new Work Surface start at? First stage in template?
-3. **Oracle suite binding** — Are suites bound per-stage or once for the whole Work Surface?
-4. **Immutability** — Once bound, can a Work Surface Instance be modified? Or is it a commitment object?
-5. **Relationship to Loops** — Is Work Surface 1:1 with a Loop, or can multiple Loops share a Work Surface?
-6. **UI workflow** — Step-by-step wizard vs. single form? How to select compatible templates?
+2. **Work Surface Events** (`crates/sr-domain/src/events.rs`)
+   - `WorkSurfaceBound`
+   - `StageEntered`
+   - `StageCompleted`
+   - `WorkSurfaceCompleted`
+   - `WorkSurfaceArchived`
+   - Add `StreamKind::WorkSurface`
 
-### Deliverable
+3. **Database migrations** (`migrations/006_work_surfaces.sql`)
+   - Create `work_surface_status` enum
+   - Create `stage_completion_status` enum
+   - Create `proj.work_surfaces` table (see SR-PLAN-V4 §2.2)
+   - Create indexes
+   - Add unique constraint: only one active work surface per work unit
 
-Create `docs/planning/SR-PLAN-V4.md` with:
+### Verification Checklist
 
-1. **Executive Summary** — What this phase enables
-2. **Architecture Overview** — Domain model, data flow, component relationships
-3. **Phase Breakdown** — Sub-phases (like 0a/0b/0c in V3) if needed
-4. **API Specification** — Endpoints, request/response formats
-5. **Database Migrations** — Table schemas
-6. **UI Specification** — Pages, components, user flows
-7. **Event Integration** — How Work Surface connects to iteration events
-8. **Verification Checklist** — How to validate the implementation
-9. **Intentional Deviations** — Any deviations from SR-* specs (ideally none)
+- [ ] `cargo build` passes
+- [ ] `cargo test --workspace` passes
+- [ ] Migration applies cleanly: `sqlx migrate run`
+- [ ] Types align with SR-WORK-SURFACE §5
+- [ ] Events align with SR-SPEC Appendix A pattern
 
 ### Constraints
 
-- **Do not implement** — This task is planning only
-- **Follow SR-* specifications** — No deviations without documented justification
-- **Backend-first phasing** — Domain/API before UI (like V3)
-- **Ask questions** — Use AskUserQuestion for design decisions that need user input
-
-### After Planning
-
-Once SR-PLAN-V4 is complete and reviewed, update this SR-README to reference the new plan and provide an implementation prompt for Phase 4.
+- **Follow SR-PLAN-V4** — Use the exact schemas defined in the plan
+- **Extend existing code** — `work_surface.rs` already has foundational types; add to it
+- **No API changes yet** — Phase 4a is infrastructure only; API comes in Phase 4b
 
 ---
 
 ## Summary of Previous Development Iterations
+
+### Session: 2026-01-16 — SR-PLAN-V4 Planning
+
+**Objective:** Create comprehensive implementation plan for Phase 4: Work Surface Composition.
+
+**Work Performed:**
+
+1. **Document Review**
+   - Read SR-README.md for assignment and orientation
+   - Read SR-WORK-SURFACE (primary specification — §2-5)
+   - Read SR-PROCEDURE-KIT (stage machine mechanics)
+   - Read SR-SEMANTIC-ORACLE-SPEC (oracle suite binding)
+   - Read SR-CONTRACT (C-CTX-1, C-CTX-2 — iteration context invariants)
+   - Read SR-SPEC (TypedRef, IterationStarted, event patterns)
+   - Read SR-PLAN-V3 (structural reference for plan quality)
+   - Reviewed existing `crates/sr-domain/src/work_surface.rs` (foundational types already exist)
+
+2. **Key Design Questions Resolved**
+   - **Compatibility checking:** Intake `kind` must match template's supported `kind[]`
+   - **Stage initialization:** Start at template's initial stage; emit `StageEntered` immediately
+   - **Oracle suite binding:** Per-stage (not whole Work Surface); resolved dynamically on stage entry
+   - **Immutability:** Binding refs immutable; only stage progression mutable via events
+   - **Relationship to Loops:** Work Surface 1:1 with Work Unit (not Loop)
+   - **UI workflow:** Step-by-step wizard (3 steps)
+
+3. **Artifacts Created**
+   - `docs/planning/SR-PLAN-V4.md` (~650 lines) — Complete implementation plan including:
+     - Executive Summary and Architecture Overview
+     - Domain Model (`ManagedWorkSurface`, `WorkSurfaceId`, status enums)
+     - Events (`WorkSurfaceBound`, `StageEntered`, `StageCompleted`, etc.)
+     - Database Schema (`proj.work_surfaces` with constraints)
+     - API Specification (9 endpoints for CRUD, stage transitions, compatibility)
+     - UI Specification (3 pages: list, wizard, detail with stage progress)
+     - Event Integration (IterationStarted refs, EvidenceBundleRecorded binding)
+     - 4-phase implementation breakdown (4a-4d)
+
+4. **Documentation Updates**
+   - Updated `docs/charter/SR-README.md`:
+     - Changed SR-PLAN-V4 status from "pending" to "ready"
+     - Added SR-PLAN-V4 Implementation Status section
+     - Added Key Design Decisions table
+     - Added Planned Routes
+     - Replaced "Create SR-PLAN-V4" prompt with "Implement Phase 4a" prompt
+
+**No code was modified.** This was a planning-only session.
+
+**Next Step:** Implement Phase 4a (Core Infrastructure) per the new prompt.
+
+---
 
 ### Session: 2026-01-15 — Phase 3 Implementation
 
