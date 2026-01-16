@@ -17,3 +17,9 @@ export type { Stage, StageStatusInfo } from './StageProgress';
 export { StateTransitionButton, SingleActionButton } from './StateTransitionButton';
 export { LoopCreateModal } from './LoopCreateModal';
 export { LoopEditModal } from './LoopEditModal';
+
+// Attachment components (V7-4)
+export { AttachmentUploader } from './AttachmentUploader';
+export type { UploadedAttachment } from './AttachmentUploader';
+export { AttachmentPreview } from './AttachmentPreview';
+export type { AttachmentPreviewProps } from './AttachmentPreview';

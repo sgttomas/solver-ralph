@@ -1,8 +1,13 @@
 /**
  * StageCompletionForm Component
  *
- * Form for completing a stage with evidence and gate result.
+ * Form for completing a stage with evidence/attachment and gate result.
  * Per SR-PLAN-V5 §3.2-3.7: Handles stage completion workflow.
+ * Per SR-PLAN-V7 Phase V7-4: Adds tabbed interface for Evidence vs Attachment.
+ *
+ * Ontological distinction:
+ * - Evidence Bundles (Tab 1): Oracle-produced, satisfies C-VER-1
+ * - Attachments (Tab 2): Human uploads, supporting context only
  */
 
 import { useState, useEffect } from 'react';
@@ -10,6 +15,7 @@ import { useAuth } from '../auth/AuthProvider';
 import config from '../config';
 import { Button } from '../ui';
 import { EvidenceBundleSelector } from './EvidenceBundleSelector';
+import { AttachmentUploader, type UploadedAttachment } from './AttachmentUploader';
 import styles from '../styles/pages.module.css';
 
 interface OracleSuiteBinding {
@@ -24,6 +30,7 @@ interface OracleResultEntry {
 }
 
 type GateResultStatus = 'PASS' | 'PASS_WITH_WAIVERS' | 'FAIL' | null;
+type ArtifactSource = 'evidence' | 'attachment';
 
 interface StageCompletionFormProps {
   workSurfaceId: string;
@@ -53,7 +60,9 @@ export function StageCompletionForm({
   const auth = useAuth();
 
   // Form state
+  const [artifactSource, setArtifactSource] = useState<ArtifactSource>('evidence');
   const [evidenceBundleRef, setEvidenceBundleRef] = useState('');
+  const [uploadedAttachment, setUploadedAttachment] = useState<UploadedAttachment | null>(null);
   const [gateResultStatus, setGateResultStatus] = useState<GateResultStatus>(null);
   const [oracleResults, setOracleResults] = useState<OracleResultEntry[]>([]);
   const [waiverRefs, setWaiverRefs] = useState('');
@@ -91,8 +100,11 @@ export function StageCompletionForm({
 
   // Validation
   const validate = (): string | null => {
-    if (!evidenceBundleRef.trim()) {
+    if (artifactSource === 'evidence' && !evidenceBundleRef.trim()) {
       return 'Evidence bundle reference is required';
+    }
+    if (artifactSource === 'attachment' && !uploadedAttachment) {
+      return 'Please upload a supporting attachment';
     }
     if (!gateResultStatus) {
       return 'Gate result status is required';
@@ -122,8 +134,9 @@ export function StageCompletionForm({
     setSuccessMessage(null);
 
     try {
-      const requestBody = {
-        evidence_bundle_ref: evidenceBundleRef.trim(),
+      // Build request body based on artifact source
+      // Per SR-PLAN-V7: evidence_bundle_ref for oracle evidence, attachment_refs for human uploads
+      const requestBody: Record<string, unknown> = {
         gate_result: {
           status: gateResultStatus,
           oracle_results: oracleResults
@@ -139,6 +152,12 @@ export function StageCompletionForm({
             .filter((r) => r.length > 0),
         },
       };
+
+      if (artifactSource === 'evidence') {
+        requestBody.evidence_bundle_ref = evidenceBundleRef.trim();
+      } else if (uploadedAttachment) {
+        requestBody.attachment_refs = [uploadedAttachment.attachment_id];
+      }
 
       const res = await fetch(
         `${config.apiUrl}/api/v1/work-surfaces/${workSurfaceId}/stages/${stageId}/complete`,
@@ -211,12 +230,48 @@ export function StageCompletionForm({
       {error && <div className={styles.error}>{error}</div>}
 
       <form onSubmit={handleSubmit} className={styles.form}>
-        {/* Evidence Bundle Selector */}
-        <EvidenceBundleSelector
-          value={evidenceBundleRef}
-          onChange={setEvidenceBundleRef}
-          disabled={isSubmitting}
-        />
+        {/* Artifact Source Tabs - per SR-PLAN-V7 Phase V7-4 */}
+        <div className={styles.formGroup}>
+          <label className={styles.label}>Artifact Source *</label>
+          <div className={styles.tabs}>
+            <button
+              type="button"
+              className={`${styles.tab} ${artifactSource === 'evidence' ? styles.tabActive : ''}`}
+              onClick={() => setArtifactSource('evidence')}
+              disabled={isSubmitting}
+            >
+              Evidence Bundle (Oracle)
+            </button>
+            <button
+              type="button"
+              className={`${styles.tab} ${artifactSource === 'attachment' ? styles.tabActive : ''}`}
+              onClick={() => setArtifactSource('attachment')}
+              disabled={isSubmitting}
+            >
+              Supporting Attachment
+            </button>
+          </div>
+        </div>
+
+        {/* Evidence Bundle Selector (Tab 1) */}
+        {artifactSource === 'evidence' && (
+          <EvidenceBundleSelector
+            value={evidenceBundleRef}
+            onChange={setEvidenceBundleRef}
+            disabled={isSubmitting}
+          />
+        )}
+
+        {/* Attachment Uploader (Tab 2) */}
+        {artifactSource === 'attachment' && (
+          <div className={styles.formGroup}>
+            <AttachmentUploader
+              onUploadComplete={(attachment) => setUploadedAttachment(attachment)}
+              onError={(err) => setError(err)}
+              disabled={isSubmitting}
+            />
+          </div>
+        )}
 
         {/* Gate Result Status */}
         <div className={styles.formGroup}>

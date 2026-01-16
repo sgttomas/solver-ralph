@@ -93,7 +93,7 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 | V7-1: Integration Tests | ✅ Complete | Integration tests for `/start` endpoint |
 | V7-2: Error Handling | ✅ Complete | Toast notifications, loading states, retry logic |
 | V7-3: Attachment Backend | ✅ Complete | `POST /attachments` endpoint |
-| V7-4: Attachment Frontend | ⏳ Pending | AttachmentUploader, AttachmentPreview components |
+| V7-4: Attachment Frontend | ✅ Complete | AttachmentUploader, AttachmentPreview, tabbed StageCompletionForm |
 | V7-5: Multiple Iterations | ⏳ Pending | Iteration history and new iteration support |
 
 ---
@@ -316,17 +316,71 @@ This preserves SR-CONTRACT's epistemological clarity: only oracle-produced Evide
 
 ---
 
-## Next Instance Prompt: Execute SR-PLAN-V7 Phase V7-4
+## Previous Session Summary (V7-4 Attachment Frontend)
+
+**Session Goal:** Implement SR-PLAN-V7 Phase V7-4 — Attachment upload UI components.
+
+### What Was Accomplished
+
+1. **Created attachment upload components:**
+
+   | Component | File | Purpose |
+   |-----------|------|---------|
+   | `AttachmentUploader` | `ui/src/components/AttachmentUploader.tsx` | Drag-drop upload with progress tracking |
+   | `AttachmentPreview` | `ui/src/components/AttachmentPreview.tsx` | Display uploaded file metadata |
+   | Styles | `ui/src/components/AttachmentUploader.module.css` | Dropzone, progress bar, preview styles |
+
+2. **Modified StageCompletionForm with tabbed interface:**
+   - Tab 1: "Evidence Bundle (Oracle)" — existing `EvidenceBundleSelector`
+   - Tab 2: "Supporting Attachment" — new `AttachmentUploader`
+   - Updated validation to require either evidence OR attachment
+   - Updated submit payload to include `attachment_refs[]` when attachment uploaded
+
+3. **Key features implemented:**
+   - Drag-and-drop with visual feedback (border highlight on dragover)
+   - Click-to-browse fallback
+   - Client-side validation (file size, accepted types)
+   - Upload progress bar using XMLHttpRequest
+   - AttachmentPreview shows file icon, name, size, truncated hash
+   - Toast notifications for success/error feedback
+   - Semantic note explaining attachments don't satisfy C-VER-1
+
+4. **All checks pass:** `npm run type-check` and `npm run build` succeed
+
+### Files Created
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `ui/src/components/AttachmentUploader.tsx` | ~250 | Drag-drop upload component |
+| `ui/src/components/AttachmentUploader.module.css` | ~150 | Uploader and preview styles |
+| `ui/src/components/AttachmentPreview.tsx` | ~130 | Attachment metadata display |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `ui/src/components/StageCompletionForm.tsx` | Added tabbed artifact source interface |
+| `ui/src/components/index.ts` | Exported new components |
+
+### Ontological Distinction Preserved
+
+| Concept | UI Label | Source | Satisfies C-VER-1? |
+|---------|----------|--------|-------------------|
+| Evidence Bundle | "Evidence Bundle (Oracle)" | Oracle output | ✅ Yes |
+| Attachment | "Supporting Attachment" | Human upload | ❌ No |
+
+---
+
+## Next Instance Prompt: Execute SR-PLAN-V7 Phase V7-5
 
 ### Context
 
-V7-3 is complete. The backend now supports attachment uploads:
-- `POST /api/v1/attachments` accepts multipart file uploads
-- Files stored content-addressed in MinIO `attachments` bucket
-- Returns `attachment_id`, `content_hash`, `size_bytes`, `media_type`, `filename`, `uploaded_by`, `uploaded_at`
-- `AttachmentRecorded` event emitted for audit trail
+V7-4 is complete. The attachment foundation is now fully functional:
+- Backend: `POST /api/v1/attachments` stores files content-addressed in MinIO
+- Frontend: `AttachmentUploader` with drag-drop, progress, preview
+- Integration: `StageCompletionForm` has tabbed interface for Evidence vs Attachment
 
-The API is ready for UI integration. Next: add attachment upload UI components.
+The Work Surface workflow now supports both oracle-produced Evidence Bundles and human-uploaded Attachments. Next: enable multiple iterations so users can retry or iterate on stuck work.
 
 ### Current State
 
@@ -334,65 +388,45 @@ The API is ready for UI integration. Next: add attachment upload UI components.
 - SR-PLAN-V7 Phase V7-1: **Complete** (Integration tests)
 - SR-PLAN-V7 Phase V7-2: **Complete** (Error handling)
 - SR-PLAN-V7 Phase V7-3: **Complete** (Attachment backend)
-- SR-PLAN-V7 Phase V7-4: **Pending** (next)
+- SR-PLAN-V7 Phase V7-4: **Complete** (Attachment frontend)
+- SR-PLAN-V7 Phase V7-5: **Pending** (next)
 
 ### Assignment
 
-**Execute SR-PLAN-V7 Phase V7-4: Attachment Frontend**
+**Execute SR-PLAN-V7 Phase V7-5: Multiple Iteration Support**
 
-Add UI components for uploading and displaying attachments on Work Surfaces.
+Enable viewing iteration history and starting new iterations on Work Surfaces.
 
-### Key Requirements (from SR-PLAN-V7 §V7-4)
+### Key Requirements (from SR-PLAN-V7 §V7-5)
 
-**Ontological Note:** Attachments are NOT Evidence Bundles in the UI:
-- Evidence = oracle-produced, verification authority
-- Attachments = human-uploaded supporting files, no verification authority
-- UI must maintain this distinction visually and semantically
+**Backend endpoints to create:**
+1. `GET /api/v1/work-surfaces/{id}/iterations` — Returns iteration list for Work Surface's Loop
+2. `POST /api/v1/work-surfaces/{id}/iterations` — Starts new iteration (SYSTEM-mediated per C-CTX-1)
 
-**Components to create:**
-1. `AttachmentUploader.tsx` — Drag-and-drop file upload component
-2. `AttachmentPreview.tsx` — Display uploaded attachment metadata
-3. `AttachmentList.tsx` — List attachments for a Work Surface (if needed)
+**Frontend components to create:**
+1. `IterationHistory.tsx` — Timeline view of iterations with status, stage, duration
+2. Integration into `WorkSurfaceDetail.tsx` — Collapsible iteration history section
 
-**Integration points:**
-- Add to `WorkSurfaceDetail.tsx` page
-- Use existing toast system for success/error feedback
-- Handle upload progress states
-
-**API integration:**
-```typescript
-// Upload
-POST /api/v1/attachments
-Content-Type: multipart/form-data
-Body: file field
-
-// Response
-{
-  attachment_id: string,
-  content_hash: string,
-  size_bytes: number,
-  media_type: string,
-  filename: string,
-  uploaded_by: string,
-  uploaded_at: string
-}
-```
+**UX requirements:**
+- Timeline shows each iteration: number, stage, status, duration
+- Expandable to show iteration details (evidence bundles, attachments)
+- "New Iteration" button available when current iteration is completed or stop trigger fired
+- New iteration uses SYSTEM actor mediation (same pattern as `/start`)
 
 ### Acceptance Criteria
 
-- [ ] `AttachmentUploader` component with drag-and-drop support
-- [ ] `AttachmentPreview` displays attachment metadata (filename, size, type)
-- [ ] Upload progress indicator during file transfer
-- [ ] Success/error toast notifications
-- [ ] Attachments displayed on Work Surface detail page
-- [ ] Visual distinction from Evidence Bundles (different styling/section)
+- [ ] `GET /work-surfaces/{id}/iterations` returns iteration list
+- [ ] `POST /work-surfaces/{id}/iterations` starts new iteration as SYSTEM
+- [ ] `IterationHistory.tsx` shows timeline of iterations
+- [ ] "New Iteration" button starts new iteration
+- [ ] `cargo test --package sr-api` passes
 - [ ] `npm run type-check` passes
 - [ ] `npm run build` passes
 
 ### First Action
 
-1. Read SR-PLAN-V7 §V7-4 for full requirements
-2. Examine `ui/src/pages/WorkSurfaceDetail.tsx` for integration point
-3. Review existing component patterns in `ui/src/components/`
-4. Create `AttachmentUploader.tsx` with drag-and-drop
+1. Read SR-PLAN-V7 §V7-5 for full requirements
+2. Examine existing iteration handling in `crates/sr-api/src/handlers/work_surfaces.rs`
+3. Review `crates/sr-domain/src/events.rs` for iteration-related events
+4. Implement `GET /work-surfaces/{id}/iterations` endpoint
 

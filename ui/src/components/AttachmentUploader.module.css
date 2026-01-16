@@ -1,0 +1,219 @@
+/**
+ * AttachmentUploader Component Styles
+ *
+ * Per SR-PLAN-V7 Phase V7-4: Attachment upload UI styles
+ * Uses design tokens from theme.css
+ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space3);
+}
+
+/* Dropzone */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space5);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  background-color: var(--bg);
+  cursor: pointer;
+  transition: all 150ms ease;
+  min-height: 140px;
+}
+
+.dropzone:hover {
+  border-color: var(--accent);
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.dropzone:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+}
+
+.dropzoneActive {
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 5%, white);
+  border-style: solid;
+}
+
+.dropzoneDisabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--bg);
+}
+
+.dropzoneDisabled:hover {
+  border-color: var(--border);
+  background-color: var(--bg);
+}
+
+/* Hidden file input */
+.hiddenInput {
+  display: none;
+}
+
+/* Idle state */
+.idleState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space2);
+}
+
+.uploadIcon {
+  color: var(--muted);
+  margin-bottom: var(--space1);
+}
+
+.dropzoneText {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.dropzoneHint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Uploading state */
+.uploadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space3);
+  width: 100%;
+  padding: 0 var(--space4);
+}
+
+.progressContainer {
+  width: 100%;
+  max-width: 300px;
+  height: 6px;
+  background-color: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background-color: var(--accent);
+  border-radius: 3px;
+  transition: width 150ms ease;
+}
+
+.progressText {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+/* Error message */
+.error {
+  background-color: color-mix(in srgb, var(--danger) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+  color: var(--danger);
+  font-size: 0.8125rem;
+  padding: var(--space2) var(--space3);
+  border-radius: var(--radiusSm);
+}
+
+/* Note about attachment semantics */
+.note {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.5;
+  padding: var(--space2) var(--space3);
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: var(--radiusSm);
+  border-left: 3px solid var(--border);
+}
+
+/* Preview container (when file is uploaded) */
+.previewContainer {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space3);
+  padding: var(--space3);
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.fileIcon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: color-mix(in srgb, var(--accent) 10%, white);
+  border-radius: var(--radiusSm);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.fileInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.fileName {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: var(--space1);
+}
+
+.fileMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space2);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.fileMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fileHash {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  background-color: rgba(0, 0, 0, 0.04);
+  padding: 2px 6px;
+  border-radius: var(--radiusSm);
+}
+
+.removeButton {
+  padding: var(--space1) var(--space2);
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: var(--radiusSm);
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--muted);
+  transition: all 150ms ease;
+}
+
+.removeButton:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background-color: color-mix(in srgb, var(--danger) 5%, white);
+}
+
+.removeButton:focus {
+  outline: none;
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 15%, transparent);
+}

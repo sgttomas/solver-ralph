@@ -405,16 +405,16 @@ When submitting:
 - Attachments (Tab 2) provide supporting context but do NOT satisfy verification requirements
 
 **Acceptance Criteria:**
-- [ ] AttachmentUploader supports drag-drop and click-to-browse
-- [ ] Upload progress bar shows during upload
-- [ ] AttachmentPreview shows uploaded file info
-- [ ] StageCompletionForm has tabbed interface with clear semantic labels
-- [ ] Stage completion can include `attachment_refs[]` for supporting files
-- [ ] UI clearly distinguishes Evidence Bundles from Attachments
-- [ ] `npm run type-check` passes
-- [ ] `npm run build` passes
+- [x] AttachmentUploader supports drag-drop and click-to-browse
+- [x] Upload progress bar shows during upload
+- [x] AttachmentPreview shows uploaded file info
+- [x] StageCompletionForm has tabbed interface with clear semantic labels
+- [x] Stage completion can include `attachment_refs[]` for supporting files
+- [x] UI clearly distinguishes Evidence Bundles from Attachments
+- [x] `npm run type-check` passes
+- [x] `npm run build` passes
 
-**Effort:** ~1-2 sessions
+**Effort:** ~1 session (✅ Complete)
 
 ---
 

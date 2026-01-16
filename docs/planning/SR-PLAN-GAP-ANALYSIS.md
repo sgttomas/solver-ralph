@@ -3,7 +3,7 @@
 **Purpose:** Track completion status of SR-PLAN deliverables and inform future implementation plans.
 
 **Last Updated:** 2026-01-16
-**Updated By:** Agent (V7-3 Attachment Backend session)
+**Updated By:** Agent (V7-4 Attachment Frontend session)
 
 ---
 
@@ -158,7 +158,7 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 
 ### SR-PLAN-V7 (Current)
 
-**Status:** In progress (V7-1, V7-2, V7-3 complete; V7-4 next)
+**Status:** In progress (V7-1 through V7-4 complete; V7-5 next)
 **Scope:** MVP Stabilization & Attachment Foundation
 
 | Phase | Deliverables Addressed | Status |
@@ -166,8 +166,8 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V7-1 | Integration tests (stabilization) | ✅ Complete |
 | V7-2 | Error handling & UX | ✅ Complete |
 | V7-3 | Attachment backend (`record.attachment`) | ✅ Complete |
-| V7-4 | Attachment frontend | ⏳ Next |
-| V7-5 | Multiple iterations | ⏳ Pending |
+| V7-4 | Attachment frontend | ✅ Complete |
+| V7-5 | Multiple iterations | ⏳ Next |
 
 ### SR-PLAN-V8 (Proposed)
 
