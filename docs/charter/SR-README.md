@@ -89,41 +89,124 @@ Continue implementing the Intakes & References infrastructure per **SR-PLAN-V3.m
 
 Begin **Phase 2: Intakes UI** — implement full Intake CRUD UI per SR-PLAN-V3 §3 (Phase 2).
 
+### Current UI Structure (Phase 1 Output)
+
+**Sidebar navigation** (`ui/src/layout/Sidebar.tsx`):
+- Loops → **Intakes** → **References** → Prompts
+
+**Routes** (`ui/src/routes.tsx`):
+```
+/intakes                  → Intakes.tsx (stub - implement in Phase 2)
+/intakes/new              → IntakeCreate.tsx (stub - implement in Phase 2)
+/intakes/:intakeId        → IntakeDetail.tsx (exists, needs lifecycle actions)
+/intakes/:intakeId/edit   → IntakeEdit.tsx (stub - implement in Phase 2)
+/references               → References.tsx (functional, renamed from Context)
+/references/documents/:id → ReferenceDocumentDetail.tsx
+/references/bundles/:id   → ReferenceBundleDetail.tsx
+/references/governed-artifacts/:id → GovernedArtifactDetail.tsx (stub)
+```
+
+**Stub pages to implement** (currently show placeholder text):
+- `ui/src/pages/Intakes.tsx` — List page
+- `ui/src/pages/IntakeCreate.tsx` — Create form
+- `ui/src/pages/IntakeEdit.tsx` — Edit form
+
+**Existing page to enhance**:
+- `ui/src/pages/IntakeDetail.tsx` — Needs lifecycle action buttons
+
+### Backend API Available (Phase 0b)
+
+The Intakes API is fully implemented in `crates/sr-api/src/handlers/intakes.rs`:
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/api/v1/intakes` | Create draft intake |
+| GET | `/api/v1/intakes` | List intakes (query: `status`, `kind`, `page`, `page_size`) |
+| GET | `/api/v1/intakes/:intake_id` | Get intake by ID |
+| GET | `/api/v1/intakes/by-hash/:content_hash` | Get intake(s) by content hash |
+| PUT | `/api/v1/intakes/:intake_id` | Update draft intake |
+| DELETE | `/api/v1/intakes/:intake_id` | Delete draft intake |
+| POST | `/api/v1/intakes/:intake_id/activate` | Transition draft → active |
+| POST | `/api/v1/intakes/:intake_id/archive` | Transition active → archived |
+| POST | `/api/v1/intakes/:intake_id/fork` | Fork to new draft |
+
+### Intake Schema (SR-WORK-SURFACE §3.1)
+
+Required fields for intake creation/editing:
+
+```typescript
+interface IntakeForm {
+  work_unit_id: string;        // e.g., "wu:research-rate-limiting"
+  title: string;               // Human-readable title
+  kind: WorkKind;              // research_memo | decision_record | ontology_build | analysis_report | design_document | review_response
+  objective: string;           // ONE sentence
+  audience: string;            // Target audience
+  deliverables: Deliverable[]; // { name, format, path, description? }
+  constraints: string[];       // Length, tone, required sections, etc.
+  definitions: Record<string, string>; // Term definitions
+  inputs: TypedRef[];          // Content-addressed references
+  unknowns: string[];          // Questions to resolve
+  completion_criteria: string[]; // Success criteria
+}
+```
+
 ### Deliverables (Phase 2)
 
 1. **Intakes list page** (`ui/src/pages/Intakes.tsx`)
-   - Filter by status, kind
+   - Fetch from `GET /api/v1/intakes`
+   - Filter by status (draft/active/archived), kind
    - Search by title
-   - Status badges (Draft=yellow, Active=green, Archived=gray)
-   - Pagination
+   - Status badges: Draft=yellow (`warning`), Active=green (`success`), Archived=gray (`neutral`)
+   - Pagination using `page` and `page_size` query params
+   - "New Intake" button → `/intakes/new`
+   - Click row → `/intakes/:intakeId`
 
 2. **Intake create form** (`ui/src/pages/IntakeCreate.tsx`)
+   - POST to `/api/v1/intakes`
    - All SR-WORK-SURFACE §3.1 fields
-   - Deliverables array editor
-   - Constraints list editor
-   - Definitions key-value editor
-   - Input references selector (links to References browser)
-   - Unknowns list editor
-   - Completion criteria list editor
+   - Array editors for: deliverables, constraints, unknowns, completion_criteria
+   - Key-value editor for definitions
+   - Input references selector (TypedRef picker - can be simplified for Phase 2)
+   - On success → navigate to `/intakes/:intakeId`
 
-3. **Intake detail page** (`ui/src/pages/IntakeDetail.tsx`)
-   - Display all fields
-   - Lifecycle actions based on status:
-     - Draft: [Edit] [Activate] [Delete]
-     - Active: [Fork to New Draft] [Archive] [Create Work Surface]
-     - Archived: [Fork to New Draft]
-   - Display content hash for Active/Archived
+3. **Intake detail page** (`ui/src/pages/IntakeDetail.tsx`) — **Enhance existing**
+   - Add lifecycle action buttons based on status:
+     - Draft: [Edit] → `/intakes/:id/edit`, [Activate] → POST activate, [Delete] → DELETE
+     - Active: [Fork to New Draft] → POST fork, [Archive] → POST archive
+     - Archived: [Fork to New Draft] → POST fork
+   - Display content_hash for Active/Archived intakes
+   - Show activated_at, activated_by for Active intakes
 
 4. **Intake edit form** (`ui/src/pages/IntakeEdit.tsx`)
-   - Same as create, but pre-populated
-   - Only available for Draft status
+   - Fetch from `GET /api/v1/intakes/:intake_id`
+   - PUT to `/api/v1/intakes/:intake_id`
+   - Same form as create, pre-populated
+   - Only accessible for Draft status (redirect if not draft)
+
+### UI Patterns Reference
+
+Existing pages to reference for patterns:
+- `ui/src/pages/Loops.tsx` — List page with filters and pagination
+- `ui/src/pages/LoopDetail.tsx` — Detail page with action buttons
+- `ui/src/pages/Templates.tsx` — Complex forms
+- `ui/src/ui/index.tsx` — Shared components (Card, Pill, Button, etc.)
+- `ui/src/styles/pages.module.css` — Shared page styles
+
+Auth pattern:
+```typescript
+const auth = useAuth();
+fetch(`${config.apiUrl}/api/v1/intakes`, {
+  headers: { Authorization: `Bearer ${auth.user.access_token}` }
+});
+```
 
 ### Required Reading
 
-1. **`docs/planning/SR-PLAN-V3.md`** §3 (Phase 2) — Intakes UI specification
-2. **Backend API endpoints:**
-   - `crates/sr-api/src/handlers/intakes.rs` — Intakes API (CRUD + lifecycle)
-3. **SR-WORK-SURFACE** §3.1 — Intake schema and required fields
+1. **`docs/planning/SR-PLAN-V3.md`** §3 (Phase 2) — Full Intakes UI specification
+2. **`docs/platform/SR-WORK-SURFACE.md`** §3.1 — Intake schema definition
+3. **`crates/sr-api/src/handlers/intakes.rs`** — Backend API implementation
+4. **`ui/src/pages/Loops.tsx`** — Reference for list page pattern
+5. **`ui/src/pages/LoopDetail.tsx`** — Reference for detail page with actions
 
 ### Verification
 
@@ -132,14 +215,22 @@ After Phase 2:
 cd ui
 npm run type-check    # No TypeScript errors
 npm run build         # Build succeeds
-npm run dev           # Manual check: full Intakes CRUD workflow
+npm run dev           # Manual verification:
+                      #   - Navigate to /intakes
+                      #   - Create new intake
+                      #   - View intake detail
+                      #   - Edit draft intake
+                      #   - Activate intake
+                      #   - Fork active intake
+                      #   - Archive active intake
 ```
 
 ### Constraints
 
-- **Phase 1 complete** — UI structure is ready
+- **Phase 1 complete** — UI structure and routes are ready
 - **Follow SR-PLAN-V3** — All components and interactions are specified
 - **Use existing API** — Backend Intakes API is ready (Phase 0b complete)
+- **Use existing patterns** — Follow Loops.tsx/LoopDetail.tsx patterns
 - **Stop after phase** — Wait for instructions before proceeding to Phase 3
 
 ---
