@@ -22,6 +22,8 @@ refs:
   to: SR-PROCEDURE-KIT
 - rel: depends_on
   to: SR-SEMANTIC-ORACLE-SPEC
+- rel: verified_by
+  to: SR-REPLAY-PROOF
 ---
 
 # SR-EVENT-MANAGER — Deterministic state + eligibility computation
@@ -104,6 +106,20 @@ A reconstructible summary grouped by status (TODO/ELIGIBLE/IN_PROGRESS/BLOCKED/C
 - All projections MUST be rebuildable from scratch by replaying the event stream in order.
 - Incremental projection updates (checkpoints/caches) are permitted, but MUST be observationally equivalent to full replay.
 - Projection results MUST be deterministic for a given (event stream + governed inputs) tuple.
+
+### 3.1 Verification methods
+
+The Event Manager provides the following methods for verifying determinism:
+
+| Method | Purpose |
+|--------|---------|
+| `compute_state_hash()` | Produces a deterministic SHA-256 hash of all projection state |
+| `verify_replay(events)` | Replays events on a fresh instance and compares state hashes |
+| `find_discrepancies(other)` | Field-level comparison between two EventManager instances |
+
+These methods satisfy SR-CONTRACT C-EVT-7 ("Projections derivable from audit trail").
+
+**Formal proof:** See [SR-REPLAY-PROOF](SR-REPLAY-PROOF.md) for the determinism proof documentation.
 
 ---
 
