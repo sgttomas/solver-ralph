@@ -130,31 +130,33 @@ See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC
 
 ## Next Instance Prompt
 
-> **Assignment:** Implement SR-PLAN-V12 (Operational Refinement).
+> **Assignment:** Review SR-PLAN-V12 for codebase coherence. Do NOT begin implementation until review is complete.
 
 ### Orientation
 
-1. Read `docs/planning/SR-PLAN-V12.md` — the implementation plan
-2. Read `docs/planning/SR-PLAN-GAP-ANALYSIS.md` §4 — deliverable status and V12 context
-3. Navigate canonical SR-* documents as needed (see index above)
+1. Read `docs/planning/SR-PLAN-V12.md` — the plan to be reviewed
+2. Navigate the codebase to validate referenced files, implementations, and gaps
+3. See `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` for review format example
 
-### Context
+### Task
 
-V11 is complete. V12 addresses three partial deliverables that remain:
+Validate that SR-PLAN-V12's claims about existing code are accurate:
+- Do the referenced files exist? (e.g., `evidence.rs`, `nats.rs`, `governor.rs`)
+- Are the line counts and feature descriptions accurate?
+- Are the identified gaps real? Is anything missing from the gap analysis?
+- Are the proposed tasks feasible given the existing code structure?
 
-| Phase | Deliverable | Gap |
-|-------|-------------|-----|
-| V12-1 | D-15 (Evidence manifest validation oracle) | Containerize existing validation logic |
-| V12-2 | D-21 (NATS message contracts) | Document schemas, add contract tests |
-| V12-3 | D-22 (Standalone governor service) | Extract governor into standalone binary |
+### Deliverable
 
-V12-1 and V12-2 can run in parallel. V12-3 depends on V12-2.
+Produce `docs/reviews/SR-PLAN-V12-COHERENCE-REVIEW.md` with:
+- Findings per phase (V12-1, V12-2, V12-3)
+- Recommendations for any needed revisions
+- Verdict: APPROVE or REVISE
 
 ### Constraints
 
-- Commit after completing each phase
-- Update SR-README with progress
-- D-38 is out of scope — separate sub-project
+- Review only — do not implement
+- Cite specific files and line numbers to support findings
 
 ---
 
