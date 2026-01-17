@@ -128,6 +128,8 @@ SR-PLAN-V9 has passed coherence review (codebase verification). The coherence re
 | `docs/platform/SR-EVENT-MANAGER.md` | Projection semantics |
 | `docs/platform/SR-AGENT-WORKER-CONTRACT.md` | Worker behavioral contract |
 | `docs/platform/SR-WORK-SURFACE.md` | Work Surface definitions |
+| `docs/program/SR-DIRECTIVE.md` | Execution policy, stop triggers, gate rules |
+| `docs/program/SR-PLAN.md` | Build plan instance, deliverable definitions |
 
 ### What You Must Produce
 
