@@ -14,10 +14,12 @@
 | V9-1 Complete | V9-1 implemented in 1 session | All acceptance criteria satisfied; `SemanticWorkerBridge` now generic over `EvidenceStore` and `CandidateWorkspace` |
 | V9-2 Fixtures Skipped | Plan specified JSON fixtures for test data | Followed existing test patterns using programmatic data creation; fixtures not needed |
 | V9-2 Template Clarification | `semantic_ralph_loop_e2e.rs` comments claim GENERIC-KNOWLEDGE-WORK but uses RESEARCH-MEMO | Pre-existing inconsistency documented; new `branch_0_e2e_test.rs` correctly uses GENERIC-KNOWLEDGE-WORK (5 stages) |
+| V9-3 Complete | V9-3 implemented in 1 session | Replay proof types, EventManager methods, integration tests, SR-REPLAY-PROOF.md all complete |
 
 **Estimated Effort:** 5-8 sessions
 **Actual Effort (V9-1):** 1 session
 **Actual Effort (V9-2):** 1 session
+**Actual Effort (V9-3):** 1 session
 
 ---
 
@@ -33,7 +35,7 @@ SR-PLAN-V9 delivers the **final push to Milestone 1 (MVP)** — integrating the 
 |-------------|-------|--------|----------|
 | **D-23** | Reference worker bridge | ✅ Implemented | Integration wiring |
 | **D-41** | Reference semantic worker | ✅ Implemented | Integration wiring |
-| **D-36** | Replayability demonstration | ❌ Not Started | **Primary focus** |
+| **D-36** | Replayability demonstration | ✅ Complete | Proven in V9-3 |
 
 **Existing Infrastructure Analysis:**
 

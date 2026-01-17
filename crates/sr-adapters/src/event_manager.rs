@@ -568,8 +568,7 @@ impl EventManager {
         }
     }
 
-    /// Create an in-memory event manager (for testing)
-    #[cfg(test)]
+    /// Create an in-memory event manager (for testing and replay verification)
     pub fn new_in_memory() -> Self {
         Self {
             pool: None,
@@ -1225,6 +1224,244 @@ impl EventManager {
         info!("Event Manager rebuild complete");
         Ok(())
     }
+
+    // ========================================================================
+    // Replay Proof Methods (D-36)
+    // ========================================================================
+
+    /// Compute a deterministic state hash for replay verification
+    ///
+    /// Per SR-CONTRACT C-EVT-7, projections must be rebuildable from the event log.
+    /// This method produces a deterministic hash of all projection state that can
+    /// be compared before and after replay to verify determinism.
+    ///
+    /// The hash incorporates:
+    /// - All work unit statuses in sorted key order
+    /// - coarse_status, deps_satisfied, current_stage_id, has_work_surface
+    /// - Stage status entries in sorted order
+    /// - Block reasons (sorted by description for determinism)
+    ///
+    /// Returns a `sha256:...` formatted hash string.
+    pub fn compute_state_hash(&self) -> String {
+        use sha2::{Digest, Sha256};
+
+        let mut hasher = Sha256::new();
+
+        // Hash statuses in deterministic order (sorted by key)
+        let mut status_keys: Vec<&String> = self.statuses.keys().collect();
+        status_keys.sort();
+
+        for key in status_keys {
+            let status = self.statuses.get(key).unwrap();
+
+            // Hash work unit id
+            hasher.update(key.as_bytes());
+            hasher.update(b":");
+
+            // Hash coarse_status
+            hasher.update(format!("{:?}", status.coarse_status).as_bytes());
+            hasher.update(b":");
+
+            // Hash deps_satisfied
+            hasher.update(if status.deps_satisfied { b"1" } else { b"0" });
+            hasher.update(b":");
+
+            // Hash has_work_surface
+            hasher.update(if status.has_work_surface { b"1" } else { b"0" });
+            hasher.update(b":");
+
+            // Hash current_stage_id
+            if let Some(ref stage_id) = status.current_stage_id {
+                hasher.update(stage_id.as_str().as_bytes());
+            }
+            hasher.update(b":");
+
+            // Hash stage_status entries in sorted order
+            let mut stage_keys: Vec<&String> = status.stage_status.keys().collect();
+            stage_keys.sort();
+            for stage_key in stage_keys {
+                let stage_entry = status.stage_status.get(stage_key).unwrap();
+                hasher.update(stage_key.as_bytes());
+                hasher.update(b"=");
+                hasher.update(format!("{:?}", stage_entry.status).as_bytes());
+                hasher.update(b",");
+            }
+            hasher.update(b":");
+
+            // Hash block_reasons (sort by description for determinism)
+            let mut block_descs: Vec<&str> = status
+                .block_reasons
+                .iter()
+                .map(|r| r.description.as_str())
+                .collect();
+            block_descs.sort();
+            for desc in block_descs {
+                hasher.update(desc.as_bytes());
+                hasher.update(b";");
+            }
+            hasher.update(b"|");
+        }
+
+        // Include last processed sequence
+        hasher.update(self.last_global_seq.to_le_bytes());
+
+        format!("sha256:{}", hex::encode(hasher.finalize()))
+    }
+
+    /// Verify replay determinism by replaying events and comparing state hashes
+    ///
+    /// This method proves that `apply_event()` is deterministic:
+    /// 1. Computes the current state hash
+    /// 2. Creates a fresh EventManager with the same plan instance
+    /// 3. Replays all provided events
+    /// 4. Computes the replayed state hash
+    /// 5. Compares and reports any discrepancies
+    ///
+    /// Per SR-CONTRACT C-EVT-7 and C-CTX-2 (no ghost inputs), the replay
+    /// must produce identical state since `apply_event()` uses only event data.
+    pub fn verify_replay(
+        &self,
+        events: &[EventEnvelope],
+    ) -> crate::replay::ReplayProof {
+        use crate::replay::{ReplayProof, ReplayDiscrepancy};
+
+        // 1. Compute original state hash
+        let original_hash = self.compute_state_hash();
+
+        // 2. Create fresh EventManager and load same plan instance
+        let mut replayed = EventManager::new_in_memory();
+        if let Some(ref plan) = self.plan_instance {
+            replayed.load_plan_instance(plan.clone());
+        }
+
+        // 3. Replay all events
+        for event in events {
+            let _ = replayed.apply_event(event);
+        }
+
+        // 4. Compute replayed state hash
+        let replayed_hash = replayed.compute_state_hash();
+
+        // 5. Find any discrepancies
+        let discrepancies = self.find_discrepancies(&replayed);
+
+        // 6. Build and return proof
+        ReplayProof::new(
+            events,
+            original_hash,
+            replayed_hash,
+            discrepancies,
+            self.plan_instance.as_ref().map(|p| p.plan_instance_id.as_str().to_string()),
+            self.statuses.len(),
+        )
+    }
+
+    /// Find field-level discrepancies between this EventManager and another
+    ///
+    /// Compares all work unit statuses field-by-field and reports differences.
+    /// This is used by `verify_replay()` to provide detailed diagnostics when
+    /// replay produces different state.
+    pub fn find_discrepancies(
+        &self,
+        other: &EventManager,
+    ) -> Vec<crate::replay::ReplayDiscrepancy> {
+        use crate::replay::ReplayDiscrepancy;
+
+        let mut discrepancies = Vec::new();
+
+        // Check all work units in self
+        for (id, status) in &self.statuses {
+            match other.statuses.get(id) {
+                None => {
+                    discrepancies.push(ReplayDiscrepancy::new(
+                        id.clone(),
+                        "existence",
+                        serde_json::json!(true),
+                        serde_json::json!(false),
+                    ));
+                }
+                Some(other_status) => {
+                    // Compare coarse_status
+                    if status.coarse_status != other_status.coarse_status {
+                        discrepancies.push(ReplayDiscrepancy::new(
+                            id.clone(),
+                            "coarse_status",
+                            serde_json::json!(format!("{:?}", status.coarse_status)),
+                            serde_json::json!(format!("{:?}", other_status.coarse_status)),
+                        ));
+                    }
+
+                    // Compare deps_satisfied
+                    if status.deps_satisfied != other_status.deps_satisfied {
+                        discrepancies.push(ReplayDiscrepancy::new(
+                            id.clone(),
+                            "deps_satisfied",
+                            serde_json::json!(status.deps_satisfied),
+                            serde_json::json!(other_status.deps_satisfied),
+                        ));
+                    }
+
+                    // Compare has_work_surface
+                    if status.has_work_surface != other_status.has_work_surface {
+                        discrepancies.push(ReplayDiscrepancy::new(
+                            id.clone(),
+                            "has_work_surface",
+                            serde_json::json!(status.has_work_surface),
+                            serde_json::json!(other_status.has_work_surface),
+                        ));
+                    }
+
+                    // Compare current_stage_id
+                    if status.current_stage_id != other_status.current_stage_id {
+                        discrepancies.push(ReplayDiscrepancy::new(
+                            id.clone(),
+                            "current_stage_id",
+                            serde_json::json!(status.current_stage_id.as_ref().map(|s| s.as_str())),
+                            serde_json::json!(other_status.current_stage_id.as_ref().map(|s| s.as_str())),
+                        ));
+                    }
+
+                    // Compare stage_status map
+                    for (stage_id, stage_entry) in &status.stage_status {
+                        match other_status.stage_status.get(stage_id) {
+                            None => {
+                                discrepancies.push(ReplayDiscrepancy::new(
+                                    id.clone(),
+                                    format!("stage_status.{}", stage_id),
+                                    serde_json::json!(format!("{:?}", stage_entry.status)),
+                                    serde_json::json!(null),
+                                ));
+                            }
+                            Some(other_entry) => {
+                                if stage_entry.status != other_entry.status {
+                                    discrepancies.push(ReplayDiscrepancy::new(
+                                        id.clone(),
+                                        format!("stage_status.{}.status", stage_id),
+                                        serde_json::json!(format!("{:?}", stage_entry.status)),
+                                        serde_json::json!(format!("{:?}", other_entry.status)),
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check for work units in other that aren't in self
+        for id in other.statuses.keys() {
+            if !self.statuses.contains_key(id) {
+                discrepancies.push(ReplayDiscrepancy::new(
+                    id.clone(),
+                    "existence",
+                    serde_json::json!(false),
+                    serde_json::json!(true),
+                ));
+            }
+        }
+
+        discrepancies
+    }
 }
 
 // ============================================================================
@@ -1715,5 +1952,328 @@ mod tests {
         let run_list = em.compute_run_list().unwrap();
         assert_eq!(run_list.complete.len(), 1);
         assert_eq!(run_list.completion_percentage(), 50.0);
+    }
+
+    // ========================================================================
+    // Replay Proof Tests (D-36)
+    // ========================================================================
+
+    #[test]
+    fn test_compute_state_hash_deterministic() {
+        let plan = create_test_plan();
+        let mut em = create_em_with_plan(&plan);
+
+        // Apply some events
+        em.apply_event(&create_test_event(
+            "WorkSurfaceRecorded",
+            "WU-001",
+            serde_json::json!({
+                "work_unit_id": "WU-001",
+                "stage_id": "stage:FRAME"
+            }),
+        ))
+        .unwrap();
+
+        // Compute hash twice - should be identical
+        let hash1 = em.compute_state_hash();
+        let hash2 = em.compute_state_hash();
+
+        assert_eq!(hash1, hash2);
+        assert!(hash1.starts_with("sha256:"));
+        assert_eq!(hash1.len(), 7 + 64); // "sha256:" + 64 hex chars
+    }
+
+    #[test]
+    fn test_compute_state_hash_changes_with_state() {
+        let plan = create_test_plan();
+        let mut em = create_em_with_plan(&plan);
+
+        let hash1 = em.compute_state_hash();
+
+        // Apply an event that changes state
+        em.apply_event(&create_test_event(
+            "WorkSurfaceRecorded",
+            "WU-001",
+            serde_json::json!({
+                "work_unit_id": "WU-001",
+                "stage_id": "stage:FRAME"
+            }),
+        ))
+        .unwrap();
+
+        let hash2 = em.compute_state_hash();
+
+        // Hash should be different after state change
+        assert_ne!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_verify_replay_deterministic() {
+        let plan = create_test_plan();
+
+        // Use load_plan_instance for consistent initialization with verify_replay
+        let mut em = EventManager::new_in_memory();
+        em.load_plan_instance(plan.clone());
+
+        // Create a sequence of events for BOTH work units
+        // This ensures both work units are fully initialized
+        let events = vec![
+            create_test_event(
+                "WorkSurfaceRecorded",
+                "WU-001",
+                serde_json::json!({
+                    "work_unit_id": "WU-001",
+                    "stage_id": "stage:FRAME"
+                }),
+            ),
+            create_test_event(
+                "WorkSurfaceRecorded",
+                "WU-002",
+                serde_json::json!({
+                    "work_unit_id": "WU-002",
+                    "stage_id": "stage:FRAME"
+                }),
+            ),
+            create_test_event(
+                "StageEntered",
+                "WU-001",
+                serde_json::json!({
+                    "work_unit_id": "WU-001",
+                    "stage_id": "stage:FRAME"
+                }),
+            ),
+            create_test_event(
+                "StageCompleted",
+                "WU-001",
+                serde_json::json!({
+                    "work_unit_id": "WU-001",
+                    "stage_id": "stage:FRAME",
+                    "passed": true,
+                    "is_terminal": true
+                }),
+            ),
+        ];
+
+        // Apply all events
+        for event in &events {
+            em.apply_event(event).unwrap();
+        }
+
+        // Verify replay is deterministic
+        let proof = em.verify_replay(&events);
+
+        assert!(
+            proof.is_deterministic(),
+            "Replay should be deterministic. Discrepancies: {:?}",
+            proof.discrepancies
+        );
+        assert_eq!(proof.discrepancy_count(), 0);
+        assert_eq!(proof.original_state_hash, proof.replayed_state_hash);
+        assert_eq!(proof.event_count, 4);
+    }
+
+    #[test]
+    fn test_verify_replay_eligible_set_determinism() {
+        let plan = create_test_plan();
+        let mut em = create_em_with_plan(&plan);
+
+        // Make wu1 complete so wu2's dependency is satisfied
+        let events = vec![
+            create_test_event(
+                "WorkSurfaceRecorded",
+                "WU-001",
+                serde_json::json!({
+                    "work_unit_id": "WU-001",
+                    "stage_id": "stage:FRAME"
+                }),
+            ),
+            create_test_event(
+                "StageCompleted",
+                "WU-001",
+                serde_json::json!({
+                    "work_unit_id": "WU-001",
+                    "stage_id": "stage:FRAME",
+                    "passed": true,
+                    "is_terminal": true
+                }),
+            ),
+            create_test_event(
+                "WorkSurfaceRecorded",
+                "WU-002",
+                serde_json::json!({
+                    "work_unit_id": "WU-002",
+                    "stage_id": "stage:FRAME"
+                }),
+            ),
+        ];
+
+        // Apply events
+        for event in &events {
+            em.apply_event(event).unwrap();
+        }
+
+        // Get original eligible set
+        let original_eligible = em.compute_eligible_set();
+
+        // Create fresh EM and replay
+        let mut replayed = create_em_with_plan(&plan);
+        for event in &events {
+            replayed.apply_event(event).unwrap();
+        }
+
+        // Get replayed eligible set
+        let replayed_eligible = replayed.compute_eligible_set();
+
+        // Eligible sets should be identical
+        assert_eq!(original_eligible.len(), replayed_eligible.len());
+        for entry in original_eligible.work_unit_ids() {
+            assert!(replayed_eligible.contains(entry));
+        }
+    }
+
+    #[test]
+    fn test_find_discrepancies_empty_when_identical() {
+        let plan = create_test_plan();
+        let em1 = create_em_with_plan(&plan);
+        let em2 = create_em_with_plan(&plan);
+
+        let discrepancies = em1.find_discrepancies(&em2);
+        assert!(discrepancies.is_empty());
+    }
+
+    #[test]
+    fn test_find_discrepancies_detects_difference() {
+        let plan = create_test_plan();
+        let mut em1 = create_em_with_plan(&plan);
+        let em2 = create_em_with_plan(&plan);
+
+        // Modify em1 state
+        em1.apply_event(&create_test_event(
+            "WorkSurfaceRecorded",
+            "WU-001",
+            serde_json::json!({
+                "work_unit_id": "WU-001",
+                "stage_id": "stage:FRAME"
+            }),
+        ))
+        .unwrap();
+
+        let discrepancies = em1.find_discrepancies(&em2);
+        assert!(!discrepancies.is_empty());
+
+        // Should have discrepancy for has_work_surface
+        let has_ws_discrepancy = discrepancies
+            .iter()
+            .find(|d| d.field == "has_work_surface");
+        assert!(has_ws_discrepancy.is_some());
+    }
+
+    #[test]
+    fn test_replay_proof_full_workflow() {
+        // This test simulates a complete Branch 0-style workflow
+        // and proves that replay is deterministic
+        let plan = create_test_plan();
+
+        // Use load_plan_instance for consistent initialization with verify_replay
+        let mut em = EventManager::new_in_memory();
+        em.load_plan_instance(plan.clone());
+
+        // Full workflow for both work units to ensure complete state
+        let events = vec![
+            // Initialize work surfaces for both work units
+            create_test_event(
+                "WorkSurfaceRecorded",
+                "WU-001",
+                serde_json::json!({
+                    "work_unit_id": "WU-001",
+                    "stage_id": "stage:FRAME"
+                }),
+            ),
+            create_test_event(
+                "WorkSurfaceRecorded",
+                "WU-002",
+                serde_json::json!({
+                    "work_unit_id": "WU-002",
+                    "stage_id": "stage:FRAME"
+                }),
+            ),
+            // WU-001 workflow
+            create_test_event(
+                "StageEntered",
+                "WU-001",
+                serde_json::json!({
+                    "work_unit_id": "WU-001",
+                    "stage_id": "stage:FRAME"
+                }),
+            ),
+            create_event_with_refs(
+                "IterationStarted",
+                "iter_001",
+                serde_json::json!({}),
+                vec![TypedRef {
+                    kind: "WorkUnit".to_string(),
+                    id: "WU-001".to_string(),
+                    rel: "about".to_string(),
+                    meta: serde_json::json!({}),
+                }],
+            ),
+            create_event_with_refs(
+                "CandidateMaterialized",
+                "cand_001",
+                serde_json::json!({}),
+                vec![TypedRef {
+                    kind: "WorkUnit".to_string(),
+                    id: "WU-001".to_string(),
+                    rel: "about".to_string(),
+                    meta: serde_json::json!({}),
+                }],
+            ),
+            create_event_with_refs(
+                "EvidenceBundleRecorded",
+                "bundle_001",
+                serde_json::json!({
+                    "stage_id": "stage:FRAME"
+                }),
+                vec![TypedRef {
+                    kind: "WorkUnit".to_string(),
+                    id: "WU-001".to_string(),
+                    rel: "about".to_string(),
+                    meta: serde_json::json!({}),
+                }],
+            ),
+            create_test_event(
+                "StageCompleted",
+                "WU-001",
+                serde_json::json!({
+                    "work_unit_id": "WU-001",
+                    "stage_id": "stage:FRAME",
+                    "passed": true,
+                    "is_terminal": true
+                }),
+            ),
+        ];
+
+        // Apply all events
+        for event in &events {
+            em.apply_event(event).unwrap();
+        }
+
+        // Verify wu1 is complete
+        assert_eq!(
+            em.get_status("WU-001").unwrap().coarse_status,
+            CoarseStatus::Complete
+        );
+
+        // Verify replay is deterministic
+        let proof = em.verify_replay(&events);
+
+        assert!(
+            proof.is_deterministic(),
+            "Replay should be deterministic. Discrepancies: {:?}",
+            proof.discrepancies
+        );
+        assert_eq!(proof.original_state_hash, proof.replayed_state_hash);
+        assert_eq!(proof.event_count, events.len());
+        assert_eq!(proof.work_unit_count, 2);
     }
 }

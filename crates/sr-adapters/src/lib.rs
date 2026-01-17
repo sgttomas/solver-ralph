@@ -41,6 +41,7 @@ pub mod outbox;
 pub mod postgres;
 pub mod postgres_oracle_registry;
 pub mod projections;
+pub mod replay;
 pub mod restricted;
 pub mod semantic_suite;
 pub mod semantic_worker;
@@ -122,4 +123,7 @@ pub use semantic_worker::{
 pub use worker::{
     run_worker, ContentResolver, ReferenceWorkerBridge, WorkAction, WorkResult, WorkerConfig,
     WorkerError,
+};
+pub use replay::{
+    EligibleSetComparison, ExtendedReplayProof, ReplayDiscrepancy, ReplayProof,
 };

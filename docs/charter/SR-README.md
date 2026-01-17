@@ -79,8 +79,8 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 |-------|--------|-------------|
 | V9-1: Semantic Worker Integration | ✅ **COMPLETE** | Wire semantic worker to oracle runner, persist evidence |
 | V9-2: E2E Flow Integration Test | ✅ **COMPLETE** | Branch 0 flow test with 5 stages, portal approvals, freeze |
-| V9-3: Replayability Demonstration | 🔄 **ACTIVE** | Prove EventManager.rebuild() determinism (D-36) |
-| V9-4: Branch 0 Acceptance | 📝 Planned | Document criteria satisfaction, human approval |
+| V9-3: Replayability Demonstration | ✅ **COMPLETE** | Prove EventManager.rebuild() determinism (D-36) |
+| V9-4: Branch 0 Acceptance | 🔄 **ACTIVE** | Document criteria satisfaction, human approval |
 
 **Reviews Complete:**
 - Coherence review: APPROVED (`docs/reviews/SR-PLAN-V9-COHERENCE-REVIEW.md`)
@@ -140,67 +140,94 @@ V9-2 implemented Branch 0 E2E integration tests proving the complete 5-stage wor
 
 ---
 
-## Next Instance Prompt: V9-3 Replayability Demonstration
+## V9-3 Session Summary (2026-01-16)
+
+V9-3 implemented the Replayability Demonstration (D-36), proving deterministic replay per SR-CONTRACT C-EVT-7.
+
+**Files Created:**
+- `sr-adapters/src/replay.rs` — Replay proof types (~200 lines)
+- `sr-api/tests/integration/replay_determinism_test.rs` — Integration tests (~700 lines, 7 tests)
+- `docs/platform/SR-REPLAY-PROOF.md` — Formal proof documentation
+
+**Files Modified:**
+- `sr-adapters/src/event_manager.rs` — Added `compute_state_hash()`, `verify_replay()`, `find_discrepancies()`, `new_in_memory()` methods
+- `sr-adapters/src/lib.rs` — Exported replay module and types
+- `sr-api/Cargo.toml` — Added test target and dev dependencies
+
+**Test Cases:**
+| Test | Purpose |
+|------|---------|
+| `test_state_hash_determinism` | Hash stability across calls |
+| `test_state_hash_reflects_changes` | Hash changes with state |
+| `test_full_replay_determinism` | Complete replay proof with 8-event sequence |
+| `test_eligible_set_determinism_after_replay` | Eligible set equality |
+| `test_status_projection_determinism` | Status field equality |
+| `test_no_ghost_inputs` | Independent replay equality |
+| `test_dependency_satisfaction_replay` | Dependency computation determinism |
+
+**Key Implementation Details:**
+- `compute_state_hash()` produces deterministic SHA-256 incorporating sorted work unit statuses
+- `verify_replay()` creates fresh EventManager, replays events, compares hashes
+- `ReplayProof` artifact captures proof_id, event_count, hashes, discrepancies
+- `EligibleSetComparison` compares eligible sets between original and replayed state
+- Tests cover 3-work-unit topology with multi-level dependencies
+
+**Verification:**
+```
+cargo test --package sr-adapters replay   # 12 tests pass
+cargo test --package sr-api --test replay_determinism_test   # 7 tests pass
+```
+
+---
+
+## Next Instance Prompt: V9-4 Branch 0 Acceptance
 
 ### Assignment
 
-**Implement V9-3: Replayability Demonstration (D-36)** — prove deterministic replay per SR-CONTRACT C-EVT-7. This is a CODE IMPLEMENTATION task.
+**Implement V9-4: Branch 0 Acceptance Verification** — document criteria satisfaction and prepare for Milestone 1 completion.
 
-### Context from V9-2
+### Context from V9-3
 
-The E2E test suite proves the Branch 0 flow works:
-- Work surfaces with GENERIC-KNOWLEDGE-WORK template (5 stages)
-- Portal approvals at SEMANTIC_EVAL and FINAL
-- Freeze baseline creation
+The replay proof (D-36) is complete:
+- `EventManager.compute_state_hash()` produces deterministic hashes
+- `verify_replay()` proves identical state after replay
+- `SR-REPLAY-PROOF.md` formally documents the proof
+- All replay tests pass
 
-V9-3 must now **prove** replay determinism — that `EventManager.rebuild()` produces identical state from the same event sequence.
+V9-4 must now **verify and document** Branch 0 acceptance criteria satisfaction.
 
-### Quick Orientation
-
-1. **Read the plan:** `docs/planning/SR-PLAN-V9.md` §3.3 (Phase V9-3)
-2. **Review EventManager:** `sr-adapters/src/event_manager.rs` for `rebuild()` and `apply_event()`
-3. **Understand C-EVT-7:** SR-CONTRACT — projections MUST be rebuildable from event log
-
-### What V9-3 Must Deliver
+### What V9-4 Must Deliver
 
 | File | Action | Description |
 |------|--------|-------------|
-| `sr-adapters/src/event_manager.rs` | MODIFY | Add `compute_state_hash()` and `verify_replay()` methods |
-| `sr-adapters/src/replay.rs` | CREATE | Replay proof types (`ReplayProof`, `ReplayDiscrepancy`) |
-| `sr-api/tests/integration/replay_determinism_test.rs` | CREATE | Integration test proving determinism |
-| `docs/platform/SR-REPLAY-PROOF.md` | CREATE | Formal proof documentation |
+| `docs/platform/SR-BRANCH-0-ACCEPTANCE.md` | CREATE | Document Branch 0 acceptance criteria verification |
+| SR-PLAN-V9 | UPDATE | Mark all phases complete, add acceptance summary |
+| SR-README | UPDATE | Mark V9-4 complete, project Milestone 1 completion |
 
-### Replay Proof Requirements
+### Branch 0 Acceptance Criteria (from SR-PLAN-V9 §4)
 
-The replay proof must demonstrate:
-
-1. **State Hash Equality** — `compute_state_hash()` produces deterministic hashes
-2. **Eligible Set Equality** — `compute_eligible_set()` returns identical results after replay
-3. **Status Projection Equality** — All work unit statuses identical after replay
-4. **No Ghost Inputs** — `apply_event()` uses only event data, no external state
+1. Work Surface creation with GENERIC-KNOWLEDGE-WORK template
+2. Loop creation bound to work surface
+3. Iteration cycling with semantic worker processing
+4. Stage progression (FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL)
+5. Portal approvals at trust boundaries (SEMANTIC_EVAL, FINAL)
+6. Evidence bundle verification
+7. Freeze baseline creation
+8. Deterministic replay proof
 
 ### Canonical References
 
 | Document | Relevant Sections |
 |----------|-------------------|
-| SR-PLAN-V9 | §3.3 (V9-3 deliverables and replay proof architecture) |
-| SR-CONTRACT | C-EVT-7 (Projections rebuildable from event log) |
-| SR-EVENT-MANAGER | §2 (Projections), §3 (Determinism) |
-
-### Acceptance Criteria
-
-- [ ] `EventManager.compute_state_hash()` implemented
-- [ ] `EventManager.verify_replay()` implemented
-- [ ] Replay proof test passes
-- [ ] SR-REPLAY-PROOF.md documents the proof
-- [ ] Proof covers: state hash, eligible set, status projections
-- [ ] `cargo test --package sr-adapters replay` passes
+| SR-PLAN-V9 | §4 (Branch 0 Acceptance Criteria) |
+| SR-CONTRACT | All C-* contracts |
+| SR-SPEC | §1.5-1.7 (Events, Projections) |
 
 ### On Completion
 
 1. Commit changes with descriptive message
-2. Update SR-PLAN-V9 to mark V9-3 acceptance criteria complete
-3. Update SR-README to mark V9-3 complete and set V9-4 as active
+2. Update SR-PLAN-V9 to mark V9-4 complete
+3. Update SR-README to reflect Milestone 1 status
 4. Push to branch `solver-ralph-9`
 
 

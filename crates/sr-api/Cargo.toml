@@ -42,6 +42,9 @@ reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 ulid = { workspace = true }
+chrono = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
 
 [[test]]
 name = "semantic_ralph_loop_e2e"
@@ -50,3 +53,11 @@ path = "tests/integration/semantic_ralph_loop_e2e.rs"
 [[test]]
 name = "work_surface_start_test"
 path = "tests/integration/work_surface_start_test.rs"
+
+[[test]]
+name = "branch_0_e2e_test"
+path = "tests/integration/branch_0_e2e_test.rs"
+
+[[test]]
+name = "replay_determinism_test"
+path = "tests/integration/replay_determinism_test.rs"
