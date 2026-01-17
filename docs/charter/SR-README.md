@@ -87,7 +87,7 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## SR-PLAN-V9 Status (AUTHORED — PENDING REVIEW)
+## SR-PLAN-V9 Status (COHERENCE APPROVED — CONSISTENCY REVIEW PENDING)
 
 | Phase | Status | Description |
 |-------|--------|-------------|
@@ -96,85 +96,107 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 | V9-3: Replayability Demonstration | 📝 Planned | Prove EventManager.rebuild() determinism (D-36) |
 | V9-4: Branch 0 Acceptance | 📝 Planned | Document criteria satisfaction, human approval |
 
-**SR-PLAN-V9 authored. Awaiting coherence review before implementation.**
+**SR-PLAN-V9 coherence review APPROVED.** Awaiting consistency evaluation before implementation.
 
 ---
 
-## Next Instance Prompt: Coherence Review of SR-PLAN-V9
+## Next Instance Prompt: Consistency Evaluation of SR-PLAN-V9
 
 ### Assignment
 
-**Perform a Coherence Review of SR-PLAN-V9** — validate the plan against the actual codebase state and governing documents. Do NOT implement code; focus on review and producing a coherence assessment document.
+**Perform a Consistency Evaluation of SR-PLAN-V9** — evaluate the plan's consistency with the canonical SR-* documentation on the basis of **ontology, epistemology, and semantics**. Do NOT implement code; focus on evaluation and producing a consistency assessment document.
 
 ### Context
 
-SR-PLAN-V9 was authored based on codebase analysis showing that D-23 (Reference Worker Bridge) and D-41 (Semantic Worker) are already substantially implemented. The plan focuses on **integration and verification** rather than net-new component creation.
+SR-PLAN-V9 has passed coherence review (codebase verification). The coherence review confirmed:
+- All infrastructure claims accurate (line counts, component status)
+- Stub implementations correctly identified
+- Integration points feasible with existing patterns
+- Contract alignment verified (C-VER-1, C-EVT-7, SR-AGENT-WORKER-CONTRACT)
 
-Key findings from plan authoring:
-- `semantic_worker.rs` (~992 lines) exists with stub oracle invocation
-- `worker.rs` (~835 lines) exists with full reference worker implementation
-- `event_manager.rs` (~1720 lines) exists with eligibility computation
-- The gap is **wiring**, not new code
+**Coherence ≠ Consistency.** Coherence verified the plan matches the *codebase*. Consistency verifies the plan matches the *canonical documentation* — that it uses terms correctly, makes supported claims, and follows the project's semantic conventions.
+
+### Required Reading Before Evaluation
+
+| Document | What to Evaluate |
+|----------|------------------|
+| `docs/planning/SR-PLAN-V9.md` | The plan under evaluation |
+| `docs/reviews/SR-PLAN-V9-COHERENCE-REVIEW.md` | Prior review findings |
+| `docs/platform/SR-CONTRACT.md` | Canonical definitions (§2), invariants (C-*) |
+| `docs/platform/SR-SPEC.md` | Platform mechanics, API semantics |
+| `docs/platform/SR-TYPES.md` | Type registry, naming conventions |
+| `docs/platform/SR-EVENT-MANAGER.md` | Projection semantics |
+| `docs/platform/SR-AGENT-WORKER-CONTRACT.md` | Worker behavioral contract |
+| `docs/platform/SR-WORK-SURFACE.md` | Work Surface definitions |
 
 ### What You Must Produce
 
-Create `docs/reviews/SR-PLAN-V9-COHERENCE-REVIEW.md` containing:
+Create `docs/reviews/SR-PLAN-V9-CONSISTENCY-EVALUATION.md` containing:
 
-1. **Codebase Verification** — Confirm the plan's claims about existing infrastructure
-   - Does `semantic_worker.rs` have the components described?
-   - Are the stub implementations correctly identified?
-   - Does `event_manager.rs` have `compute_eligible_set()` as claimed?
+#### 1. Ontological Consistency
 
-2. **Contract Alignment** — Verify plan phases satisfy SR-CONTRACT requirements
-   - Does V9-1 address C-VER-1 (evidence-based verification)?
-   - Does V9-3 address C-EVT-7 (rebuildable projections)?
-   - Are SR-AGENT-WORKER-CONTRACT responsibilities covered?
+Verify canonical terminology usage against SR-CONTRACT §2.11, SR-TYPES §4, SR-SPEC §1.2:
 
-3. **Gap Identification** — Identify any gaps between plan and reality
-   - Missing dependencies not accounted for
-   - Incorrect assumptions about existing code
-   - Underestimated complexity
+- Are terms like "Evidence Bundle", "Work Surface", "Iteration", "Candidate" used correctly?
+- Do type references match SR-TYPES namespaces (e.g., `domain.evidence_bundle`, `record.freeze`)?
+- Are event names consistent with SR-SPEC Appendix A?
+- Does the plan use canonical terms or prohibited aliases?
 
-4. **Amendments (if needed)** — Propose amendments to SR-PLAN-V9
-   - Follow the amendment pattern from SR-PLAN-V8 (A-1, A-2, etc.)
+#### 2. Epistemological Consistency
 
-5. **Review Verdict** — One of:
-   - **APPROVED** — Plan is coherent, proceed to implementation
-   - **APPROVED WITH AMENDMENTS** — Plan is sound but requires amendments
-   - **REVISE** — Significant issues require plan rewrite
+Verify knowledge claims are supported by source documents:
 
-### Review Checklist
+- Are contract references (C-VER-1, C-EVT-7, etc.) accurately cited?
+- Are SR-AGENT-WORKER-CONTRACT section references correct?
+- Do claims about "what SR-* says" match what SR-* actually says?
+- Are there unsupported assertions about platform behavior?
+
+#### 3. Semantic Consistency
+
+Verify the plan's meaning aligns with platform semantics:
+
+- Does V9-1's "evidence persistence" match C-EVID-* requirements?
+- Does V9-3's "replay proof" satisfy SR-EVENT-MANAGER §3 determinism requirements?
+- Are the acceptance criteria semantically aligned with SR-CONTRACT definitions?
+- Do proposed code patterns match SR-SPEC behavioral expectations?
+
+#### 4. Findings Summary
+
+| Category | Status | Notes |
+|----------|--------|-------|
+| Ontological | PASS/FAIL/NOTES | ... |
+| Epistemological | PASS/FAIL/NOTES | ... |
+| Semantic | PASS/FAIL/NOTES | ... |
+
+#### 5. Evaluation Verdict
+
+One of:
+- **PASS** — Plan is consistent with canonical documentation
+- **PASS_WITH_NOTES** — Minor terminology refinements recommended
+- **FAIL** — Significant inconsistencies require plan revision
+
+### Evaluation Checklist
 
 | Check | Question |
 |-------|----------|
-| Infrastructure | Do the files and components described in §1.2 exist as claimed? |
-| Stubs | Are the stub implementations (run_semantic_oracles, emit_evidence_bundle) correctly identified? |
-| Integration Points | Are the V9-1 integration points feasible given current code structure? |
-| Test Feasibility | Can the E2E test in V9-2 be implemented with existing API endpoints? |
-| Replay | Does EventManager have the foundation for compute_state_hash()? |
-| Effort | Are the effort estimates (5-8 sessions) realistic? |
-
-### Research Before Reviewing
-
-| Document/File | What to Verify |
-|---------------|----------------|
-| `docs/planning/SR-PLAN-V9.md` | The plan being reviewed |
-| `crates/sr-adapters/src/semantic_worker.rs` | Verify §1.2 claims |
-| `crates/sr-adapters/src/worker.rs` | Verify D-23 status |
-| `crates/sr-adapters/src/event_manager.rs` | Verify D-40 claims |
-| `docs/platform/SR-CONTRACT.md` | Contract compliance |
-| `docs/platform/SR-AGENT-WORKER-CONTRACT.md` | Worker responsibilities |
+| Ontology | Does V9 use "Evidence Bundle" per SR-CONTRACT §2.6? |
+| Ontology | Does V9 use "Work Surface" per SR-WORK-SURFACE §2.1? |
+| Ontology | Are event types consistent with SR-SPEC Appendix A? |
+| Epistemology | Is C-EVT-7 correctly interpreted in V9-3? |
+| Epistemology | Is SR-AGENT-WORKER-CONTRACT §2.3/§2.4 correctly applied? |
+| Semantics | Does "replay proof" match SR-EVENT-MANAGER §3 requirements? |
+| Semantics | Does "evidence persistence" satisfy C-EVID-1 manifest requirements? |
 
 ### Current State
 
-- Branch: `solver-ralph-8` (continue)
+- Branch: `solver-ralph-9` (continue)
 - V8: ✅ COMPLETE
-- V9: 📝 AUTHORED — pending coherence review
-- Milestone 1 completion: ~95% — awaiting V9 review and implementation
+- V9: ✅ COHERENCE APPROVED — consistency evaluation pending
+- Milestone 1 completion: ~95% — awaiting V9 consistency evaluation and implementation
 
 ### On Completion
 
-1. Create `docs/reviews/SR-PLAN-V9-COHERENCE-REVIEW.md` with findings
-2. If amendments needed, document them in the review
-3. Git commit: `docs: Coherence review of SR-PLAN-V9`
-4. If APPROVED, next instance can begin V9-1 implementation
+1. Create `docs/reviews/SR-PLAN-V9-CONSISTENCY-EVALUATION.md` with findings
+2. Git commit: `docs: Consistency evaluation of SR-PLAN-V9`
+3. If PASS, next instance can begin V9-1 implementation
+4. If FAIL, document required revisions for plan update
