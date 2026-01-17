@@ -2,8 +2,8 @@
 
 **Purpose:** Track completion status of SR-PLAN deliverables and inform future implementation plans.
 
-**Last Updated:** 2026-01-16
-**Updated By:** Agent (V9-4 Completion session)
+**Last Updated:** 2026-01-17
+**Updated By:** Agent (SR-PLAN-LOOPS validation session)
 
 ---
 
@@ -201,27 +201,55 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 ### SR-PLAN-V10 (Proposed)
 
 **Status:** Not yet authored
-**Scope:** Automation & Scheduling Foundation
-**Target Deliverables:** D-38, D-22
+**Scope:** Loop Governor Completion & Traceability
+**Target Deliverables:** D-22, D-12, D-18
+**Validation Source:** SR-PLAN-LOOPS validation (2026-01-17)
 
-| Phase | Focus | Deliverables |
-|-------|-------|--------------|
-| V10-1 | Loop governor service (full) | D-22 |
-| V10-2 | Prompt → Plan decomposition | D-38 |
+| Phase | Focus | Deliverables | Gap Source |
+|-------|-------|--------------|------------|
+| V10-1 | Stop triggers (BUDGET_EXHAUSTED, REPEATED_FAILURE) | D-22 | Tests 13-14 (Critical) |
+| V10-2 | Decision-required resume after stop trigger | D-22 | Test 15 |
+| V10-3 | Candidate → Iteration traceability | D-12 | Test 12 |
+| V10-4 | Iteration refs completeness (Loop, exceptions) | D-18 | Tests 9, 16 |
+| V10-5 | Loop edit endpoint with budget monotonicity | D-18 | Test 8 |
+| V10-6 | OracleSuite hash prefix fix | D-24 | Test 10 |
+
+**Critical Path:** V10-1 → V10-2 (stop triggers enable decision gating)
+
+**Detailed Gap Descriptions:**
+
+| ID | Description | Contract | Severity |
+|----|-------------|----------|----------|
+| V10-G1 | Budget exhaustion not enforced; iterations exceed max_iterations | C-LOOP-1, C-LOOP-3 | Critical |
+| V10-G2 | Repeated failure (3+ consecutive) doesn't pause Loop | C-LOOP-3 | Critical |
+| V10-G3 | Candidate `produced_by_iteration_id` not recorded; graph edges missing | C-LOOP-4 | High |
+| V10-G4 | Loop ref missing from IterationStarted.refs[] (only in correlation_id) | C-CTX-1 | Medium |
+| V10-G5 | Active exceptions not included in IterationStarted.refs[] | C-CTX-1 | Medium |
+| V10-G6 | No Loop PATCH endpoint for budget updates | — | Medium |
+| V10-G7 | OracleSuite content_hash has doubled `sha256:sha256:` prefix | — | Low |
 
 ### SR-PLAN-V11 (Proposed)
 
 **Status:** Not yet authored
-**Scope:** Production Hardening
-**Target Deliverables:** D-16, D-26, D-32, D-33, D-35
+**Scope:** Production Hardening & E2E Testing
+**Target Deliverables:** D-16, D-26, D-32, D-33, D-35, D-08
+**Validation Source:** SR-PLAN-LOOPS validation (2026-01-17) — deferred items
 
-| Phase | Focus | Deliverables |
-|-------|-------|--------------|
-| V11-1 | Restricted evidence handling | D-16 |
-| V11-2 | Integration/E2E oracle suite | D-26 |
-| V11-3 | Build/init scripts completion | D-32 |
-| V11-4 | Operational observability | D-33 |
-| V11-5 | E2E failure mode harness | D-35 |
+| Phase | Focus | Deliverables | Gap Source |
+|-------|-------|--------------|------------|
+| V11-1 | Restricted evidence handling | D-16 | — |
+| V11-2 | Integration/E2E oracle suite | D-26 | — |
+| V11-3 | Build/init scripts completion | D-32 | — |
+| V11-4 | Operational observability | D-33 | — |
+| V11-5 | E2E failure mode harness (integrity conditions) | D-35 | Tests 17-18 |
+| V11-6 | GovernedArtifact refs in iteration context | D-08 | Test 9 |
+
+**Deferred from V10:**
+
+| ID | Description | Reason for Deferral |
+|----|-------------|---------------------|
+| V11-D1 | ORACLE_GAP/EVIDENCE_MISSING E2E testing | Requires automated harness (D-35) |
+| V11-D2 | GovernedArtifact refs (SR-DIRECTIVE, etc.) | Requires content-hashing of governed docs |
 
 ---
 

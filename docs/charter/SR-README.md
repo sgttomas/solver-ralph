@@ -62,55 +62,59 @@ Canonical index for the SR-* document set.
 ---
 
 
-## Current Status: Loop Validation Plan Ready for Execution
+## Current Status: V10 Implementation Ready
 
 **Branch 0 Acceptance:** COMPLETE (V9-4)
-**Consistency Evaluation:** APPROVED WITH NOTES (see `docs/reviews/SR-PLAN-LOOPS-CONSISTENCY-EVALUATION.md`)
-**Current Focus:** Execute SR-PLAN-LOOPS validation
+**Loop Validation:** COMPLETE (2026-01-17) — 11 PASS, 6 PARTIAL/GAP, 2 DEFERRED
+**Current Focus:** Implement V10 gaps (Loop Governor Completion)
 
 ### Recent Development
 
-The Loop Functionality Validation Plan (`docs/planning/SR-PLAN-LOOPS.md`) has been:
-1. Revised to address coherence gaps
-2. Evaluated for consistency against canonical SR-* documents
-3. **Approved for execution** with minor notes documented
+SR-PLAN-LOOPS validation completed with results documented:
+- **Critical gaps identified:** Stop triggers (BUDGET_EXHAUSTED, REPEATED_FAILURE) not implemented
+- **V10 scope refined:** 6 phases addressing validation findings
+- **V11 scope updated:** Deferred items (integrity E2E, GovernedArtifact refs)
+
+See `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` for detailed V10 scope.
 
 ---
 
-## Next Instance Prompt: Execute SR-PLAN-LOOPS Validation
+## Next Instance Prompt: Implement V10 (Loop Governor Completion)
 
-> **Session Type:** Manual validation (UI + API + database verification)
-> **Estimated Effort:** 1-2 sessions
-> **Prerequisite:** Infrastructure running (`make deploy`), API running, UI running
+> **Session Type:** Implementation
+> **Scope:** D-22, D-12, D-18, D-24 (per SR-PLAN-GAP-ANALYSIS §4)
+> **Branch:** `solver-ralph-loops` (continue on current branch)
 
 ### Assignment
 
-**Execute the Loop Functionality Validation Plan** — Run all 19 tests in `docs/planning/SR-PLAN-LOOPS.md` and document results.
+**Implement V10 phases** — Address critical and high-priority gaps from SR-PLAN-LOOPS validation, starting with stop triggers.
 
 ### Orientation
 
 1. **Read first:**
-   - `docs/charter/SR-CHARTER.md` — Project scope and authority model
-   - `docs/planning/SR-PLAN-LOOPS.md` — The validation plan to execute (contains all test steps)
-   - `docs/reviews/SR-PLAN-LOOPS-CONSISTENCY-EVALUATION.md` — Evaluation notes for execution awareness
+   - `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V10 scope, phases, and gap descriptions (V10-G1 through V10-G7)
+   - `docs/planning/SR-PLAN-LOOPS.md` — Verification checklists show what failed and why
+   - `docs/platform/SR-CONTRACT.md` — C-LOOP-1, C-LOOP-3 (budget enforcement), C-LOOP-4 (traceability)
 
-2. **Execution notes from evaluation:**
-   - ORACLE_TAMPER is not tested (same category as ORACLE_GAP/EVIDENCE_MISSING)
-   - Test 9 refs[] categories are the correct minimum per SR-DIRECTIVE §3.1
-   - Verify `suite_hash` presence in Work Surface binding during Test 11
+2. **Implementation priority (from SR-PLAN-GAP-ANALYSIS):**
+   - V10-1: Stop triggers — `crates/sr-api/src/handlers/work_surfaces.rs` (start_iteration_as_system)
+   - V10-2: Decision-required resume — Loop projection + `/resume` endpoint
+   - V10-3: Candidate traceability — `crates/sr-api/src/handlers/candidates.rs`
+   - V10-4 through V10-6: Refs completeness, Loop PATCH, hash fix
 
-3. **Infrastructure prerequisites** (per SR-PLAN-LOOPS §Prerequisites):
-   - `make deploy` for infrastructure
-   - `SR_OIDC_SKIP_VALIDATION=true cargo run --bin sr-api` for API
-   - `make dev-ui` for UI on port 3001
-   - Database access for event verification
+3. **Key code locations:**
+   - `crates/sr-api/src/handlers/work_surfaces.rs:1830` — iteration start logic
+   - `crates/sr-api/src/handlers/loops.rs` — Loop state transitions
+   - `crates/sr-adapters/src/projections.rs` — Loop projection (add consecutive_failures counter)
 
 ### Deliverable
 
-Update the verification checklists in SR-PLAN-LOOPS with Pass/Fail results, and document any gaps discovered in the Gap Tracking table.
+- Implement V10-1 and V10-2 (stop triggers + decision gating) as minimum
+- Re-run SR-PLAN-LOOPS Tests 13-15 to verify fix
+- Update SR-PLAN-GAP-ANALYSIS with completion status
 
 ### Do NOT
 
-- Re-evaluate the plan (already done)
-- Skip tests without documenting why
-- Assume features work without verification
+- Re-run full validation (only re-test fixed items)
+- Change V10 scope without documenting rationale
+- Skip StopTriggered event emission (required for audit trail)

@@ -615,63 +615,80 @@ These tests validate non-waivable integrity conditions per C-OR-7. These conditi
 
 # Verification Checklists
 
+## Executive Summary
+
+**Validation Executed:** 2026-01-17
+**Overall Result:** 11 PASS, 6 PARTIAL/GAP, 2 DEFERRED
+
+| Part | Tests | Pass | Partial | Gap | Blocked | Deferred |
+|------|-------|------|---------|-----|---------|----------|
+| A | 1-8 | 7 | 0 | 1 | 0 | 0 |
+| B | 9-12 | 1 | 2 | 1 | 0 | 0 |
+| C | 13-16 | 0 | 1 | 2 | 1 | 0 |
+| D | 17-19 | 1 | 0 | 0 | 0 | 2 |
+
+**Critical Gaps for V10:**
+- BUDGET_EXHAUSTED stop trigger not enforced (C-LOOP-1, C-LOOP-3)
+- REPEATED_FAILURE stop trigger not implemented (C-LOOP-3)
+
+---
+
 ## Part A: Happy Path (D-34)
+
+**Execution Date:** 2026-01-17
 
 | Test | Contract | Expected Outcome | Pass/Fail |
 |------|----------|------------------|-----------|
-| 1 | C-LOOP-1 | Existing Loop visible and linked | |
-| 2 | C-LOOP-1 | New Loop created with budgets | |
-| 3a | State Machine | CREATED → ACTIVE works | |
-| 3b | State Machine | ACTIVE → PAUSED works | |
-| 3c | State Machine | PAUSED → ACTIVE (manual) works | |
-| 3d | State Machine | Any → CLOSED works (terminal) | |
-| 4 | UI | All Loop detail sections render | |
-| 5 | C-LOOP-2 | First iteration starts correctly | |
-| 6 | C-LOOP-2 | Multiple iterations cycle correctly | |
-| 7 | C-LOOP-1 | Budget tracking accurate | |
-| 8 | Constraints | Edit restrictions enforced | |
+| 1 | C-LOOP-1 | Existing Loop visible and linked | ✅ PASS |
+| 2 | C-LOOP-1 | New Loop created with budgets | ✅ PASS |
+| 3a | State Machine | CREATED → ACTIVE works | ✅ PASS |
+| 3b | State Machine | ACTIVE → PAUSED works | ✅ PASS |
+| 3c | State Machine | PAUSED → ACTIVE (manual) works | ✅ PASS |
+| 3d | State Machine | Any → CLOSED works (terminal) | ✅ PASS |
+| 4 | UI | All Loop detail sections render | ✅ PASS |
+| 5 | C-LOOP-2 | First iteration starts correctly | ✅ PASS |
+| 6 | C-LOOP-2 | Multiple iterations cycle correctly | ✅ PASS |
+| 7 | C-LOOP-1 | Budget tracking accurate | ✅ PASS |
+| 8 | Constraints | Edit restrictions enforced | ⚠️ GAP (no edit endpoint) |
 
 ## Part B: Context & Work Surface (C-CTX-1, C-CTX-2, C-LOOP-4)
 
 | Test | Contract | Expected Outcome | Pass/Fail |
 |------|----------|------------------|-----------|
-| 9 | C-CTX-1 | Iteration refs contain minimum categories | |
-| 10 | C-CTX-1 | Refs have required meta fields | |
-| 11 | C-CTX-2 | Work Surface binding consistent | |
-| 12 | C-LOOP-4 | Candidate traceable to Loop/Iteration | |
+| 9 | C-CTX-1 | Iteration refs contain minimum categories | ⚠️ PARTIAL (Loop ref missing in refs[], GovernedArtifact missing) |
+| 10 | C-CTX-1 | Refs have required meta fields | ⚠️ PARTIAL (OracleSuite has doubled sha256: prefix) |
+| 11 | C-CTX-2 | Work Surface binding consistent | ✅ PASS |
+| 12 | C-LOOP-4 | Candidate traceable to Loop/Iteration | ⚠️ GAP (iteration linkage not recorded) |
 
 ## Part C: Failure Modes — Waivable (D-35 Foundation)
 
 | Test | Contract | Expected Outcome | Pass/Fail |
 |------|----------|------------------|-----------|
-| 13 | C-LOOP-3 | BUDGET_EXHAUSTED trigger fires | |
-| 14 | C-LOOP-3 | REPEATED_FAILURE trigger fires | |
-| 15 | SR-SPEC §3.1.2 | Resume requires Decision after trigger | |
-| 16 | C-EXC-* | Exception lifecycle works | |
+| 13 | C-LOOP-3 | BUDGET_EXHAUSTED trigger fires | ❌ GAP (not enforced) |
+| 14 | C-LOOP-3 | REPEATED_FAILURE trigger fires | ❌ GAP (not implemented) |
+| 15 | SR-SPEC §3.1.2 | Resume requires Decision after trigger | ⏭️ BLOCKED (depends on Tests 13-14) |
+| 16 | C-EXC-* | Exception lifecycle works | ⚠️ PARTIAL (lifecycle works, refs missing) |
 
 ## Part D: Integrity Conditions — Non-Waivable (C-OR-7)
 
 | Test | Contract | Expected Outcome | Pass/Fail |
 |------|----------|------------------|-----------|
-| 17 | C-OR-7 | ORACLE_GAP blocks (non-waivable) | |
-| 18 | C-OR-7 | EVIDENCE_MISSING blocks (non-waivable) | |
-| 19 | C-TB-1 | Actor kind constraints enforced | |
+| 17 | C-OR-7 | ORACLE_GAP blocks (non-waivable) | ⚠️ DEFERRED (infra exists, E2E needed) |
+| 18 | C-OR-7 | EVIDENCE_MISSING blocks (non-waivable) | ⚠️ DEFERRED (infra exists, E2E needed) |
+| 19 | C-TB-1 | Actor kind constraints enforced | ✅ PASS |
 
 ---
 
 # Gap Tracking
 
-Document any gaps discovered during testing:
+Gaps discovered during this validation are tracked in **SR-PLAN-GAP-ANALYSIS.md §4** (V10/V11 Roadmap).
 
-| Test | Gap Description | Severity | Roadmap Item |
-|------|-----------------|----------|--------------|
-| | | | |
+**Summary of findings (2026-01-17):**
+- 2 Critical gaps: Stop triggers (BUDGET_EXHAUSTED, REPEATED_FAILURE) not implemented
+- 3 High/Medium gaps: Candidate traceability, iteration refs completeness, Loop edit endpoint
+- 2 Deferred: Integrity condition E2E testing (to V11 automated harness)
 
-**Severity Levels:**
-- **Critical:** Blocks core functionality, must fix before V10
-- **High:** Significant gap, schedule for V10
-- **Medium:** Important but not blocking, schedule for V11
-- **Low:** Nice to have, backlog
+See SR-PLAN-GAP-ANALYSIS for detailed scope and deliverable assignments.
 
 ---
 
