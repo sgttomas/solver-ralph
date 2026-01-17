@@ -112,31 +112,52 @@ See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC
 
 ---
 
+## Next Instance Prompt
+
+**Assignment:** Continue SR-PLAN-V11 implementation — phases V11-4, V11-5, V11-6.
+
+**Orientation:**
+1. Read `docs/planning/SR-PLAN-V11.md` — the implementation plan with phase details
+2. Read `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` — identifies existing infrastructure
+3. Read `docs/planning/SR-PLAN-V11-CONSISTENCY-REVIEW.md` — contains corrected schemas for V11-6
+
+**Remaining phases:**
+- **V11-4 (D-35):** E2E Failure Mode Harness — verify Tests 17-18 (ORACLE_GAP, EVIDENCE_MISSING) pass against live system. Harness exists in `crates/sr-e2e-harness/src/failure_modes.rs`.
+- **V11-5 (D-26):** Integration Oracle Suite — register `SR-SUITE-INTEGRATION` in oracle registry. `IntegrationRunner` exists in `crates/sr-oracles/src/integration.rs`.
+- **V11-6 (D-08):** GovernedArtifact & Exception refs — add refs to `IterationStarted.refs[]`. Handler at `crates/sr-api/src/handlers/iterations.rs`. Use corrected schemas from consistency review.
+
+**Dependencies:** V11-4 should complete before V11-5 and V11-6 (which can run in parallel).
+
+**Verification:** See SR-PLAN-V11 §5 for verification criteria per phase.
+
+---
+
 ## Previous Session Summary (2026-01-17)
 
-### Completed: SR-PLAN-V11 Consistency Review (across three dimensions)
+### Completed: V11-1, V11-2, V11-3 Implementation
 
-**Objective:** Analyze SR-PLAN-V11 for consistency with canonical SR-* documents across ontology, epistemology, and semantics.
+**V11-1: Infisical Integration (D-16)**
+- Added 15 wiremock-based integration tests to `crates/sr-adapters/src/infisical.rs`
+- Tests cover: secret CRUD, envelope key retrieval/caching, error handling (auth, network, not found)
+- Created `.env.example` with Infisical configuration
 
-**High-Severity Findings (corrected):**
-1. **O-2:** `rel: "governed_by"` explicitly deprecated per SR-SPEC §1.5.3 — changed to `rel: "depends_on"`
-2. **S-1:** GovernedArtifact ref missing required `id` field per SR-SPEC §1.5.2 — added `id: "<doc_id>"`
-3. **S-2:** Exception ref schema mismatch — changed `kind: "Exception"` to `kind: "Waiver|Deviation|Deferral"`, moved `exception_id` to `id` field
+**V11-2: Build/Init Scripts (D-32)**
+- Created `scripts/init-all.sh` — wrapper with Docker pre-flight, dependency checks, service startup
+- Audited `deploy/init.sh` — confirmed comprehensive (PostgreSQL, MinIO, Zitadel, secrets)
 
-**Deliverables Produced:**
-- `docs/planning/SR-PLAN-V11-CONSISTENCY-REVIEW.md` — Detailed consistency report with 15 findings
-- `docs/planning/SR-PLAN-V11.md` — Corrected V11-6 schemas to align with SR-SPEC
+**V11-3: Operational Observability (D-33)**
+- Added `/ready` endpoint with PostgreSQL, MinIO, NATS health checks (HTTP 200/503)
+- Added domain metrics: loops, iterations, candidates, oracle runs, events (with latencies)
+- Created `docs/platform/SR-DEPLOYMENT.md` and `docs/platform/SR-OBSERVABILITY.md`
 
-**Verdict:** REVISED — Plan corrected and now consistent with canonical SR-* documents.
+**Canonical updates:**
+- SR-SPEC §2.3.13 — Added Operational endpoints (`/health`, `/ready`, `/api/v1/metrics`)
+- SR-README — Added SR-DEPLOYMENT, SR-OBSERVABILITY to canonical paths
+- SR-CHANGE v1.4 — Recorded V11-1/2/3 implementation
 
-### Earlier: SR-PLAN-V11 Codebase Coherence Review
-
-**Key Findings:**
-1. **V11-1 (Infisical):** Implementation more complete than stated (431 lines with full `SecretProvider` trait)
-2. **V11-2 (Build Scripts):** Infrastructure already exists (`deploy/init.sh` 21KB, `docker-compose.yml` 6.5KB)
-3. **V11-3 (Observability):** Foundation exists (`/health`, `/metrics` endpoints); needs `/ready` and domain metrics
-4. **V11-4 (E2E Harness):** 45K+ lines of failure mode code already implemented
-5. **V11-5 (Integration Suite):** `IntegrationRunner` exists (38KB); needs suite registration only
+**Commits:**
+- `ada5202` — feat(v11): Implement V11-1, V11-2, V11-3
+- `8af3298` — docs: Update canonical SR-* documents for V11-1/2/3
 6. **V11-6 (GovernedArtifact Refs):** Content hashing approach was undefined — now specified
 
 **Effort Reduction:** Total estimated effort reduced from 8-12 sessions to 6.5-9.5 sessions due to existing infrastructure.
