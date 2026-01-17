@@ -140,6 +140,27 @@ pub struct ResumeLoopRequest {
     pub decision_id: Option<String>,
 }
 
+/// V10-5: Request to update a loop (PATCH)
+/// Supports partial updates to goal and budgets with monotonicity constraint
+#[derive(Debug, Deserialize)]
+pub struct PatchLoopRequest {
+    #[serde(default)]
+    pub goal: Option<String>,
+    #[serde(default)]
+    pub budgets: Option<LoopBudgetsPatch>,
+}
+
+/// V10-5: Partial budget updates (all fields optional)
+#[derive(Debug, Deserialize)]
+pub struct LoopBudgetsPatch {
+    #[serde(default)]
+    pub max_iterations: Option<u32>,
+    #[serde(default)]
+    pub max_oracle_runs: Option<u32>,
+    #[serde(default)]
+    pub max_wallclock_hours: Option<u32>,
+}
+
 /// Response for loop creation or transition
 #[derive(Debug, Serialize)]
 pub struct LoopActionResponse {
@@ -491,6 +512,151 @@ pub async fn close_loop(
     Ok(Json(LoopActionResponse {
         loop_id,
         state: "CLOSED".to_string(),
+        event_id: event_id.as_str().to_string(),
+    }))
+}
+
+/// V10-5: Update a loop (partial update)
+///
+/// PATCH /api/v1/loops/{loop_id}
+///
+/// Supports updating goal and budgets. Budget updates must satisfy monotonicity:
+/// new values must be >= current values (budgets can only increase).
+#[instrument(skip(state, user, body), fields(user_id = %user.actor_id))]
+pub async fn patch_loop(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(loop_id): Path<String>,
+    Json(body): Json<PatchLoopRequest>,
+) -> ApiResult<Json<LoopActionResponse>> {
+    // 1. Get current Loop projection
+    let loop_proj = state
+        .projections
+        .get_loop(&loop_id)
+        .await?
+        .ok_or_else(|| ApiError::NotFound {
+            resource: "Loop".to_string(),
+            id: loop_id.clone(),
+        })?;
+
+    // 2. Validate Loop is not CLOSED
+    if loop_proj.state == "CLOSED" {
+        return Err(ApiError::InvalidTransition {
+            current_state: loop_proj.state.clone(),
+            action: "update".to_string(),
+        });
+    }
+
+    // 3. Parse current budgets
+    let current_budgets: LoopBudgets =
+        serde_json::from_value(loop_proj.budgets.clone()).unwrap_or_default();
+
+    // 4. Validate budget monotonicity if budgets are being updated
+    let new_budgets = if let Some(ref patch) = body.budgets {
+        let new_max_iterations = patch.max_iterations.unwrap_or(current_budgets.max_iterations);
+        let new_max_oracle_runs = patch.max_oracle_runs.unwrap_or(current_budgets.max_oracle_runs);
+        let new_max_wallclock_hours = patch
+            .max_wallclock_hours
+            .unwrap_or(current_budgets.max_wallclock_hours);
+
+        // Enforce monotonicity: new values must be >= current values
+        if new_max_iterations < current_budgets.max_iterations {
+            return Err(ApiError::BadRequest {
+                message: format!(
+                    "Budget max_iterations cannot decrease: current={}, requested={}",
+                    current_budgets.max_iterations, new_max_iterations
+                ),
+            });
+        }
+        if new_max_oracle_runs < current_budgets.max_oracle_runs {
+            return Err(ApiError::BadRequest {
+                message: format!(
+                    "Budget max_oracle_runs cannot decrease: current={}, requested={}",
+                    current_budgets.max_oracle_runs, new_max_oracle_runs
+                ),
+            });
+        }
+        if new_max_wallclock_hours < current_budgets.max_wallclock_hours {
+            return Err(ApiError::BadRequest {
+                message: format!(
+                    "Budget max_wallclock_hours cannot decrease: current={}, requested={}",
+                    current_budgets.max_wallclock_hours, new_max_wallclock_hours
+                ),
+            });
+        }
+
+        Some(LoopBudgets {
+            max_iterations: new_max_iterations,
+            max_oracle_runs: new_max_oracle_runs,
+            max_wallclock_hours: new_max_wallclock_hours,
+        })
+    } else {
+        None
+    };
+
+    // 5. Check if there are any changes to apply
+    if body.goal.is_none() && new_budgets.is_none() {
+        return Err(ApiError::BadRequest {
+            message: "No updates provided".to_string(),
+        });
+    }
+
+    // 6. Build payload with changes
+    let mut payload = serde_json::Map::new();
+    if let Some(ref goal) = body.goal {
+        payload.insert("goal".to_string(), serde_json::json!(goal));
+    }
+    if let Some(ref budgets) = new_budgets {
+        payload.insert("budgets".to_string(), serde_json::to_value(budgets).unwrap());
+    }
+
+    // 7. Create event
+    let event_id = EventId::new();
+    let now = Utc::now();
+
+    let events = state.event_store.read_stream(&loop_id, 0, 1000).await?;
+    let current_version = events.len() as u64;
+
+    let event = EventEnvelope {
+        event_id: event_id.clone(),
+        stream_id: loop_id.clone(),
+        stream_kind: StreamKind::Loop,
+        stream_seq: current_version + 1,
+        global_seq: None,
+        event_type: "LoopUpdated".to_string(),
+        occurred_at: now,
+        actor_kind: user.actor_kind,
+        actor_id: user.actor_id.clone(),
+        correlation_id: None,
+        causation_id: None,
+        supersedes: vec![],
+        refs: vec![],
+        payload: serde_json::Value::Object(payload),
+        envelope_hash: compute_envelope_hash(&event_id),
+    };
+
+    // 8. Append to event store
+    state
+        .event_store
+        .append(&loop_id, current_version, vec![event])
+        .await?;
+
+    // 9. Process projections
+    state
+        .projections
+        .process_events(&*state.event_store)
+        .await?;
+
+    info!(
+        loop_id = %loop_id,
+        goal_updated = body.goal.is_some(),
+        budgets_updated = new_budgets.is_some(),
+        "Loop updated"
+    );
+
+    Ok(Json(LoopActionResponse {
+        loop_id,
+        state: loop_proj.state,
         event_id: event_id.as_str().to_string(),
     }))
 }

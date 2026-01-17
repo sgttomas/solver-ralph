@@ -20,7 +20,7 @@ use axum::{
     extract::State,
     http::StatusCode,
     middleware,
-    routing::{get, post, put},
+    routing::{get, patch, post, put},
     Json, Router,
 };
 use config::ApiConfig;
@@ -169,11 +169,12 @@ fn create_router(
     // Protected routes (authentication required)
     let protected_routes = Router::new().route("/api/v1/protected", get(protected_info));
 
-    // Loop routes (D-18)
+    // Loop routes (D-18, V10-5)
     let loop_routes = Router::new()
         .route("/api/v1/loops", post(loops::create_loop))
         .route("/api/v1/loops", get(loops::list_loops))
         .route("/api/v1/loops/:loop_id", get(loops::get_loop))
+        .route("/api/v1/loops/:loop_id", patch(loops::patch_loop)) // V10-5: PATCH with budget monotonicity
         .route(
             "/api/v1/loops/:loop_id/activate",
             post(loops::activate_loop),

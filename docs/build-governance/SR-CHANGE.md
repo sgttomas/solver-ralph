@@ -67,6 +67,24 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
 - **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
 
+### 1.2  (2026-01-17)
+
+- **Loop PATCH Endpoint (V10-5):** Added `PATCH /api/v1/loops/:loop_id` for updating Loop goal and budgets:
+  - Budget monotonicity enforced: new values must be >= current values
+  - `LoopUpdated` event emitted on successful update
+  - Projection handler updates `budgets` and/or `goal` in `proj.loops`
+- **OracleSuite Hash Prefix Fix (V10-6):** Fixed doubled `sha256:sha256:` prefix in OracleSuite content_hash:
+  - Root cause: `ContentHash::new()` was called with already-prefixed values
+  - Fixed in `crates/sr-api/src/handlers/work_surfaces.rs` and test fixtures
+- **Files modified:**
+  - `crates/sr-api/src/handlers/loops.rs` — Added `PatchLoopRequest`, `LoopBudgetsPatch`, `patch_loop` handler
+  - `crates/sr-api/src/main.rs` — Added PATCH route for loops
+  - `crates/sr-adapters/src/projections.rs` — Added `apply_loop_updated` handler
+  - `crates/sr-api/src/handlers/work_surfaces.rs` — Fixed hash prefix
+  - `crates/sr-domain/src/work_surface.rs` — Fixed test fixtures
+- **Verification:** Tests 8, 10 from SR-PLAN-LOOPS now passing. V10 complete.
+- **Classification:** G:MINOR (additive; backward-compatible).
+
 ### 1.1  (2026-01-17)
 
 - **Loop Governor Stop Triggers (V10-1 through V10-4):** Implemented SR-SPEC §3.4 stop trigger evaluation:

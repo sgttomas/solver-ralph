@@ -198,14 +198,14 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V9-3 | Replayability demonstration | D-36 | ✅ Complete |
 | V9-4 | Branch 0 acceptance verification | — | ✅ Complete |
 
-### SR-PLAN-V10 (In Progress)
+### SR-PLAN-V10 (Complete)
 
-**Status:** V10-1 through V10-4 VERIFIED; V10-5/V10-6 Pending
+**Status:** ✅ V10-1 through V10-6 VERIFIED
 **Scope:** Loop Governor Completion & Traceability
-**Target Deliverables:** D-22, D-12, D-18
+**Target Deliverables:** D-22, D-12, D-18, D-24
 **Validation Source:** SR-PLAN-LOOPS validation (2026-01-17)
 **Implemented:** 2026-01-17 (solver-ralph-10 branch)
-**Verified:** 2026-01-17 — Tests 9, 12-15 re-run and passing
+**Verified:** 2026-01-17 — All V10 tests verified passing
 
 | Phase | Focus | Deliverables | Gap Source | Status |
 |-------|-------|--------------|------------|--------|
@@ -213,12 +213,12 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V10-2 | Decision-required resume after stop trigger | D-22 | Test 15 | ✅ Verified |
 | V10-3 | Candidate → Iteration traceability index | D-12 | Test 12 | ✅ Verified |
 | V10-4 | Loop ref in IterationStarted.refs[] | D-18 | Test 9 | ✅ Verified |
-| V10-5 | Loop edit endpoint with budget monotonicity | D-18 | Test 8 | ⏳ Pending |
-| V10-6 | OracleSuite hash prefix fix | D-24 | Test 10 | ⏳ Pending |
+| V10-5 | Loop edit endpoint with budget monotonicity | D-18 | Test 8 | ✅ Verified |
+| V10-6 | OracleSuite hash prefix fix | D-24 | Test 10 | ✅ Verified |
 
 **Critical Path:** V10-1 → V10-2 (stop triggers enable decision gating) — COMPLETE
 
-**Implementation Summary (V10-1 through V10-4):**
+**Implementation Summary (V10-1 through V10-6):**
 
 - **Migration 009:** Added `consecutive_failures`, `last_stop_trigger`, `paused_at`, `requires_decision` columns to `proj.loops`; added candidate traceability index
 - **LoopProjection:** Updated struct and all queries to include new fields
@@ -227,6 +227,8 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 - **Failure Tracking:** `apply_iteration_completed()` increments/resets `consecutive_failures`; 3+ failures emit `REPEATED_FAILURE` stop trigger
 - **Decision Gating:** `resume_loop()` validates `decision_id` when `requires_decision=true`
 - **Loop Ref:** `fetch_work_surface_refs()` now includes Loop ref with `rel="in_scope_of"`
+- **Loop PATCH:** Added `PATCH /api/v1/loops/:loop_id` with budget monotonicity enforcement
+- **Hash Prefix Fix:** Removed redundant `sha256:` prefix in `ContentHash::new()` calls
 
 **Detailed Gap Descriptions:**
 
@@ -237,8 +239,8 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V10-G3 | Candidate `produced_by_iteration_id` index missing | C-LOOP-4 | High | ✅ Fixed |
 | V10-G4 | Loop ref missing from IterationStarted.refs[] (only in correlation_id) | C-CTX-1 | Medium | ✅ Fixed |
 | V10-G5 | Active exceptions not included in IterationStarted.refs[] | C-CTX-1 | Medium | ⏳ Deferred to V11 |
-| V10-G6 | No Loop PATCH endpoint for budget updates | — | Medium | ⏳ Pending |
-| V10-G7 | OracleSuite content_hash has doubled `sha256:sha256:` prefix | — | Low | ⏳ Pending |
+| V10-G6 | No Loop PATCH endpoint for budget updates | — | Medium | ✅ Fixed |
+| V10-G7 | OracleSuite content_hash has doubled `sha256:sha256:` prefix | — | Low | ✅ Fixed |
 
 ### SR-PLAN-V11 (Proposed)
 

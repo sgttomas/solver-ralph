@@ -1346,7 +1346,7 @@ fn resolve_oracle_suites_for_stage(
         .iter()
         .map(|suite_id| OracleSuiteBinding {
             suite_id: suite_id.clone(),
-            suite_hash: ContentHash::new(&format!("sha256:{:064x}", 0)),
+            suite_hash: ContentHash::new(&format!("{:064x}", 0)), // V10-6: Fixed - ContentHash::new adds sha256: prefix
         })
         .collect()
 }

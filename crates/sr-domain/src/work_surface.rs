@@ -1749,16 +1749,16 @@ mod tests {
             WorkUnitId::new("test"),
             ContentAddressedRef {
                 id: "intake:01ABC".to_string(),
-                content_hash: ContentHash::new("sha256:intake_hash"),
+                content_hash: ContentHash::new("intake_hash"), // V10-6: Fixed double prefix
             },
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
-                content_hash: ContentHash::new("sha256:template_hash"),
+                content_hash: ContentHash::new("template_hash"), // V10-6: Fixed double prefix
             },
             StageId::new("FRAME"),
             vec![OracleSuiteBinding {
                 suite_id: "suite:SR-SUITE-STRUCTURE".to_string(),
-                suite_hash: ContentHash::new("sha256:suite_hash"),
+                suite_hash: ContentHash::new("suite_hash"), // V10-6: Fixed double prefix
             }],
             HashMap::new(),
             test_actor(),
@@ -1781,11 +1781,11 @@ mod tests {
             WorkUnitId::new("test"),
             ContentAddressedRef {
                 id: "intake:01ABC".to_string(),
-                content_hash: ContentHash::new("sha256:intake_hash"),
+                content_hash: ContentHash::new("intake_hash"),
             },
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
-                content_hash: ContentHash::new("sha256:template_hash"),
+                content_hash: ContentHash::new("template_hash"),
             },
             StageId::new("FRAME"),
             vec![],
@@ -1812,11 +1812,11 @@ mod tests {
             WorkUnitId::new("test"),
             ContentAddressedRef {
                 id: "intake:01ABC".to_string(),
-                content_hash: ContentHash::new("sha256:intake_hash"),
+                content_hash: ContentHash::new("intake_hash"),
             },
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
-                content_hash: ContentHash::new("sha256:template_hash"),
+                content_hash: ContentHash::new("template_hash"),
             },
             StageId::new("FINAL"),
             vec![],
@@ -1838,11 +1838,11 @@ mod tests {
             WorkUnitId::new("test"),
             ContentAddressedRef {
                 id: "intake:01ABC".to_string(),
-                content_hash: ContentHash::new("sha256:intake_hash"),
+                content_hash: ContentHash::new("intake_hash"),
             },
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
-                content_hash: ContentHash::new("sha256:template_hash"),
+                content_hash: ContentHash::new("template_hash"),
             },
             StageId::new("FRAME"),
             vec![],
@@ -1865,11 +1865,11 @@ mod tests {
             WorkUnitId::new("test"),
             ContentAddressedRef {
                 id: "intake:01ABC".to_string(),
-                content_hash: ContentHash::new("sha256:intake_hash"),
+                content_hash: ContentHash::new("intake_hash"),
             },
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
-                content_hash: ContentHash::new("sha256:template_hash"),
+                content_hash: ContentHash::new("template_hash"),
             },
             StageId::new("FRAME"),
             vec![],
@@ -1894,11 +1894,11 @@ mod tests {
             WorkUnitId::new("test"),
             ContentAddressedRef {
                 id: "intake:01ABC".to_string(),
-                content_hash: ContentHash::new("sha256:intake_hash"),
+                content_hash: ContentHash::new("intake_hash"),
             },
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
-                content_hash: ContentHash::new("sha256:template_hash"),
+                content_hash: ContentHash::new("template_hash"),
             },
             StageId::new("FRAME"),
             vec![],
@@ -1910,11 +1910,11 @@ mod tests {
             WorkUnitId::new("test"),
             ContentAddressedRef {
                 id: "intake:01ABC".to_string(),
-                content_hash: ContentHash::new("sha256:intake_hash"),
+                content_hash: ContentHash::new("intake_hash"),
             },
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
-                content_hash: ContentHash::new("sha256:template_hash"),
+                content_hash: ContentHash::new("template_hash"),
             },
             StageId::new("FRAME"),
             vec![],
@@ -1944,16 +1944,16 @@ mod tests {
             WorkUnitId::new("test"),
             ContentAddressedRef {
                 id: "intake:01ABC".to_string(),
-                content_hash: ContentHash::new("sha256:intake_hash"),
+                content_hash: ContentHash::new("intake_hash"), // V10-6: Fixed double prefix
             },
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
-                content_hash: ContentHash::new("sha256:template_hash"),
+                content_hash: ContentHash::new("template_hash"), // V10-6: Fixed double prefix
             },
             StageId::new("FRAME"),
             vec![OracleSuiteBinding {
                 suite_id: "suite:TEST".to_string(),
-                suite_hash: ContentHash::new("sha256:suite_hash"),
+                suite_hash: ContentHash::new("suite_hash"), // V10-6: Fixed double prefix
             }],
             HashMap::new(),
             test_actor(),

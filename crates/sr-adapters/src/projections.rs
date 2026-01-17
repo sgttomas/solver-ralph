@@ -201,6 +201,7 @@ impl ProjectionBuilder {
             "LoopPaused" => self.apply_loop_paused(&mut tx, event).await,
             "LoopResumed" => self.apply_loop_resumed(&mut tx, event).await,
             "LoopClosed" => self.apply_loop_closed(&mut tx, event).await,
+            "LoopUpdated" => self.apply_loop_updated(&mut tx, event).await, // V10-5
             "StopTriggered" => self.apply_stop_triggered(&mut tx, event).await,
 
             // Iteration events
@@ -487,6 +488,62 @@ impl ProjectionBuilder {
         .bind(&event.stream_id)
         .execute(&mut **tx)
         .await?;
+
+        Ok(())
+    }
+
+    /// V10-5: Handle LoopUpdated event (budget monotonicity)
+    ///
+    /// Updates Loop goal and/or budgets. Budgets can only increase (monotonicity
+    /// enforced at API level).
+    async fn apply_loop_updated(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let loop_id = &event.stream_id;
+
+        // Update goal if present in payload
+        if let Some(goal) = payload.get("goal").and_then(|g| g.as_str()) {
+            sqlx::query(
+                r#"
+                UPDATE proj.loops
+                SET goal = $1, last_event_id = $2, last_global_seq = $3
+                WHERE loop_id = $4
+                "#,
+            )
+            .bind(goal)
+            .bind(event.event_id.as_str())
+            .bind(event.global_seq.unwrap_or(0) as i64)
+            .bind(loop_id)
+            .execute(&mut **tx)
+            .await?;
+        }
+
+        // Update budgets if present in payload
+        if let Some(budgets) = payload.get("budgets") {
+            sqlx::query(
+                r#"
+                UPDATE proj.loops
+                SET budgets = $1, last_event_id = $2, last_global_seq = $3
+                WHERE loop_id = $4
+                "#,
+            )
+            .bind(budgets)
+            .bind(event.event_id.as_str())
+            .bind(event.global_seq.unwrap_or(0) as i64)
+            .bind(loop_id)
+            .execute(&mut **tx)
+            .await?;
+        }
+
+        info!(
+            loop_id = %loop_id,
+            goal_updated = payload.get("goal").is_some(),
+            budgets_updated = payload.get("budgets").is_some(),
+            "Loop updated projection applied"
+        );
 
         Ok(())
     }
