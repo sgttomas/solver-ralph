@@ -67,6 +67,26 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
 - **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
 
+### 1.0  (2026-01-16)
+
+- **SR-REPLAY-PROOF:** Created new canonical artifact `docs/platform/SR-REPLAY-PROOF.md`:
+  - Formal proof of deterministic replay per SR-CONTRACT C-EVT-7
+  - Documents `compute_state_hash()`, `verify_replay()`, `find_discrepancies()` verification methods
+  - Proves EventManager rebuild produces identical state from same event sequence
+  - Covers state hash equality, eligible set equality, status projection equality, no ghost inputs (C-CTX-2)
+- **SR-EVENT-MANAGER §3.1:** Added "Verification methods" section documenting:
+  - `compute_state_hash()` — deterministic SHA-256 hash of projection state
+  - `verify_replay(events)` — replays events on fresh instance and compares state hashes
+  - `find_discrepancies(other)` — field-level comparison between EventManager instances
+  - Added `verified_by: SR-REPLAY-PROOF` to document refs
+- **sr-adapters replay module:** Added `crates/sr-adapters/src/replay.rs` with:
+  - `ReplayProof` — proof artifact capturing hashes, discrepancies, event count
+  - `ReplayDiscrepancy` — field-level comparison result
+  - `EligibleSetComparison` — eligible set comparison between original and replayed state
+- **Integration tests:** Added `crates/sr-api/tests/integration/replay_determinism_test.rs` with 7 tests validating determinism
+- **Rationale:** Documents SR-PLAN-V9 Phase V9-3 implementation of Replayability Demonstration (D-36). Proves compliance with C-EVT-7 ("Projections MUST be rebuildable from the event log") and C-CTX-2 (no ghost inputs).
+- **Classification:** G:MINOR (additive; backward-compatible; adds new canonical artifact SR-REPLAY-PROOF; documents verification methods that strengthen existing replay guarantees).
+
 ### 0.9  (2026-01-16)
 
 - **oracle-suites/semantic-v1:** Created Semantic Oracle Suite container implementation:
@@ -192,6 +212,7 @@ The canonical governed set for SOLVER-Ralph is:
 | SR-PROCEDURE-KIT | Procedure template registry | Platform |
 | SR-SEMANTIC-ORACLE-SPEC | Semantic oracle interface and required evidence outputs | Platform |
 | SR-EVENT-MANAGER | Deterministic state / eligibility / dependency-graph computation spec | Platform |
+| SR-REPLAY-PROOF | Determinism proof per C-EVT-7 (verified_by SR-EVENT-MANAGER) | Platform |
 | SR-AGENT-WORKER-CONTRACT | Minimum worker behavior contract | Platform |
 | SR-AGENTS | Agent actor semantics | Platform |
 | SR-MODEL | Layer model and document-role map (orientation; non-binding) | Platform |
