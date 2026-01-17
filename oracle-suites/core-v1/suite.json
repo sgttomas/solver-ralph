@@ -83,6 +83,24 @@
       "classification": "advisory",
       "working_dir": "/workspace",
       "env": {}
+    },
+    {
+      "oracle_id": "oracle:manifest-validation",
+      "oracle_name": "Evidence Manifest Validation",
+      "description": "Validates evidence.gate_packet manifests per SR-SPEC §1.9.1 and SR-CONTRACT C-EVID-1. Checks version, artifact type, required fields, timestamp ordering, and verdict consistency.",
+      "command": "/oracles/manifest-validation.sh",
+      "args": [],
+      "timeout_seconds": 60,
+      "expected_outputs": [
+        {
+          "path": "reports/manifest-validation.json",
+          "content_type": "application/json",
+          "required": true
+        }
+      ],
+      "classification": "required",
+      "working_dir": "/workspace",
+      "env": {}
     }
   ],
   "metadata": {
