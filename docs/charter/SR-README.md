@@ -80,51 +80,48 @@ See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC
 
 ## Next Instance Prompt
 
-> **Assignment:** Plan V11 scope. Do NOT begin implementation until the plan is reviewed.
+> **Assignment:** Review SR-PLAN-V11 for coherence with the codebase. Do NOT begin implementation until this review is complete.
+
+### Context
+
+SR-PLAN-V11 has been drafted but requires validation before implementation begins. Your task is to evaluate whether the plan is coherent with the actual codebase state.
 
 ### Orientation
 
-1. Read `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V11 proposed scope
-2. Read `docs/planning/SR-PLAN-LOOPS.md` — Deferred items (Tests 17-18)
-3. V11 focuses on **Production Hardening & E2E Testing**
+1. Read `docs/planning/SR-PLAN-V11.md` — The plan to be reviewed
+2. Read `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V11 scope source
+3. Explore relevant codebase directories referenced in the plan
 
-### Task: Author SR-PLAN-V11
+### Task: Review SR-PLAN-V11 for Coherence
 
-Create `docs/planning/SR-PLAN-V11.md` with:
+Evaluate the plan against the actual codebase and report:
 
-1. **Scope Definition** — Which deliverables and gaps to address
-2. **Phase Breakdown** — Ordered phases (V11-1, V11-2, etc.)
-3. **Verification Plan** — How each phase will be tested
-4. **Dependencies** — What infrastructure/tooling is needed
+1. **File/Module Accuracy** — Do the files and modules referenced in the plan actually exist? Are the descriptions accurate?
+2. **Dependency Feasibility** — Are the stated dependencies correct? Are there hidden dependencies not mentioned?
+3. **Phase Ordering** — Is the proposed phase order logical given the codebase structure?
+4. **Gap Coverage** — Does the plan adequately address all deferred V10 items and proposed V11 deliverables?
+5. **Risk Assessment** — Are there any risks or blockers not identified in the plan?
 
-### V11 Proposed Scope (from SR-PLAN-GAP-ANALYSIS)
+### Deliverable
 
-| Deliverable | Description | Priority |
-|-------------|-------------|----------|
-| D-16 | Restricted evidence handling (Infisical envelope keys) | High |
-| D-26 | Integration/E2E oracle suite | High |
-| D-32 | Build/init scripts completion | Medium |
-| D-33 | Operational observability | Medium |
-| D-35 | E2E failure mode harness | High |
-| D-08 | GovernedArtifact refs in iteration context | Low |
-
-### Deferred from V10
-
-- V10-G5: Active exceptions not included in IterationStarted.refs[]
-- Tests 17-18: Integrity condition E2E testing (ORACLE_GAP, EVIDENCE_MISSING)
+Provide a coherence report with:
+- **Findings** — Issues discovered, if any
+- **Recommendations** — Suggested changes to the plan
+- **Verdict** — APPROVE (proceed to implementation) or REVISE (update plan first)
 
 ### Constraints
 
-- **Planning only** — Do not implement until plan is approved
-- V10 is complete — do not re-implement or modify V10 code
-- Consider what E2E infrastructure exists vs needs to be built
-- Identify any blocking dependencies between phases
+- **Review only** — Do not implement until review is complete and approved
+- V10 is complete — do not modify V10 code
+- Be thorough — explore the codebase to validate plan assumptions
+- Focus on feasibility, not stylistic preferences
 
-### Suggested Approach
+### Key Codebase Areas to Validate
 
-1. Read SR-PLAN-GAP-ANALYSIS §4 (V11 Proposed section)
-2. Inventory existing E2E infrastructure in `crates/sr-e2e-harness/` and `crates/sr-oracles/`
-3. Draft SR-PLAN-V11.md with phased approach
-4. Present plan for review before implementation
+- `crates/sr-e2e-harness/` — E2E testing infrastructure
+- `crates/sr-oracles/` — Oracle implementations
+- `crates/sr-adapters/src/` — Infisical, observability, integrity modules
+- `scripts/` — Build and init scripts
+- `docs/platform/` — Canonical SR-* documents
 
 ---
