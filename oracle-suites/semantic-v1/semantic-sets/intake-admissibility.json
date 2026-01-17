@@ -1,0 +1,114 @@
+{
+  "semantic_set_id": "semantic_set:INTAKE-ADMISSIBILITY",
+  "schema_version": "v1",
+  "name": "Intake Admissibility",
+  "description": "Semantic set for evaluating intake document admissibility. Measures completeness, consistency, and actionability of structured intake artifacts per SR-SEMANTIC-ORACLE-SPEC.",
+  "axes": [
+    {
+      "axis_id": "schema_compliance",
+      "name": "Schema Compliance",
+      "description": "Measures adherence to the Intake schema (required fields, types)",
+      "weight": 1.0,
+      "required": true,
+      "min_coverage": 1.0,
+      "max_residual": 0.0
+    },
+    {
+      "axis_id": "traceability_coverage",
+      "name": "Traceability Coverage",
+      "description": "Measures coverage of inputs and deliverables with explicit refs",
+      "weight": 0.8,
+      "required": true,
+      "min_coverage": 0.8,
+      "max_residual": null
+    },
+    {
+      "axis_id": "contradiction_free",
+      "name": "Contradiction-Free",
+      "description": "Measures absence of contradictory statements in constraints and objectives",
+      "weight": 1.0,
+      "required": true,
+      "min_coverage": null,
+      "max_residual": 0.0
+    },
+    {
+      "axis_id": "ambiguity_bounded",
+      "name": "Ambiguity Bounded",
+      "description": "Measures that ambiguities are explicit and inventoried in unknowns",
+      "weight": 0.6,
+      "required": false,
+      "min_coverage": 0.7,
+      "max_residual": null
+    },
+    {
+      "axis_id": "privacy_safe",
+      "name": "Privacy Safe",
+      "description": "Measures absence of PII or sensitive data in public fields",
+      "weight": 1.0,
+      "required": true,
+      "min_coverage": 1.0,
+      "max_residual": 0.0
+    },
+    {
+      "axis_id": "term_map_aligned",
+      "name": "Term Map Aligned",
+      "description": "Measures alignment between definitions and usage in constraints/deliverables",
+      "weight": 0.7,
+      "required": false,
+      "min_coverage": 0.8,
+      "max_residual": null
+    }
+  ],
+  "constraints": [
+    {
+      "constraint_id": "required_fields_present",
+      "description": "All required Intake fields must be present and non-empty",
+      "constraint_type": "required",
+      "severity": "error"
+    },
+    {
+      "constraint_id": "deliverables_have_paths",
+      "description": "Each deliverable must have a valid path",
+      "constraint_type": "required",
+      "severity": "error"
+    },
+    {
+      "constraint_id": "no_contradictions",
+      "description": "Objective and constraints must not contradict each other",
+      "constraint_type": "prohibited",
+      "severity": "error"
+    },
+    {
+      "constraint_id": "ambiguities_inventoried",
+      "description": "Ambiguous terms should be listed in unknowns or definitions",
+      "constraint_type": "preferred",
+      "severity": "warning"
+    },
+    {
+      "constraint_id": "no_pii_in_public",
+      "description": "No personally identifiable information in public fields",
+      "constraint_type": "prohibited",
+      "severity": "error"
+    },
+    {
+      "constraint_id": "terms_used_consistently",
+      "description": "Defined terms are used consistently throughout",
+      "constraint_type": "preferred",
+      "severity": "warning"
+    }
+  ],
+  "decision_rule": {
+    "rule_id": "intake_admissibility_v1",
+    "description": "Pass if all required axes meet thresholds and no error violations",
+    "max_residual_norm": 0.2,
+    "min_coverage": 0.85,
+    "max_error_violations": 0,
+    "max_warning_violations": 3,
+    "thresholds": {
+      "schema_compliance_min": 1.0,
+      "traceability_min": 0.8
+    }
+  },
+  "applicable_stages": ["stage:VALIDATE"],
+  "version": "1.0.0"
+}

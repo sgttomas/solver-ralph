@@ -19,6 +19,7 @@ sr-e2e-harness = { path = "../sr-e2e-harness" }
 # Core
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }

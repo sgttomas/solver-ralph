@@ -78,14 +78,14 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 | Plan | Scope | Key Deliverables | Status |
 |------|-------|------------------|--------|
 | SR-PLAN-V7 | Stabilization & Attachments | Tests, UX, `record.attachment` | **Complete** |
-| SR-PLAN-V8 | Oracle Runner & Semantic Suites | D-24, D-25, D-27, D-39 | **In Progress** (V8-1 ✅, V8-2 ✅) |
-| SR-PLAN-V9 | Semantic Worker & Branch 0 | D-23, D-41, D-36 | Proposed |
+| SR-PLAN-V8 | Oracle Runner & Semantic Suites | D-24, D-25, D-27, D-39 | **Complete** |
+| SR-PLAN-V9 | Semantic Worker & Branch 0 | D-23, D-41, D-36 | **Next** |
 
 **Milestone 1 (MVP) projected completion:** After V9
 
 ---
 
-## SR-PLAN-V8 Implementation Status (UPDATED 2026-01-16)
+## SR-PLAN-V8 Implementation Status (COMPLETE)
 
 | Phase | Status | Description | Amendment |
 |-------|--------|-------------|-----------|
@@ -93,9 +93,9 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 | V8-2: Event-Driven Worker | ✅ Complete | Worker subscribes to `RunStarted` events | A-1 |
 | V8-3: Integrity Checks | ✅ Complete | TAMPER/GAP/ENV_MISMATCH detection + events | — |
 | V8-4: Core Oracle Suite | ✅ Complete | Build/unit/schema/lint oracles + container | — |
-| V8-5: Semantic Oracles | 🎯 Next | Use existing types, focus on container packaging | A-3 |
+| V8-5: Semantic Oracles | ✅ Complete | Semantic oracle suite container + CLI command | A-3 |
 
-**SR-PLAN-V8 has passed coherence assessment AND philosophical consistency review. V8-1 through V8-4 complete. V8-5 ready.**
+**SR-PLAN-V8 COMPLETE. All phases implemented, tested, and documented.**
 
 ### Amendments Applied
 
@@ -110,11 +110,144 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## Previous Session Summary (V8-4 Implementation)
+## Previous Session Summary (V8-5 Implementation)
+
+**Session Goal:** Implement SR-PLAN-V8 Phase V8-5 — Semantic Oracle Integration
+
+### What Was Accomplished
+
+1. **Added SemanticEval command to sr-oracles CLI**:
+   - New `semantic-eval` subcommand with `--intake`, `--output-dir`, `--candidate-id` flags
+   - Reuses existing `IntakeAdmissibilityRunner` from `sr-adapters/src/semantic_suite.rs`
+   - Writes 4 output files: eval.json, residual.json, coverage.json, violations.json
+   - Added `serde_yaml` dependency for YAML intake parsing
+
+2. **Created semantic oracle suite directory** (`oracle-suites/semantic-v1/`):
+   - Complete directory structure with Dockerfile, suite.json, oracle script, and semantic set
+   - Suite ID: `suite:sr-semantic-v1`
+   - OCI image: `ghcr.io/solver-ralph/oracle-suite-semantic:v1`
+
+3. **Created Dockerfile** (`oracle-suites/semantic-v1/Dockerfile`):
+   - Multi-stage build: compile sr-oracles, copy to slim Debian runtime
+   - Bundles semantic set definition at `/semantic-sets/`
+   - Oracle scripts at `/oracles/`
+
+4. **Created suite.json with semantic_set_binding**:
+   - Single required oracle: `oracle:semantic-eval`
+   - 4 expected outputs per SR-SEMANTIC-ORACLE-SPEC §3
+   - `semantic_set_binding` field links to `semantic_set:INTAKE-ADMISSIBILITY`
+   - Environment constraints: runsc, network:disabled, workspace_readonly:true
+
+5. **Created semantic-eval.sh oracle script**:
+   - Locates intake file in workspace
+   - Invokes `sr-oracles semantic-eval` with appropriate flags
+   - Verifies all 4 output files produced
+
+6. **Bundled intake-admissibility.json**:
+   - 6 semantic axes (schema_compliance, traceability, contradiction_free, ambiguity, privacy, term_map)
+   - Decision rule: intake_admissibility_v1
+   - Thresholds: max_residual_norm=0.2, min_coverage=0.85, max_error_violations=0
+
+7. **Added V8-5 integration tests** (`crates/sr-adapters/src/oracle_runner.rs`):
+   - `test_semantic_suite_v1_definition_parsing` — Validates suite.json structure
+   - `test_semantic_suite_v1_semantic_set_binding` — Verifies semantic_set_binding present
+   - `test_semantic_suite_v1_oracle_definition` — Checks oracle and 4 outputs
+   - `test_semantic_suite_v1_metadata` — Verifies contract_refs and spec_refs
+   - `test_semantic_suite_v1_gap_detection_present` — GAP detection with oracle present
+   - `test_semantic_suite_v1_gap_detection_missing` — GAP detection with oracle missing
+   - `test_semantic_set_definition_valid_json` — Validates bundled semantic set
+
+8. **Created README documentation** (`oracle-suites/semantic-v1/README.md`):
+   - Oracle descriptions and output schemas
+   - Semantic set axes and decision rule
+   - Contract compliance matrix
+   - Build and run instructions
+
+### Test Results
+
+| Package | Result |
+|---------|--------|
+| sr-adapters | ✅ 148 passed (1 ignored) |
+| sr-api | ✅ 41 passed |
+| sr-oracles | ✅ 27 passed |
+
+### Files Created/Modified
+
+| File | Action |
+|------|--------|
+| `oracle-suites/semantic-v1/Dockerfile` | CREATED |
+| `oracle-suites/semantic-v1/suite.json` | CREATED |
+| `oracle-suites/semantic-v1/oracles/semantic-eval.sh` | CREATED |
+| `oracle-suites/semantic-v1/semantic-sets/intake-admissibility.json` | CREATED |
+| `oracle-suites/semantic-v1/README.md` | CREATED |
+| `crates/sr-oracles/src/main.rs` | MODIFIED — Added SemanticEval command |
+| `crates/sr-oracles/Cargo.toml` | MODIFIED — Added serde_yaml dependency |
+| `crates/sr-adapters/src/oracle_runner.rs` | MODIFIED — Added 7 V8-5 integration tests |
+| `Cargo.toml` | MODIFIED — Added serde_yaml workspace dependency |
+| `docs/charter/SR-README.md` | MODIFIED — V8-5 complete, updated status |
+
+### Contract Compliance
+
+| Contract | Requirement | Implementation |
+|----------|-------------|----------------|
+| C-OR-1 | Required oracles deterministic | Evaluation uses deterministic IntakeAdmissibilityRunner |
+| C-OR-2 | Suite pinning | suite.json includes suite_hash and semantic_set_hash |
+| C-OR-3 | Environment constraints | runsc, network:disabled, workspace_readonly:true |
+| C-OR-4 | Oracle gaps blocking | Single required oracle, GAP detection tested |
+| C-EVID-1 | Evidence minimum manifest | 4 output artifacts with defined schemas |
+
+### Implementation Notes
+
+- Leveraged existing `IntakeAdmissibilityRunner` from `sr-adapters/src/semantic_suite.rs`
+- No new types created — all semantic types already exist in `sr-domain/src/semantic_oracle.rs`
+- Amendment A-3 followed: focused on container packaging, not type creation
+- SR-PLAN-V8 is now **COMPLETE** — all 5 phases implemented
+
+---
+
+## Next Instance Prompt: Implement SR-PLAN-V9
+
+### Assignment
+
+Implement **SR-PLAN-V9: Semantic Worker & Branch 0** — complete the semantic worker integration and implement Branch 0 end-to-end workflow.
+
+### Key Deliverables
+
+Per `SR-PLAN-GAP-ANALYSIS.md`, V9 covers:
+- D-23: Semantic Worker completes full evaluation cycle
+- D-41: Branch 0 (intake processing) end-to-end
+- D-36: Stage gate pass/fail from semantic eval results
+
+### Where to Look
+
+| Document/File | What You'll Find |
+|---------------|------------------|
+| `docs/planning/SR-PLAN-GAP-ANALYSIS.md` | V9 scope and deliverables |
+| `crates/sr-adapters/src/semantic_worker.rs` | Existing semantic worker |
+| `crates/sr-adapters/src/semantic_suite.rs` | Evaluation runner |
+| `docs/platform/SR-PROCEDURE-KIT.md` | Branch 0 procedure definition |
+
+### Current State
+
+- Branch: `solver-ralph-8` (continue or create `solver-ralph-9`)
+- V8: ✅ COMPLETE (all 5 phases)
+- V9: 🎯 Your assignment
+- Estimated effort: 2-3 sessions
+
+### On Completion
+
+1. Run tests: `cargo test --package sr-adapters && cargo test --package sr-api`
+2. Git commit
+3. Update SR-README: Mark V9 complete, summarize session
+4. Milestone 1 (MVP) projected complete after V9
+
+---
+
+## V8-4 Session Archive
 
 **Session Goal:** Implement SR-PLAN-V8 Phase V8-4 — Core Oracle Suite Container
 
-### What Was Accomplished
+### What Was Accomplished (V8-4)
 
 1. **Created core oracle suite directory** (`oracle-suites/core-v1/`):
    - Complete directory structure with Dockerfile, suite.json, and oracle scripts

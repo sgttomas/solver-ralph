@@ -1,0 +1,63 @@
+{
+  "suite_id": "suite:sr-semantic-v1",
+  "suite_hash": "sha256:semantic_v1_placeholder_to_be_computed_at_registration",
+  "oci_image": "ghcr.io/solver-ralph/oracle-suite-semantic:v1",
+  "oci_image_digest": "sha256:placeholder_digest_to_be_updated_after_build",
+  "semantic_set_binding": {
+    "semantic_set_id": "semantic_set:INTAKE-ADMISSIBILITY",
+    "semantic_set_hash": "sha256:placeholder_computed_from_definition"
+  },
+  "environment_constraints": {
+    "runtime": "runsc",
+    "network": "disabled",
+    "cpu_arch": "amd64",
+    "os": "linux",
+    "workspace_readonly": true,
+    "additional_constraints": [
+      "semantic_set_bundled=true"
+    ]
+  },
+  "oracles": [
+    {
+      "oracle_id": "oracle:semantic-eval",
+      "oracle_name": "Semantic Evaluation",
+      "description": "Evaluates candidate against intake admissibility semantic set. Produces residual, coverage, and violation reports per SR-SEMANTIC-ORACLE-SPEC.",
+      "command": "/oracles/semantic-eval.sh",
+      "args": [],
+      "timeout_seconds": 300,
+      "expected_outputs": [
+        {
+          "path": "reports/semantic/eval.json",
+          "content_type": "application/json",
+          "required": true
+        },
+        {
+          "path": "reports/semantic/residual.json",
+          "content_type": "application/json",
+          "required": true
+        },
+        {
+          "path": "reports/semantic/coverage.json",
+          "content_type": "application/json",
+          "required": true
+        },
+        {
+          "path": "reports/semantic/violations.json",
+          "content_type": "application/json",
+          "required": true
+        }
+      ],
+      "classification": "required",
+      "working_dir": "/workspace",
+      "env": {
+        "SEMANTIC_SET_ID": "semantic_set:INTAKE-ADMISSIBILITY"
+      }
+    }
+  ],
+  "metadata": {
+    "maintainer": "solver-ralph-team",
+    "version_notes": "Initial semantic oracle suite for V8-5. Evaluates intake admissibility per SR-SEMANTIC-ORACLE-SPEC.",
+    "contract_refs": ["C-OR-1", "C-OR-2", "C-OR-3", "C-EVID-1"],
+    "spec_refs": ["SR-SEMANTIC-ORACLE-SPEC"]
+  }
+}

@@ -13,6 +13,7 @@
 //! - schema-validate: Validate schemas and migrations
 //! - integrity-smoke: Run integrity smoke tests
 //! - replay-verify: Verify event replay determinism
+//! - semantic-eval: Evaluate intake against semantic set (V8-5)
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -140,6 +141,31 @@ enum Commands {
         #[arg(long)]
         full_check: bool,
     },
+
+    /// Evaluate intake against semantic set (V8-5)
+    ///
+    /// Runs semantic evaluation on an intake file and produces:
+    /// - eval.json (sr.semantic_eval.v1)
+    /// - residual.json (ResidualReport)
+    /// - coverage.json (CoverageReport)
+    /// - violations.json (ViolationsReport)
+    SemanticEval {
+        /// Path to intake YAML file
+        #[arg(long)]
+        intake: PathBuf,
+
+        /// Output directory for reports
+        #[arg(long, default_value = "reports/semantic")]
+        output_dir: PathBuf,
+
+        /// Candidate ID for the evaluation
+        #[arg(long, default_value = "candidate:cli-eval")]
+        candidate_id: String,
+
+        /// Suite ID to use
+        #[arg(long, default_value = "oracle.suite.intake_admissibility.v1")]
+        suite_id: String,
+    },
 }
 
 #[tokio::main]
@@ -230,6 +256,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             full_check,
         } => {
             run_replay_verify(&cli.output, database_url, full_check).await?;
+        }
+
+        Commands::SemanticEval {
+            intake,
+            output_dir,
+            candidate_id,
+            suite_id,
+        } => {
+            run_semantic_eval(&intake, &output_dir, &candidate_id, &suite_id).await?;
         }
     }
 
@@ -921,6 +956,110 @@ async fn run_replay_verify(
     }
 
     if status == OracleStatus::Fail || status == OracleStatus::Error {
+        std::process::exit(1);
+    }
+
+    Ok(())
+}
+
+// ============================================================================
+// Semantic Eval (V8-5)
+// ============================================================================
+
+async fn run_semantic_eval(
+    intake_path: &PathBuf,
+    output_dir: &PathBuf,
+    candidate_id: &str,
+    _suite_id: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use sr_adapters::semantic_suite::IntakeAdmissibilityRunner;
+    use sr_domain::Intake;
+
+    info!(
+        "Running semantic evaluation on {}",
+        intake_path.display()
+    );
+
+    // Read and parse intake file
+    let intake_content = std::fs::read_to_string(intake_path).map_err(|e| {
+        format!(
+            "Failed to read intake file {}: {}",
+            intake_path.display(),
+            e
+        )
+    })?;
+
+    let intake: Intake = serde_yaml::from_str(&intake_content).map_err(|e| {
+        format!(
+            "Failed to parse intake YAML {}: {}",
+            intake_path.display(),
+            e
+        )
+    })?;
+
+    info!("Intake parsed successfully: {}", intake.title);
+
+    // Create runner and evaluate
+    let runner = IntakeAdmissibilityRunner::new();
+    let eval_result = runner.evaluate_intake(candidate_id, &intake);
+
+    info!(
+        "Evaluation complete. Decision: {:?}",
+        eval_result.decision.status
+    );
+
+    // Generate reports
+    let reports = runner.generate_reports(&eval_result);
+
+    // Create output directory
+    std::fs::create_dir_all(output_dir).map_err(|e| {
+        format!(
+            "Failed to create output directory {}: {}",
+            output_dir.display(),
+            e
+        )
+    })?;
+
+    // Write eval.json (sr.semantic_eval.v1)
+    let eval_path = output_dir.join("eval.json");
+    let eval_json = serde_json::to_string_pretty(&eval_result)?;
+    std::fs::write(&eval_path, &eval_json)?;
+    info!("Wrote {}", eval_path.display());
+
+    // Write residual.json
+    let residual_path = output_dir.join("residual.json");
+    let residual_json = serde_json::to_string_pretty(&reports.residual)?;
+    std::fs::write(&residual_path, &residual_json)?;
+    info!("Wrote {}", residual_path.display());
+
+    // Write coverage.json
+    let coverage_path = output_dir.join("coverage.json");
+    let coverage_json = serde_json::to_string_pretty(&reports.coverage)?;
+    std::fs::write(&coverage_path, &coverage_json)?;
+    info!("Wrote {}", coverage_path.display());
+
+    // Write violations.json
+    let violations_path = output_dir.join("violations.json");
+    let violations_json = serde_json::to_string_pretty(&reports.violations)?;
+    std::fs::write(&violations_path, &violations_json)?;
+    info!("Wrote {}", violations_path.display());
+
+    // Print summary
+    println!(
+        "\nSemantic Evaluation Result: {:?}",
+        eval_result.decision.status
+    );
+    println!("  Residual norm: {:.4}", eval_result.metrics.residual.composite_norm);
+    println!("  Coverage: {:.2}%", eval_result.metrics.coverage.composite * 100.0);
+    println!(
+        "  Violations: {} errors, {} warnings",
+        reports.violations.summary.error_count,
+        reports.violations.summary.warning_count
+    );
+    println!("\nReports written to: {}", output_dir.display());
+
+    // Exit with non-zero if evaluation failed
+    if !eval_result.passed() {
         std::process::exit(1);
     }
 

@@ -1699,4 +1699,206 @@ mod tests {
             panic!("Expected OracleGap condition");
         }
     }
+
+    // ========================================================================
+    // V8-5 Semantic Oracle Suite Tests
+    // ========================================================================
+
+    #[test]
+    fn test_semantic_suite_v1_definition_parsing() {
+        // Load the suite.json from the oracle-suites/semantic-v1 directory
+        let suite_json = include_str!("../../../oracle-suites/semantic-v1/suite.json");
+
+        // Parse the suite definition
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("semantic suite.json should be valid");
+
+        // Verify suite identity
+        assert_eq!(suite.suite_id, "suite:sr-semantic-v1");
+        assert_eq!(
+            suite.oci_image,
+            "ghcr.io/solver-ralph/oracle-suite-semantic:v1"
+        );
+
+        // Verify environment constraints (same as core suite per C-OR-3)
+        assert_eq!(suite.environment_constraints.runtime, "runsc");
+        assert_eq!(suite.environment_constraints.network, NetworkMode::Disabled);
+        assert!(suite.environment_constraints.workspace_readonly);
+        assert_eq!(suite.environment_constraints.cpu_arch, "amd64");
+        assert_eq!(suite.environment_constraints.os, "linux");
+
+        // Verify 1 oracle is defined (semantic-eval)
+        assert_eq!(suite.oracles.len(), 1);
+    }
+
+    #[test]
+    fn test_semantic_suite_v1_semantic_set_binding() {
+        let suite_json = include_str!("../../../oracle-suites/semantic-v1/suite.json");
+        let suite: serde_json::Value =
+            serde_json::from_str(suite_json).expect("semantic suite.json should be valid");
+
+        // Verify semantic_set_binding is present (per SR-SEMANTIC-ORACLE-SPEC §2)
+        let binding = suite
+            .get("semantic_set_binding")
+            .expect("semantic_set_binding should be present");
+
+        let semantic_set_id = binding
+            .get("semantic_set_id")
+            .and_then(|v| v.as_str())
+            .expect("semantic_set_id should be present");
+        assert_eq!(semantic_set_id, "semantic_set:INTAKE-ADMISSIBILITY");
+
+        let semantic_set_hash = binding
+            .get("semantic_set_hash")
+            .and_then(|v| v.as_str())
+            .expect("semantic_set_hash should be present");
+        assert!(
+            semantic_set_hash.starts_with("sha256:"),
+            "semantic_set_hash should be sha256 prefixed"
+        );
+    }
+
+    #[test]
+    fn test_semantic_suite_v1_oracle_definition() {
+        let suite_json = include_str!("../../../oracle-suites/semantic-v1/suite.json");
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("semantic suite.json should be valid");
+
+        // Verify semantic-eval oracle
+        let eval_oracle = suite
+            .oracles
+            .iter()
+            .find(|o| o.oracle_id == "oracle:semantic-eval")
+            .expect("oracle:semantic-eval should exist");
+
+        assert_eq!(eval_oracle.oracle_name, "Semantic Evaluation");
+        assert_eq!(eval_oracle.command, "/oracles/semantic-eval.sh");
+        assert_eq!(eval_oracle.timeout_seconds, 300);
+        assert_eq!(eval_oracle.classification, OracleClassification::Required);
+
+        // Verify 4 expected outputs (per SR-SEMANTIC-ORACLE-SPEC §3)
+        assert_eq!(eval_oracle.expected_outputs.len(), 4);
+
+        let output_paths: Vec<&str> = eval_oracle
+            .expected_outputs
+            .iter()
+            .map(|o| o.path.as_str())
+            .collect();
+        assert!(output_paths.contains(&"reports/semantic/eval.json"));
+        assert!(output_paths.contains(&"reports/semantic/residual.json"));
+        assert!(output_paths.contains(&"reports/semantic/coverage.json"));
+        assert!(output_paths.contains(&"reports/semantic/violations.json"));
+
+        // All outputs should be required
+        assert!(
+            eval_oracle.expected_outputs.iter().all(|o| o.required),
+            "All semantic oracle outputs should be required"
+        );
+    }
+
+    #[test]
+    fn test_semantic_suite_v1_metadata() {
+        let suite_json = include_str!("../../../oracle-suites/semantic-v1/suite.json");
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("semantic suite.json should be valid");
+
+        // Verify metadata
+        assert!(suite.metadata.contains_key("maintainer"));
+        assert!(suite.metadata.contains_key("contract_refs"));
+        assert!(suite.metadata.contains_key("spec_refs"));
+
+        // Verify spec_refs includes SR-SEMANTIC-ORACLE-SPEC
+        let spec_refs = suite
+            .metadata
+            .get("spec_refs")
+            .and_then(|v| v.as_array())
+            .expect("spec_refs should be an array");
+        assert!(spec_refs.iter().any(|v| v == "SR-SEMANTIC-ORACLE-SPEC"));
+    }
+
+    #[test]
+    fn test_semantic_suite_v1_gap_detection_present() {
+        let suite_json = include_str!("../../../oracle-suites/semantic-v1/suite.json");
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("semantic suite.json should be valid");
+
+        // Create result for semantic-eval oracle
+        let results = vec![OracleResult {
+            oracle_id: "oracle:semantic-eval".to_string(),
+            oracle_name: "Semantic Evaluation".to_string(),
+            status: OracleResultStatus::Pass,
+            duration_ms: 500,
+            error_message: None,
+            artifact_refs: vec![],
+            output: None,
+        }];
+
+        // Should not detect a gap because required oracle has result
+        let result = check_for_gaps(&suite, &results);
+        assert!(result.is_ok(), "Semantic oracle present - no gap");
+    }
+
+    #[test]
+    fn test_semantic_suite_v1_gap_detection_missing() {
+        let suite_json = include_str!("../../../oracle-suites/semantic-v1/suite.json");
+        let suite: OracleSuiteDefinition =
+            serde_json::from_str(suite_json).expect("semantic suite.json should be valid");
+
+        // No results - semantic-eval is missing
+        let results: Vec<OracleResult> = vec![];
+
+        // Should detect a gap for oracle:semantic-eval
+        let result = check_for_gaps(&suite, &results);
+        assert!(
+            result.is_err(),
+            "Missing oracle:semantic-eval should trigger gap"
+        );
+
+        if let Err(IntegrityCondition::OracleGap {
+            missing_oracles,
+            suite_id,
+        }) = result
+        {
+            assert_eq!(suite_id, "suite:sr-semantic-v1");
+            assert!(missing_oracles.contains(&"oracle:semantic-eval".to_string()));
+        } else {
+            panic!("Expected OracleGap condition");
+        }
+    }
+
+    #[test]
+    fn test_semantic_set_definition_valid_json() {
+        // Load and parse the bundled semantic set definition
+        let semantic_set_json =
+            include_str!("../../../oracle-suites/semantic-v1/semantic-sets/intake-admissibility.json");
+
+        let semantic_set: serde_json::Value =
+            serde_json::from_str(semantic_set_json).expect("semantic set should be valid JSON");
+
+        // Verify required fields
+        assert_eq!(
+            semantic_set.get("semantic_set_id").and_then(|v| v.as_str()),
+            Some("semantic_set:INTAKE-ADMISSIBILITY")
+        );
+        assert_eq!(
+            semantic_set.get("schema_version").and_then(|v| v.as_str()),
+            Some("v1")
+        );
+
+        // Verify 6 axes (per intake admissibility spec)
+        let axes = semantic_set
+            .get("axes")
+            .and_then(|v| v.as_array())
+            .expect("axes should be an array");
+        assert_eq!(axes.len(), 6);
+
+        // Verify decision_rule exists
+        let decision_rule = semantic_set
+            .get("decision_rule")
+            .expect("decision_rule should exist");
+        assert_eq!(
+            decision_rule.get("rule_id").and_then(|v| v.as_str()),
+            Some("intake_admissibility_v1")
+        );
+    }
 }
