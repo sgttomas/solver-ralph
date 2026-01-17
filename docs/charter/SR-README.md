@@ -65,7 +65,7 @@ Canonical index for the SR-* document set.
 ## Current Status
 
 **V10:** ✅ COMPLETE (2026-01-17)
-**V11:** Planning phase
+**V11:** ✅ Reviews complete — ready for implementation
 **Branch:** `solver-ralph-11`
 
 All V10 phases verified and complete:
@@ -73,55 +73,95 @@ All V10 phases verified and complete:
 - V10-5: Loop PATCH endpoint with budget monotonicity
 - V10-6: OracleSuite hash prefix fix
 
-See `docs/planning/SR-PLAN-LOOPS.md` for detailed verification results.
+V11 Coherence Review (2026-01-17):
+- SR-PLAN-V11 reviewed against codebase — APPROVED
+- Revisions incorporated: V10-G5 addressed, existing infrastructure acknowledged, effort estimates reduced
+- See `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` for detailed findings
+
+V11 Consistency Review (2026-01-17):
+- SR-PLAN-V11 reviewed for consistency with canonical SR-* documents — REVISED
+- Corrected V11-6 schemas to align with SR-SPEC §1.5.2 and §1.5.3
+- Fixed: `rel: "governed_by"` → `rel: "depends_on"`, added required `id` field
+- Fixed: `kind: "Exception"` → `kind: "Waiver|Deviation|Deferral"`, moved `exception_id` to `id` field
+- See `docs/planning/SR-PLAN-V11-CONSISTENCY-REVIEW.md` for detailed findings
+
+See `docs/planning/SR-PLAN-LOOPS.md` for V10 verification results.
 See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC updates).
+
+---
+
+## Previous Session Summary (2026-01-17)
+
+### Completed: SR-PLAN-V11 Consistency Review (across three dimensions)
+
+**Objective:** Analyze SR-PLAN-V11 for consistency with canonical SR-* documents across ontology, epistemology, and semantics.
+
+**High-Severity Findings (corrected):**
+1. **O-2:** `rel: "governed_by"` explicitly deprecated per SR-SPEC §1.5.3 — changed to `rel: "depends_on"`
+2. **S-1:** GovernedArtifact ref missing required `id` field per SR-SPEC §1.5.2 — added `id: "<doc_id>"`
+3. **S-2:** Exception ref schema mismatch — changed `kind: "Exception"` to `kind: "Waiver|Deviation|Deferral"`, moved `exception_id` to `id` field
+
+**Deliverables Produced:**
+- `docs/planning/SR-PLAN-V11-CONSISTENCY-REVIEW.md` — Detailed consistency report with 15 findings
+- `docs/planning/SR-PLAN-V11.md` — Corrected V11-6 schemas to align with SR-SPEC
+
+**Verdict:** REVISED — Plan corrected and now consistent with canonical SR-* documents.
+
+### Earlier: SR-PLAN-V11 Codebase Coherence Review
+
+**Key Findings:**
+1. **V11-1 (Infisical):** Implementation more complete than stated (431 lines with full `SecretProvider` trait)
+2. **V11-2 (Build Scripts):** Infrastructure already exists (`deploy/init.sh` 21KB, `docker-compose.yml` 6.5KB)
+3. **V11-3 (Observability):** Foundation exists (`/health`, `/metrics` endpoints); needs `/ready` and domain metrics
+4. **V11-4 (E2E Harness):** 45K+ lines of failure mode code already implemented
+5. **V11-5 (Integration Suite):** `IntegrationRunner` exists (38KB); needs suite registration only
+6. **V11-6 (GovernedArtifact Refs):** Content hashing approach was undefined — now specified
+
+**Effort Reduction:** Total estimated effort reduced from 8-12 sessions to 6.5-9.5 sessions due to existing infrastructure.
 
 ---
 
 ## Next Instance Prompt
 
-> **Assignment:** Review SR-PLAN-V11 for coherence with the codebase. Do NOT begin implementation until this review is complete.
+> **Assignment:** Implement SR-PLAN-V11. Both codebase coherence and canonical consistency reviews are complete.
 
 ### Context
 
-SR-PLAN-V11 has been drafted but requires validation before implementation begins. Your task is to evaluate whether the plan is coherent with the actual codebase state.
+SR-PLAN-V11 has passed both gates:
+1. **Codebase Coherence Review** — files exist, dependencies correct, phase ordering valid
+2. **Consistency Review** — terminology, schemas, and structures align with canonical SR-* documents
+
+The plan is ready for implementation. See `docs/planning/SR-PLAN-V11.md` for the full plan with corrected schemas.
 
 ### Orientation
 
-1. Read `docs/planning/SR-PLAN-V11.md` — The plan to be reviewed
-2. Read `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V11 scope source
-3. Explore relevant codebase directories referenced in the plan
+1. Read `docs/planning/SR-PLAN-V11.md` — the implementation plan
+2. Review the reviews if needed:
+   - `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` — what infrastructure already exists
+   - `docs/planning/SR-PLAN-V11-CONSISTENCY-REVIEW.md` — schema corrections applied
+3. Navigate the canonical SR-* documents as needed (see canonical index above)
 
-### Task: Review SR-PLAN-V11 for Coherence
+### Task: V11 Implementation
 
-Evaluate the plan against the actual codebase and report:
+Implement the V11 phases as specified in SR-PLAN-V11. The phases can be executed according to the dependency graph in §3 of the plan:
 
-1. **File/Module Accuracy** — Do the files and modules referenced in the plan actually exist? Are the descriptions accurate?
-2. **Dependency Feasibility** — Are the stated dependencies correct? Are there hidden dependencies not mentioned?
-3. **Phase Ordering** — Is the proposed phase order logical given the codebase structure?
-4. **Gap Coverage** — Does the plan adequately address all deferred V10 items and proposed V11 deliverables?
-5. **Risk Assessment** — Are there any risks or blockers not identified in the plan?
+- **V11-1, V11-2, V11-3** can run in parallel (no dependencies)
+- **V11-4** can start once V11-2 verifies docker-compose
+- **V11-5, V11-6** can run in parallel after V11-4
 
-### Deliverable
+Much of the infrastructure already exists (see coherence review). Focus on:
+- Verification and documentation of existing code
+- Filling gaps identified in the coherence review
+- Implementing the corrected V11-6 schemas per the consistency review
 
-Provide a coherence report with:
-- **Findings** — Issues discovered, if any
-- **Recommendations** — Suggested changes to the plan
-- **Verdict** — APPROVE (proceed to implementation) or REVISE (update plan first)
+### Verification
+
+Per SR-PLAN-V11 §4, each phase has specific verification criteria. Run verification after completing each phase before proceeding.
 
 ### Constraints
 
-- **Review only** — Do not implement until review is complete and approved
-- V10 is complete — do not modify V10 code
-- Be thorough — explore the codebase to validate plan assumptions
-- Focus on feasibility, not stylistic preferences
-
-### Key Codebase Areas to Validate
-
-- `crates/sr-e2e-harness/` — E2E testing infrastructure
-- `crates/sr-oracles/` — Oracle implementations
-- `crates/sr-adapters/src/` — Infisical, observability, integrity modules
-- `scripts/` — Build and init scripts
-- `docs/platform/` — Canonical SR-* documents
+- Commit after completing each phase
+- Update SR-README with progress after each phase
+- Consult SR-* documents when implementation decisions arise
 
 ---
