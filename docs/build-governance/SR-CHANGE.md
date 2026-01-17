@@ -67,6 +67,29 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
 - **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
 
+### 1.1  (2026-01-17)
+
+- **Loop Governor Stop Triggers (V10-1 through V10-4):** Implemented SR-SPEC §3.4 stop trigger evaluation:
+  - `StopTriggered` event emission for `BUDGET_EXHAUSTED` and `REPEATED_FAILURE`
+  - Decision-required resume: `resume_loop()` validates `decision_id` when `requires_decision=true`
+  - Loop state transitions to `PAUSED` with `last_stop_trigger` tracking
+  - `consecutive_failures` counter in projection (resets on SUCCESS, increments on FAILURE)
+- **Migration 009:** Added `proj.loops` columns:
+  - `consecutive_failures` (INTEGER DEFAULT 0)
+  - `last_stop_trigger` (TEXT)
+  - `paused_at` (TIMESTAMPTZ)
+  - `requires_decision` (BOOLEAN DEFAULT false)
+  - Added index `idx_candidates_produced_by_iteration` on `proj.candidates`
+- **Iteration Context (V10-4):** Loop ref added to `IterationStarted.refs[]` with `rel="in_scope_of"`
+- **Verification:** Tests 9, 12-15 from SR-PLAN-LOOPS re-run and verified passing
+- **Files modified:**
+  - `crates/sr-adapters/src/projections.rs` — StopTriggered projection, consecutive_failures tracking
+  - `crates/sr-api/src/handlers/loops.rs` — Decision validation in resume_loop()
+  - `crates/sr-api/src/handlers/work_surfaces.rs` — Budget enforcement, stop trigger emission, Loop ref in refs[]
+  - `migrations/009_loop_stop_triggers.sql` — Schema additions
+- **Rationale:** Implements SR-PLAN-V10 Phases V10-1 through V10-4. Completes D-22 (Loop Governor) stop trigger enforcement per SR-SPEC §3.4 and C-LOOP-1/C-LOOP-3.
+- **Classification:** G:MINOR (additive; backward-compatible; new projection columns default to safe values; existing loops continue to function).
+
 ### 1.0  (2026-01-16)
 
 - **SR-REPLAY-PROOF:** Created new canonical artifact `docs/platform/SR-REPLAY-PROOF.md`:
