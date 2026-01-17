@@ -110,22 +110,33 @@ V9-1 wired the semantic worker to real oracle execution. Key implementation deta
 
 ## V9-2 Session Summary (2026-01-16)
 
-V9-2 implemented Branch 0 E2E integration tests. Key implementation details:
+V9-2 implemented Branch 0 E2E integration tests proving the complete 5-stage workflow.
 
 **Files Created:**
-- `sr-api/tests/integration/branch_0_e2e_test.rs` — Complete E2E test suite with 4 tests
+- `sr-api/tests/integration/branch_0_e2e_test.rs` — Complete E2E test suite (~800 lines, 4 tests)
 
 **Test Cases:**
-- `test_branch_0_complete_flow` — Full 5-stage workflow: FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL with portal approvals and freeze baseline
-- `test_branch_0_portal_approvals_required` — Verifies 412 rejection and approval recording at trust boundaries
-- `test_branch_0_evidence_capture` — Polls for evidence bundles when semantic worker is running
-- `test_branch_0_freeze_baseline` — Creates and verifies freeze record
+| Test | Purpose |
+|------|---------|
+| `test_branch_0_complete_flow` | Full 5-stage workflow with portal approvals and freeze baseline |
+| `test_branch_0_portal_approvals_required` | Verifies 412 rejection and approval recording at trust boundaries |
+| `test_branch_0_evidence_capture` | Polls for evidence bundles when semantic worker is running |
+| `test_branch_0_freeze_baseline` | Creates and verifies freeze record |
 
-**Key Features:**
+**Key Implementation Details:**
 - Follows existing TestClient pattern from `semantic_ralph_loop_e2e.rs`
 - Helper functions: `create_work_surface_generic()`, `create_and_activate_loop()`, `complete_stage()`, `record_approval()`, `poll_for_evidence()`
-- Tests GENERIC-KNOWLEDGE-WORK template (5 stages with portal approvals at SEMANTIC_EVAL and FINAL)
+- Tests GENERIC-KNOWLEDGE-WORK template (5 stages: FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL)
+- Portal approvals enforced at SEMANTIC_EVAL and FINAL (per SR-CONTRACT C-TB-3)
 - Graceful skip when semantic worker not running (evidence capture test)
+
+**Amendments (see SR-PLAN-V9):**
+- Fixtures skipped — followed existing programmatic data creation pattern
+- Template clarification — documented pre-existing inconsistency in `semantic_ralph_loop_e2e.rs`
+
+**Commits:**
+- `4fd69cb feat(V9-2): Add Branch 0 E2E integration test`
+- `84192b1 docs: Add V9-2 amendments to SR-PLAN-V9`
 
 ---
 
