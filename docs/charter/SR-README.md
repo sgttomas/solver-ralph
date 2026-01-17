@@ -65,6 +65,7 @@ Canonical index for the SR-* document set.
 ## Current Status
 
 **V10:** ✅ COMPLETE (2026-01-17)
+**V11:** Planning phase
 **Branch:** `solver-ralph-10`
 
 All V10 phases verified and complete:
@@ -73,7 +74,7 @@ All V10 phases verified and complete:
 - V10-6: OracleSuite hash prefix fix
 
 See `docs/planning/SR-PLAN-LOOPS.md` for detailed verification results.
-See `docs/build-governance/SR-CHANGE.md` v1.2 for implementation summary.
+See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC updates).
 
 ---
 
@@ -81,48 +82,80 @@ See `docs/build-governance/SR-CHANGE.md` v1.2 for implementation summary.
 
 **Completed:**
 1. Implemented V10-5: Loop PATCH endpoint with budget monotonicity
-   - Added `PatchLoopRequest`, `LoopBudgetsPatch` types
-   - Added `patch_loop` handler with validation
-   - Added `LoopUpdated` event and projection handler
+   - Added `PatchLoopRequest`, `LoopBudgetsPatch` types in `loops.rs`
+   - Added `patch_loop` handler with budget monotonicity validation
+   - Added `PATCH /api/v1/loops/:loop_id` route
+   - Added `LoopUpdated` event and `apply_loop_updated` projection handler
    - Test 8 now passing ✅
+
 2. Implemented V10-6: OracleSuite hash prefix fix
-   - Fixed doubled `sha256:sha256:` prefix in `work_surfaces.rs`
-   - Fixed test fixtures in `work_surface.rs`
+   - Fixed doubled `sha256:sha256:` prefix in `work_surfaces.rs:1349`
+   - Fixed 12 test fixtures in `work_surface.rs`
    - Test 10 now passing ✅
-3. Updated documentation:
-   - SR-PLAN-LOOPS: All V10 tests verified
+
+3. Updated planning documentation:
+   - SR-PLAN-LOOPS: All V10 tests verified (17 PASS, 2 DEFERRED)
    - SR-PLAN-GAP-ANALYSIS: V10 marked complete
    - SR-CHANGE: Added v1.2 entry
+
+4. Updated canonical SR-SPEC:
+   - §2.3.1: Added `PATCH /loops/{loop_id}` endpoint with budget monotonicity constraint
+   - Appendix A: Added `LoopUpdated` to canonical event registry with payload schema
+   - SR-CHANGE: Added v1.3 entry
+
+**Commits:**
+- `8768706 feat(V10): Complete V10-5 and V10-6 - Loop PATCH endpoint and hash prefix fix`
+- `55caa16 docs(SR-SPEC): Add LoopUpdated event and PATCH endpoint to canonical spec`
 
 ---
 
 ## Next Instance Prompt
 
-> **Assignment:** Proceed to V11 scoping and implementation.
+> **Assignment:** Plan V11 scope. Do NOT begin implementation until the plan is reviewed.
 
 ### Orientation
 
-1. `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V11 proposed scope
-2. V11 focuses on Production Hardening & E2E Testing
+1. Read `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V11 proposed scope
+2. Read `docs/planning/SR-PLAN-LOOPS.md` — Deferred items (Tests 17-18)
+3. V11 focuses on **Production Hardening & E2E Testing**
 
-### V11 Proposed Scope
+### Task: Author SR-PLAN-V11
 
-Per SR-PLAN-GAP-ANALYSIS, V11 targets:
-- D-16: Restricted evidence handling (Infisical envelope keys)
-- D-26: Integration/E2E oracle suite
-- D-32: Build/init scripts completion
-- D-33: Operational observability
-- D-35: E2E failure mode harness
-- D-08: GovernedArtifact refs in iteration context
+Create `docs/planning/SR-PLAN-V11.md` with:
+
+1. **Scope Definition** — Which deliverables and gaps to address
+2. **Phase Breakdown** — Ordered phases (V11-1, V11-2, etc.)
+3. **Verification Plan** — How each phase will be tested
+4. **Dependencies** — What infrastructure/tooling is needed
+
+### V11 Proposed Scope (from SR-PLAN-GAP-ANALYSIS)
+
+| Deliverable | Description | Priority |
+|-------------|-------------|----------|
+| D-16 | Restricted evidence handling (Infisical envelope keys) | High |
+| D-26 | Integration/E2E oracle suite | High |
+| D-32 | Build/init scripts completion | Medium |
+| D-33 | Operational observability | Medium |
+| D-35 | E2E failure mode harness | High |
+| D-08 | GovernedArtifact refs in iteration context | Low |
 
 ### Deferred from V10
 
 - V10-G5: Active exceptions not included in IterationStarted.refs[]
+- Tests 17-18: Integrity condition E2E testing (ORACLE_GAP, EVIDENCE_MISSING)
 
 ### Constraints
 
-- V10 is complete — do not re-implement
-- Start by reading SR-PLAN-GAP-ANALYSIS §4 for V11 scope details
-- Author SR-PLAN-V11 if not yet created
+- **Planning only** — Do not implement until plan is approved
+- V10 is complete — do not re-implement or modify V10 code
+- Consider what E2E infrastructure exists vs needs to be built
+- Identify any blocking dependencies between phases
+
+### Suggested Approach
+
+1. Read SR-PLAN-GAP-ANALYSIS §4 (V11 Proposed section)
+2. Inventory existing E2E infrastructure in `crates/sr-e2e-harness/` and `crates/sr-oracles/`
+3. Draft SR-PLAN-V11.md with phased approach
+4. Present plan for review before implementation
 
 ---
