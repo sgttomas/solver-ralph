@@ -299,6 +299,58 @@ pub async fn start_iteration(
         None
     };
 
+    // V11-6: Add GovernedArtifact refs from manifest
+    // Per SR-PLAN-V11-CONSISTENCY-REVIEW corrected schema:
+    // - kind: "GovernedArtifact"
+    // - id: doc_id (e.g., "SR-DIRECTIVE")
+    // - rel: "depends_on" (NOT "governed_by")
+    // - meta: { content_hash, version, type_key }
+    let governed_refs = state.governed_manifest.to_typed_refs();
+    refs.extend(governed_refs);
+
+    info!(
+        governed_artifact_count = state.governed_manifest.artifacts.len(),
+        "GovernedArtifact refs included in iteration context"
+    );
+
+    // V11-6: Add active Exception refs
+    // Per SR-PLAN-V11-CONSISTENCY-REVIEW corrected schema:
+    // - kind: "Waiver" | "Deviation" | "Deferral" (NOT generic "Exception")
+    // - id: exception_id
+    // - rel: "depends_on" (NOT "waived_by")
+    // - meta: { scope, expires_at }
+    let active_exceptions = state
+        .projections
+        .get_active_exceptions_for_loop(&body.loop_id, now)
+        .await
+        .unwrap_or_default();
+
+    for exc in &active_exceptions {
+        // Determine scope string for metadata
+        let scope_str = exc
+            .scope
+            .get("loop_id")
+            .map(|_| "per-loop")
+            .unwrap_or("global");
+
+        refs.push(TypedRef {
+            kind: exc.kind.clone(), // "WAIVER", "DEVIATION", or "DEFERRAL"
+            id: exc.exception_id.clone(),
+            rel: "depends_on".to_string(),
+            meta: serde_json::json!({
+                "scope": scope_str,
+                "expires_at": exc.expires_at.map(|t| t.to_rfc3339()),
+            }),
+        });
+    }
+
+    if !active_exceptions.is_empty() {
+        info!(
+            exception_count = active_exceptions.len(),
+            "Active exception refs included in iteration context"
+        );
+    }
+
     // Build payload
     let mut payload = serde_json::json!({
         "loop_id": body.loop_id,

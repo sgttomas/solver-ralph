@@ -25,7 +25,8 @@ pub mod transcript;
 
 pub use client::E2EClient;
 pub use failure_modes::{
-    run_exception_waiver, run_integrity_tamper, run_oracle_failure, FailureMode, FailureModeConfig,
+    run_evidence_missing, run_exception_waiver, run_integrity_tamper, run_oracle_failure,
+    FailureMode, FailureModeConfig,
 };
 pub use harness::{run_happy_path, HarnessConfig, HarnessError, HarnessResult};
 pub use replay::{

@@ -88,9 +88,10 @@ fn generate_request_id() -> String {
     format!("req_{:x}{:08x}", timestamp, random)
 }
 
-/// Metrics collection for API observability
+/// Metrics collection for API observability (D-33, V11-3)
 #[derive(Debug, Default)]
 pub struct Metrics {
+    // HTTP metrics
     /// Total requests received
     pub requests_total: AtomicU64,
     /// Total requests completed successfully (2xx)
@@ -101,6 +102,28 @@ pub struct Metrics {
     pub requests_server_error: AtomicU64,
     /// Total request latency in microseconds (for averaging)
     pub request_latency_us_total: AtomicU64,
+
+    // Domain metrics (V11-3)
+    /// Total loops created
+    pub loops_created: AtomicU64,
+    /// Total iterations started
+    pub iterations_started: AtomicU64,
+    /// Total iterations completed
+    pub iterations_completed: AtomicU64,
+    /// Total candidates registered
+    pub candidates_registered: AtomicU64,
+    /// Total oracle runs
+    pub oracle_runs_total: AtomicU64,
+    /// Total oracle runs passed
+    pub oracle_runs_passed: AtomicU64,
+    /// Total oracle runs failed
+    pub oracle_runs_failed: AtomicU64,
+    /// Total oracle run latency in microseconds
+    pub oracle_run_latency_us_total: AtomicU64,
+    /// Total event append latency in microseconds
+    pub event_append_latency_us_total: AtomicU64,
+    /// Total events appended
+    pub events_appended: AtomicU64,
 }
 
 impl Metrics {
@@ -124,6 +147,47 @@ impl Metrics {
         }
     }
 
+    // Domain metric recording methods (V11-3)
+
+    /// Record a loop creation
+    pub fn record_loop_created(&self) {
+        self.loops_created.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Record an iteration start
+    pub fn record_iteration_started(&self) {
+        self.iterations_started.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Record an iteration completion
+    pub fn record_iteration_completed(&self) {
+        self.iterations_completed.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Record a candidate registration
+    pub fn record_candidate_registered(&self) {
+        self.candidates_registered.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Record an oracle run completion
+    pub fn record_oracle_run(&self, passed: bool, latency_us: u64) {
+        self.oracle_runs_total.fetch_add(1, Ordering::Relaxed);
+        self.oracle_run_latency_us_total
+            .fetch_add(latency_us, Ordering::Relaxed);
+        if passed {
+            self.oracle_runs_passed.fetch_add(1, Ordering::Relaxed);
+        } else {
+            self.oracle_runs_failed.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    /// Record an event append
+    pub fn record_event_append(&self, latency_us: u64) {
+        self.events_appended.fetch_add(1, Ordering::Relaxed);
+        self.event_append_latency_us_total
+            .fetch_add(latency_us, Ordering::Relaxed);
+    }
+
     /// Get snapshot of current metrics
     pub fn snapshot(&self) -> MetricsSnapshot {
         let total = self.requests_total.load(Ordering::Relaxed);
@@ -141,9 +205,38 @@ impl Metrics {
             },
         }
     }
+
+    /// Get snapshot of domain metrics (V11-3)
+    pub fn domain_snapshot(&self) -> DomainMetricsSnapshot {
+        let oracle_total = self.oracle_runs_total.load(Ordering::Relaxed);
+        let oracle_latency_total = self.oracle_run_latency_us_total.load(Ordering::Relaxed);
+        let events_total = self.events_appended.load(Ordering::Relaxed);
+        let event_latency_total = self.event_append_latency_us_total.load(Ordering::Relaxed);
+
+        DomainMetricsSnapshot {
+            loops_created: self.loops_created.load(Ordering::Relaxed),
+            iterations_started: self.iterations_started.load(Ordering::Relaxed),
+            iterations_completed: self.iterations_completed.load(Ordering::Relaxed),
+            candidates_registered: self.candidates_registered.load(Ordering::Relaxed),
+            oracle_runs_total: oracle_total,
+            oracle_runs_passed: self.oracle_runs_passed.load(Ordering::Relaxed),
+            oracle_runs_failed: self.oracle_runs_failed.load(Ordering::Relaxed),
+            oracle_avg_latency_ms: if oracle_total > 0 {
+                (oracle_latency_total / oracle_total) as f64 / 1000.0
+            } else {
+                0.0
+            },
+            events_appended: events_total,
+            event_append_avg_latency_ms: if events_total > 0 {
+                (event_latency_total / events_total) as f64 / 1000.0
+            } else {
+                0.0
+            },
+        }
+    }
 }
 
-/// Snapshot of metrics for JSON response
+/// Snapshot of HTTP metrics for JSON response
 #[derive(Debug, Serialize)]
 pub struct MetricsSnapshot {
     pub requests_total: u64,
@@ -151,6 +244,21 @@ pub struct MetricsSnapshot {
     pub requests_client_error: u64,
     pub requests_server_error: u64,
     pub avg_latency_ms: f64,
+}
+
+/// Snapshot of domain metrics for JSON response (V11-3)
+#[derive(Debug, Serialize)]
+pub struct DomainMetricsSnapshot {
+    pub loops_created: u64,
+    pub iterations_started: u64,
+    pub iterations_completed: u64,
+    pub candidates_registered: u64,
+    pub oracle_runs_total: u64,
+    pub oracle_runs_passed: u64,
+    pub oracle_runs_failed: u64,
+    pub oracle_avg_latency_ms: f64,
+    pub events_appended: u64,
+    pub event_append_avg_latency_ms: f64,
 }
 
 /// Full metrics response
@@ -161,6 +269,7 @@ pub struct MetricsResponse {
     pub uptime_seconds: u64,
     pub timestamp: String,
     pub http: MetricsSnapshot,
+    pub domain: DomainMetricsSnapshot,
 }
 
 /// Middleware to inject request context and trace spans
@@ -237,6 +346,7 @@ pub async fn metrics_handler(
         uptime_seconds: uptime,
         timestamp: Utc::now().to_rfc3339(),
         http: metrics.snapshot(),
+        domain: metrics.domain_snapshot(),
     })
 }
 
@@ -257,7 +367,172 @@ pub async fn metrics_endpoint(State(state): State<MetricsState>) -> Json<Metrics
         uptime_seconds: uptime,
         timestamp: Utc::now().to_rfc3339(),
         http: state.metrics.snapshot(),
+        domain: state.metrics.domain_snapshot(),
     })
+}
+
+// ============================================================================
+// Readiness Endpoint (V11-3)
+// ============================================================================
+
+/// Individual dependency check result
+#[derive(Debug, Serialize, Clone)]
+pub struct DependencyCheck {
+    pub name: &'static str,
+    pub status: &'static str,
+    pub latency_ms: Option<f64>,
+    pub error: Option<String>,
+}
+
+/// Readiness response
+#[derive(Debug, Serialize)]
+pub struct ReadinessResponse {
+    pub ready: bool,
+    pub timestamp: String,
+    pub checks: Vec<DependencyCheck>,
+}
+
+/// State for readiness checks (V11-3)
+#[derive(Clone)]
+pub struct ReadinessState {
+    pub db_pool: sqlx::PgPool,
+    pub minio_endpoint: String,
+    pub minio_bucket: String,
+    pub nats_url: String,
+}
+
+/// Check PostgreSQL connectivity
+async fn check_postgres(pool: &sqlx::PgPool) -> DependencyCheck {
+    let start = Instant::now();
+    match sqlx::query("SELECT 1").fetch_one(pool).await {
+        Ok(_) => DependencyCheck {
+            name: "postgresql",
+            status: "healthy",
+            latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0),
+            error: None,
+        },
+        Err(e) => DependencyCheck {
+            name: "postgresql",
+            status: "unhealthy",
+            latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0),
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+/// Check MinIO connectivity
+async fn check_minio(endpoint: &str, _bucket: &str) -> DependencyCheck {
+    let start = Instant::now();
+    let health_url = format!("{}/minio/health/live", endpoint.trim_end_matches('/'));
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build();
+
+    match client {
+        Ok(client) => match client.get(&health_url).send().await {
+            Ok(resp) if resp.status().is_success() => DependencyCheck {
+                name: "minio",
+                status: "healthy",
+                latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0),
+                error: None,
+            },
+            Ok(resp) => DependencyCheck {
+                name: "minio",
+                status: "unhealthy",
+                latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0),
+                error: Some(format!("HTTP {}", resp.status())),
+            },
+            Err(e) => DependencyCheck {
+                name: "minio",
+                status: "unhealthy",
+                latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0),
+                error: Some(e.to_string()),
+            },
+        },
+        Err(e) => DependencyCheck {
+            name: "minio",
+            status: "unhealthy",
+            latency_ms: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+/// Check NATS connectivity
+async fn check_nats(nats_url: &str) -> DependencyCheck {
+    let start = Instant::now();
+
+    // Extract host:port from nats:// URL and check HTTP monitoring endpoint
+    let monitoring_url = nats_url
+        .replace("nats://", "http://")
+        .replace(":4222", ":8222");
+    let health_url = format!("{}/healthz", monitoring_url.trim_end_matches('/'));
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build();
+
+    match client {
+        Ok(client) => match client.get(&health_url).send().await {
+            Ok(resp) if resp.status().is_success() => DependencyCheck {
+                name: "nats",
+                status: "healthy",
+                latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0),
+                error: None,
+            },
+            Ok(resp) => DependencyCheck {
+                name: "nats",
+                status: "unhealthy",
+                latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0),
+                error: Some(format!("HTTP {}", resp.status())),
+            },
+            Err(e) => DependencyCheck {
+                name: "nats",
+                status: "unhealthy",
+                latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0),
+                error: Some(e.to_string()),
+            },
+        },
+        Err(e) => DependencyCheck {
+            name: "nats",
+            status: "unhealthy",
+            latency_ms: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+/// Readiness endpoint handler (V11-3)
+///
+/// Returns 200 if all dependencies are healthy, 503 otherwise.
+/// Checks: PostgreSQL, MinIO, NATS
+pub async fn ready_endpoint(
+    State(state): State<ReadinessState>,
+) -> (StatusCode, Json<ReadinessResponse>) {
+    // Run all checks concurrently
+    let (pg_check, minio_check, nats_check) = tokio::join!(
+        check_postgres(&state.db_pool),
+        check_minio(&state.minio_endpoint, &state.minio_bucket),
+        check_nats(&state.nats_url),
+    );
+
+    let checks = vec![pg_check.clone(), minio_check.clone(), nats_check.clone()];
+    let all_healthy = checks.iter().all(|c| c.status == "healthy");
+
+    let response = ReadinessResponse {
+        ready: all_healthy,
+        timestamp: Utc::now().to_rfc3339(),
+        checks,
+    };
+
+    let status = if all_healthy {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+
+    (status, Json(response))
 }
 
 /// Extract request context from request extensions
@@ -373,5 +648,159 @@ mod tests {
 
         assert_eq!(snapshot.requests_total, 0);
         assert_eq!(snapshot.avg_latency_ms, 0.0);
+    }
+
+    // V11-3: Domain metrics tests
+
+    #[test]
+    fn test_domain_metrics_loops() {
+        let metrics = Metrics::new();
+
+        metrics.record_loop_created();
+        metrics.record_loop_created();
+        metrics.record_loop_created();
+
+        let snapshot = metrics.domain_snapshot();
+        assert_eq!(snapshot.loops_created, 3);
+    }
+
+    #[test]
+    fn test_domain_metrics_iterations() {
+        let metrics = Metrics::new();
+
+        metrics.record_iteration_started();
+        metrics.record_iteration_started();
+        metrics.record_iteration_completed();
+
+        let snapshot = metrics.domain_snapshot();
+        assert_eq!(snapshot.iterations_started, 2);
+        assert_eq!(snapshot.iterations_completed, 1);
+    }
+
+    #[test]
+    fn test_domain_metrics_candidates() {
+        let metrics = Metrics::new();
+
+        metrics.record_candidate_registered();
+        metrics.record_candidate_registered();
+
+        let snapshot = metrics.domain_snapshot();
+        assert_eq!(snapshot.candidates_registered, 2);
+    }
+
+    #[test]
+    fn test_domain_metrics_oracle_runs() {
+        let metrics = Metrics::new();
+
+        // Record 3 oracle runs: 2 passed, 1 failed
+        metrics.record_oracle_run(true, 1000);  // 1ms
+        metrics.record_oracle_run(true, 2000);  // 2ms
+        metrics.record_oracle_run(false, 3000); // 3ms
+
+        let snapshot = metrics.domain_snapshot();
+        assert_eq!(snapshot.oracle_runs_total, 3);
+        assert_eq!(snapshot.oracle_runs_passed, 2);
+        assert_eq!(snapshot.oracle_runs_failed, 1);
+        // Average: (1000 + 2000 + 3000) / 3 / 1000 = 2.0 ms
+        assert!((snapshot.oracle_avg_latency_ms - 2.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_domain_metrics_event_append() {
+        let metrics = Metrics::new();
+
+        metrics.record_event_append(500);  // 0.5ms
+        metrics.record_event_append(1500); // 1.5ms
+
+        let snapshot = metrics.domain_snapshot();
+        assert_eq!(snapshot.events_appended, 2);
+        // Average: (500 + 1500) / 2 / 1000 = 1.0 ms
+        assert!((snapshot.event_append_avg_latency_ms - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_domain_metrics_snapshot_empty() {
+        let metrics = Metrics::new();
+        let snapshot = metrics.domain_snapshot();
+
+        assert_eq!(snapshot.loops_created, 0);
+        assert_eq!(snapshot.iterations_started, 0);
+        assert_eq!(snapshot.iterations_completed, 0);
+        assert_eq!(snapshot.candidates_registered, 0);
+        assert_eq!(snapshot.oracle_runs_total, 0);
+        assert_eq!(snapshot.oracle_runs_passed, 0);
+        assert_eq!(snapshot.oracle_runs_failed, 0);
+        assert_eq!(snapshot.oracle_avg_latency_ms, 0.0);
+        assert_eq!(snapshot.events_appended, 0);
+        assert_eq!(snapshot.event_append_avg_latency_ms, 0.0);
+    }
+
+    #[test]
+    fn test_dependency_check_struct() {
+        let check = DependencyCheck {
+            name: "test-service",
+            status: "healthy",
+            latency_ms: Some(5.5),
+            error: None,
+        };
+
+        assert_eq!(check.name, "test-service");
+        assert_eq!(check.status, "healthy");
+        assert_eq!(check.latency_ms, Some(5.5));
+        assert!(check.error.is_none());
+    }
+
+    #[test]
+    fn test_readiness_response_all_healthy() {
+        let checks = vec![
+            DependencyCheck {
+                name: "postgresql",
+                status: "healthy",
+                latency_ms: Some(1.0),
+                error: None,
+            },
+            DependencyCheck {
+                name: "minio",
+                status: "healthy",
+                latency_ms: Some(2.0),
+                error: None,
+            },
+            DependencyCheck {
+                name: "nats",
+                status: "healthy",
+                latency_ms: Some(3.0),
+                error: None,
+            },
+        ];
+
+        let all_healthy = checks.iter().all(|c| c.status == "healthy");
+        assert!(all_healthy);
+    }
+
+    #[test]
+    fn test_readiness_response_one_unhealthy() {
+        let checks = vec![
+            DependencyCheck {
+                name: "postgresql",
+                status: "healthy",
+                latency_ms: Some(1.0),
+                error: None,
+            },
+            DependencyCheck {
+                name: "minio",
+                status: "unhealthy",
+                latency_ms: Some(5000.0),
+                error: Some("Connection refused".to_string()),
+            },
+            DependencyCheck {
+                name: "nats",
+                status: "healthy",
+                latency_ms: Some(3.0),
+                error: None,
+            },
+        ];
+
+        let all_healthy = checks.iter().all(|c| c.status == "healthy");
+        assert!(!all_healthy);
     }
 }

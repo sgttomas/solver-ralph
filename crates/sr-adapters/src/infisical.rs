@@ -428,3 +428,437 @@ mod tests {
         assert_eq!(config.api_endpoint, "http://localhost:8080");
     }
 }
+
+// ============================================================================
+// Integration Tests with Mock Infisical (V11-1)
+// ============================================================================
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use wiremock::matchers::{header, method, path_regex};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    /// Create a test config pointing to a mock server
+    fn test_config(mock_url: &str) -> InfisicalConfig {
+        InfisicalConfig {
+            api_endpoint: mock_url.to_string(),
+            token: "test-token".to_string(),
+            environment: "dev".to_string(),
+            workspace_id: "test-workspace".to_string(),
+            envelope_key_id: "test-kek".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_secret_success() {
+        // Start mock server
+        let mock_server = MockServer::start().await;
+
+        // Setup mock response
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/test-secret.*"))
+            .and(header("Authorization", "Bearer test-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "secret": {
+                    "id": "secret-123",
+                    "workspace": "test-workspace",
+                    "environment": "dev",
+                    "secretKey": "test-secret",
+                    "secretValue": "secret-value-123",
+                    "version": 1,
+                    "createdAt": "2026-01-17T00:00:00Z",
+                    "updatedAt": "2026-01-17T00:00:00Z"
+                }
+            })))
+            .mount(&mock_server)
+            .await;
+
+        // Create provider and get secret
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider.get_secret("test-secret").await;
+        assert!(result.is_ok());
+
+        let secret = result.unwrap();
+        assert_eq!(secret.value, b"secret-value-123");
+        assert_eq!(secret.version, 1);
+    }
+
+    #[tokio::test]
+    async fn test_get_secret_with_folder() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/my-key.*"))
+            .and(header("Authorization", "Bearer test-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "secret": {
+                    "id": "secret-456",
+                    "workspace": "test-workspace",
+                    "environment": "dev",
+                    "secretKey": "my-key",
+                    "secretValue": "nested-value",
+                    "version": 2,
+                    "createdAt": "2026-01-17T00:00:00Z",
+                    "updatedAt": "2026-01-17T00:00:00Z"
+                }
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider.get_secret("folder/subfolder/my-key").await;
+        assert!(result.is_ok());
+
+        let secret = result.unwrap();
+        assert_eq!(secret.value, b"nested-value");
+    }
+
+    #[tokio::test]
+    async fn test_get_secret_not_found() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/nonexistent.*"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider.get_secret("nonexistent").await;
+        assert!(result.is_err());
+
+        match result.unwrap_err() {
+            SecretProviderError::NotFound { path } => {
+                assert_eq!(path, "nonexistent");
+            }
+            e => panic!("Expected NotFound error, got: {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_secret_unauthorized() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/.*"))
+            .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({
+                "error": "Unauthorized"
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider.get_secret("some-secret").await;
+        assert!(result.is_err());
+
+        match result.unwrap_err() {
+            SecretProviderError::AccessDenied { reason } => {
+                assert!(reason.contains("401"));
+            }
+            e => panic!("Expected AccessDenied error, got: {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_secret_forbidden() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/.*"))
+            .respond_with(ResponseTemplate::new(403))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider.get_secret("forbidden-secret").await;
+        assert!(result.is_err());
+
+        match result.unwrap_err() {
+            SecretProviderError::AccessDenied { reason } => {
+                assert!(reason.contains("403"));
+            }
+            e => panic!("Expected AccessDenied error, got: {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_envelope_key_success() {
+        let mock_server = MockServer::start().await;
+
+        // KEK is 32 bytes for AES-256, base64 encoded with "base64:" prefix
+        let kek_bytes: [u8; 32] = [
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+            0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
+            0x1c, 0x1d, 0x1e, 0x1f,
+        ];
+        let kek_b64 = format!(
+            "base64:{}",
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &kek_bytes)
+        );
+
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/test-kek.*"))
+            .and(header("Authorization", "Bearer test-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "secret": {
+                    "id": "kek-123",
+                    "workspace": "test-workspace",
+                    "environment": "dev",
+                    "secretKey": "test-kek",
+                    "secretValue": kek_b64,
+                    "version": 1,
+                    "createdAt": "2026-01-17T00:00:00Z",
+                    "updatedAt": "2026-01-17T00:00:00Z"
+                }
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider
+            .get_envelope_key("solver-ralph/kek/test-kek")
+            .await;
+        assert!(result.is_ok());
+
+        let key = result.unwrap();
+        assert_eq!(key.key_material.len(), 32);
+        assert_eq!(key.algorithm, "AES-256-GCM");
+        assert_eq!(key.version, 1);
+    }
+
+    #[tokio::test]
+    async fn test_get_envelope_key_invalid_length() {
+        let mock_server = MockServer::start().await;
+
+        // Return a key that's not 32 bytes (only 16 bytes)
+        let short_key: [u8; 16] = [0u8; 16];
+        let short_b64 = format!(
+            "base64:{}",
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &short_key)
+        );
+
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/bad-kek.*"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "secret": {
+                    "id": "kek-bad",
+                    "workspace": "test-workspace",
+                    "environment": "dev",
+                    "secretKey": "bad-kek",
+                    "secretValue": short_b64,
+                    "version": 1,
+                    "createdAt": "2026-01-17T00:00:00Z",
+                    "updatedAt": "2026-01-17T00:00:00Z"
+                }
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider.get_envelope_key("solver-ralph/kek/bad-kek").await;
+        assert!(result.is_err());
+
+        match result.unwrap_err() {
+            SecretProviderError::EncryptionError { message } => {
+                assert!(message.contains("Invalid KEK length"));
+            }
+            e => panic!("Expected EncryptionError, got: {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_envelope_key_caching() {
+        let mock_server = MockServer::start().await;
+
+        let kek_bytes: [u8; 32] = [0x42u8; 32];
+        let kek_b64 = format!(
+            "base64:{}",
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &kek_bytes)
+        );
+
+        // This mock should only be called once due to caching
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/cached-kek.*"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "secret": {
+                    "id": "kek-cached",
+                    "workspace": "test-workspace",
+                    "environment": "dev",
+                    "secretKey": "cached-kek",
+                    "secretValue": kek_b64,
+                    "version": 5,
+                    "createdAt": "2026-01-17T00:00:00Z",
+                    "updatedAt": "2026-01-17T00:00:00Z"
+                }
+            })))
+            .expect(1) // Should only be called once
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        // First call - fetches from server
+        let key1 = provider
+            .get_envelope_key("solver-ralph/kek/cached-kek")
+            .await
+            .unwrap();
+        assert_eq!(key1.version, 5);
+
+        // Second call - should use cache
+        let key2 = provider
+            .get_envelope_key("solver-ralph/kek/cached-kek")
+            .await
+            .unwrap();
+        assert_eq!(key2.version, 5);
+
+        // Third call - should still use cache
+        let key3 = provider
+            .get_envelope_key("solver-ralph/kek/cached-kek")
+            .await
+            .unwrap();
+        assert_eq!(key3.version, 5);
+
+        // Mock expectation of 1 call will verify caching worked
+    }
+
+    #[tokio::test]
+    async fn test_secret_exists_true() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/exists-secret.*"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "secret": {
+                    "id": "secret-exists",
+                    "workspace": "test-workspace",
+                    "environment": "dev",
+                    "secretKey": "exists-secret",
+                    "secretValue": "value",
+                    "version": 1,
+                    "createdAt": "2026-01-17T00:00:00Z",
+                    "updatedAt": "2026-01-17T00:00:00Z"
+                }
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider.secret_exists("exists-secret").await;
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_secret_exists_false() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/missing-secret.*"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider.secret_exists("missing-secret").await;
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_store_secret_success() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path_regex(r"/api/v3/secrets/raw"))
+            .and(header("Authorization", "Bearer test-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "secret": {
+                    "id": "new-secret",
+                    "secretKey": "my-new-secret"
+                }
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider
+            .store_secret("my-new-secret", b"my-secret-value", SecretMetadata::default())
+            .await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "my-new-secret");
+    }
+
+    #[tokio::test]
+    async fn test_delete_secret_success() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("DELETE"))
+            .and(path_regex(r"/api/v3/secrets/raw/delete-me.*"))
+            .and(header("Authorization", "Bearer test-token"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider.delete_secret("delete-me").await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_network_timeout() {
+        let mock_server = MockServer::start().await;
+
+        // Respond with a long delay to trigger timeout
+        Mock::given(method("GET"))
+            .and(path_regex(r"/api/v3/secrets/raw/slow-secret.*"))
+            .respond_with(ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(35)))
+            .mount(&mock_server)
+            .await;
+
+        let config = test_config(&mock_server.uri());
+        let provider = InfisicalSecretProvider::new(config).unwrap();
+
+        let result = provider.get_secret("slow-secret").await;
+        assert!(result.is_err());
+
+        // The error could be a timeout or a connection error depending on timing
+        match result.unwrap_err() {
+            SecretProviderError::ConnectionError { message } => {
+                // Accept any connection-related error (timeout, request error, etc.)
+                assert!(
+                    message.contains("timeout")
+                        || message.contains("timed out")
+                        || message.contains("error sending request")
+                        || message.contains("Request failed"),
+                    "Expected connection-related error, got: {}",
+                    message
+                );
+            }
+            e => panic!("Expected ConnectionError, got: {:?}", e),
+        }
+    }
+}

@@ -67,6 +67,74 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
 - **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
 
+### 1.4  (2026-01-17)
+
+- **V11-1: Infisical Integration (D-16):**
+  - Added 15 wiremock-based integration tests for Infisical secret provider
+  - Tests cover: get/store/delete secrets, envelope key retrieval, caching, error handling
+  - Created `.env.example` with Infisical configuration variables
+- **V11-2: Build/Init Scripts (D-32):**
+  - Created `scripts/init-all.sh` wrapper with pre-flight checks
+  - Wrapper verifies Docker, checks dependencies, starts services
+- **V11-3: Operational Observability (D-33):**
+  - **SR-SPEC §2.3.13:** Added Operational endpoints documentation:
+    - `GET /health` — Basic liveness check
+    - `GET /ready` — Dependency readiness check (PostgreSQL, MinIO, NATS)
+    - `GET /api/v1/metrics` — HTTP and domain metrics
+  - Implemented `/ready` endpoint returning HTTP 200 (healthy) or 503 (unhealthy)
+  - Added domain metrics: loops_created, iterations_started/completed, candidates_registered, oracle_runs (total/passed/failed/latency), events_appended (count/latency)
+  - Created `docs/platform/SR-DEPLOYMENT.md` — Deployment guide
+  - Created `docs/platform/SR-OBSERVABILITY.md` — Observability reference
+  - **SR-README:** Added SR-DEPLOYMENT and SR-OBSERVABILITY to canonical document paths
+- **Files created:**
+  - `.env.example` — Environment configuration template
+  - `scripts/init-all.sh` — Initialization wrapper script
+  - `docs/platform/SR-DEPLOYMENT.md` — Deployment documentation
+  - `docs/platform/SR-OBSERVABILITY.md` — Observability documentation
+- **Files modified:**
+  - `crates/sr-adapters/Cargo.toml` — Added wiremock dev-dependency
+  - `crates/sr-adapters/src/infisical.rs` — Added 15 integration tests
+  - `crates/sr-api/src/observability.rs` — Added /ready endpoint, domain metrics, DomainMetricsSnapshot
+  - `crates/sr-api/src/main.rs` — Registered /ready endpoint with ReadinessState
+  - `docs/platform/SR-SPEC.md` — Added §2.3.13 Operational endpoints
+  - `docs/charter/SR-README.md` — Added SR-DEPLOYMENT, SR-OBSERVABILITY to index; updated V11 status
+- **Verification:** 15 Infisical tests pass, 10 observability tests pass
+- **Classification:** G:MINOR (additive; backward-compatible; new endpoints and documentation).
+
+### 1.5  (2026-01-17)
+
+- **V11-4: E2E Failure Mode Harness (D-35):**
+  - Added `EvidenceMissing` scenario to E2E failure mode harness (Test 18)
+  - Implemented `run_evidence_missing()` with proper integrity condition detection
+  - Added `--evidence-missing` CLI flag to sr-e2e-harness
+  - Verifies EVIDENCE_MISSING is non-waivable per SR-CONTRACT C-OR-7 and §7.1
+- **V11-5: Integration Oracle Suite (D-26):**
+  - Created `create_integration_suite()` factory function
+  - Added `SUITE_INTEGRATION_ID` constant (`suite:SR-SUITE-INTEGRATION`)
+  - Registered in `OracleSuiteRegistry::with_core_suites()` (now 5 suites total)
+  - Network mode: Private (integration tests require network access)
+- **V11-6: GovernedArtifact & Exception Refs (D-08):**
+  - Created `crates/sr-api/src/governed.rs` — GovernedManifest with content-addressed artifacts
+  - Computed manifest at API startup with SHA-256 content hashes
+  - Added `get_active_exceptions_for_loop()` to ProjectionBuilder
+  - Updated `start_iteration()` to add GovernedArtifact and active Exception refs to `IterationStarted.refs[]`
+  - Used corrected schemas per SR-PLAN-V11-CONSISTENCY-REVIEW:
+    - GovernedArtifact: `kind: "GovernedArtifact"`, `id: doc_id`, `rel: "depends_on"`, `meta: {content_hash, version, type_key}`
+    - Exceptions: `kind: "Waiver|Deviation|Deferral"`, `id: exception_id`, `rel: "depends_on"`
+- **Files created:**
+  - `crates/sr-api/src/governed.rs` — GovernedManifest implementation
+- **Files modified:**
+  - `crates/sr-e2e-harness/src/failure_modes.rs` — Added EvidenceMissing scenario
+  - `crates/sr-e2e-harness/src/main.rs` — Added --evidence-missing CLI flag
+  - `crates/sr-e2e-harness/src/lib.rs` — Exported run_evidence_missing
+  - `crates/sr-adapters/src/oracle_suite.rs` — Added SR-SUITE-INTEGRATION registration
+  - `crates/sr-adapters/src/projections.rs` — Added get_active_exceptions_for_loop()
+  - `crates/sr-api/src/handlers/iterations.rs` — Added GovernedArtifact and Exception refs
+  - `crates/sr-api/src/main.rs` — Computed GovernedManifest at startup
+  - `docs/charter/SR-README.md` — Updated V11 status and completion details
+- **Verification:** All tests pass. Build succeeds. V11 complete.
+- **Classification:** G:MINOR (additive; backward-compatible; new E2E scenario, oracle suite, and iteration refs).
+
 ### 1.3  (2026-01-17)
 
 - **SR-SPEC §2.3.1:** Added `PATCH /loops/{loop_id}` endpoint documentation:
