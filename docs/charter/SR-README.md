@@ -99,43 +99,78 @@ See `docs/build-governance/SR-CHANGE.md` v1.1 for implementation summary.
 
 ## Next Instance Prompt
 
-> **Assignment:** Complete V10-5/V10-6 or proceed to V11 scoping based on priority.
+> **Assignment:** Complete V10-5 and V10-6 to finish V10 scope, then proceed to V11.
 
 ### Orientation
 
-Read these documents:
+1. `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V10-5/V10-6 gap descriptions
+2. `docs/planning/SR-PLAN-LOOPS.md` — Test 8 (edit endpoint), Test 10 (hash prefix)
 
-1. `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V10-5/V10-6 descriptions, V11 scope preview
-2. `docs/planning/SR-PLAN-LOOPS.md` — Test 8 (edit endpoint gap), Test 10 (hash prefix gap)
+---
 
-### Decision Point
+### V10-5: Loop PATCH Endpoint
 
-V10-5 and V10-6 are **low priority** gaps that don't block core Loop Governor functionality:
-- V10-5 (PATCH endpoint): Convenience feature for budget updates without Loop recreation
-- V10-6 (hash fix): Cosmetic issue in OracleSuite content_hash display
+**Gap:** No endpoint to update Loop budgets after creation (Test 8).
 
-**Options:**
-1. **Implement V10-5/V10-6** — Complete V10 scope fully
-2. **Skip to V11** — Focus on higher-value work (E2E test automation, integrity conditions)
-
-### If implementing V10-5
+**Implementation:**
 
 ```rust
 // Add to crates/sr-api/src/handlers/loops.rs
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateLoopRequest {
+    pub budgets: Option<LoopBudgets>,  // Partial update
+}
+
 // PATCH /api/v1/loops/{loop_id}
-// - Accept partial budgets update
-// - Enforce monotonicity: new budget >= current budget
-// - Emit LoopUpdated event
+pub async fn update_loop(...) -> ApiResult<Json<LoopActionResponse>> {
+    // 1. Load current Loop from projection
+    // 2. Validate budget monotonicity:
+    //    - new.max_iterations >= current.max_iterations
+    //    - new.max_oracle_runs >= current.max_oracle_runs
+    //    - new.max_wallclock_hours >= current.max_wallclock_hours
+    // 3. Emit LoopUpdated event with new budgets
+    // 4. Return updated Loop state
+}
 ```
 
-### If implementing V10-6
+**Add route in `crates/sr-api/src/routes.rs`:**
+```rust
+.route("/loops/:loop_id", patch(handlers::loops::update_loop))
+```
 
-Search for `sha256:sha256:` prefix issue in:
-- `crates/sr-adapters/src/oracle_suite.rs`
-- Look for double-prefixing in content_hash computation
+**Add event handling in `crates/sr-adapters/src/projections.rs`:**
+```rust
+"LoopUpdated" => self.apply_loop_updated(&mut tx, event).await,
+```
+
+**Verification:** After implementation, update SR-PLAN-LOOPS Test 8 to PASS.
+
+---
+
+### V10-6: OracleSuite Hash Prefix Fix
+
+**Gap:** OracleSuite `content_hash` shows `sha256:sha256:...` (doubled prefix).
+
+**Root cause location:** `crates/sr-adapters/src/oracle_suite.rs`
+
+**Investigation:**
+1. Search for where `content_hash` is computed/assigned
+2. Look for double application of `sha256:` prefix
+3. Fix to ensure single `sha256:` prefix
+
+**Verification:** After fix, query IterationStarted event refs and confirm OracleSuite meta shows single prefix.
+
+---
 
 ### Constraints
 
-- V10-1 through V10-4 are verified complete — do not re-test
-- Migration 009 is applied — do not duplicate
-- Infrastructure is running (docker containers: sr-postgres, sr-minio, sr-nats, sr-zitadel)
+- V10-1 through V10-4 are verified complete — do not re-implement or re-test
+- Migration 009 is applied — do not duplicate schema changes
+- Commit each phase separately: V10-5 then V10-6
+- Update SR-PLAN-LOOPS and SR-PLAN-GAP-ANALYSIS after each phase
+- Add SR-CHANGE entry for V10-5/V10-6 completion
+
+### After V10 Complete
+
+Proceed to V11 scoping (see SR-PLAN-GAP-ANALYSIS §4 SR-PLAN-V11 Proposed).
