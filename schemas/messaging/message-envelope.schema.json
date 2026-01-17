@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solver-ralph.dev/schemas/messaging/message-envelope.schema.json",
+  "title": "MessageEnvelope",
+  "description": "NATS JetStream message envelope for SOLVER-Ralph orchestration messaging. This is a transport wrapper, distinct from the EventEnvelope used for persistence.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version for forward compatibility. Current version: 1.0"
+    },
+    "message_type": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Message type, matches event_type from domain (e.g., LoopCreated, IterationStarted)"
+    },
+    "message_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique message ID, typically from event_id (ULID format)"
+    },
+    "correlation_id": {
+      "type": ["string", "null"],
+      "description": "Correlation ID for distributed tracing across related operations"
+    },
+    "causation_id": {
+      "type": ["string", "null"],
+      "description": "Causation ID linking to the event that caused this message"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of message creation (UTC)"
+    },
+    "actor_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the actor who triggered this message"
+    },
+    "actor_kind": {
+      "type": "string",
+      "enum": ["HUMAN", "AGENT", "SYSTEM"],
+      "description": "Type of actor: HUMAN (user), AGENT (AI worker), or SYSTEM (automated service)"
+    },
+    "payload": {
+      "type": "object",
+      "description": "The actual event payload as a JSON object"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Message hash from outbox for deduplication, typically in format 'sha256:...' or a ULID"
+    }
+  },
+  "required": [
+    "schema_version",
+    "message_type",
+    "message_id",
+    "timestamp",
+    "actor_id",
+    "actor_kind",
+    "payload",
+    "idempotency_key"
+  ],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "schema_version": "1.0",
+      "message_type": "LoopCreated",
+      "message_id": "evt_01HQGX8K9JNPQR5MWTVYZ3F4BC",
+      "correlation_id": "req_01HQGX8K9JNPQR5MWTVYZ3F4AB",
+      "causation_id": null,
+      "timestamp": "2024-01-15T14:30:00Z",
+      "actor_id": "user_01HQGW8K9JNPQR5MWTVYZ3F4AA",
+      "actor_kind": "HUMAN",
+      "payload": {
+        "loop_id": "loop_01HQGX8K9JNPQR5MWTVYZ3F4BD",
+        "work_unit_id": "wu_01HQGX8K9JNPQR5MWTVYZ3F4AE",
+        "goal": "Implement user authentication"
+      },
+      "idempotency_key": "sha256:abc123def456789..."
+    },
+    {
+      "schema_version": "1.0",
+      "message_type": "IterationStarted",
+      "message_id": "evt_01HQGX9K9JNPQR5MWTVYZ3F4CD",
+      "correlation_id": "loop_01HQGX8K9JNPQR5MWTVYZ3F4BD",
+      "causation_id": "evt_01HQGX8K9JNPQR5MWTVYZ3F4BC",
+      "timestamp": "2024-01-15T14:31:00Z",
+      "actor_id": "governor",
+      "actor_kind": "SYSTEM",
+      "payload": {
+        "iteration_id": "iter_01HQGX9K9JNPQR5MWTVYZ3F4DE",
+        "loop_id": "loop_01HQGX8K9JNPQR5MWTVYZ3F4BD",
+        "iteration_number": 1
+      },
+      "idempotency_key": "sha256:def456abc789012..."
+    }
+  ]
+}
