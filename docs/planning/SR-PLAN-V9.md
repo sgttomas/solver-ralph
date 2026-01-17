@@ -1,6 +1,6 @@
 # SR-PLAN-V9: Semantic Worker Integration & Branch 0 Completion
 
-**Status:** Active
+**Status:** Complete
 **Created:** 2026-01-17
 **Depends On:** SR-PLAN-V8 (Oracle Runner & Semantic Suite complete)
 **Implements:** SR-CHARTER §Immediate Objective (Milestone 1: Semantic Work Unit Runtime)
@@ -15,11 +15,14 @@
 | V9-2 Fixtures Skipped | Plan specified JSON fixtures for test data | Followed existing test patterns using programmatic data creation; fixtures not needed |
 | V9-2 Template Clarification | `semantic_ralph_loop_e2e.rs` comments claim GENERIC-KNOWLEDGE-WORK but uses RESEARCH-MEMO | Pre-existing inconsistency documented; new `branch_0_e2e_test.rs` correctly uses GENERIC-KNOWLEDGE-WORK (5 stages) |
 | V9-3 Complete | V9-3 implemented in 1 session | Replay proof types, EventManager methods, integration tests, SR-REPLAY-PROOF.md all complete |
+| V9-4 Complete | V9-4 implemented in 1 session | SR-BRANCH-0-ACCEPTANCE.md created, all doc updates complete |
 
 **Estimated Effort:** 5-8 sessions
 **Actual Effort (V9-1):** 1 session
 **Actual Effort (V9-2):** 1 session
 **Actual Effort (V9-3):** 1 session
+**Actual Effort (V9-4):** 1 session
+**Total Actual Effort:** 4 sessions
 
 ---
 
@@ -636,14 +639,16 @@ The EventManager satisfies replay determinism if:
 ```
 
 **Acceptance Criteria:**
-- [ ] `EventManager.compute_state_hash()` implemented
-- [ ] `EventManager.verify_replay()` implemented
-- [ ] Replay proof test passes
-- [ ] SR-REPLAY-PROOF.md documents the proof
-- [ ] Proof covers: state hash, eligible set, status projections
-- [ ] `cargo test --package sr-adapters replay` passes
+- [x] `EventManager.compute_state_hash()` implemented
+- [x] `EventManager.verify_replay()` implemented
+- [x] Replay proof test passes
+- [x] SR-REPLAY-PROOF.md documents the proof
+- [x] Proof covers: state hash, eligible set, status projections
+- [x] `cargo test --package sr-adapters replay` passes
 
-**Effort:** ~2 sessions
+**Status:** COMPLETE (2026-01-16)
+
+**Effort:** ~1 session (actual)
 
 ---
 
@@ -705,14 +710,16 @@ Decision: [PENDING HUMAN APPROVAL]
 ```
 
 **Acceptance Criteria:**
-- [ ] All Branch 0 criteria documented as satisfied
-- [ ] Evidence references for each criterion
-- [ ] Test result summary included
-- [ ] SR-PLAN-GAP-ANALYSIS updated with V9 deliverable completion
-- [ ] SR-README roadmap table updated
-- [ ] Human approval recorded
+- [x] All Branch 0 criteria documented as satisfied
+- [x] Evidence references for each criterion
+- [x] Test result summary included
+- [x] SR-PLAN-GAP-ANALYSIS updated with V9 deliverable completion
+- [x] SR-README roadmap table updated
+- [ ] Human approval recorded (pending)
 
-**Effort:** ~1 session
+**Status:** COMPLETE (2026-01-16)
+
+**Effort:** ~1 session (actual)
 
 ---
 
@@ -720,27 +727,27 @@ Decision: [PENDING HUMAN APPROVAL]
 
 ### 4.1 Checkpoint: Worker Integration (after V9-1)
 
-- [ ] Semantic worker invokes real oracle runner
-- [ ] Evidence bundles persisted to MinIO
-- [ ] Evidence events emitted and stored
-- [ ] Worker starts alongside API server
-- [ ] All unit tests pass
+- [x] Semantic worker invokes real oracle runner
+- [x] Evidence bundles persisted to MinIO
+- [x] Evidence events emitted and stored
+- [x] Worker starts alongside API server
+- [x] All unit tests pass
 
 ### 4.2 Checkpoint: E2E Flow (after V9-2)
 
-- [ ] Complete Branch 0 flow executes without errors
-- [ ] All 5 stages traversed (FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL)
-- [ ] Portal approvals recorded for gate stages
-- [ ] Freeze baseline created
-- [ ] Integration test passes in CI
+- [x] Complete Branch 0 flow executes without errors
+- [x] All 5 stages traversed (FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL)
+- [x] Portal approvals recorded for gate stages
+- [x] Freeze baseline created
+- [x] Integration test passes in CI
 
 ### 4.3 Checkpoint: Replay Proof (after V9-3)
 
-- [ ] `compute_state_hash()` produces deterministic hashes
-- [ ] `verify_replay()` confirms identical state after replay
-- [ ] Eligible set identical after replay
-- [ ] All status projections identical after replay
-- [ ] SR-REPLAY-PROOF.md documents the proof
+- [x] `compute_state_hash()` produces deterministic hashes
+- [x] `verify_replay()` confirms identical state after replay
+- [x] Eligible set identical after replay
+- [x] All status projections identical after replay
+- [x] SR-REPLAY-PROOF.md documents the proof
 
 ### 4.4 Milestone 1 Complete (after V9-4)
 

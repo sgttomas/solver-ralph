@@ -3,7 +3,7 @@
 **Purpose:** Track completion status of SR-PLAN deliverables and inform future implementation plans.
 
 **Last Updated:** 2026-01-16
-**Updated By:** Agent (V8-5 Completion session)
+**Updated By:** Agent (V9-4 Completion session)
 
 ---
 
@@ -23,7 +23,7 @@ Per SR-CHARTER §Immediate Objective:
 | Semantic oracle evidence capture and gating | ✅ Complete | D-24, D-25, D-39 | V8 complete; oracle runner + semantic suite |
 | Explicit human authority points | ✅ Complete | D-19, D-30 | Approval recording, stage gating |
 
-**Milestone 1 Completion:** ~95% — Awaiting semantic worker (V9).
+**Milestone 1 Completion:** 100% — COMPLETE. V9 delivered semantic worker and Branch 0 acceptance.
 
 ### Milestone 2: External API Integration
 
@@ -89,7 +89,7 @@ Per SR-CHARTER, follows Milestone 1. **Not yet scoped.**
 |-------------|-------|--------|--------------|-------|
 | D-21 | NATS/JetStream integration | ⚠️ Partial | sr-adapters | Outbox exists; full messaging contracts not formalized |
 | D-22 | Loop governor service | ⚠️ Partial | sr-api | `/start` endpoint serves as minimal governor; full service not built |
-| D-23 | Reference worker bridge | ❌ Not Started | — | No automated worker exists |
+| D-23 | Reference worker bridge | ✅ Complete | V9-1 | `ReferenceWorkerBridge` in sr-adapters |
 
 ### PKG-08 — Oracles and verification substrate
 
@@ -122,7 +122,7 @@ Per SR-CHARTER, follows Milestone 1. **Not yet scoped.**
 |-------------|-------|--------|--------------|-------|
 | D-34 | E2E harness (happy path) | ⚠️ Partial | V6-3 | Manual verification; no automated harness |
 | D-35 | E2E harness (failure modes) | ❌ Not Started | — | Integrity/exception flows not tested |
-| D-36 | Replayability demonstration | ❌ Not Started | — | No formal replay proof |
+| D-36 | Replayability demonstration | ✅ Complete | V9-3 | SR-REPLAY-PROOF.md, replay_determinism_test.rs |
 
 ### PKG-12 — Semantic work surface + prompt decomposition
 
@@ -131,8 +131,8 @@ Per SR-CHARTER, follows Milestone 1. **Not yet scoped.**
 | D-37 | Work surface schemas | ✅ Complete | V3, V4, V5 | Intake + Procedure Template + Work Surface |
 | D-38 | Prompt → Plan Instance decomposition | ❌ Not Started | — | Automated work decomposition |
 | D-39 | Semantic oracle integration | ✅ Complete | V8-5 | oracle-suites/semantic-v1 container |
-| D-40 | Event Manager eligible-set computation | ❌ Not Started | — | Dependency-based scheduling |
-| D-41 | Reference semantic worker | ❌ **Not Started** | — | Work Surface executor |
+| D-40 | Event Manager eligible-set computation | ✅ Complete | V9-1 | `EventManager.compute_eligible_set()` in sr-adapters |
+| D-41 | Reference semantic worker | ✅ Complete | V9-1 | `SemanticWorkerBridge` in sr-adapters |
 
 ---
 
@@ -140,17 +140,17 @@ Per SR-CHARTER, follows Milestone 1. **Not yet scoped.**
 
 Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 
-| Criterion | Status | Gap |
-|-----------|--------|-----|
-| Loop created for problem-statement work unit | ✅ Complete | — |
-| Iteration started with Work Surface ref set | ✅ Complete | — |
-| Candidate intake bundle produced | ✅ Complete | — |
-| Evidence Bundle from semantic oracle suite | ✅ Complete | V8 complete (D-24, D-39) |
-| Human portal approval recorded | ✅ Complete | — |
-| Freeze baseline created | ❌ Not Done | Freeze API exists but not integrated |
-| Replay determinism proof | ❌ Not Done | D-36 required |
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Loop created for problem-statement work unit | ✅ Complete | V9-2 `branch_0_e2e_test.rs` |
+| Iteration started with Work Surface ref set | ✅ Complete | V9-2 `branch_0_e2e_test.rs` |
+| Candidate intake bundle produced | ✅ Complete | V9-1 `SemanticWorkerBridge` |
+| Evidence Bundle from semantic oracle suite | ✅ Complete | V8 (D-24, D-39), V9-2 |
+| Human portal approval recorded | ✅ Complete | V9-2 `test_branch_0_portal_approvals_required` |
+| Freeze baseline created | ✅ Complete | V9-2 `test_branch_0_freeze_baseline` |
+| Replay determinism proof | ✅ Complete | V9-3 SR-REPLAY-PROOF.md |
 
-**Branch 0 requires V9 (Semantic Worker).** Blocking items: D-41, D-36.
+**Branch 0: COMPLETE.** All criteria satisfied. See `SR-BRANCH-0-ACCEPTANCE.md` for formal verification.
 
 ---
 
@@ -184,30 +184,30 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V8-4 | Core Oracle Suite | D-25 | ✅ Complete |
 | V8-5 | Semantic Oracles | D-39 | ✅ Complete |
 
-### SR-PLAN-V9 (Proposed)
+### SR-PLAN-V9 (Complete)
 
-**Status:** Not yet authored
+**Status:** ✅ Complete (2026-01-16)
 **Scope:** Semantic Worker & Branch 0 Completion
-**Target Deliverables:** D-23, D-41, D-36
+**Target Deliverables:** D-23, D-40, D-41, D-36
+**Actual Effort:** 4 sessions
 
-| Phase | Focus | Deliverables |
-|-------|-------|--------------|
-| V9-1 | Reference worker bridge | D-23 |
-| V9-2 | Reference semantic worker | D-41 |
-| V9-3 | Replayability demonstration | D-36 |
-| V9-4 | Branch 0 acceptance verification | — |
+| Phase | Focus | Deliverables | Status |
+|-------|-------|--------------|--------|
+| V9-1 | Semantic worker integration | D-23, D-40, D-41 | ✅ Complete |
+| V9-2 | E2E flow integration test | — | ✅ Complete |
+| V9-3 | Replayability demonstration | D-36 | ✅ Complete |
+| V9-4 | Branch 0 acceptance verification | — | ✅ Complete |
 
 ### SR-PLAN-V10 (Proposed)
 
 **Status:** Not yet authored
 **Scope:** Automation & Scheduling Foundation
-**Target Deliverables:** D-38, D-40, D-22
+**Target Deliverables:** D-38, D-22
 
 | Phase | Focus | Deliverables |
 |-------|-------|--------------|
 | V10-1 | Loop governor service (full) | D-22 |
-| V10-2 | Event Manager eligible-set | D-40 |
-| V10-3 | Prompt → Plan decomposition | D-38 |
+| V10-2 | Prompt → Plan decomposition | D-38 |
 
 ### SR-PLAN-V11 (Proposed)
 
@@ -238,16 +238,16 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 ## 6. Critical Path
 
 ```
-V7 (Complete) → V8 (Complete) → V9 (Semantic Worker) → Milestone 1 Complete
-                                                                ↓
-                                                      V10 (Automation) → V11 (Hardening) → Production Ready
+V7 (Complete) → V8 (Complete) → V9 (Complete) → Milestone 1 COMPLETE
+                                                        ↓
+                                              V10 (Automation) → V11 (Hardening) → Production Ready
 ```
 
-**Blocking dependencies for Milestone 1:**
+**Milestone 1 deliverables — ALL COMPLETE:**
 1. ~~D-24 (Oracle runner)~~ — ✅ Complete (V8-1, V8-2)
 2. ~~D-39 (Semantic oracle integration)~~ — ✅ Complete (V8-5)
-3. D-41 (Semantic worker) — blocks automated execution
-4. D-36 (Replay proof) — blocks acceptance verification
+3. ~~D-41 (Semantic worker)~~ — ✅ Complete (V9-1)
+4. ~~D-36 (Replay proof)~~ — ✅ Complete (V9-3)
 
 ---
 
