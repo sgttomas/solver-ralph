@@ -1239,6 +1239,17 @@ All endpoints are under `/api/v1`.
 
 - `GET /loops/{loop_id}` → Query loop state (projection)
 
+- `PATCH /loops/{loop_id}` → Update loop goal and/or budgets
+  Body: `{ goal?: string, budgets?: { max_iterations?, max_oracle_runs?, max_wallclock_hours? } }`
+  Emits: `LoopUpdated`
+
+  **Budget monotonicity constraint (normative):**
+  - Budget values can only be **increased**, never decreased.
+  - If any requested budget value is less than the current value, the system MUST return HTTP 400 with an error indicating the constraint violation.
+  - This prevents budget exhaustion bypass via reduction-then-re-extension.
+
+  **State constraint:** Loop MUST NOT be in `CLOSED` state.
+
 - `POST /loops/{loop_id}/iterations` → Start an iteration (**SYSTEM-only**)  
   Body: `{ refs: Ref[] }` (the Iteration Context Ref Set; see §3.2.1.1)  
   Emits: `IterationStarted` (actor_kind=SYSTEM)
@@ -1895,6 +1906,21 @@ To protect the integrity of governance artifacts and evidence:
 - `LoopPaused`
 - `LoopResumed`
 - `LoopClosed`
+- `LoopUpdated`
+
+  **Payload (v1):**
+  ```jsonc
+  {
+    "goal": "string|null",           // present if goal was updated
+    "budgets": {                     // present if budgets were updated
+      "max_iterations": 10,
+      "max_oracle_runs": 50,
+      "max_wallclock_hours": 24
+    }
+  }
+  ```
+
+  **Note:** Payload contains only the updated fields. Budget monotonicity is enforced at the API level (new values >= current values).
 
 **Candidate**
 - `CandidateMaterialized`

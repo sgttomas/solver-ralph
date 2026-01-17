@@ -67,6 +67,14 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
 - **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
 
+### 1.3  (2026-01-17)
+
+- **SR-SPEC §2.3.1:** Added `PATCH /loops/{loop_id}` endpoint documentation:
+  - Budget monotonicity constraint (normative): values can only increase
+  - State constraint: Loop MUST NOT be CLOSED
+- **SR-SPEC Appendix A:** Added `LoopUpdated` to canonical event registry with payload schema
+- **Classification:** G:MINOR (documentation only; implementation already in 1.2).
+
 ### 1.2  (2026-01-17)
 
 - **Loop PATCH Endpoint (V10-5):** Added `PATCH /api/v1/loops/:loop_id` for updating Loop goal and budgets:
