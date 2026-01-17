@@ -58,209 +58,59 @@ Canonical index for the SR-* document set.
 | SR-TEMPLATES | `platform/` | User configuration registry |
 | SR-README | `charter/` | This index |
 
-### Feature Implementation Plans
-
-The `docs/planning/` folder contains feature-specific implementation plans that are subordinate to SR-PLAN. These plans detail specific feature implementations and are not permanent governance documents — they become historical artifacts once implementation is complete.
-
-Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
-
-| Plan | Scope | Key Deliverables | Status |
-|------|-------|------------------|--------|
-| SR-PLAN-V7 | Stabilization & Attachments | Tests, UX, `record.attachment` | **Complete** |
-| SR-PLAN-V8 | Oracle Runner & Semantic Suites | D-24, D-25, D-27, D-39 | **Complete** |
-| SR-PLAN-V9 | Semantic Worker & Branch 0 | D-23, D-41, D-36 | **Complete** |
-
-**Milestone 1 (MVP): COMPLETE** — All V9 phases finished in 4 sessions.
 
 ---
 
-## SR-PLAN-V9 Status (COMPLETE)
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| V9-1: Semantic Worker Integration | ✅ **COMPLETE** | Wire semantic worker to oracle runner, persist evidence |
-| V9-2: E2E Flow Integration Test | ✅ **COMPLETE** | Branch 0 flow test with 5 stages, portal approvals, freeze |
-| V9-3: Replayability Demonstration | ✅ **COMPLETE** | Prove EventManager.rebuild() determinism (D-36) |
-| V9-4: Branch 0 Acceptance | ✅ **COMPLETE** | Document criteria satisfaction, human approval |
+## Current Status: Loop Validation Plan Ready for Execution
 
-**Reviews Complete:**
-- Coherence review: APPROVED (`docs/reviews/SR-PLAN-V9-COHERENCE-REVIEW.md`)
-- Consistency evaluation: APPROVED WITH NOTES (`docs/reviews/SR-PLAN-V9-CONSISTENCY-EVALUATION.md`)
+**Branch 0 Acceptance:** COMPLETE (V9-4)
+**Consistency Evaluation:** APPROVED WITH NOTES (see `docs/reviews/SR-PLAN-LOOPS-CONSISTENCY-EVALUATION.md`)
+**Current Focus:** Execute SR-PLAN-LOOPS validation
 
----
+### Recent Development
 
-## V9-1 Session Summary (2026-01-16)
-
-V9-1 wired the semantic worker to real oracle execution. Key implementation details:
-
-**Files Modified:**
-- `sr-adapters/src/semantic_worker.rs` — `SemanticWorkerBridge` is now generic over `E: EvidenceStore` and `W: CandidateWorkspace`; `run_semantic_oracles()` calls `PodmanOracleRunner.execute_suite()`; `emit_evidence_bundle()` persists to MinIO and emits `EvidenceBundleRecorded` via NATS
-- `sr-adapters/src/worker.rs` — Added `OracleError`, `WorkspaceError`, `StorageError` variants to `WorkerError`
-- `sr-api/src/config.rs` — Added `enable_semantic_worker: bool` (env: `SR_ENABLE_SEMANTIC_WORKER`)
-- `sr-api/src/main.rs` — Spawns `SemanticWorkerBridge` when enabled, initializes NATS, EventManager, PodmanOracleRunner, SimpleCandidateWorkspace
-
-**Key Integration Points:**
-- Semantic worker subscribes to `IterationStarted` events via NATS (`sr.events.iteration`)
-- Oracle execution uses `OracleSuiteRegistry.get_suite(SUITE_INTAKE_ADMISSIBILITY_ID)`
-- Evidence persisted via `EvidenceStore.store()` trait method
-- Events emitted to `subjects::ORACLE_EVENTS` ("sr.events.oracle")
-
-**Commit:** `19217ae feat(V9-1): Wire semantic worker to real oracle execution`
+The Loop Functionality Validation Plan (`docs/planning/SR-PLAN-LOOPS.md`) has been:
+1. Revised to address coherence gaps
+2. Evaluated for consistency against canonical SR-* documents
+3. **Approved for execution** with minor notes documented
 
 ---
 
-## V9-2 Session Summary (2026-01-16)
+## Next Instance Prompt: Execute SR-PLAN-LOOPS Validation
 
-V9-2 implemented Branch 0 E2E integration tests proving the complete 5-stage workflow.
-
-**Files Created:**
-- `sr-api/tests/integration/branch_0_e2e_test.rs` — Complete E2E test suite (~800 lines, 4 tests)
-
-**Test Cases:**
-| Test | Purpose |
-|------|---------|
-| `test_branch_0_complete_flow` | Full 5-stage workflow with portal approvals and freeze baseline |
-| `test_branch_0_portal_approvals_required` | Verifies 412 rejection and approval recording at trust boundaries |
-| `test_branch_0_evidence_capture` | Polls for evidence bundles when semantic worker is running |
-| `test_branch_0_freeze_baseline` | Creates and verifies freeze record |
-
-**Key Implementation Details:**
-- Follows existing TestClient pattern from `semantic_ralph_loop_e2e.rs`
-- Helper functions: `create_work_surface_generic()`, `create_and_activate_loop()`, `complete_stage()`, `record_approval()`, `poll_for_evidence()`
-- Tests GENERIC-KNOWLEDGE-WORK template (5 stages: FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL)
-- Portal approvals enforced at SEMANTIC_EVAL and FINAL (per SR-CONTRACT C-TB-3)
-- Graceful skip when semantic worker not running (evidence capture test)
-
-**Amendments (see SR-PLAN-V9):**
-- Fixtures skipped — followed existing programmatic data creation pattern
-- Template clarification — documented pre-existing inconsistency in `semantic_ralph_loop_e2e.rs`
-
-**Commits:**
-- `4fd69cb feat(V9-2): Add Branch 0 E2E integration test`
-- `84192b1 docs: Add V9-2 amendments to SR-PLAN-V9`
-
----
-
-## V9-3 Session Summary (2026-01-16)
-
-V9-3 implemented the Replayability Demonstration (D-36), proving deterministic replay per SR-CONTRACT C-EVT-7.
-
-**Files Created:**
-- `sr-adapters/src/replay.rs` — Replay proof types (~200 lines)
-- `sr-api/tests/integration/replay_determinism_test.rs` — Integration tests (~700 lines, 7 tests)
-- `docs/platform/SR-REPLAY-PROOF.md` — Formal proof documentation
-
-**Files Modified:**
-- `sr-adapters/src/event_manager.rs` — Added `compute_state_hash()`, `verify_replay()`, `find_discrepancies()`, `new_in_memory()` methods
-- `sr-adapters/src/lib.rs` — Exported replay module and types
-- `sr-api/Cargo.toml` — Added test target and dev dependencies
-
-**Test Cases:**
-| Test | Purpose |
-|------|---------|
-| `test_state_hash_determinism` | Hash stability across calls |
-| `test_state_hash_reflects_changes` | Hash changes with state |
-| `test_full_replay_determinism` | Complete replay proof with 8-event sequence |
-| `test_eligible_set_determinism_after_replay` | Eligible set equality |
-| `test_status_projection_determinism` | Status field equality |
-| `test_no_ghost_inputs` | Independent replay equality |
-| `test_dependency_satisfaction_replay` | Dependency computation determinism |
-
-**Key Implementation Details:**
-- `compute_state_hash()` produces deterministic SHA-256 incorporating sorted work unit statuses
-- `verify_replay()` creates fresh EventManager, replays events, compares hashes
-- `ReplayProof` artifact captures proof_id, event_count, hashes, discrepancies
-- `EligibleSetComparison` compares eligible sets between original and replayed state
-- Tests cover 3-work-unit topology with multi-level dependencies
-
-**Verification:**
-```
-cargo test --package sr-adapters replay   # 12 tests pass
-cargo test --package sr-api --test replay_determinism_test   # 7 tests pass
-```
-
----
-
-## V9-4 Session Summary (2026-01-16)
-
-V9-4 completed Branch 0 Acceptance Verification, marking Milestone 1 (MVP) complete.
-
-**Files Created:**
-- `docs/platform/SR-BRANCH-0-ACCEPTANCE.md` — Formal acceptance verification document
-
-**Files Modified:**
-- `docs/planning/SR-PLAN-V9.md` — Marked all phases complete, updated acceptance criteria
-- `docs/charter/SR-README.md` — Updated status, added session summary
-- `docs/planning/SR-PLAN-GAP-ANALYSIS.md` — Updated stale deliverable statuses
-
-**Acceptance Criteria Verified:**
-| Criterion | Status |
-|-----------|--------|
-| Work Surface creation with GENERIC-KNOWLEDGE-WORK template | PASS |
-| Loop creation bound to work surface | PASS |
-| Iteration cycling with semantic worker processing | PASS |
-| Stage progression (5 stages) | PASS |
-| Portal approvals at trust boundaries | PASS |
-| Evidence bundle verification | PASS |
-| Freeze baseline creation | PASS |
-| Deterministic replay proof | PASS |
-
-**Milestone 1 Status:** COMPLETE
-
----
-
-## Next Instance Prompt: Branch 0 Validation Testing
+> **Session Type:** Manual validation (UI + API + database verification)
+> **Estimated Effort:** 1-2 sessions
+> **Prerequisite:** Infrastructure running (`make deploy`), API running, UI running
 
 ### Assignment
 
-**Validation Testing Session** — The human will be running the full Branch 0 flow end-to-end and validating the acceptance criteria in practice. Your role is to assist with debugging and troubleshooting as issues arise.
+**Execute the Loop Functionality Validation Plan** — Run all 19 tests in `docs/planning/SR-PLAN-LOOPS.md` and document results.
 
-### Context
+### Orientation
 
-SR-PLAN-V9 is complete with all 4 phases finished in 4 sessions:
-- V9-1: Semantic worker integration (D-23, D-40, D-41)
-- V9-2: E2E flow integration test (`branch_0_e2e_test.rs`)
-- V9-3: Replayability demonstration (D-36, `replay_determinism_test.rs`)
-- V9-4: Branch 0 acceptance verification (`SR-BRANCH-0-ACCEPTANCE.md`)
+1. **Read first:**
+   - `docs/charter/SR-CHARTER.md` — Project scope and authority model
+   - `docs/planning/SR-PLAN-LOOPS.md` — The validation plan to execute (contains all test steps)
+   - `docs/reviews/SR-PLAN-LOOPS-CONSISTENCY-EVALUATION.md` — Evaluation notes for execution awareness
 
-The acceptance criteria are documented but await **human validation** through actual execution of the Branch 0 flow.
+2. **Execution notes from evaluation:**
+   - ORACLE_TAMPER is not tested (same category as ORACLE_GAP/EVIDENCE_MISSING)
+   - Test 9 refs[] categories are the correct minimum per SR-DIRECTIVE §3.1
+   - Verify `suite_hash` presence in Work Surface binding during Test 11
 
-### What the Human Will Be Testing
+3. **Infrastructure prerequisites** (per SR-PLAN-LOOPS §Prerequisites):
+   - `make deploy` for infrastructure
+   - `SR_OIDC_SKIP_VALIDATION=true cargo run --bin sr-api` for API
+   - `make dev-ui` for UI on port 3001
+   - Database access for event verification
 
-Per SR-BRANCH-0-ACCEPTANCE, the 8 acceptance criteria to validate:
+### Deliverable
 
-1. Work Surface creation with GENERIC-KNOWLEDGE-WORK template
-2. Loop creation bound to work surface
-3. Iteration cycling with semantic worker processing
-4. Stage progression (FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL)
-5. Portal approvals at trust boundaries (SEMANTIC_EVAL, FINAL)
-6. Evidence bundle verification
-7. Freeze baseline creation
-8. Deterministic replay proof
+Update the verification checklists in SR-PLAN-LOOPS with Pass/Fail results, and document any gaps discovered in the Gap Tracking table.
 
-### Your Role
+### Do NOT
 
-- Assist with starting infrastructure (Postgres, MinIO, NATS, API server)
-- Help diagnose failures in the E2E flow
-- Debug API errors, event processing issues, or worker problems
-- Consult SR-* documents for expected behavior
-- Propose fixes if issues are found
-
-### Key Files for Troubleshooting
-
-| Component | File |
-|-----------|------|
-| API server | `crates/sr-api/src/main.rs` |
-| Semantic worker | `crates/sr-adapters/src/semantic_worker.rs` |
-| Event manager | `crates/sr-adapters/src/event_manager.rs` |
-| E2E test reference | `crates/sr-api/tests/integration/branch_0_e2e_test.rs` |
-| Replay proof | `crates/sr-adapters/src/replay.rs` |
-
-### Canonical References
-
-| Document | Relevant Sections |
-|----------|-------------------|
-| SR-BRANCH-0-ACCEPTANCE | Acceptance criteria and evidence |
-| SR-CONTRACT | C-* invariants to verify |
-| SR-PROCEDURE-KIT | GENERIC-KNOWLEDGE-WORK stages |
-| SR-EVENT-MANAGER | Projection and eligibility computation |
+- Re-evaluate the plan (already done)
+- Skip tests without documenting why
+- Assume features work without verification
