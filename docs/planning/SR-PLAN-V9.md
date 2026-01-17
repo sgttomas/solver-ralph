@@ -12,9 +12,12 @@
 | Amendment | Issue | Resolution |
 |-----------|-------|------------|
 | V9-1 Complete | V9-1 implemented in 1 session | All acceptance criteria satisfied; `SemanticWorkerBridge` now generic over `EvidenceStore` and `CandidateWorkspace` |
+| V9-2 Fixtures Skipped | Plan specified JSON fixtures for test data | Followed existing test patterns using programmatic data creation; fixtures not needed |
+| V9-2 Template Clarification | `semantic_ralph_loop_e2e.rs` comments claim GENERIC-KNOWLEDGE-WORK but uses RESEARCH-MEMO | Pre-existing inconsistency documented; new `branch_0_e2e_test.rs` correctly uses GENERIC-KNOWLEDGE-WORK (5 stages) |
 
 **Estimated Effort:** 5-8 sessions
 **Actual Effort (V9-1):** 1 session
+**Actual Effort (V9-2):** 1 session
 
 ---
 
@@ -316,8 +319,8 @@ pub async fn run_api_server(config: ApiConfig) -> Result<(), Error> {
 | File | Action | Description |
 |------|--------|-------------|
 | `sr-api/tests/integration/branch_0_e2e_test.rs` | CREATE | Full E2E test |
-| `sr-api/tests/fixtures/branch_0_intake.json` | CREATE | Test intake fixture |
-| `sr-api/tests/fixtures/branch_0_work_surface.json` | CREATE | Test work surface |
+| ~~`sr-api/tests/fixtures/branch_0_intake.json`~~ | ~~CREATE~~ | ~~Test intake fixture~~ — SKIPPED (see Amendments) |
+| ~~`sr-api/tests/fixtures/branch_0_work_surface.json`~~ | ~~CREATE~~ | ~~Test work surface~~ — SKIPPED (see Amendments) |
 
 **Test Flow:**
 
