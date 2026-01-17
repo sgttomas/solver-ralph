@@ -11,9 +11,10 @@
 
 | Amendment | Issue | Resolution |
 |-----------|-------|------------|
-| — | — | — |
+| V9-1 Complete | V9-1 implemented in 1 session | All acceptance criteria satisfied; `SemanticWorkerBridge` now generic over `EvidenceStore` and `CandidateWorkspace` |
 
 **Estimated Effort:** 5-8 sessions
+**Actual Effort (V9-1):** 1 session
 
 ---
 
@@ -293,14 +294,16 @@ pub async fn run_api_server(config: ApiConfig) -> Result<(), Error> {
 ```
 
 **Acceptance Criteria:**
-- [ ] `run_semantic_oracles()` invokes actual oracle runner
-- [ ] Evidence bundles persisted to MinIO with correct manifest
-- [ ] `EvidenceBundleRecorded` event emitted and stored
-- [ ] Semantic worker starts alongside API server
-- [ ] `cargo test --package sr-adapters` passes
-- [ ] `cargo test --package sr-api` passes
+- [x] `run_semantic_oracles()` invokes actual oracle runner
+- [x] Evidence bundles persisted to MinIO with correct manifest
+- [x] `EvidenceBundleRecorded` event emitted and stored
+- [x] Semantic worker starts alongside API server
+- [x] `cargo test --package sr-adapters` passes
+- [x] `cargo test --package sr-api` passes
 
-**Effort:** ~2 sessions
+**Status:** ✅ COMPLETE (2026-01-16)
+
+**Effort:** ~1 session (actual)
 
 ---
 

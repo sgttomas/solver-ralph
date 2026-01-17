@@ -88,21 +88,49 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
+## V9-1 Session Summary (2026-01-16)
+
+V9-1 wired the semantic worker to real oracle execution. Key implementation details:
+
+**Files Modified:**
+- `sr-adapters/src/semantic_worker.rs` — `SemanticWorkerBridge` is now generic over `E: EvidenceStore` and `W: CandidateWorkspace`; `run_semantic_oracles()` calls `PodmanOracleRunner.execute_suite()`; `emit_evidence_bundle()` persists to MinIO and emits `EvidenceBundleRecorded` via NATS
+- `sr-adapters/src/worker.rs` — Added `OracleError`, `WorkspaceError`, `StorageError` variants to `WorkerError`
+- `sr-api/src/config.rs` — Added `enable_semantic_worker: bool` (env: `SR_ENABLE_SEMANTIC_WORKER`)
+- `sr-api/src/main.rs` — Spawns `SemanticWorkerBridge` when enabled, initializes NATS, EventManager, PodmanOracleRunner, SimpleCandidateWorkspace
+
+**Key Integration Points:**
+- Semantic worker subscribes to `IterationStarted` events via NATS (`sr.events.iteration`)
+- Oracle execution uses `OracleSuiteRegistry.get_suite(SUITE_INTAKE_ADMISSIBILITY_ID)`
+- Evidence persisted via `EvidenceStore.store()` trait method
+- Events emitted to `subjects::ORACLE_EVENTS` ("sr.events.oracle")
+
+**Commit:** `19217ae feat(V9-1): Wire semantic worker to real oracle execution`
+
+---
+
 ## Next Instance Prompt: V9-2 E2E Flow Integration Test
 
 ### Assignment
 
 **Implement V9-2: End-to-End Flow Integration Test** — create an integration test demonstrating complete Branch 0 procedure flow. This is a CODE IMPLEMENTATION task.
 
+### Context from V9-1
+
+The semantic worker is now fully wired:
+- `SemanticWorkerBridge<E, W>` requires `oracle_runner`, `evidence_store`, `oracle_registry`, `candidate_workspace`
+- Worker can be enabled via `SR_ENABLE_SEMANTIC_WORKER=true`
+- Real oracle execution happens via `PodmanOracleRunner`
+- Evidence bundles are persisted to MinIO and events emitted to NATS
+
+V9-2 must now **prove** this integration works end-to-end.
+
 ### Quick Orientation
 
-1. **Read the plan first:** `docs/planning/SR-PLAN-V9.md` §3.2 (Phase V9-2)
-2. **Review V9-1 completion:** V9-1 wired the semantic worker to real oracle execution
-3. **Understand test requirements:** Branch 0 acceptance requires demonstrating all 5 stages traversed
+1. **Read the plan:** `docs/planning/SR-PLAN-V9.md` §3.2 (Phase V9-2)
+2. **Review existing integration tests:** `sr-api/tests/integration/` for patterns
+3. **Understand Branch 0 criteria:** SR-PLAN §4.1
 
 ### What V9-2 Must Deliver
-
-Per SR-PLAN-V9 §3.2:
 
 | File | Action | Description |
 |------|--------|-------------|
@@ -112,37 +140,47 @@ Per SR-PLAN-V9 §3.2:
 
 ### Test Flow Requirements
 
-The E2E test must demonstrate:
-1. Loop created for problem-statement work unit
-2. Iteration started with Work Surface ref set
-3. Candidate intake bundle produced
-4. Evidence Bundle from semantic oracle suite
-5. Human portal approval recorded
-6. Freeze baseline created
-7. Stage progression: FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL
+The E2E test must demonstrate the complete Branch 0 flow:
+
+1. **Work Surface Creation** — Create work surface with intake, procedure template, oracle suites
+2. **Loop Creation** — Create Ralph loop bound to work surface
+3. **Iteration Cycling** — Start iterations, verify semantic worker processes them
+4. **Stage Progression** — Traverse FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL
+5. **Evidence Capture** — Verify evidence bundles created for each stage
+6. **Portal Approvals** — Record human approvals at gate stages
+7. **Freeze Baseline** — Create freeze record on completion
+
+### Infrastructure Notes
+
+The test will need:
+- Running PostgreSQL, MinIO, NATS (or mocks)
+- Test mode flags to skip actual Podman execution
+- Existing `TestApp` pattern from other integration tests
 
 ### Canonical References
 
 | Document | Relevant Sections |
 |----------|-------------------|
-| SR-PLAN-V9 | §3.2 (V9-2 deliverables and test flow) |
+| SR-PLAN-V9 | §3.2 (V9-2 deliverables and test flow sketch) |
 | SR-PLAN | §4.1 (Branch 0 acceptance criteria) |
 | SR-PROCEDURE-KIT | §2 (GENERIC-KNOWLEDGE-WORK stages) |
+| SR-CONTRACT | C-LOOP-*, C-CTX-*, C-VER-* |
 
-### Acceptance Criteria (from V9-2)
+### Acceptance Criteria
 
 - [ ] E2E test creates work surface and loop
-- [ ] E2E test progresses through all 5 stages (FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL)
+- [ ] E2E test progresses through all 5 stages
 - [ ] E2E test records portal approvals where required
 - [ ] E2E test creates freeze baseline
 - [ ] Evidence bundles exist for each stage transition
 - [ ] Test passes in CI environment
-- [ ] Test is documented in README
+- [ ] Test documented in project README or test file docstring
 
 ### On Completion
 
 1. Commit changes with descriptive message
-2. Update SR-README to mark V9-2 complete and set V9-3 as active
-3. Push to branch `solver-ralph-9`
+2. Update SR-PLAN-V9 to mark V9-2 acceptance criteria complete
+3. Update SR-README to mark V9-2 complete and set V9-3 as active
+4. Push to branch `solver-ralph-9`
 
 
