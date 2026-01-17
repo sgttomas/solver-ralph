@@ -242,9 +242,9 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V10-G6 | No Loop PATCH endpoint for budget updates | — | Medium | ✅ Fixed |
 | V10-G7 | OracleSuite content_hash has doubled `sha256:sha256:` prefix | — | Low | ✅ Fixed |
 
-### SR-PLAN-V11 (Proposed)
+### SR-PLAN-V11 (Draft)
 
-**Status:** Not yet authored
+**Status:** Authored — Pending Coherence Review
 **Scope:** Production Hardening & E2E Testing
 **Target Deliverables:** D-16, D-26, D-32, D-33, D-35, D-08
 **Validation Source:** SR-PLAN-LOOPS validation (2026-01-17) — deferred items
