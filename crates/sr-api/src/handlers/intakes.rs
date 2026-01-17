@@ -383,13 +383,13 @@ pub async fn list_intakes(
     let mut count_sql = String::from("SELECT COUNT(*) FROM proj.intakes WHERE 1=1");
 
     if query.status.is_some() {
-        sql.push_str(" AND status = $1");
-        count_sql.push_str(" AND status = $1");
+        sql.push_str(" AND status = $1::intake_status");
+        count_sql.push_str(" AND status = $1::intake_status");
     }
     if query.kind.is_some() {
         let param = if query.status.is_some() { "$2" } else { "$1" };
-        sql.push_str(&format!(" AND kind = {}", param));
-        count_sql.push_str(&format!(" AND kind = {}", param));
+        sql.push_str(&format!(" AND kind = {}::work_kind", param));
+        count_sql.push_str(&format!(" AND kind = {}::work_kind", param));
     }
     if query.work_unit_id.is_some() {
         let param = match (query.status.is_some(), query.kind.is_some()) {

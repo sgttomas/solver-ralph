@@ -274,8 +274,11 @@ export function WorkSurfaceDetail(): JSX.Element {
   const getOrderedStages = (): StageStatusRecord[] => {
     if (!workSurface?.stage_status) return [];
 
-    // Convert to array and sort by entered_at (or keep original order if not entered)
-    const stages = Object.values(workSurface.stage_status);
+    // Convert to array, preserving stage_id from key, and sort
+    const stages = Object.entries(workSurface.stage_status).map(([stageId, status]) => ({
+      ...status,
+      stage_id: stageId,
+    }));
 
     // Sort: completed first (by completed_at), then entered, then pending
     return stages.sort((a, b) => {
