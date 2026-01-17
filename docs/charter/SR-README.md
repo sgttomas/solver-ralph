@@ -73,20 +73,6 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## SR-PLAN-V8 Implementation Status (COMPLETE)
-
-| Phase | Status | Description | Amendment |
-|-------|--------|-------------|-----------|
-| V8-1: Oracle Suite Registry | ✅ Complete | Port trait extracted, PostgreSQL adapter ready | A-4 |
-| V8-2: Event-Driven Worker | ✅ Complete | Worker subscribes to `RunStarted` events | A-1 |
-| V8-3: Integrity Checks | ✅ Complete | TAMPER/GAP/ENV_MISMATCH detection + events | — |
-| V8-4: Core Oracle Suite | ✅ Complete | Build/unit/schema/lint oracles + container | — |
-| V8-5: Semantic Oracles | ✅ Complete | Semantic oracle suite container + CLI command | A-3 |
-
-**SR-PLAN-V8 COMPLETE. All phases implemented, tested, and documented.**
-
----
-
 ## SR-PLAN-V9 Status (COHERENCE APPROVED — CONSISTENCY REVIEW PENDING)
 
 | Phase | Status | Description |
@@ -137,30 +123,12 @@ Create `docs/reviews/SR-PLAN-V9-CONSISTENCY-EVALUATION.md` containing:
 
 #### 1. Ontological Consistency
 
-Verify canonical terminology usage against SR-CONTRACT §2.11, SR-TYPES §4, SR-SPEC §1.2:
-
-- Are terms like "Evidence Bundle", "Work Surface", "Iteration", "Candidate" used correctly?
-- Do type references match SR-TYPES namespaces (e.g., `domain.evidence_bundle`, `record.freeze`)?
-- Are event names consistent with SR-SPEC Appendix A?
-- Does the plan use canonical terms or prohibited aliases?
 
 #### 2. Epistemological Consistency
 
-Verify knowledge claims are supported by source documents:
-
-- Are contract references (C-VER-1, C-EVT-7, etc.) accurately cited?
-- Are SR-AGENT-WORKER-CONTRACT section references correct?
-- Do claims about "what SR-* says" match what SR-* actually says?
-- Are there unsupported assertions about platform behavior?
 
 #### 3. Semantic Consistency
 
-Verify the plan's meaning aligns with platform semantics:
-
-- Does V9-1's "evidence persistence" match C-EVID-* requirements?
-- Does V9-3's "replay proof" satisfy SR-EVENT-MANAGER §3 determinism requirements?
-- Are the acceptance criteria semantically aligned with SR-CONTRACT definitions?
-- Do proposed code patterns match SR-SPEC behavioral expectations?
 
 #### 4. Findings Summary
 
@@ -170,35 +138,11 @@ Verify the plan's meaning aligns with platform semantics:
 | Epistemological | PASS/FAIL/NOTES | ... |
 | Semantic | PASS/FAIL/NOTES | ... |
 
-#### 5. Evaluation Verdict
 
-One of:
-- **PASS** — Plan is consistent with canonical documentation
-- **PASS_WITH_NOTES** — Minor terminology refinements recommended
-- **FAIL** — Significant inconsistencies require plan revision
 
-### Evaluation Checklist
-
-| Check | Question |
-|-------|----------|
-| Ontology | Does V9 use "Evidence Bundle" per SR-CONTRACT §2.6? |
-| Ontology | Does V9 use "Work Surface" per SR-WORK-SURFACE §2.1? |
-| Ontology | Are event types consistent with SR-SPEC Appendix A? |
-| Epistemology | Is C-EVT-7 correctly interpreted in V9-3? |
-| Epistemology | Is SR-AGENT-WORKER-CONTRACT §2.3/§2.4 correctly applied? |
-| Semantics | Does "replay proof" match SR-EVENT-MANAGER §3 requirements? |
-| Semantics | Does "evidence persistence" satisfy C-EVID-1 manifest requirements? |
-
-### Current State
-
-- Branch: `solver-ralph-9` (continue)
-- V8: ✅ COMPLETE
-- V9: ✅ COHERENCE APPROVED — consistency evaluation pending
-- Milestone 1 completion: ~95% — awaiting V9 consistency evaluation and implementation
 
 ### On Completion
 
-1. Create `docs/reviews/SR-PLAN-V9-CONSISTENCY-EVALUATION.md` with findings
-2. Git commit: `docs: Consistency evaluation of SR-PLAN-V9`
-3. If PASS, next instance can begin V9-1 implementation
-4. If FAIL, document required revisions for plan update
+Create `docs/reviews/SR-PLAN-V9-CONSISTENCY-EVALUATION.md` with findings
+
+
