@@ -29,6 +29,8 @@ pub struct ApiConfig {
     pub nats_url: String,
     /// Log level
     pub log_level: String,
+    /// Enable semantic worker alongside API server (V9-1)
+    pub enable_semantic_worker: bool,
 }
 
 impl ApiConfig {
@@ -70,6 +72,9 @@ impl ApiConfig {
             nats_url: env::var("SR_NATS_URL")
                 .unwrap_or_else(|_| "nats://localhost:4222".to_string()),
             log_level: env::var("SR_LOG_LEVEL").unwrap_or_else(|_| "info".to_string()),
+            enable_semantic_worker: env::var("SR_ENABLE_SEMANTIC_WORKER")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(false),
         }
     }
 
@@ -86,6 +91,7 @@ impl ApiConfig {
             minio_bucket: "evidence".to_string(),
             nats_url: "nats://localhost:4222".to_string(),
             log_level: "debug".to_string(),
+            enable_semantic_worker: false,
         }
     }
 
@@ -103,6 +109,7 @@ impl ApiConfig {
             minio_bucket: "evidence-test".to_string(),
             nats_url: "nats://localhost:4222".to_string(),
             log_level: "debug".to_string(),
+            enable_semantic_worker: false,
         }
     }
 

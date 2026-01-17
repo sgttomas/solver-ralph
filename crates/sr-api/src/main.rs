@@ -35,9 +35,12 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use sr_adapters::oracle_suite::OracleSuiteRegistry;
 use sr_adapters::{
-    AttachmentStoreConfig, MinioAttachmentStore, MinioConfig, MinioEvidenceStore,
-    PostgresEventStore, ProjectionBuilder,
+    AttachmentStoreConfig, CandidateWorkspaceConfig, EventManager, MinioAttachmentStore,
+    MinioConfig, MinioEvidenceStore, NatsConfig, NatsMessageBus, PodmanOracleRunner,
+    PodmanOracleRunnerConfig, PostgresEventStore, ProjectionBuilder, SemanticWorkerBridge,
+    SemanticWorkerConfig, SimpleCandidateWorkspace,
 };
+use tokio::sync::RwLock;
 use std::sync::Arc;
 use std::time::Instant;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
@@ -683,6 +686,84 @@ async fn main() {
     };
 
     info!("References state initialized");
+
+    // Start semantic worker if enabled (V9-1)
+    if config.enable_semantic_worker {
+        info!("Semantic worker enabled - initializing dependencies");
+
+        // Create NATS message bus
+        let nats_config = NatsConfig {
+            url: config.nats_url.clone(),
+            stream_prefix: std::env::var("SR_NATS_STREAM_PREFIX")
+                .unwrap_or_else(|_| "sr".to_string()),
+            consumer_prefix: std::env::var("SR_NATS_CONSUMER_PREFIX")
+                .unwrap_or_else(|_| "sr-consumer".to_string()),
+            message_ttl_secs: std::env::var("SR_NATS_MESSAGE_TTL_SECS")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(604800), // 7 days
+            max_msgs_per_subject: std::env::var("SR_NATS_MAX_MSGS_PER_SUBJECT")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(-1), // Unlimited
+            duplicate_window_secs: std::env::var("SR_NATS_DUPLICATE_WINDOW_SECS")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(120),
+        };
+
+        match NatsMessageBus::connect(nats_config).await {
+            Ok(nats_bus) => {
+                let nats_bus = Arc::new(nats_bus);
+                info!("NATS message bus connected for semantic worker");
+
+                // Create Event Manager (using the database pool)
+                let event_manager = Arc::new(RwLock::new(EventManager::new(pool.clone())));
+                info!("Event manager initialized for semantic worker");
+
+                // Create oracle runner
+                let oracle_runner_config = PodmanOracleRunnerConfig::from_env();
+                let oracle_runner = Arc::new(PodmanOracleRunner::new(
+                    oracle_runner_config,
+                    state.evidence_store.clone(),
+                ));
+                info!("Oracle runner initialized for semantic worker");
+
+                // Create candidate workspace materializer
+                let workspace_config = CandidateWorkspaceConfig::default();
+                let candidate_workspace = Arc::new(SimpleCandidateWorkspace::new(workspace_config));
+                info!("Candidate workspace materializer initialized");
+
+                // Create semantic worker
+                let worker_config = SemanticWorkerConfig::from_env();
+                let semantic_worker = SemanticWorkerBridge::new(
+                    worker_config,
+                    nats_bus,
+                    event_manager,
+                    oracle_runner,
+                    state.evidence_store.clone(),
+                    references_state.oracle_registry.clone(),
+                    candidate_workspace,
+                );
+
+                // Spawn semantic worker in background task
+                tokio::spawn(async move {
+                    info!("Starting semantic worker");
+                    if let Err(e) = semantic_worker.start().await {
+                        tracing::error!(error = ?e, "Semantic worker failed");
+                    }
+                });
+
+                info!("Semantic worker spawned");
+            }
+            Err(e) => {
+                warn!(
+                    error = ?e,
+                    "Failed to connect to NATS - semantic worker not started"
+                );
+            }
+        }
+    }
 
     // Create router (D-33: includes metrics endpoint and request tracing)
     let app = create_router(

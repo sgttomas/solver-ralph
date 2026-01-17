@@ -26,10 +26,13 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, warn};
 
+use crate::candidate_store::{CandidateWorkspace, TempWorkspace, WorkspaceError};
 use crate::event_manager::{EligibleSet, EventManager};
 use crate::nats::{streams, subjects, MessageEnvelope, NatsConsumer, NatsMessageBus};
+use crate::oracle_runner::{OracleSuiteDefinition, PodmanOracleRunner};
+use crate::oracle_suite::OracleSuiteRegistry;
 use crate::worker::{ContentResolver, WorkerConfig, WorkerError};
-use sr_ports::MessageBusError;
+use sr_ports::{EvidenceStore, MessageBusError, OracleRunResult, OracleRunnerError, OracleStatus};
 
 // ============================================================================
 // Semantic Worker Configuration
@@ -257,7 +260,7 @@ pub enum NextStepRecommendation {
 /// 4. Execute the procedure stage
 /// 5. Run semantic oracle suites
 /// 6. Emit evidence bundle and iteration summary
-pub struct SemanticWorkerBridge {
+pub struct SemanticWorkerBridge<E: EvidenceStore, W: CandidateWorkspace> {
     /// Worker configuration
     config: SemanticWorkerConfig,
     /// NATS message bus
@@ -274,14 +277,26 @@ pub struct SemanticWorkerBridge {
     processed_iterations: Arc<RwLock<HashMap<String, DateTime<Utc>>>>,
     /// Iteration count per work unit (thrashing detection)
     iteration_counts: Arc<RwLock<HashMap<String, u32>>>,
+    /// Oracle runner for executing semantic oracle suites (V9-1)
+    oracle_runner: Arc<PodmanOracleRunner<E>>,
+    /// Evidence store for persisting evidence bundles (V9-1)
+    evidence_store: Arc<E>,
+    /// Oracle suite registry for suite definitions (V9-1)
+    oracle_registry: Arc<OracleSuiteRegistry>,
+    /// Candidate workspace materializer (V9-1)
+    candidate_workspace: Arc<W>,
 }
 
-impl SemanticWorkerBridge {
+impl<E: EvidenceStore + 'static, W: CandidateWorkspace + 'static> SemanticWorkerBridge<E, W> {
     /// Create a new semantic worker bridge
     pub fn new(
         config: SemanticWorkerConfig,
         message_bus: Arc<NatsMessageBus>,
         event_manager: Arc<RwLock<EventManager>>,
+        oracle_runner: Arc<PodmanOracleRunner<E>>,
+        evidence_store: Arc<E>,
+        oracle_registry: Arc<OracleSuiteRegistry>,
+        candidate_workspace: Arc<W>,
     ) -> Self {
         Self {
             config,
@@ -292,6 +307,10 @@ impl SemanticWorkerBridge {
             event_manager,
             processed_iterations: Arc::new(RwLock::new(HashMap::new())),
             iteration_counts: Arc::new(RwLock::new(HashMap::new())),
+            oracle_runner,
+            evidence_store,
+            oracle_registry,
+            candidate_workspace,
         }
     }
 
@@ -661,45 +680,77 @@ impl SemanticWorkerBridge {
     }
 
     /// Run semantic oracle suites per SR-AGENT-WORKER-CONTRACT §2.3
+    ///
+    /// V9-1: Now invokes real oracle runner instead of returning simulated data.
     async fn run_semantic_oracles(
         &self,
         selection: &SelectionRationale,
-        context: &ContextBundle,
+        _context: &ContextBundle,
     ) -> Result<Vec<SemanticOracleResult>, WorkerError> {
-        info!("Running semantic oracle suites");
+        use crate::semantic_suite::SUITE_INTAKE_ADMISSIBILITY_ID;
 
-        // For reference implementation, simulate oracle results
-        // In a real implementation, this would invoke IntakeAdmissibilityRunner
+        info!(
+            work_unit_id = %selection.selected_work_unit_id,
+            stage_id = %selection.target_stage_id,
+            "Running semantic oracle suites"
+        );
 
-        let oracle_results = vec![
-            SemanticOracleResult {
-                oracle_id: "SEMANTIC:intake_admissibility:completeness".to_string(),
-                passed: true,
-                score: Some(0.95),
-                details: serde_json::json!({
-                    "sections_present": ["objective", "scope", "constraints"],
-                    "sections_missing": []
-                }),
-            },
-            SemanticOracleResult {
-                oracle_id: "SEMANTIC:intake_admissibility:consistency".to_string(),
-                passed: true,
-                score: Some(0.90),
-                details: serde_json::json!({
-                    "contradictions_found": 0,
-                    "ambiguities_found": 1
-                }),
-            },
-            SemanticOracleResult {
-                oracle_id: "SEMANTIC:intake_admissibility:feasibility".to_string(),
-                passed: true,
-                score: Some(0.85),
-                details: serde_json::json!({
-                    "resources_available": true,
-                    "timeline_feasible": true
-                }),
-            },
-        ];
+        // 1. Get semantic oracle suite from registry
+        let suite = self
+            .oracle_registry
+            .get_suite(SUITE_INTAKE_ADMISSIBILITY_ID)
+            .await
+            .ok_or_else(|| WorkerError::OracleError {
+                message: format!(
+                    "Semantic oracle suite not found: {}",
+                    SUITE_INTAKE_ADMISSIBILITY_ID
+                ),
+            })?;
+
+        info!(
+            suite_id = %suite.suite_id,
+            suite_hash = %suite.suite_hash,
+            "Retrieved semantic oracle suite"
+        );
+
+        // 2. Materialize candidate workspace
+        let workspace = self
+            .candidate_workspace
+            .materialize(&selection.selected_work_unit_id)
+            .await
+            .map_err(|e| WorkerError::WorkspaceError {
+                message: format!("Failed to materialize workspace: {}", e),
+            })?;
+
+        info!(
+            workspace_path = %workspace.path.display(),
+            candidate_id = %workspace.candidate_id,
+            "Materialized candidate workspace"
+        );
+
+        // 3. Execute oracle suite
+        let result = self
+            .oracle_runner
+            .execute_suite(
+                &selection.selected_work_unit_id,
+                &suite.suite_id,
+                &suite.suite_hash,
+                &workspace.path,
+            )
+            .await
+            .map_err(|e| WorkerError::OracleError {
+                message: format!("Oracle execution failed: {}", e),
+            })?;
+
+        info!(
+            run_id = %result.run_id,
+            status = ?result.status,
+            evidence_hash = %result.evidence_bundle_hash,
+            "Oracle suite execution complete"
+        );
+
+        // 4. Map OracleRunResult to Vec<SemanticOracleResult>
+        let oracle_results = self.map_oracle_results(&result, &suite);
 
         debug!(
             oracle_count = oracle_results.len(),
@@ -709,14 +760,36 @@ impl SemanticWorkerBridge {
         Ok(oracle_results)
     }
 
+    /// Map OracleRunResult to Vec<SemanticOracleResult>
+    fn map_oracle_results(
+        &self,
+        result: &OracleRunResult,
+        suite: &OracleSuiteDefinition,
+    ) -> Vec<SemanticOracleResult> {
+        // Map the overall suite result to SemanticOracleResult format
+        vec![SemanticOracleResult {
+            oracle_id: format!("SEMANTIC:{}", suite.suite_id),
+            passed: result.status == OracleStatus::Pass,
+            score: None, // OracleRunResult doesn't provide a score
+            details: serde_json::json!({
+                "run_id": result.run_id,
+                "evidence_hash": result.evidence_bundle_hash,
+                "status": format!("{:?}", result.status),
+                "environment": result.environment_fingerprint,
+            }),
+        }]
+    }
+
     /// Emit evidence bundle per SR-AGENT-WORKER-CONTRACT §2.4
+    ///
+    /// V9-1: Now persists to MinIO and emits EvidenceBundleRecorded event.
     async fn emit_evidence_bundle(
         &self,
         selection: &SelectionRationale,
         result: &StageExecutionResult,
         iteration_id: &str,
     ) -> Result<String, WorkerError> {
-        let bundle_id = format!("bundle_{}", ulid::Ulid::new());
+        let bundle_id = format!("bundle:{}", ulid::Ulid::new());
 
         // Compute gate verdict
         let gate_verdict = if result.success {
@@ -727,20 +800,7 @@ impl SemanticWorkerBridge {
             GateVerdict::Inconclusive
         };
 
-        // Compute content hash
-        let mut hasher = Sha256::new();
-        hasher.update(b"evidence_bundle:");
-        hasher.update(selection.selected_work_unit_id.as_bytes());
-        hasher.update(b":");
-        hasher.update(selection.target_stage_id.as_bytes());
-        hasher.update(b":");
-        hasher.update(iteration_id.as_bytes());
-        for oracle in &result.oracle_results {
-            hasher.update(oracle.oracle_id.as_bytes());
-            hasher.update(if oracle.passed { b":PASS" } else { b":FAIL" });
-        }
-        let content_hash = hex::encode(hasher.finalize());
-
+        // Build evidence bundle payload
         let payload = EvidenceBundlePayload {
             bundle_id: bundle_id.clone(),
             work_unit_id: selection.selected_work_unit_id.clone(),
@@ -749,19 +809,65 @@ impl SemanticWorkerBridge {
                 .first()
                 .map(|a| a.artifact_id.clone())
                 .unwrap_or_default(),
-            procedure_template_id: "GENERIC".to_string(),
+            procedure_template_id: "proc:GENERIC-KNOWLEDGE-WORK".to_string(),
             stage_id: selection.target_stage_id.clone(),
             oracle_results: result.oracle_results.clone(),
-            gate_verdict,
-            content_hash,
+            gate_verdict: gate_verdict.clone(),
+            content_hash: String::new(), // Will be set from store result
             recorded_at: Utc::now(),
         };
 
-        // In a real implementation, emit EvidenceBundleRecorded event
+        // 1. Serialize and store in MinIO
+        let manifest_bytes = serde_json::to_vec(&payload).map_err(|e| {
+            WorkerError::SerializationError {
+                message: format!("Failed to serialize evidence bundle: {}", e),
+            }
+        })?;
+
+        let content_hash = self
+            .evidence_store
+            .store(&manifest_bytes, vec![])
+            .await
+            .map_err(|e| WorkerError::StorageError {
+                message: format!("Failed to store evidence bundle: {}", e),
+            })?;
+
         info!(
             bundle_id = %bundle_id,
+            content_hash = %content_hash,
+            "Evidence bundle stored in MinIO"
+        );
+
+        // 2. Emit EvidenceBundleRecorded event via NATS
+        let event_payload = serde_json::json!({
+            "event_type": "EvidenceBundleRecorded",
+            "bundle_id": bundle_id,
+            "content_hash": content_hash,
+            "work_unit_id": selection.selected_work_unit_id,
+            "stage_id": selection.target_stage_id,
+            "iteration_id": iteration_id,
+            "gate_verdict": format!("{:?}", gate_verdict),
+            "recorded_at": Utc::now(),
+        });
+
+        let event_bytes = serde_json::to_vec(&event_payload).map_err(|e| {
+            WorkerError::SerializationError {
+                message: format!("Failed to serialize event: {}", e),
+            }
+        })?;
+
+        self.message_bus
+            .publish_with_id(subjects::ORACLE_EVENTS, &event_bytes, &bundle_id)
+            .await
+            .map_err(|e| WorkerError::MessageBusError {
+                message: format!("Failed to emit EvidenceBundleRecorded event: {}", e),
+            })?;
+
+        info!(
+            bundle_id = %bundle_id,
+            content_hash = %content_hash,
             verdict = ?gate_verdict,
-            "Evidence bundle recorded"
+            "Evidence bundle recorded and event emitted"
         );
 
         Ok(bundle_id)

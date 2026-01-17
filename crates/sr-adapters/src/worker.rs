@@ -106,6 +106,18 @@ pub enum WorkerError {
 
     #[error("Serialization error: {message}")]
     SerializationError { message: String },
+
+    /// Oracle execution error (V9-1)
+    #[error("Oracle error: {message}")]
+    OracleError { message: String },
+
+    /// Workspace materialization error (V9-1)
+    #[error("Workspace error: {message}")]
+    WorkspaceError { message: String },
+
+    /// Evidence storage error (V9-1)
+    #[error("Storage error: {message}")]
+    StorageError { message: String },
 }
 
 impl From<MessageBusError> for WorkerError {

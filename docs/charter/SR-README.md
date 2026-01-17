@@ -67,82 +67,82 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 |------|-------|------------------|--------|
 | SR-PLAN-V7 | Stabilization & Attachments | Tests, UX, `record.attachment` | **Complete** |
 | SR-PLAN-V8 | Oracle Runner & Semantic Suites | D-24, D-25, D-27, D-39 | **Complete** |
-| SR-PLAN-V9 | Semantic Worker & Branch 0 | D-23, D-41, D-36 | **Authored — Pending Review** |
+| SR-PLAN-V9 | Semantic Worker & Branch 0 | D-23, D-41, D-36 | **Reviews Complete — Implementation Active** |
 
-**Milestone 1 (MVP) projected completion:** After V9 implementation (~5-8 sessions post-review)
+**Milestone 1 (MVP) projected completion:** After V9 implementation (~5-8 sessions)
 
 ---
 
-## SR-PLAN-V9 Status (COHERENCE APPROVED — CONSISTENCY REVIEW PENDING)
+## SR-PLAN-V9 Status (APPROVED — IMPLEMENTATION ACTIVE)
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| V9-1: Semantic Worker Integration | 📝 Planned | Wire semantic worker to oracle runner, persist evidence |
-| V9-2: E2E Flow Integration Test | 📝 Planned | Complete Branch 0 flow test (5 stages) |
+| V9-1: Semantic Worker Integration | ✅ **COMPLETE** | Wire semantic worker to oracle runner, persist evidence |
+| V9-2: E2E Flow Integration Test | 🔄 **ACTIVE** | Complete Branch 0 flow test (5 stages) |
 | V9-3: Replayability Demonstration | 📝 Planned | Prove EventManager.rebuild() determinism (D-36) |
 | V9-4: Branch 0 Acceptance | 📝 Planned | Document criteria satisfaction, human approval |
 
-**SR-PLAN-V9 coherence review APPROVED.** Awaiting consistency evaluation before implementation.
+**Reviews Complete:**
+- Coherence review: APPROVED (`docs/reviews/SR-PLAN-V9-COHERENCE-REVIEW.md`)
+- Consistency evaluation: APPROVED WITH NOTES (`docs/reviews/SR-PLAN-V9-CONSISTENCY-EVALUATION.md`)
 
 ---
 
-## Next Instance Prompt: Consistency Evaluation of SR-PLAN-V9
+## Next Instance Prompt: V9-2 E2E Flow Integration Test
 
 ### Assignment
 
-**Perform a Consistency Evaluation of SR-PLAN-V9** — evaluate the plan's consistency with the canonical SR-* documentation on the basis of **ontology, epistemology, and semantics**. Do NOT implement code; focus on evaluation and producing a consistency assessment document.
+**Implement V9-2: End-to-End Flow Integration Test** — create an integration test demonstrating complete Branch 0 procedure flow. This is a CODE IMPLEMENTATION task.
 
-### Context
+### Quick Orientation
 
-SR-PLAN-V9 has passed coherence review (codebase verification). The coherence review confirmed:
-- All infrastructure claims accurate (line counts, component status)
-- Stub implementations correctly identified
-- Integration points feasible with existing patterns
-- Contract alignment verified (C-VER-1, C-EVT-7, SR-AGENT-WORKER-CONTRACT)
+1. **Read the plan first:** `docs/planning/SR-PLAN-V9.md` §3.2 (Phase V9-2)
+2. **Review V9-1 completion:** V9-1 wired the semantic worker to real oracle execution
+3. **Understand test requirements:** Branch 0 acceptance requires demonstrating all 5 stages traversed
 
-**Coherence ≠ Consistency.** Coherence verified the plan matches the *codebase*. Consistency verifies the plan matches the *canonical documentation* — that it uses terms correctly, makes supported claims, and follows the project's semantic conventions.
+### What V9-2 Must Deliver
 
-### Required Reading Before Evaluation
+Per SR-PLAN-V9 §3.2:
 
-| Document | What to Evaluate |
-|----------|------------------|
-| `docs/planning/SR-PLAN-V9.md` | The plan under evaluation |
-| `docs/reviews/SR-PLAN-V9-COHERENCE-REVIEW.md` | Prior review findings |
-| `docs/platform/SR-CONTRACT.md` | Canonical definitions (§2), invariants (C-*) |
-| `docs/platform/SR-SPEC.md` | Platform mechanics, API semantics |
-| `docs/platform/SR-TYPES.md` | Type registry, naming conventions |
-| `docs/platform/SR-EVENT-MANAGER.md` | Projection semantics |
-| `docs/platform/SR-AGENT-WORKER-CONTRACT.md` | Worker behavioral contract |
-| `docs/platform/SR-WORK-SURFACE.md` | Work Surface definitions |
-| `docs/program/SR-DIRECTIVE.md` | Execution policy, stop triggers, gate rules |
-| `docs/program/SR-PLAN.md` | Build plan instance, deliverable definitions |
+| File | Action | Description |
+|------|--------|-------------|
+| `sr-api/tests/integration/branch_0_e2e_test.rs` | CREATE | Full E2E integration test |
+| `sr-api/tests/fixtures/branch_0_intake.json` | CREATE | Test intake fixture |
+| `sr-api/tests/fixtures/branch_0_work_surface.json` | CREATE | Test work surface fixture |
 
-### What You Must Produce
+### Test Flow Requirements
 
-Create `docs/reviews/SR-PLAN-V9-CONSISTENCY-EVALUATION.md` containing:
+The E2E test must demonstrate:
+1. Loop created for problem-statement work unit
+2. Iteration started with Work Surface ref set
+3. Candidate intake bundle produced
+4. Evidence Bundle from semantic oracle suite
+5. Human portal approval recorded
+6. Freeze baseline created
+7. Stage progression: FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL
 
-#### 1. Ontological Consistency
+### Canonical References
 
+| Document | Relevant Sections |
+|----------|-------------------|
+| SR-PLAN-V9 | §3.2 (V9-2 deliverables and test flow) |
+| SR-PLAN | §4.1 (Branch 0 acceptance criteria) |
+| SR-PROCEDURE-KIT | §2 (GENERIC-KNOWLEDGE-WORK stages) |
 
-#### 2. Epistemological Consistency
+### Acceptance Criteria (from V9-2)
 
-
-#### 3. Semantic Consistency
-
-
-#### 4. Findings Summary
-
-| Category | Status | Notes |
-|----------|--------|-------|
-| Ontological | PASS/FAIL/NOTES | ... |
-| Epistemological | PASS/FAIL/NOTES | ... |
-| Semantic | PASS/FAIL/NOTES | ... |
-
-
-
+- [ ] E2E test creates work surface and loop
+- [ ] E2E test progresses through all 5 stages (FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL)
+- [ ] E2E test records portal approvals where required
+- [ ] E2E test creates freeze baseline
+- [ ] Evidence bundles exist for each stage transition
+- [ ] Test passes in CI environment
+- [ ] Test is documented in README
 
 ### On Completion
 
-Create `docs/reviews/SR-PLAN-V9-CONSISTENCY-EVALUATION.md` with findings
+1. Commit changes with descriptive message
+2. Update SR-README to mark V9-2 complete and set V9-3 as active
+3. Push to branch `solver-ralph-9`
 
 
