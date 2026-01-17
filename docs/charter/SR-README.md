@@ -209,32 +209,58 @@ V9-4 completed Branch 0 Acceptance Verification, marking Milestone 1 (MVP) compl
 
 ---
 
-## Next Instance Prompt: Milestone 2 Planning
+## Next Instance Prompt: Branch 0 Validation Testing
 
 ### Assignment
 
-**Milestone 1 is complete.** The next phase is planning for Milestone 2 (External API Integration).
+**Validation Testing Session** — The human will be running the full Branch 0 flow end-to-end and validating the acceptance criteria in practice. Your role is to assist with debugging and troubleshooting as issues arise.
 
-### Context from V9
+### Context
 
 SR-PLAN-V9 is complete with all 4 phases finished in 4 sessions:
-- V9-1: Semantic worker integration (D-23, D-41)
-- V9-2: E2E flow integration test
-- V9-3: Replayability demonstration (D-36)
-- V9-4: Branch 0 acceptance verification
+- V9-1: Semantic worker integration (D-23, D-40, D-41)
+- V9-2: E2E flow integration test (`branch_0_e2e_test.rs`)
+- V9-3: Replayability demonstration (D-36, `replay_determinism_test.rs`)
+- V9-4: Branch 0 acceptance verification (`SR-BRANCH-0-ACCEPTANCE.md`)
 
-All Branch 0 acceptance criteria satisfied. See `SR-BRANCH-0-ACCEPTANCE.md` for formal verification.
+The acceptance criteria are documented but await **human validation** through actual execution of the Branch 0 flow.
 
-### Recommended Next Steps
+### What the Human Will Be Testing
 
-1. Review `SR-BRANCH-0-ACCEPTANCE.md` for human approval
-2. Plan Milestone 2 scope (External API Integration)
-3. Author SR-PLAN-V10
+Per SR-BRANCH-0-ACCEPTANCE, the 8 acceptance criteria to validate:
+
+1. Work Surface creation with GENERIC-KNOWLEDGE-WORK template
+2. Loop creation bound to work surface
+3. Iteration cycling with semantic worker processing
+4. Stage progression (FRAME → OPTIONS → DRAFT → SEMANTIC_EVAL → FINAL)
+5. Portal approvals at trust boundaries (SEMANTIC_EVAL, FINAL)
+6. Evidence bundle verification
+7. Freeze baseline creation
+8. Deterministic replay proof
+
+### Your Role
+
+- Assist with starting infrastructure (Postgres, MinIO, NATS, API server)
+- Help diagnose failures in the E2E flow
+- Debug API errors, event processing issues, or worker problems
+- Consult SR-* documents for expected behavior
+- Propose fixes if issues are found
+
+### Key Files for Troubleshooting
+
+| Component | File |
+|-----------|------|
+| API server | `crates/sr-api/src/main.rs` |
+| Semantic worker | `crates/sr-adapters/src/semantic_worker.rs` |
+| Event manager | `crates/sr-adapters/src/event_manager.rs` |
+| E2E test reference | `crates/sr-api/tests/integration/branch_0_e2e_test.rs` |
+| Replay proof | `crates/sr-adapters/src/replay.rs` |
 
 ### Canonical References
 
 | Document | Relevant Sections |
 |----------|-------------------|
-| SR-BRANCH-0-ACCEPTANCE | Milestone 1 verification |
-| SR-PLAN-GAP-ANALYSIS | Deliverable tracking |
-| SR-CHARTER | Milestone 2 objectives |
+| SR-BRANCH-0-ACCEPTANCE | Acceptance criteria and evidence |
+| SR-CONTRACT | C-* invariants to verify |
+| SR-PROCEDURE-KIT | GENERIC-KNOWLEDGE-WORK stages |
+| SR-EVENT-MANAGER | Projection and eligibility computation |
