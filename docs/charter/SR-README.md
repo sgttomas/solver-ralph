@@ -65,33 +65,77 @@ Canonical index for the SR-* document set.
 ## Current Status
 
 **V10-1 through V10-4:** ✅ VERIFIED (2026-01-17)
-**V10-5, V10-6:** Pending
+**V10-5, V10-6:** Pending (optional)
 **Branch:** `solver-ralph-10`
 
-Tests 9, 12-15 re-run and verified passing. See `docs/planning/SR-PLAN-LOOPS.md` for detailed verification results.
+Loop Governor stop triggers (D-22) are now fully operational:
+- BUDGET_EXHAUSTED and REPEATED_FAILURE triggers fire correctly
+- Decision-required resume gating works
+- Tests 9, 12-15 verified passing
 
-See `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` for V10 implementation details and status.
+See `docs/planning/SR-PLAN-LOOPS.md` for detailed verification results.
+See `docs/build-governance/SR-CHANGE.md` v1.1 for implementation summary.
+
+---
+
+## Previous Session Summary (2026-01-17)
+
+**Completed:**
+1. Applied migration 009 (V10 schema columns + candidate traceability index)
+2. Verified all V10-1 through V10-4 implementations via API testing:
+   - Test 9: Loop ref in IterationStarted.refs[] with `rel="in_scope_of"` ✅
+   - Test 12: Index `idx_candidates_produced_by_iteration` exists ✅
+   - Test 13: BUDGET_EXHAUSTED fires at max_iterations, returns 412 ✅
+   - Test 14: REPEATED_FAILURE fires after 3 consecutive failures ✅
+   - Test 15: Resume requires Decision when `requires_decision=true` ✅
+3. Updated SR-PLAN-LOOPS, SR-PLAN-GAP-ANALYSIS, SR-CHANGE with verification results
+4. Committed: `feat(V10): Implement and verify Loop Governor stop triggers`
+
+**Remaining V10 work (low priority):**
+- V10-5: Loop PATCH endpoint for budget monotonicity (Test 8 gap)
+- V10-6: OracleSuite hash prefix fix — `sha256:sha256:` doubled prefix (Test 10 gap)
 
 ---
 
 ## Next Instance Prompt
 
-> **Assignment:** Verify V10 implementation, then complete V10-5/V10-6 if time permits.
+> **Assignment:** Complete V10-5/V10-6 or proceed to V11 scoping based on priority.
 
 ### Orientation
 
-Read these documents in order:
+Read these documents:
 
-1. `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V10 scope, what's done (V10-1 through V10-4), what remains (V10-5, V10-6)
-2. `docs/planning/SR-PLAN-LOOPS.md` — Implementation Status Update section shows which tests should now pass; re-run Tests 9, 12-15 to verify
+1. `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V10-5/V10-6 descriptions, V11 scope preview
+2. `docs/planning/SR-PLAN-LOOPS.md` — Test 8 (edit endpoint gap), Test 10 (hash prefix gap)
 
-### Deliverables
+### Decision Point
 
-1. **Verify:** Re-run SR-PLAN-LOOPS Tests 9, 12-15 against the implementation
-2. **Implement (if time):** V10-5 (Loop PATCH endpoint) per SR-PLAN-GAP-ANALYSIS
-3. **Update:** SR-PLAN-LOOPS verification results after testing
+V10-5 and V10-6 are **low priority** gaps that don't block core Loop Governor functionality:
+- V10-5 (PATCH endpoint): Convenience feature for budget updates without Loop recreation
+- V10-6 (hash fix): Cosmetic issue in OracleSuite content_hash display
+
+**Options:**
+1. **Implement V10-5/V10-6** — Complete V10 scope fully
+2. **Skip to V11** — Focus on higher-value work (E2E test automation, integrity conditions)
+
+### If implementing V10-5
+
+```rust
+// Add to crates/sr-api/src/handlers/loops.rs
+// PATCH /api/v1/loops/{loop_id}
+// - Accept partial budgets update
+// - Enforce monotonicity: new budget >= current budget
+// - Emit LoopUpdated event
+```
+
+### If implementing V10-6
+
+Search for `sha256:sha256:` prefix issue in:
+- `crates/sr-adapters/src/oracle_suite.rs`
+- Look for double-prefixing in content_hash computation
 
 ### Constraints
 
-- Migration 009 is already in place — do not duplicate schema changes
-- V10-1 through V10-4 are complete — do not re-implement
+- V10-1 through V10-4 are verified complete — do not re-test
+- Migration 009 is applied — do not duplicate
+- Infrastructure is running (docker containers: sr-postgres, sr-minio, sr-nats, sr-zitadel)
