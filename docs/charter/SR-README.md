@@ -65,20 +65,40 @@ Canonical index for the SR-* document set.
 ## Current Status
 
 **V10:** ✅ COMPLETE (2026-01-17)
-**V11:** ✅ Reviews complete — ready for implementation
+**V11:** 🔄 IN PROGRESS — V11-1, V11-2, V11-3 complete
 **Branch:** `solver-ralph-11`
 
-All V10 phases verified and complete:
-- V10-1 through V10-4: Loop Governor stop triggers, decision gating, traceability
-- V10-5: Loop PATCH endpoint with budget monotonicity
-- V10-6: OracleSuite hash prefix fix
+### V11 Progress (2026-01-17)
 
-V11 Coherence Review (2026-01-17):
+**V11-1: Infisical Integration (D-16)** ✅ COMPLETE
+- Added 15 integration tests with wiremock for mock Infisical API
+- Tests cover: get/store/delete secrets, envelope key retrieval, caching, error handling
+- Created `.env.example` with Infisical configuration variables
+- Documentation in `docs/platform/SR-DEPLOYMENT.md`
+
+**V11-2: Build/Init Scripts (D-32)** ✅ COMPLETE
+- Audited `deploy/init.sh` — confirmed comprehensive initialization
+- Created `scripts/init-all.sh` wrapper with pre-flight checks
+- Documentation in `docs/platform/SR-DEPLOYMENT.md`
+
+**V11-3: Operational Observability (D-33)** ✅ COMPLETE
+- Added `/ready` endpoint with PostgreSQL, MinIO, NATS connectivity checks
+- Added domain-specific metrics (loops, iterations, candidates, oracle runs, events)
+- Created `docs/platform/SR-OBSERVABILITY.md` documentation
+
+**Remaining:**
+- V11-4: E2E Failure Mode Harness verification
+- V11-5: Integration Oracle Suite registration
+- V11-6: GovernedArtifact & Exception refs
+
+### V11 Reviews (2026-01-17)
+
+V11 Coherence Review:
 - SR-PLAN-V11 reviewed against codebase — APPROVED
 - Revisions incorporated: V10-G5 addressed, existing infrastructure acknowledged, effort estimates reduced
 - See `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` for detailed findings
 
-V11 Consistency Review (2026-01-17):
+V11 Consistency Review:
 - SR-PLAN-V11 reviewed for consistency with canonical SR-* documents — REVISED
 - Corrected V11-6 schemas to align with SR-SPEC §1.5.2 and §1.5.3
 - Fixed: `rel: "governed_by"` → `rel: "depends_on"`, added required `id` field

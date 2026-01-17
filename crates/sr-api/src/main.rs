@@ -30,7 +30,10 @@ use handlers::{
     prompt_loop::{prompt_loop, prompt_loop_stream},
     references, runs, templates, work_surfaces,
 };
-use observability::{metrics_endpoint, request_context_middleware, Metrics, MetricsState};
+use observability::{
+    metrics_endpoint, ready_endpoint, request_context_middleware, Metrics, MetricsState,
+    ReadinessState,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use sr_adapters::oracle_suite::OracleSuiteRegistry;
@@ -152,6 +155,7 @@ pub use references::ReferencesState;
 fn create_router(
     state: AppState,
     metrics_state: MetricsState,
+    readiness_state: ReadinessState,
     oracle_state: OracleRegistryState,
     template_state: TemplateRegistryState,
     references_state: ReferencesState,
@@ -165,6 +169,11 @@ fn create_router(
         .route("/api/v1/whoami", get(whoami))
         .route("/api/v1/metrics", get(metrics_endpoint))
         .with_state(metrics_state);
+
+    // Readiness route (V11-3) - separate state
+    let readiness_routes = Router::new()
+        .route("/ready", get(ready_endpoint))
+        .with_state(readiness_state);
 
     // Protected routes (authentication required)
     let protected_routes = Router::new().route("/api/v1/protected", get(protected_info));
@@ -487,6 +496,7 @@ fn create_router(
     // Combine all routes (D-33: request context middleware for correlation tracking)
     Router::new()
         .merge(public_routes)
+        .merge(readiness_routes)
         .merge(protected_routes)
         .merge(loop_routes)
         .merge(iteration_routes)
@@ -646,6 +656,17 @@ async fn main() {
 
     info!("Metrics collection initialized");
 
+    // Create readiness state (V11-3)
+    let readiness_state = ReadinessState {
+        db_pool: pool.clone(),
+        minio_endpoint: std::env::var("MINIO_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:9000".to_string()),
+        minio_bucket: std::env::var("MINIO_BUCKET").unwrap_or_else(|_| "evidence".to_string()),
+        nats_url: config.nats_url.clone(),
+    };
+
+    info!("Readiness checks initialized");
+
     // Create oracle registry state (SR-SEMANTIC-ORACLE-SPEC)
     let oracle_registry = Arc::new(OracleSuiteRegistry::with_core_suites());
     let oracle_state = OracleRegistryState {
@@ -770,6 +791,7 @@ async fn main() {
     let app = create_router(
         state,
         metrics_state,
+        readiness_state,
         oracle_state,
         template_state,
         references_state,
