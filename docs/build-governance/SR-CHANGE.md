@@ -101,6 +101,40 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Verification:** 15 Infisical tests pass, 10 observability tests pass
 - **Classification:** G:MINOR (additive; backward-compatible; new endpoints and documentation).
 
+### 1.5  (2026-01-17)
+
+- **V11-4: E2E Failure Mode Harness (D-35):**
+  - Added `EvidenceMissing` scenario to E2E failure mode harness (Test 18)
+  - Implemented `run_evidence_missing()` with proper integrity condition detection
+  - Added `--evidence-missing` CLI flag to sr-e2e-harness
+  - Verifies EVIDENCE_MISSING is non-waivable per SR-CONTRACT C-OR-7 and §7.1
+- **V11-5: Integration Oracle Suite (D-26):**
+  - Created `create_integration_suite()` factory function
+  - Added `SUITE_INTEGRATION_ID` constant (`suite:SR-SUITE-INTEGRATION`)
+  - Registered in `OracleSuiteRegistry::with_core_suites()` (now 5 suites total)
+  - Network mode: Private (integration tests require network access)
+- **V11-6: GovernedArtifact & Exception Refs (D-08):**
+  - Created `crates/sr-api/src/governed.rs` — GovernedManifest with content-addressed artifacts
+  - Computed manifest at API startup with SHA-256 content hashes
+  - Added `get_active_exceptions_for_loop()` to ProjectionBuilder
+  - Updated `start_iteration()` to add GovernedArtifact and active Exception refs to `IterationStarted.refs[]`
+  - Used corrected schemas per SR-PLAN-V11-CONSISTENCY-REVIEW:
+    - GovernedArtifact: `kind: "GovernedArtifact"`, `id: doc_id`, `rel: "depends_on"`, `meta: {content_hash, version, type_key}`
+    - Exceptions: `kind: "Waiver|Deviation|Deferral"`, `id: exception_id`, `rel: "depends_on"`
+- **Files created:**
+  - `crates/sr-api/src/governed.rs` — GovernedManifest implementation
+- **Files modified:**
+  - `crates/sr-e2e-harness/src/failure_modes.rs` — Added EvidenceMissing scenario
+  - `crates/sr-e2e-harness/src/main.rs` — Added --evidence-missing CLI flag
+  - `crates/sr-e2e-harness/src/lib.rs` — Exported run_evidence_missing
+  - `crates/sr-adapters/src/oracle_suite.rs` — Added SR-SUITE-INTEGRATION registration
+  - `crates/sr-adapters/src/projections.rs` — Added get_active_exceptions_for_loop()
+  - `crates/sr-api/src/handlers/iterations.rs` — Added GovernedArtifact and Exception refs
+  - `crates/sr-api/src/main.rs` — Computed GovernedManifest at startup
+  - `docs/charter/SR-README.md` — Updated V11 status and completion details
+- **Verification:** All tests pass. Build succeeds. V11 complete.
+- **Classification:** G:MINOR (additive; backward-compatible; new E2E scenario, oracle suite, and iteration refs).
+
 ### 1.3  (2026-01-17)
 
 - **SR-SPEC §2.3.1:** Added `PATCH /loops/{loop_id}` endpoint documentation:

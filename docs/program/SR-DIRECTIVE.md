@@ -208,6 +208,8 @@ SR-DIRECTIVE only treats the following identifiers as normative stable names:
 - `suite:SR-SUITE-GOV` — governance/metadata checks (schemas, IDs, lineage, refs).
 - `suite:SR-SUITE-CORE` — core deterministic checks (meta/schema/build/unit/lint + integrity smoke).
 - `suite:SR-SUITE-FULL` — core + integration/e2e + replay/rebuild proofs (SBOM advisory).
+- `suite:SR-SUITE-SEMANTIC` — semantic evaluation oracles (semantic set binding, meaning-matrix checks).
+- `suite:SR-SUITE-INTEGRATION` — integration tests (network-enabled; PostgreSQL, MinIO, NATS dependencies).
 
 ### 5.2 Verification profile IDs
 - `GOV-CORE` → required_suites: [`suite:SR-SUITE-GOV`]

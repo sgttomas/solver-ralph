@@ -1565,10 +1565,24 @@ The system MUST NOT use raw, unbounded conversation history as iteration memory.
 1) **Loop**  
    - `kind=Loop`, `rel=in_scope_of`, `id=<loop_id>`
 
-2) **Governing artifacts in force** (binding semantics)  
-   - `kind=GovernedArtifact`, `rel=depends_on`  
-   - MUST include references to: `SR-TYPES`, `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`  
+2) **Governing artifacts in force** (binding semantics)
+   - `kind=GovernedArtifact`, `rel=depends_on`
+   - MUST include references to: `SR-TYPES`, `SR-CONTRACT`, `SR-SPEC`, `SR-DIRECTIVE`
    - each MUST carry `meta.version` and `meta.content_hash` (and SHOULD carry `meta.selector` where a slice is intended)
+
+   **Example GovernedArtifact ref (V11-6):**
+   ```jsonc
+   {
+     "kind": "GovernedArtifact",
+     "id": "SR-DIRECTIVE",
+     "rel": "depends_on",
+     "meta": {
+       "content_hash": "sha256:abc123...",
+       "version": "1.0.0",
+       "type_key": "governance.dev_directive"
+     }
+   }
+   ```
 
 3) **Prior Iteration summaries carried forward** (controlled memory)  
    - `kind=Iteration`, `rel=depends_on`  
@@ -1583,9 +1597,24 @@ The system MUST NOT use raw, unbounded conversation history as iteration memory.
    - MUST carry `suite_hash` and `meta.content_hash`
    - MUST incorporate semantic set definitions per §1.2.5 and any declared environment constraints
 
-6) **Active exceptions in scope** (binding modifiers)  
-   - `kind=Deviation|Deferral|Waiver`, `rel=depends_on`  
-   - MAY be empty if no active exceptions apply (absence means “no exceptions referenced”)
+6) **Active exceptions in scope** (binding modifiers)
+   - `kind=Deviation|Deferral|Waiver`, `rel=depends_on`
+   - MAY be empty if no active exceptions apply (absence means "no exceptions referenced")
+   - `id` MUST be the exception identifier (e.g., `EX-0001`)
+
+   **Example Exception ref (V11-6):**
+   ```jsonc
+   {
+     "kind": "Waiver",
+     "id": "EX-0001",
+     "rel": "depends_on",
+     "meta": {
+       "scope": "per-loop",
+       "expires_at": "2026-02-01T00:00:00Z",
+       "applies_to": "ORACLE_FAIL:lint"
+     }
+   }
+   ```
 
 7) **Human intervention notes (non-binding, semantic input)**
    - `kind=Record`, `meta.type_key=record.intervention_note`, `rel=depends_on`
