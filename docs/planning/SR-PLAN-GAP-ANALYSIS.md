@@ -242,38 +242,50 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V10-G6 | No Loop PATCH endpoint for budget updates | — | Medium | ✅ Fixed |
 | V10-G7 | OracleSuite content_hash has doubled `sha256:sha256:` prefix | — | Low | ✅ Fixed |
 
-### SR-PLAN-V11 (Draft)
+### SR-PLAN-V11 (Reviewed)
 
-**Status:** Authored — Pending Coherence Review
+**Status:** Reviews Complete — Ready for Implementation
 **Scope:** Production Hardening & E2E Testing
 **Target Deliverables:** D-16, D-26, D-32, D-33, D-35, D-08
 **Validation Source:** SR-PLAN-LOOPS validation (2026-01-17) — deferred items
+**Reviews:** Coherence review (2026-01-17), Consistency review (2026-01-17)
 
 | Phase | Focus | Deliverables | Gap Source |
 |-------|-------|--------------|------------|
-| V11-1 | Restricted evidence handling | D-16 | — |
-| V11-2 | Integration/E2E oracle suite | D-26 | — |
-| V11-3 | Build/init scripts completion | D-32 | — |
-| V11-4 | Operational observability | D-33 | — |
-| V11-5 | E2E failure mode harness (integrity conditions) | D-35 | Tests 17-18 |
-| V11-6 | GovernedArtifact refs in iteration context | D-08 | Test 9 |
+| V11-1 | Infisical verification | D-16 | — |
+| V11-2 | Build scripts audit | D-32 | — |
+| V11-3 | Observability gaps | D-33 | — |
+| V11-4 | E2E harness verification | D-35 | Tests 17-18 |
+| V11-5 | Integration suite registration | D-26 | — |
+| V11-6 | GovernedArtifact + Exception refs | D-08 | V10-G5 |
 
-**Deferred from V10:**
+**Note:** V11 scope refined after coherence review — much infrastructure already exists.
 
-| ID | Description | Reason for Deferral |
-|----|-------------|---------------------|
-| V11-D1 | ORACLE_GAP/EVIDENCE_MISSING E2E testing | Requires automated harness (D-35) |
-| V11-D2 | GovernedArtifact refs (SR-DIRECTIVE, etc.) | Requires content-hashing of governed docs |
+### SR-PLAN-V12 (Draft)
+
+**Status:** Authored — Pending Review
+**Scope:** Operational Refinement (complete partial deliverables)
+**Target Deliverables:** D-15, D-21, D-22
+**Estimated Effort:** 3-5 sessions
+
+| Phase | Focus | Deliverables | Current State |
+|-------|-------|--------------|---------------|
+| V12-1 | Evidence manifest validation oracle | D-15 | Manifest lib complete; oracle not containerized |
+| V12-2 | NATS message contract documentation | D-21 | Implementation complete; contracts not documented |
+| V12-3 | Standalone governor service binary | D-22 | Logic complete; no standalone service |
+
+**Out of Scope:** D-38 (Prompt → Plan Instance decomposition) — separate sub-project
 
 ---
 
 ## 5. Milestone Completion Projection
 
-| Milestone | Target Plans | Estimated Sessions |
-|-----------|--------------|-------------------|
-| Milestone 1 (MVP) | V7, V8, V9 | ~20-25 sessions |
-| Production Ready | V10, V11 | ~15-20 sessions |
-| Milestone 2 (External API) | V12+ | TBD |
+| Milestone | Target Plans | Estimated Sessions | Status |
+|-----------|--------------|-------------------|--------|
+| Milestone 1 (MVP) | V7, V8, V9 | ~20-25 sessions | ✅ Complete |
+| Production Ready | V10, V11 | ~10-15 sessions | V10 ✅, V11 ready |
+| Operational Refinement | V12 | ~3-5 sessions | Authored |
+| Milestone 2 (External API) | V13+ | TBD | Not scoped |
 
 ---
 
@@ -282,7 +294,11 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 ```
 V7 (Complete) → V8 (Complete) → V9 (Complete) → Milestone 1 COMPLETE
                                                         ↓
-                                              V10 (Automation) → V11 (Hardening) → Production Ready
+                                              V10 (Complete) → V11 (Ready) → Production Ready
+                                                                                    ↓
+                                                                            V12 (Refinement) → All Deliverables Complete
+                                                                                    ↓
+                                                                            V13+ (External API) → Milestone 2
 ```
 
 **Milestone 1 deliverables — ALL COMPLETE:**
