@@ -130,24 +130,31 @@ See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC
 
 ## Next Instance Prompt
 
-**Status:** V11 is COMPLETE. All phases (V11-1 through V11-6) have been implemented and verified.
+> **Assignment:** Implement SR-PLAN-V12 (Operational Refinement).
 
-**Assignment:** Review V11 completion and identify any remaining work or next plan.
+### Orientation
 
-**Orientation:**
-1. Read `docs/planning/SR-PLAN-V11.md` — the completed implementation plan
-2. Check `docs/program/SR-PLAN.md` for any remaining deliverables or future plans
+1. Read `docs/planning/SR-PLAN-V12.md` — the implementation plan
+2. Read `docs/planning/SR-PLAN-GAP-ANALYSIS.md` §4 — deliverable status and V12 context
 3. Navigate canonical SR-* documents as needed (see index above)
 
-**V11 Summary:**
-- **V11-1:** Infisical Integration with 15 wiremock-based integration tests
-- **V11-2:** Build/Init Scripts with pre-flight checks
-- **V11-3:** Operational Observability with `/ready` endpoint and domain metrics
-- **V11-4:** E2E Failure Mode Harness with EVIDENCE_MISSING scenario (Test 18)
-- **V11-5:** Integration Oracle Suite registered as `SR-SUITE-INTEGRATION`
-- **V11-6:** GovernedArtifact & Exception refs in `IterationStarted.refs[]`
+### Context
 
-**Verification:** All tests pass. Build succeeds. See SR-PLAN-V11 §5 for verification criteria.
+V11 is complete. V12 addresses three partial deliverables that remain:
+
+| Phase | Deliverable | Gap |
+|-------|-------------|-----|
+| V12-1 | D-15 (Evidence manifest validation oracle) | Containerize existing validation logic |
+| V12-2 | D-21 (NATS message contracts) | Document schemas, add contract tests |
+| V12-3 | D-22 (Standalone governor service) | Extract governor into standalone binary |
+
+V12-1 and V12-2 can run in parallel. V12-3 depends on V12-2.
+
+### Constraints
+
+- Commit after completing each phase
+- Update SR-README with progress
+- D-38 is out of scope — separate sub-project
 
 ---
 
