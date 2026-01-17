@@ -123,45 +123,20 @@ See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC
 
 ## Next Instance Prompt
 
-> **Assignment:** Implement SR-PLAN-V11. Both codebase coherence and canonical consistency reviews are complete.
-
-### Context
-
-SR-PLAN-V11 has passed both gates:
-1. **Codebase Coherence Review** — files exist, dependencies correct, phase ordering valid
-2. **Consistency Review** — terminology, schemas, and structures align with canonical SR-* documents
-
-The plan is ready for implementation. See `docs/planning/SR-PLAN-V11.md` for the full plan with corrected schemas.
+> **Assignment:** Implement SR-PLAN-V11 (Production Hardening & E2E Testing).
 
 ### Orientation
 
-1. Read `docs/planning/SR-PLAN-V11.md` — the implementation plan
-2. Review the reviews if needed:
-   - `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` — what infrastructure already exists
-   - `docs/planning/SR-PLAN-V11-CONSISTENCY-REVIEW.md` — schema corrections applied
-3. Navigate the canonical SR-* documents as needed (see canonical index above)
+1. Read `docs/planning/SR-PLAN-V11.md` — the implementation plan (phases, dependencies, verification criteria)
+2. Read `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` — identifies what infrastructure already exists
+3. Navigate canonical SR-* documents as needed (see index above)
 
-### Task: V11 Implementation
-
-Implement the V11 phases as specified in SR-PLAN-V11. The phases can be executed according to the dependency graph in §3 of the plan:
-
-- **V11-1, V11-2, V11-3** can run in parallel (no dependencies)
-- **V11-4** can start once V11-2 verifies docker-compose
-- **V11-5, V11-6** can run in parallel after V11-4
-
-Much of the infrastructure already exists (see coherence review). Focus on:
-- Verification and documentation of existing code
-- Filling gaps identified in the coherence review
-- Implementing the corrected V11-6 schemas per the consistency review
-
-### Verification
-
-Per SR-PLAN-V11 §4, each phase has specific verification criteria. Run verification after completing each phase before proceeding.
+The plan has passed both codebase coherence and canonical consistency reviews. Schema corrections have been applied. Implementation can begin.
 
 ### Constraints
 
 - Commit after completing each phase
-- Update SR-README with progress after each phase
+- Update SR-README with progress
 - Consult SR-* documents when implementation decisions arise
 
 ---
