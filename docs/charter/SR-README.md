@@ -67,9 +67,9 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 |------|-------|------------------|--------|
 | SR-PLAN-V7 | Stabilization & Attachments | Tests, UX, `record.attachment` | **Complete** |
 | SR-PLAN-V8 | Oracle Runner & Semantic Suites | D-24, D-25, D-27, D-39 | **Complete** |
-| SR-PLAN-V9 | Semantic Worker & Branch 0 | D-23, D-41, D-36 | **Next** |
+| SR-PLAN-V9 | Semantic Worker & Branch 0 | D-23, D-41, D-36 | **Authored — Pending Review** |
 
-**Milestone 1 (MVP) projected completion:** After V9
+**Milestone 1 (MVP) projected completion:** After V9 implementation (~5-8 sessions post-review)
 
 ---
 
@@ -87,63 +87,94 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## Next Instance Prompt: Author SR-PLAN-V9
+## SR-PLAN-V9 Status (AUTHORED — PENDING REVIEW)
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| V9-1: Semantic Worker Integration | 📝 Planned | Wire semantic worker to oracle runner, persist evidence |
+| V9-2: E2E Flow Integration Test | 📝 Planned | Complete Branch 0 flow test (5 stages) |
+| V9-3: Replayability Demonstration | 📝 Planned | Prove EventManager.rebuild() determinism (D-36) |
+| V9-4: Branch 0 Acceptance | 📝 Planned | Document criteria satisfaction, human approval |
+
+**SR-PLAN-V9 authored. Awaiting coherence review before implementation.**
+
+---
+
+## Next Instance Prompt: Coherence Review of SR-PLAN-V9
 
 ### Assignment
 
-**Plan and author SR-PLAN-V9** — create the implementation plan document for Semantic Worker & Branch 0 completion. Do NOT implement code; focus on creating the plan document.
+**Perform a Coherence Review of SR-PLAN-V9** — validate the plan against the actual codebase state and governing documents. Do NOT implement code; focus on review and producing a coherence assessment document.
 
 ### Context
 
-Per `SR-PLAN-GAP-ANALYSIS.md §4`:
-- V9 scope: Semantic Worker & Branch 0 Completion
-- Target deliverables: D-23, D-41, D-36
-- Blocking items for Milestone 1: D-41 (Semantic worker), D-36 (Replay proof)
+SR-PLAN-V9 was authored based on codebase analysis showing that D-23 (Reference Worker Bridge) and D-41 (Semantic Worker) are already substantially implemented. The plan focuses on **integration and verification** rather than net-new component creation.
+
+Key findings from plan authoring:
+- `semantic_worker.rs` (~992 lines) exists with stub oracle invocation
+- `worker.rs` (~835 lines) exists with full reference worker implementation
+- `event_manager.rs` (~1720 lines) exists with eligibility computation
+- The gap is **wiring**, not new code
 
 ### What You Must Produce
 
-Create `docs/planning/SR-PLAN-V9.md` following the established pattern from SR-PLAN-V8:
+Create `docs/reviews/SR-PLAN-V9-COHERENCE-REVIEW.md` containing:
 
-1. **Preamble** — YAML frontmatter with doc_id, refs, status: active
-2. **Overview** — Scope, target deliverables, dependencies
-3. **Phase breakdown** — V9-1 through V9-N with clear deliverables per phase
-4. **Acceptance criteria** — Testable conditions for each phase
-5. **Contract compliance** — How deliverables satisfy C-* contracts
-6. **Appendix: Type inventory** — What exists vs. what needs creation
+1. **Codebase Verification** — Confirm the plan's claims about existing infrastructure
+   - Does `semantic_worker.rs` have the components described?
+   - Are the stub implementations correctly identified?
+   - Does `event_manager.rs` have `compute_eligible_set()` as claimed?
 
-### Proposed Phases (refine as needed)
+2. **Contract Alignment** — Verify plan phases satisfy SR-CONTRACT requirements
+   - Does V9-1 address C-VER-1 (evidence-based verification)?
+   - Does V9-3 address C-EVT-7 (rebuildable projections)?
+   - Are SR-AGENT-WORKER-CONTRACT responsibilities covered?
 
-From SR-PLAN-GAP-ANALYSIS.md §4:
+3. **Gap Identification** — Identify any gaps between plan and reality
+   - Missing dependencies not accounted for
+   - Incorrect assumptions about existing code
+   - Underestimated complexity
 
-| Phase | Focus | Deliverables |
-|-------|-------|--------------|
-| V9-1 | Reference worker bridge | D-23 |
-| V9-2 | Reference semantic worker | D-41 |
-| V9-3 | Replayability demonstration | D-36 |
-| V9-4 | Branch 0 acceptance verification | — |
+4. **Amendments (if needed)** — Propose amendments to SR-PLAN-V9
+   - Follow the amendment pattern from SR-PLAN-V8 (A-1, A-2, etc.)
 
-### Research Before Authoring
+5. **Review Verdict** — One of:
+   - **APPROVED** — Plan is coherent, proceed to implementation
+   - **APPROVED WITH AMENDMENTS** — Plan is sound but requires amendments
+   - **REVISE** — Significant issues require plan rewrite
 
-Read these to understand what V9 must accomplish:
+### Review Checklist
 
-| Document/File | What You'll Learn |
-|---------------|-------------------|
-| `docs/planning/SR-PLAN-GAP-ANALYSIS.md` | Full deliverable status and V9 scope |
-| `docs/planning/SR-PLAN-V8.md` | Template for plan document structure |
-| `docs/platform/SR-PROCEDURE-KIT.md` | Branch 0 procedure definition |
-| `docs/platform/SR-AGENT-WORKER-CONTRACT.md` | Worker interface requirements |
-| `crates/sr-adapters/src/semantic_worker.rs` | Existing worker (if any) |
+| Check | Question |
+|-------|----------|
+| Infrastructure | Do the files and components described in §1.2 exist as claimed? |
+| Stubs | Are the stub implementations (run_semantic_oracles, emit_evidence_bundle) correctly identified? |
+| Integration Points | Are the V9-1 integration points feasible given current code structure? |
+| Test Feasibility | Can the E2E test in V9-2 be implemented with existing API endpoints? |
+| Replay | Does EventManager have the foundation for compute_state_hash()? |
+| Effort | Are the effort estimates (5-8 sessions) realistic? |
+
+### Research Before Reviewing
+
+| Document/File | What to Verify |
+|---------------|----------------|
+| `docs/planning/SR-PLAN-V9.md` | The plan being reviewed |
+| `crates/sr-adapters/src/semantic_worker.rs` | Verify §1.2 claims |
+| `crates/sr-adapters/src/worker.rs` | Verify D-23 status |
+| `crates/sr-adapters/src/event_manager.rs` | Verify D-40 claims |
+| `docs/platform/SR-CONTRACT.md` | Contract compliance |
+| `docs/platform/SR-AGENT-WORKER-CONTRACT.md` | Worker responsibilities |
 
 ### Current State
 
 - Branch: `solver-ralph-8` (continue)
 - V8: ✅ COMPLETE
-- V9: 📝 Plan authoring needed
-- Milestone 1 completion: ~95% — awaiting V9
+- V9: 📝 AUTHORED — pending coherence review
+- Milestone 1 completion: ~95% — awaiting V9 review and implementation
 
 ### On Completion
 
-1. Verify SR-PLAN-V9.md follows established plan document pattern
-2. Add SR-PLAN-V9 to SR-README roadmap table
-3. Git commit: `docs: Author SR-PLAN-V9 for Semantic Worker & Branch 0`
-4. Do NOT begin implementation — await approval
+1. Create `docs/reviews/SR-PLAN-V9-COHERENCE-REVIEW.md` with findings
+2. If amendments needed, document them in the review
+3. Git commit: `docs: Coherence review of SR-PLAN-V9`
+4. If APPROVED, next instance can begin V9-1 implementation
