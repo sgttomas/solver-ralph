@@ -68,69 +68,77 @@ Canonical index for the SR-* document set.
 
 **V10:** ✅ COMPLETE (2026-01-17)
 **V11:** ✅ COMPLETE (2026-01-17)
-**V12:** 🔄 READY FOR IMPLEMENTATION
+**V12:** ✅ COMPLETE (2026-01-17)
 **Branch:** `solver-ralph-12`
+
+### V12 Summary (2026-01-17)
+
+**V12-1: Evidence Manifest Validation Oracle (D-15)** ✅ COMPLETE
+- Oracle registered in `oracle-suites/core-v1/suite.json` with `classification: required`
+- Implementation: `oracle-suites/core-v1/oracles/manifest-validation.sh`
+
+**V12-2: NATS Message Contract Documentation (D-21)** ✅ COMPLETE
+- Documentation: `schemas/messaging/SR-MESSAGE-CONTRACTS.md`
+- JSON Schema: `schemas/messaging/message-envelope.schema.json`
+
+**V12-3: Standalone Governor Service Binary (D-22)** ✅ COMPLETE
+- Binary: `crates/sr-governor/`
+- Docker: `deploy/docker-compose.yml`
 
 ### V12 Reviews (2026-01-17)
 
-**V12 Coherence Review** ✅ APPROVED
-- Validated all file references and line counts in SR-PLAN-V12
-- Confirmed `evidence.rs` (890 lines), `nats.rs` (677 lines), `governor.rs` (1059 lines) — all exact matches
-- See `docs/reviews/SR-PLAN-V12-COHERENCE-REVIEW.md`
-
-**V12 Consistency Review** ✅ APPROVED
-- Analyzed SR-PLAN-V12 against canonical SR-* documents (ontology, epistemology, semantics)
-- No high-severity inconsistencies found
-- One low-severity recommendation: explicitly state `classification: required` for manifest-validation oracle
-- See `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md`
+- Coherence Review: `docs/reviews/SR-PLAN-V12-COHERENCE-REVIEW.md`
+- Consistency Review: `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md`
 
 ---
 
 ## Next Instance Prompt
 
-> **Assignment:** Implement SR-PLAN-V12 (Operational Refinement)
+> **Assignment:** Audit SOLVER-Ralph codebase for coherence and consistency against SR-CONTRACT, SR-SPEC, and SR-TYPES.
 
 ### Orientation
 
-1. Read `docs/planning/SR-PLAN-V12.md` — the implementation plan (3 phases)
-2. Read `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md` — approved with one recommendation (S-2)
-3. Reference existing implementations:
-   - `oracle-suites/core-v1/oracles/schema-validation.sh` — oracle implementation pattern
-   - `oracle-suites/core-v1/suite.json` — suite registration pattern
-   - `crates/sr-adapters/src/nats.rs` — MessageEnvelope and contracts to document
-   - `crates/sr-adapters/src/governor.rs` — governor logic to extract
+1. Read `docs/reviews/SR-CODEBASE-AUDIT-METHODOLOGY.md` — the audit methodology and checklists
+2. Read `docs/platform/SR-CONTRACT.md` §1.1 — the invariants index (C-* identifiers)
+3. Read `docs/platform/SR-SPEC.md` §1.5-1.12 — schema definitions
+4. Read `docs/platform/SR-TYPES.md` §4 — type registry
 
-### Phase Order
+### Execution
 
-V12-1 and V12-2 can run in parallel (no dependencies).
-V12-3 depends on V12-2 (needs formalized message contracts).
+**Layer 1 (Contract Compliance):** For each C-* invariant, search codebase for enforcement and test coverage.
+**Layer 2 (Schema Alignment):** Compare SR-SPEC schemas to Rust structs in sr-domain/sr-adapters.
+**Layer 3 (Type Conformance):** Verify SR-TYPES §4.3/§4.4 entries have implementations.
+**Layer 4 (API Coverage):** Verify SR-SPEC §2.3 endpoints exist with correct behavior.
 
-### Deliverables
+### Deliverable
 
-| Phase | Deliverable | Key Files |
-|-------|-------------|-----------|
-| V12-1 | Evidence manifest validation oracle | `oracle-suites/core-v1/oracles/manifest-validation.sh`, update `suite.json` |
-| V12-2 | Message contract documentation + tests | `schemas/messaging/SR-MESSAGE-CONTRACTS.md`, `schemas/messaging/message-envelope.schema.json` |
-| V12-3 | Standalone governor binary | `crates/sr-governor/`, update `deploy/docker-compose.yml` |
+Produce `docs/reviews/SR-CODEBASE-AUDIT-FINDINGS.md` with:
+- Contract compliance matrix (invariant → enforcement → test → status)
+- Schema alignment report (spec schema → code struct → issues)
+- Type registry coverage (type_key → Rust type → status)
+- Prioritized remediation list (P0/P1/P2 with specific actions)
 
-### Verification
+### Success Criteria
 
-- V12-1: Oracle passes/fails correctly on valid/invalid manifests
-- V12-2: JSON Schema validates example messages; contract tests pass
-- V12-3: Governor service starts, emits iterations, respects budgets
+- Every C-* invariant has a status: ✅ Enforced | ⚠️ Partial | ❌ Missing
+- Every SR-SPEC schema compared to code
+- Remediation list is actionable (file + function + change)
 
-Git commit after each phase completion.
+---
 
 ---
 
 ## Previous Session Summary (2026-01-17)
 
-### Completed: SR-PLAN-V12 Consistency Review
+### Completed: SR-PLAN-V12 Implementation
 
-- Analyzed V12-1 (manifest validation oracle) — aligned with SR-SPEC §1.9.1.1, C-EVID-1
-- Analyzed V12-2 (message contracts) — MessageEnvelope is adapter-layer, not domain type
-- Analyzed V12-3 (governor service) — satisfies C-LOOP-1, C-LOOP-2, C-CTX-1
-- Verdict: APPROVE — plan can proceed to implementation
-- Produced `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md`
+- V12-1: Evidence manifest validation oracle (`oracle-suites/core-v1/oracles/manifest-validation.sh`)
+- V12-2: NATS message contract documentation (`schemas/messaging/`)
+- V12-3: Standalone governor service binary (`crates/sr-governor/`)
+
+### Completed: SR-PLAN-V12 Reviews
+
+- Coherence Review: APPROVED — `docs/reviews/SR-PLAN-V12-COHERENCE-REVIEW.md`
+- Consistency Review: APPROVED — `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md`
 
 ---
