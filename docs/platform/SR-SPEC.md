@@ -575,6 +575,62 @@ Individual oracle scripts produce JSON output conforming to this schema. The `Po
 
 **Relationship to Evidence Bundle:** Each oracle's `sr.oracle_result.v1` output is transformed into an `OracleResult` entry in the `results[]` array of the `evidence.gate_packet` manifest. The transformation preserves `oracle_id`, `status`, timestamps, and links to any produced artifacts.
 
+#### 1.9.1.2 Semantic evaluation schema (`sr.semantic_eval.v1`)
+
+Semantic oracle suites produce evaluation results conforming to this schema. Unlike `sr.oracle_result.v1` (which captures execution metadata), `sr.semantic_eval.v1` captures the **semantic evaluation outcome** including residual, coverage, and decision metrics.
+
+```jsonc
+{
+  "schema": "sr.semantic_eval.v1",
+  "candidate_id": "candidate:abc123",
+  "procedure_template_id": "proc:PROBLEM-STATEMENT-INGESTION",
+  "stage_id": "stage:VALIDATE",
+  "oracle_suite_id": "suite:sr-semantic-v1",
+  "oracle_suite_hash": "sha256:...",
+  "semantic_set": {
+    "semantic_set_id": "semantic_set:INTAKE-ADMISSIBILITY",
+    "semantic_set_hash": "sha256:..."
+  },
+  "metrics": {
+    "residual": {
+      "per_axis": {"schema_compliance": 0.0, "traceability_coverage": 0.1},
+      "composite_norm": 0.05,
+      "norm_method": "L2"
+    },
+    "coverage": {
+      "per_axis": {"schema_compliance": 1.0, "traceability_coverage": 0.9},
+      "composite": 0.95,
+      "below_threshold": []
+    },
+    "violations": [],
+    "additional": {}
+  },
+  "decision": {
+    "status": "PASS",                    // PASS | FAIL | INDETERMINATE
+    "rule_id": "intake_admissibility_v1",
+    "thresholds": {"max_residual_norm": 0.2, "min_coverage": 0.85},
+    "rationale": null
+  },
+  "notes": null,
+  "evaluated_at": "2026-01-16T12:00:00Z"
+}
+```
+
+**Required fields:**
+- `schema` — MUST be `"sr.semantic_eval.v1"`
+- `candidate_id` — identifier of the evaluated candidate
+- `oracle_suite_id`, `oracle_suite_hash` — suite identity per C-OR-2
+- `semantic_set` — binding to semantic set definition per SR-SEMANTIC-ORACLE-SPEC §2
+- `metrics` — residual, coverage, and violations measurements
+- `decision` — status (`PASS`, `FAIL`, or `INDETERMINATE`), rule_id, thresholds
+
+**Supporting artifacts:** Semantic oracles also produce separate report files:
+- `reports/semantic/residual.json` — `ResidualReport` (per-axis residual vector)
+- `reports/semantic/coverage.json` — `CoverageReport` (per-axis coverage metrics)
+- `reports/semantic/violations.json` — `ViolationsReport` (constraint violations with severity)
+
+**Type definitions:** All types are defined in `sr-domain/src/semantic_oracle.rs` and follow the same JSON serialization conventions. The `decision.status` field serializes as `SCREAMING_SNAKE_CASE`.
+
 #### 1.9.2 Evidence immutability (MinIO)
 
 Evidence Bundles MUST be stored in content-addressed storage:

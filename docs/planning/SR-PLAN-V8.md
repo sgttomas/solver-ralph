@@ -1,8 +1,8 @@
 # SR-PLAN-V8: Oracle Runner & Semantic Suite Foundation
 
-**Status:** Ready for Implementation (Amended)
+**Status:** ✅ Complete (2026-01-16)
 **Created:** 2026-01-16
-**Amended:** 2026-01-16 (Coherence Assessment)
+**Completed:** 2026-01-16
 **Depends On:** SR-PLAN-V7 (MVP Stabilization complete)
 **Implements:** SR-CHARTER §Immediate Objective (Milestone 1: Semantic Work Unit Runtime)
 
@@ -1325,3 +1325,32 @@ Remaining Milestone 1 work (for SR-PLAN-V9):
 |------|--------|
 | `oracle-suites/semantic-v1/` | CREATE — directory |
 | `crates/sr-domain/src/semantic_oracle.rs` | MODIFY — add `Waived` variant if needed |
+
+---
+
+## Appendix E: Completion Summary (2026-01-16)
+
+**All 5 phases complete.**
+
+| Phase | Status | Key Deliverables |
+|-------|--------|------------------|
+| V8-1 | ✅ Complete | `OracleSuiteRegistry` port trait, PostgreSQL adapter |
+| V8-2 | ✅ Complete | Event-driven worker subscribes to `RunStarted` |
+| V8-3 | ✅ Complete | TAMPER/GAP/FLAKE/ENV_MISMATCH detection, `IntegrityViolationDetected` event |
+| V8-4 | ✅ Complete | `oracle-suites/core-v1/` container (build, unit-tests, schema, lint oracles) |
+| V8-5 | ✅ Complete | `oracle-suites/semantic-v1/` container, `sr-oracles semantic-eval` CLI |
+
+**Actual effort:** ~10 sessions (estimated 7-10)
+
+**Deliverables completed:**
+- D-24: Oracle runner service ✅
+- D-25: Core oracle suite ✅
+- D-27: Oracle integrity checks ✅
+- D-39: Semantic oracle integration ✅
+
+**Test results:**
+- sr-adapters: 148 passed
+- sr-api: 41 passed
+- sr-oracles: 27 passed
+
+**Next step:** SR-PLAN-V9 (Semantic Worker & Branch 0)

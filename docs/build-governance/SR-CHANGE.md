@@ -67,6 +67,38 @@ SR-CHANGE is itself governed. Changes to SR-CHANGE MUST follow SR-CHANGE.
 - **Rationale:** Enables enforcement of SR-CONTRACT C-TB-3 (portal crossings produce approvals) at stage gates. Stage completion for approval-required stages MUST be preceded by a recorded approval at the appropriate portal (e.g., `portal:stage-gate:<stage_id>`).
 - **Classification:** G:MINOR (additive; backward-compatible; existing procedure templates without `requires_approval` default to `false`).
 
+### 0.9  (2026-01-16)
+
+- **oracle-suites/semantic-v1:** Created Semantic Oracle Suite container implementation:
+  - `Dockerfile` — Multi-stage build: compile sr-oracles, copy to slim Debian runtime
+  - `suite.json` — Suite definition with `semantic_set_binding` per SR-SEMANTIC-ORACLE-SPEC §2
+  - `oracles/semantic-eval.sh` — Semantic evaluation oracle script
+  - `semantic-sets/intake-admissibility.json` — Bundled semantic set definition (6 axes)
+  - `README.md` — Suite documentation
+- **sr-oracles CLI:** Added `semantic-eval` command:
+  - Evaluates intake YAML files against intake admissibility semantic set
+  - Produces 4 output artifacts: eval.json, residual.json, coverage.json, violations.json
+  - Reuses existing `IntakeAdmissibilityRunner` from sr-adapters
+- **SR-SPEC §1.9.1.2:** Added `sr.semantic_eval.v1` schema documentation:
+  - Semantic evaluation result schema (distinct from `sr.oracle_result.v1`)
+  - Required fields: candidate_id, semantic_set, metrics (residual/coverage/violations), decision
+  - Supporting artifact schemas: ResidualReport, CoverageReport, ViolationsReport
+- **SR-PLAN-V8:** Marked complete with completion summary (Appendix E):
+  - All 5 phases (V8-1 through V8-5) complete
+  - Actual effort: ~10 sessions (estimated 7-10)
+  - Deliverables D-24, D-25, D-27, D-39 complete
+- **SR-PLAN-GAP-ANALYSIS:** Updated for V8 completion:
+  - V8 phases marked complete
+  - D-24, D-25, D-27, D-39 status updated to complete
+  - Branch 0 acceptance criteria updated (Evidence Bundle now complete)
+  - Critical path updated (V8 complete, V9 next)
+  - Milestone 1 completion updated to ~95%
+- **sr-adapters tests:** Added 7 V8-5 integration tests validating semantic suite.json parsing
+- **Environment constraints:** Suite declares `runsc` runtime, `network:disabled`, `workspace_readonly:true`
+- **Contract compliance:** C-OR-1, C-OR-2, C-OR-3, C-OR-4, C-EVID-1 satisfied
+- **Rationale:** Completes SR-PLAN-V8 Phase V8-5 per Amendment A-3 (uses existing type definitions). SR-PLAN-V8 is now **COMPLETE** — all 5 phases implemented, tested, and documented.
+- **Classification:** G:MINOR (additive; backward-compatible; creates new directory `oracle-suites/semantic-v1/`; updates plan and spec documentation).
+
 ### 0.8  (2026-01-16)
 
 - **oracle-suites/core-v1:** Created Core Oracle Suite container implementation:

@@ -3,7 +3,7 @@
 **Purpose:** Track completion status of SR-PLAN deliverables and inform future implementation plans.
 
 **Last Updated:** 2026-01-16
-**Updated By:** Agent (V8 Authoring session)
+**Updated By:** Agent (V8-5 Completion session)
 
 ---
 
@@ -20,10 +20,10 @@ Per SR-CHARTER §Immediate Objective:
 | Declared work surface (intake + procedure stages) | ✅ Complete | D-37, V3, V4, V5 | Intakes, Procedure Templates, Stages |
 | Deterministic event recording | ✅ Complete | D-09, D-10 | Event store, append-only |
 | Governance state projection | ✅ Complete | D-11, D-12 | Projections rebuildable |
-| Semantic oracle evidence capture and gating | ⚠️ Partial | D-24, D-25, D-39 | Evidence API exists; oracle runner missing |
+| Semantic oracle evidence capture and gating | ✅ Complete | D-24, D-25, D-39 | V8 complete; oracle runner + semantic suite |
 | Explicit human authority points | ✅ Complete | D-19, D-30 | Approval recording, stage gating |
 
-**Milestone 1 Completion:** ~80% — Missing oracle execution infrastructure.
+**Milestone 1 Completion:** ~95% — Awaiting semantic worker (V9).
 
 ### Milestone 2: External API Integration
 
@@ -95,10 +95,10 @@ Per SR-CHARTER, follows Milestone 1. **Not yet scoped.**
 
 | Deliverable | Title | Status | Completed In | Notes |
 |-------------|-------|--------|--------------|-------|
-| D-24 | Oracle runner service | ❌ **Not Started** | — | **Critical gap** — Podman + gVisor sandbox |
-| D-25 | Core oracle suite | ❌ **Not Started** | — | Build/unit/schema/lint oracles |
+| D-24 | Oracle runner service | ✅ Complete | V8-1, V8-2 | Registry port + event-driven worker |
+| D-25 | Core oracle suite | ✅ Complete | V8-4 | oracle-suites/core-v1 container |
 | D-26 | Integration/E2E oracle suite | ❌ Not Started | — | Depends on D-24, D-25 |
-| D-27 | Oracle integrity checks | ❌ **Not Started** | — | TAMPER/GAP/FLAKE/ENV_MISMATCH |
+| D-27 | Oracle integrity checks | ✅ Complete | V8-3 | TAMPER/GAP/FLAKE/ENV_MISMATCH detection |
 
 ### PKG-09 — UI portals and human review surface
 
@@ -130,7 +130,7 @@ Per SR-CHARTER, follows Milestone 1. **Not yet scoped.**
 |-------------|-------|--------|--------------|-------|
 | D-37 | Work surface schemas | ✅ Complete | V3, V4, V5 | Intake + Procedure Template + Work Surface |
 | D-38 | Prompt → Plan Instance decomposition | ❌ Not Started | — | Automated work decomposition |
-| D-39 | Semantic oracle integration | ❌ **Not Started** | — | Meaning matrices, residual/coverage artifacts |
+| D-39 | Semantic oracle integration | ✅ Complete | V8-5 | oracle-suites/semantic-v1 container |
 | D-40 | Event Manager eligible-set computation | ❌ Not Started | — | Dependency-based scheduling |
 | D-41 | Reference semantic worker | ❌ **Not Started** | — | Work Surface executor |
 
@@ -145,12 +145,12 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | Loop created for problem-statement work unit | ✅ Complete | — |
 | Iteration started with Work Surface ref set | ✅ Complete | — |
 | Candidate intake bundle produced | ✅ Complete | — |
-| Evidence Bundle from semantic oracle suite | ❌ **Not Done** | D-24, D-39 required |
+| Evidence Bundle from semantic oracle suite | ✅ Complete | V8 complete (D-24, D-39) |
 | Human portal approval recorded | ✅ Complete | — |
 | Freeze baseline created | ❌ Not Done | Freeze API exists but not integrated |
 | Replay determinism proof | ❌ Not Done | D-36 required |
 
-**Branch 0 is NOT complete.** Blocking items: D-24, D-39, D-36.
+**Branch 0 requires V9 (Semantic Worker).** Blocking items: D-41, D-36.
 
 ---
 
@@ -169,20 +169,20 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V7-4 | Attachment frontend | ✅ Complete |
 | V7-5 | Multiple iterations | ✅ Complete |
 
-### SR-PLAN-V8 (Current)
+### SR-PLAN-V8 (Complete)
 
-**Status:** ✅ Authored — Ready for Implementation
+**Status:** ✅ Complete (2026-01-16)
 **Scope:** Oracle Runner & Semantic Suite Foundation
 **Target Deliverables:** D-24, D-25, D-27, D-39
-**Estimated Effort:** 7-9 sessions
+**Actual Effort:** ~10 sessions
 
 | Phase | Focus | Deliverables | Status |
 |-------|-------|--------------|--------|
-| V8-1 | Oracle Suite Registry | D-24 (partial) | ⏳ Pending |
-| V8-2 | API Integration | D-24 (partial) | ⏳ Pending |
-| V8-3 | Integrity Checks | D-27 | ⏳ Pending |
-| V8-4 | Core Oracle Suite | D-25 | ⏳ Pending |
-| V8-5 | Semantic Oracles | D-39 | ⏳ Pending |
+| V8-1 | Oracle Suite Registry | D-24 (partial) | ✅ Complete |
+| V8-2 | Event-Driven Worker | D-24 (partial) | ✅ Complete |
+| V8-3 | Integrity Checks | D-27 | ✅ Complete |
+| V8-4 | Core Oracle Suite | D-25 | ✅ Complete |
+| V8-5 | Semantic Oracles | D-39 | ✅ Complete |
 
 ### SR-PLAN-V9 (Proposed)
 
@@ -238,14 +238,14 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 ## 6. Critical Path
 
 ```
-V7 (Stabilization) → V8 (Oracle Runner) → V9 (Semantic Worker) → Milestone 1 Complete
-                                                                        ↓
-                                                              V10 (Automation) → V11 (Hardening) → Production Ready
+V7 (Complete) → V8 (Complete) → V9 (Semantic Worker) → Milestone 1 Complete
+                                                                ↓
+                                                      V10 (Automation) → V11 (Hardening) → Production Ready
 ```
 
 **Blocking dependencies for Milestone 1:**
-1. D-24 (Oracle runner) — blocks all oracle execution
-2. D-39 (Semantic oracle integration) — blocks semantic evidence
+1. ~~D-24 (Oracle runner)~~ — ✅ Complete (V8-1, V8-2)
+2. ~~D-39 (Semantic oracle integration)~~ — ✅ Complete (V8-5)
 3. D-41 (Semantic worker) — blocks automated execution
 4. D-36 (Replay proof) — blocks acceptance verification
 
