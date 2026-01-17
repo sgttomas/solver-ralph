@@ -1,0 +1,46 @@
+[package]
+name = "sr-governor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Standalone loop governor service for SOLVER-Ralph (D-22)"
+
+[[bin]]
+name = "sr-governor"
+path = "src/main.rs"
+
+[dependencies]
+# Internal crates
+sr-domain = { path = "../sr-domain" }
+sr-ports = { path = "../sr-ports" }
+sr-adapters = { path = "../sr-adapters" }
+
+# Async runtime
+tokio = { workspace = true, features = ["full", "signal"] }
+
+# Database
+sqlx = { workspace = true }
+
+# Configuration
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# HTTP server for health endpoint
+axum = { workspace = true }
+tower = { workspace = true }
+
+# Messaging
+async-nats = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
