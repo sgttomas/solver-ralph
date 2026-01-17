@@ -47,6 +47,8 @@ Canonical index for the SR-* document set.
 | SR-SEMANTIC-ORACLE-SPEC | `platform/` | Semantic oracle interface |
 | SR-EVENT-MANAGER | `platform/` | Event projections spec |
 | SR-REPLAY-PROOF | `platform/` | Determinism proof (C-EVT-7) |
+| SR-DEPLOYMENT | `platform/` | Deployment guide |
+| SR-OBSERVABILITY | `platform/` | Observability reference |
 | SR-AGENT-WORKER-CONTRACT | `platform/` | Agent/worker contract |
 | SR-INTENT | `platform/` | Design rationale |
 | SR-CHANGE | `build-governance/` | Change control process |

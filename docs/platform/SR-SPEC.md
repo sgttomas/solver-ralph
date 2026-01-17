@@ -1445,6 +1445,73 @@ Work Surface endpoints manage the binding context for Semantic Ralph Loops. See 
 - `GET /work-surfaces/{work_surface_id}/iteration-context` → Get iteration context refs
   Returns: `{ refs[] }` — the typed reference set for starting an iteration, derived from the Work Surface's current state.
 
+#### 2.3.13 Operational (D-33)
+
+Operational endpoints for health checks, readiness, and metrics. These endpoints are unauthenticated and intended for orchestrators, load balancers, and monitoring systems.
+
+- `GET /health` → Basic liveness check
+  Returns: `{ status: "healthy", version: string }`
+  Always returns HTTP 200 if the API is running.
+
+- `GET /ready` → Dependency readiness check
+  Returns:
+  ```json
+  {
+    "ready": boolean,
+    "timestamp": string,
+    "checks": [
+      {
+        "name": "postgresql" | "minio" | "nats",
+        "status": "healthy" | "unhealthy",
+        "latency_ms": number | null,
+        "error": string | null
+      }
+    ]
+  }
+  ```
+  HTTP 200 if all dependencies healthy, HTTP 503 if any unhealthy.
+
+  **Checks performed:**
+  - `postgresql` — Executes `SELECT 1` against the database
+  - `minio` — Calls MinIO health endpoint (`/minio/health/live`)
+  - `nats` — Calls NATS monitoring endpoint (`/healthz`)
+
+  **Use case:** Kubernetes readiness probe, deployment verification.
+
+- `GET /api/v1/metrics` → Operational metrics
+  Returns:
+  ```json
+  {
+    "service": "solver-ralph-api",
+    "version": string,
+    "uptime_seconds": number,
+    "timestamp": string,
+    "http": {
+      "requests_total": number,
+      "requests_success": number,
+      "requests_client_error": number,
+      "requests_server_error": number,
+      "avg_latency_ms": number
+    },
+    "domain": {
+      "loops_created": number,
+      "iterations_started": number,
+      "iterations_completed": number,
+      "candidates_registered": number,
+      "oracle_runs_total": number,
+      "oracle_runs_passed": number,
+      "oracle_runs_failed": number,
+      "oracle_avg_latency_ms": number,
+      "events_appended": number,
+      "event_append_avg_latency_ms": number
+    }
+  }
+  ```
+
+  **HTTP metrics:** Request counts by status class (2xx/4xx/5xx) and average latency.
+
+  **Domain metrics:** Counters for core domain operations (loops, iterations, candidates, oracle runs, events).
+
 
 ### 2.4 API response conventions
 
