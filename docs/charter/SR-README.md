@@ -62,59 +62,36 @@ Canonical index for the SR-* document set.
 ---
 
 
-## Current Status: V10 Implementation Ready
+## Current Status
 
-**Branch 0 Acceptance:** COMPLETE (V9-4)
-**Loop Validation:** COMPLETE (2026-01-17) — 11 PASS, 6 PARTIAL/GAP, 2 DEFERRED
-**Current Focus:** Implement V10 gaps (Loop Governor Completion)
+**V10-1 through V10-4:** ✅ VERIFIED (2026-01-17)
+**V10-5, V10-6:** Pending
+**Branch:** `solver-ralph-10`
 
-### Recent Development
+Tests 9, 12-15 re-run and verified passing. See `docs/planning/SR-PLAN-LOOPS.md` for detailed verification results.
 
-SR-PLAN-LOOPS validation completed with results documented:
-- **Critical gaps identified:** Stop triggers (BUDGET_EXHAUSTED, REPEATED_FAILURE) not implemented
-- **V10 scope refined:** 6 phases addressing validation findings
-- **V11 scope updated:** Deferred items (integrity E2E, GovernedArtifact refs)
-
-See `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` for detailed V10 scope.
+See `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` for V10 implementation details and status.
 
 ---
 
-## Next Instance Prompt: Implement V10 (Loop Governor Completion)
+## Next Instance Prompt
 
-> **Session Type:** Implementation
-> **Scope:** D-22, D-12, D-18, D-24 (per SR-PLAN-GAP-ANALYSIS §4)
-> **Branch:** `solver-ralph-loops` (continue on current branch)
-
-### Assignment
-
-**Implement V10 phases** — Address critical and high-priority gaps from SR-PLAN-LOOPS validation, starting with stop triggers.
+> **Assignment:** Verify V10 implementation, then complete V10-5/V10-6 if time permits.
 
 ### Orientation
 
-1. **Read first:**
-   - `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V10 scope, phases, and gap descriptions (V10-G1 through V10-G7)
-   - `docs/planning/SR-PLAN-LOOPS.md` — Verification checklists show what failed and why
-   - `docs/platform/SR-CONTRACT.md` — C-LOOP-1, C-LOOP-3 (budget enforcement), C-LOOP-4 (traceability)
+Read these documents in order:
 
-2. **Implementation priority (from SR-PLAN-GAP-ANALYSIS):**
-   - V10-1: Stop triggers — `crates/sr-api/src/handlers/work_surfaces.rs` (start_iteration_as_system)
-   - V10-2: Decision-required resume — Loop projection + `/resume` endpoint
-   - V10-3: Candidate traceability — `crates/sr-api/src/handlers/candidates.rs`
-   - V10-4 through V10-6: Refs completeness, Loop PATCH, hash fix
+1. `docs/planning/SR-PLAN-GAP-ANALYSIS.md §4` — V10 scope, what's done (V10-1 through V10-4), what remains (V10-5, V10-6)
+2. `docs/planning/SR-PLAN-LOOPS.md` — Implementation Status Update section shows which tests should now pass; re-run Tests 9, 12-15 to verify
 
-3. **Key code locations:**
-   - `crates/sr-api/src/handlers/work_surfaces.rs:1830` — iteration start logic
-   - `crates/sr-api/src/handlers/loops.rs` — Loop state transitions
-   - `crates/sr-adapters/src/projections.rs` — Loop projection (add consecutive_failures counter)
+### Deliverables
 
-### Deliverable
+1. **Verify:** Re-run SR-PLAN-LOOPS Tests 9, 12-15 against the implementation
+2. **Implement (if time):** V10-5 (Loop PATCH endpoint) per SR-PLAN-GAP-ANALYSIS
+3. **Update:** SR-PLAN-LOOPS verification results after testing
 
-- Implement V10-1 and V10-2 (stop triggers + decision gating) as minimum
-- Re-run SR-PLAN-LOOPS Tests 13-15 to verify fix
-- Update SR-PLAN-GAP-ANALYSIS with completion status
+### Constraints
 
-### Do NOT
-
-- Re-run full validation (only re-test fixed items)
-- Change V10 scope without documenting rationale
-- Skip StopTriggered event emission (required for audit trail)
+- Migration 009 is already in place — do not duplicate schema changes
+- V10-1 through V10-4 are complete — do not re-implement

@@ -201,6 +201,7 @@ impl ProjectionBuilder {
             "LoopPaused" => self.apply_loop_paused(&mut tx, event).await,
             "LoopResumed" => self.apply_loop_resumed(&mut tx, event).await,
             "LoopClosed" => self.apply_loop_closed(&mut tx, event).await,
+            "StopTriggered" => self.apply_stop_triggered(&mut tx, event).await,
 
             // Iteration events
             "IterationStarted" => self.apply_iteration_started(&mut tx, event).await,
@@ -261,8 +262,7 @@ impl ProjectionBuilder {
             "WorkSurfaceArchived" => self.apply_work_surface_archived(&mut tx, event).await,
 
             // Events we acknowledge but don't project
-            "StopTriggered"
-            | "OracleSuiteRegistered"
+            "OracleSuiteRegistered"
             | "OracleSuiteUpdated"
             | "OracleSuitePinned"
             | "OracleSuiteRebased"
@@ -420,13 +420,19 @@ impl ProjectionBuilder {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         event: &EventEnvelope,
     ) -> Result<(), ProjectionError> {
+        // Note: Manual pause (LoopPaused) sets paused_at but does NOT require decision.
+        // Stop trigger-induced pause (StopTriggered) is handled separately.
         sqlx::query(
             r#"
             UPDATE proj.loops
-            SET state = 'PAUSED', last_event_id = $1, last_global_seq = $2
-            WHERE loop_id = $3
+            SET state = 'PAUSED',
+                paused_at = $1,
+                last_event_id = $2,
+                last_global_seq = $3
+            WHERE loop_id = $4
             "#,
         )
+        .bind(event.occurred_at)
         .bind(event.event_id.as_str())
         .bind(event.global_seq.unwrap_or(0) as i64)
         .bind(&event.stream_id)
@@ -441,10 +447,16 @@ impl ProjectionBuilder {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         event: &EventEnvelope,
     ) -> Result<(), ProjectionError> {
+        // Clear stop trigger state when Loop is resumed (V10-2)
         sqlx::query(
             r#"
             UPDATE proj.loops
-            SET state = 'ACTIVE', last_event_id = $1, last_global_seq = $2
+            SET state = 'ACTIVE',
+                last_stop_trigger = NULL,
+                paused_at = NULL,
+                requires_decision = false,
+                last_event_id = $1,
+                last_global_seq = $2
             WHERE loop_id = $3
             "#,
         )
@@ -475,6 +487,52 @@ impl ProjectionBuilder {
         .bind(&event.stream_id)
         .execute(&mut **tx)
         .await?;
+
+        Ok(())
+    }
+
+    /// V10-1: Handle StopTriggered event (C-LOOP-1, C-LOOP-3)
+    ///
+    /// Sets Loop state to PAUSED, records the stop trigger type, and marks
+    /// whether a Decision is required to resume.
+    async fn apply_stop_triggered(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let loop_id = &event.stream_id;
+
+        let trigger = payload["trigger"].as_str().unwrap_or("UNKNOWN");
+        let requires_decision = payload["requires_decision"].as_bool().unwrap_or(true);
+
+        sqlx::query(
+            r#"
+            UPDATE proj.loops
+            SET state = 'PAUSED',
+                last_stop_trigger = $1,
+                paused_at = $2,
+                requires_decision = $3,
+                last_event_id = $4,
+                last_global_seq = $5
+            WHERE loop_id = $6
+            "#,
+        )
+        .bind(trigger)
+        .bind(event.occurred_at)
+        .bind(requires_decision)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .bind(loop_id)
+        .execute(&mut **tx)
+        .await?;
+
+        info!(
+            loop_id = %loop_id,
+            trigger = %trigger,
+            requires_decision = %requires_decision,
+            "StopTriggered event projected - Loop paused"
+        );
 
         Ok(())
     }
@@ -536,17 +594,16 @@ impl ProjectionBuilder {
         event: &EventEnvelope,
     ) -> Result<(), ProjectionError> {
         let payload = &event.payload;
-        let state = payload["outcome"]
-            .as_str()
-            .map(|s| {
-                if s == "SUCCESS" {
-                    "COMPLETED"
-                } else {
-                    "FAILED"
-                }
-            })
-            .unwrap_or("COMPLETED");
+        let iteration_id = &event.stream_id;
 
+        let outcome = payload["outcome"].as_str().unwrap_or("SUCCESS");
+        let state = if outcome == "SUCCESS" {
+            "COMPLETED"
+        } else {
+            "FAILED"
+        };
+
+        // Update iteration state
         sqlx::query(
             r#"
             UPDATE proj.iterations
@@ -558,9 +615,58 @@ impl ProjectionBuilder {
         .bind(event.occurred_at)
         .bind(event.event_id.as_str())
         .bind(event.global_seq.unwrap_or(0) as i64)
-        .bind(&event.stream_id)
+        .bind(iteration_id)
         .execute(&mut **tx)
         .await?;
+
+        // V10-1: Track consecutive failures for REPEATED_FAILURE stop trigger (C-LOOP-3)
+        // Get loop_id from the iteration, then update consecutive_failures
+        let loop_id_result: Option<(String,)> = sqlx::query_as(
+            "SELECT loop_id FROM proj.iterations WHERE iteration_id = $1",
+        )
+        .bind(iteration_id)
+        .fetch_optional(&mut **tx)
+        .await?;
+
+        if let Some((loop_id,)) = loop_id_result {
+            if state == "FAILED" {
+                // Increment consecutive failures
+                sqlx::query(
+                    r#"
+                    UPDATE proj.loops
+                    SET consecutive_failures = consecutive_failures + 1,
+                        last_event_id = $1,
+                        last_global_seq = $2
+                    WHERE loop_id = $3
+                    "#,
+                )
+                .bind(event.event_id.as_str())
+                .bind(event.global_seq.unwrap_or(0) as i64)
+                .bind(&loop_id)
+                .execute(&mut **tx)
+                .await?;
+
+                debug!(loop_id = %loop_id, "Incremented consecutive_failures");
+            } else {
+                // Reset on success
+                sqlx::query(
+                    r#"
+                    UPDATE proj.loops
+                    SET consecutive_failures = 0,
+                        last_event_id = $1,
+                        last_global_seq = $2
+                    WHERE loop_id = $3
+                    "#,
+                )
+                .bind(event.event_id.as_str())
+                .bind(event.global_seq.unwrap_or(0) as i64)
+                .bind(&loop_id)
+                .execute(&mut **tx)
+                .await?;
+
+                debug!(loop_id = %loop_id, "Reset consecutive_failures to 0");
+            }
+        }
 
         Ok(())
     }
@@ -1881,6 +1987,11 @@ pub struct LoopProjection {
     pub activated_at: Option<DateTime<Utc>>,
     pub closed_at: Option<DateTime<Utc>>,
     pub iteration_count: i32,
+    // V10-1: Stop trigger tracking (C-LOOP-1, C-LOOP-3)
+    pub consecutive_failures: i32,
+    pub last_stop_trigger: Option<String>,
+    pub paused_at: Option<DateTime<Utc>>,
+    pub requires_decision: bool,
 }
 
 /// Iteration projection read model
@@ -2016,7 +2127,8 @@ impl ProjectionBuilder {
             r#"
             SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                    created_by_kind, created_by_id, created_at, activated_at,
-                   closed_at, iteration_count
+                   closed_at, iteration_count,
+                   consecutive_failures, last_stop_trigger, paused_at, requires_decision
             FROM proj.loops WHERE loop_id = $1
             "#,
         )
@@ -2038,6 +2150,10 @@ impl ProjectionBuilder {
             activated_at: row.get("activated_at"),
             closed_at: row.get("closed_at"),
             iteration_count: row.get("iteration_count"),
+            consecutive_failures: row.get("consecutive_failures"),
+            last_stop_trigger: row.get("last_stop_trigger"),
+            paused_at: row.get("paused_at"),
+            requires_decision: row.get("requires_decision"),
         }))
     }
 
@@ -2054,7 +2170,8 @@ impl ProjectionBuilder {
             r#"
             SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                    created_by_kind, created_by_id, created_at, activated_at,
-                   closed_at, iteration_count
+                   closed_at, iteration_count,
+                   consecutive_failures, last_stop_trigger, paused_at, requires_decision
             FROM proj.loops WHERE work_unit = $1
             ORDER BY created_at DESC
             LIMIT 1
@@ -2078,6 +2195,10 @@ impl ProjectionBuilder {
             activated_at: row.get("activated_at"),
             closed_at: row.get("closed_at"),
             iteration_count: row.get("iteration_count"),
+            consecutive_failures: row.get("consecutive_failures"),
+            last_stop_trigger: row.get("last_stop_trigger"),
+            paused_at: row.get("paused_at"),
+            requires_decision: row.get("requires_decision"),
         }))
     }
 
@@ -2186,7 +2307,8 @@ impl ProjectionBuilder {
                 r#"
                 SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                        created_by_kind, created_by_id, created_at, activated_at,
-                       closed_at, iteration_count
+                       closed_at, iteration_count,
+                       consecutive_failures, last_stop_trigger, paused_at, requires_decision
                 FROM proj.loops WHERE state = $1
                 ORDER BY created_at DESC
                 LIMIT $2 OFFSET $3
@@ -2202,7 +2324,8 @@ impl ProjectionBuilder {
                 r#"
                 SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                        created_by_kind, created_by_id, created_at, activated_at,
-                       closed_at, iteration_count
+                       closed_at, iteration_count,
+                       consecutive_failures, last_stop_trigger, paused_at, requires_decision
                 FROM proj.loops
                 ORDER BY created_at DESC
                 LIMIT $1 OFFSET $2
@@ -2230,6 +2353,10 @@ impl ProjectionBuilder {
                 activated_at: row.get("activated_at"),
                 closed_at: row.get("closed_at"),
                 iteration_count: row.get("iteration_count"),
+                consecutive_failures: row.get("consecutive_failures"),
+                last_stop_trigger: row.get("last_stop_trigger"),
+                paused_at: row.get("paused_at"),
+                requires_decision: row.get("requires_decision"),
             })
             .collect())
     }

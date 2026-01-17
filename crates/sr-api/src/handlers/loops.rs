@@ -129,6 +129,17 @@ pub struct TransitionLoopRequest {
     pub rationale: Option<String>,
 }
 
+/// V10-2: Request to resume a loop
+/// Includes optional decision_id for stop-trigger-induced pauses
+#[derive(Debug, Deserialize)]
+pub struct ResumeLoopRequest {
+    #[serde(default)]
+    pub rationale: Option<String>,
+    /// Required when Loop was paused by a stop trigger (requires_decision = true)
+    #[serde(default)]
+    pub decision_id: Option<String>,
+}
+
 /// Response for loop creation or transition
 #[derive(Debug, Serialize)]
 pub struct LoopActionResponse {
@@ -335,13 +346,80 @@ pub async fn pause_loop(
 /// Resume a loop (PAUSED -> ACTIVE)
 ///
 /// POST /api/v1/loops/{loop_id}/resume
-#[instrument(skip(state, user, _body), fields(user_id = %user.actor_id))]
+///
+/// V10-2: If the Loop was paused by a stop trigger (requires_decision = true),
+/// a valid Decision must be provided that references this Loop.
+#[instrument(skip(state, user, body), fields(user_id = %user.actor_id))]
 pub async fn resume_loop(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     Path(loop_id): Path<String>,
-    Json(_body): Json<TransitionLoopRequest>,
+    Json(body): Json<ResumeLoopRequest>,
 ) -> ApiResult<Json<LoopActionResponse>> {
+    // 1. Get current Loop projection
+    let loop_proj = state
+        .projections
+        .get_loop(&loop_id)
+        .await?
+        .ok_or_else(|| ApiError::NotFound {
+            resource: "Loop".to_string(),
+            id: loop_id.clone(),
+        })?;
+
+    // 2. Verify Loop is PAUSED
+    if loop_proj.state != "PAUSED" {
+        return Err(ApiError::InvalidTransition {
+            current_state: loop_proj.state.clone(),
+            action: "resume".to_string(),
+        });
+    }
+
+    // 3. V10-2: Check if decision is required (stop-trigger-induced pause)
+    if loop_proj.requires_decision {
+        // Validate decision_id was provided
+        let decision_id = body.decision_id.as_ref().ok_or_else(|| ApiError::PreconditionFailed {
+            code: "DECISION_REQUIRED".to_string(),
+            message: format!(
+                "Loop was paused by {}. A Decision must be recorded and provided to resume.",
+                loop_proj.last_stop_trigger.as_deref().unwrap_or("stop trigger")
+            ),
+        })?;
+
+        // Validate decision exists
+        let decision = state
+            .projections
+            .get_decision(decision_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Decision".to_string(),
+                id: decision_id.clone(),
+            })?;
+
+        // Validate decision references this Loop in scope
+        // The scope should contain loop_id or a reference to this Loop
+        let scope_contains_loop = decision.scope.get("loop_id")
+            .and_then(|v| v.as_str())
+            .map(|id| id == loop_id)
+            .unwrap_or(false);
+
+        if !scope_contains_loop {
+            return Err(ApiError::PreconditionFailed {
+                code: "DECISION_SCOPE_MISMATCH".to_string(),
+                message: format!(
+                    "Decision {} does not reference Loop {} in its scope",
+                    decision_id, loop_id
+                ),
+            });
+        }
+
+        info!(
+            loop_id = %loop_id,
+            decision_id = %decision_id,
+            "Decision validated for Loop resume"
+        );
+    }
+
+    // 4. Proceed with transition
     transition_loop(&state, &user, &loop_id, "PAUSED", "ACTIVE", "LoopResumed").await
 }
 

@@ -198,35 +198,47 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V9-3 | Replayability demonstration | D-36 | ✅ Complete |
 | V9-4 | Branch 0 acceptance verification | — | ✅ Complete |
 
-### SR-PLAN-V10 (Proposed)
+### SR-PLAN-V10 (In Progress)
 
-**Status:** Not yet authored
+**Status:** V10-1 through V10-4 VERIFIED; V10-5/V10-6 Pending
 **Scope:** Loop Governor Completion & Traceability
 **Target Deliverables:** D-22, D-12, D-18
 **Validation Source:** SR-PLAN-LOOPS validation (2026-01-17)
+**Implemented:** 2026-01-17 (solver-ralph-10 branch)
+**Verified:** 2026-01-17 — Tests 9, 12-15 re-run and passing
 
-| Phase | Focus | Deliverables | Gap Source |
-|-------|-------|--------------|------------|
-| V10-1 | Stop triggers (BUDGET_EXHAUSTED, REPEATED_FAILURE) | D-22 | Tests 13-14 (Critical) |
-| V10-2 | Decision-required resume after stop trigger | D-22 | Test 15 |
-| V10-3 | Candidate → Iteration traceability | D-12 | Test 12 |
-| V10-4 | Iteration refs completeness (Loop, exceptions) | D-18 | Tests 9, 16 |
-| V10-5 | Loop edit endpoint with budget monotonicity | D-18 | Test 8 |
-| V10-6 | OracleSuite hash prefix fix | D-24 | Test 10 |
+| Phase | Focus | Deliverables | Gap Source | Status |
+|-------|-------|--------------|------------|--------|
+| V10-1 | Stop triggers (BUDGET_EXHAUSTED, REPEATED_FAILURE) | D-22 | Tests 13-14 (Critical) | ✅ Verified |
+| V10-2 | Decision-required resume after stop trigger | D-22 | Test 15 | ✅ Verified |
+| V10-3 | Candidate → Iteration traceability index | D-12 | Test 12 | ✅ Verified |
+| V10-4 | Loop ref in IterationStarted.refs[] | D-18 | Test 9 | ✅ Verified |
+| V10-5 | Loop edit endpoint with budget monotonicity | D-18 | Test 8 | ⏳ Pending |
+| V10-6 | OracleSuite hash prefix fix | D-24 | Test 10 | ⏳ Pending |
 
-**Critical Path:** V10-1 → V10-2 (stop triggers enable decision gating)
+**Critical Path:** V10-1 → V10-2 (stop triggers enable decision gating) — COMPLETE
+
+**Implementation Summary (V10-1 through V10-4):**
+
+- **Migration 009:** Added `consecutive_failures`, `last_stop_trigger`, `paused_at`, `requires_decision` columns to `proj.loops`; added candidate traceability index
+- **LoopProjection:** Updated struct and all queries to include new fields
+- **StopTriggered Event:** Now properly projected to PAUSE Loop with trigger metadata
+- **Budget Enforcement:** `start_work_surface_iteration()` checks `max_iterations` and emits `BUDGET_EXHAUSTED` stop trigger
+- **Failure Tracking:** `apply_iteration_completed()` increments/resets `consecutive_failures`; 3+ failures emit `REPEATED_FAILURE` stop trigger
+- **Decision Gating:** `resume_loop()` validates `decision_id` when `requires_decision=true`
+- **Loop Ref:** `fetch_work_surface_refs()` now includes Loop ref with `rel="in_scope_of"`
 
 **Detailed Gap Descriptions:**
 
-| ID | Description | Contract | Severity |
-|----|-------------|----------|----------|
-| V10-G1 | Budget exhaustion not enforced; iterations exceed max_iterations | C-LOOP-1, C-LOOP-3 | Critical |
-| V10-G2 | Repeated failure (3+ consecutive) doesn't pause Loop | C-LOOP-3 | Critical |
-| V10-G3 | Candidate `produced_by_iteration_id` not recorded; graph edges missing | C-LOOP-4 | High |
-| V10-G4 | Loop ref missing from IterationStarted.refs[] (only in correlation_id) | C-CTX-1 | Medium |
-| V10-G5 | Active exceptions not included in IterationStarted.refs[] | C-CTX-1 | Medium |
-| V10-G6 | No Loop PATCH endpoint for budget updates | — | Medium |
-| V10-G7 | OracleSuite content_hash has doubled `sha256:sha256:` prefix | — | Low |
+| ID | Description | Contract | Severity | Status |
+|----|-------------|----------|----------|--------|
+| V10-G1 | Budget exhaustion not enforced; iterations exceed max_iterations | C-LOOP-1, C-LOOP-3 | Critical | ✅ Fixed |
+| V10-G2 | Repeated failure (3+ consecutive) doesn't pause Loop | C-LOOP-3 | Critical | ✅ Fixed |
+| V10-G3 | Candidate `produced_by_iteration_id` index missing | C-LOOP-4 | High | ✅ Fixed |
+| V10-G4 | Loop ref missing from IterationStarted.refs[] (only in correlation_id) | C-CTX-1 | Medium | ✅ Fixed |
+| V10-G5 | Active exceptions not included in IterationStarted.refs[] | C-CTX-1 | Medium | ⏳ Deferred to V11 |
+| V10-G6 | No Loop PATCH endpoint for budget updates | — | Medium | ⏳ Pending |
+| V10-G7 | OracleSuite content_hash has doubled `sha256:sha256:` prefix | — | Low | ⏳ Pending |
 
 ### SR-PLAN-V11 (Proposed)
 

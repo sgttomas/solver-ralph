@@ -1181,6 +1181,68 @@ fn compute_template_hash(template: &sr_domain::work_surface::ProcedureTemplate) 
     format!("sha256:{}", hex::encode(hasher.finalize()))
 }
 
+/// V10-1: Emit StopTriggered event to pause a Loop (C-LOOP-1, C-LOOP-3)
+///
+/// Emits a StopTriggered event that transitions the Loop to PAUSED state.
+/// The `requires_decision` flag indicates whether a Decision must be recorded
+/// before the Loop can be resumed.
+async fn emit_stop_triggered(
+    state: &AppState,
+    loop_id: &str,
+    trigger: &str,
+    requires_decision: bool,
+) -> Result<(), ApiError> {
+    let event_id = EventId::new();
+    let now = Utc::now();
+
+    // Read current stream to get version
+    let events = state.event_store.read_stream(loop_id, 0, 1000).await?;
+    let current_version = events.len() as u64;
+
+    let event = EventEnvelope {
+        event_id: event_id.clone(),
+        stream_id: loop_id.to_string(),
+        stream_kind: StreamKind::Loop,
+        stream_seq: current_version + 1,
+        global_seq: None,
+        event_type: "StopTriggered".to_string(),
+        occurred_at: now,
+        actor_kind: ActorKind::System,
+        actor_id: "system:loop-governor".to_string(),
+        correlation_id: None,
+        causation_id: None,
+        supersedes: vec![],
+        refs: vec![],
+        payload: serde_json::json!({
+            "trigger": trigger,
+            "requires_decision": requires_decision,
+        }),
+        envelope_hash: compute_envelope_hash(&event_id),
+    };
+
+    state
+        .event_store
+        .append(loop_id, current_version, vec![event])
+        .await?;
+
+    state
+        .projections
+        .process_events(&*state.event_store)
+        .await
+        .map_err(|e| ApiError::Internal {
+            message: e.to_string(),
+        })?;
+
+    info!(
+        loop_id = %loop_id,
+        trigger = %trigger,
+        requires_decision = %requires_decision,
+        "StopTriggered event emitted - Loop paused"
+    );
+
+    Ok(())
+}
+
 fn parse_work_kind(kind: &str) -> Result<WorkKind, ApiError> {
     parse_work_kind_option(kind).ok_or_else(|| ApiError::BadRequest {
         message: format!("Invalid work kind: {}", kind),
@@ -1647,6 +1709,47 @@ pub async fn start_work_surface_iteration(
         });
     }
 
+    // 3b. V10-1: Check budget before starting iteration (C-LOOP-1, C-LOOP-3)
+    let max_iterations = loop_proj.budgets["max_iterations"].as_i64().unwrap_or(5) as i32;
+    if loop_proj.iteration_count >= max_iterations {
+        // Emit StopTriggered event and return error
+        emit_stop_triggered(
+            &state.app_state,
+            &loop_proj.loop_id,
+            "BUDGET_EXHAUSTED",
+            true, // requires_decision = true
+        )
+        .await?;
+
+        return Err(ApiError::PreconditionFailed {
+            code: "BUDGET_EXHAUSTED".to_string(),
+            message: format!(
+                "Loop has reached max_iterations ({}/{}). Decision required to extend budget.",
+                loop_proj.iteration_count, max_iterations
+            ),
+        });
+    }
+
+    // 3c. V10-1: Check consecutive failures for REPEATED_FAILURE trigger (C-LOOP-3)
+    if loop_proj.consecutive_failures >= 3 {
+        // Emit StopTriggered event and return error
+        emit_stop_triggered(
+            &state.app_state,
+            &loop_proj.loop_id,
+            "REPEATED_FAILURE",
+            true, // requires_decision = true
+        )
+        .await?;
+
+        return Err(ApiError::PreconditionFailed {
+            code: "REPEATED_FAILURE".to_string(),
+            message: format!(
+                "Loop has {} consecutive failed iterations. Decision required to continue.",
+                loop_proj.consecutive_failures
+            ),
+        });
+    }
+
     // 4. Get current iterations and check if new iteration is allowed
     let iterations = state
         .app_state
@@ -1851,8 +1954,8 @@ async fn start_iteration_as_system(
         })?;
     let sequence = (iterations.len() + 1) as u32;
 
-    // Fetch Work Surface refs for iteration context
-    let refs = fetch_work_surface_refs(ws);
+    // Fetch Work Surface refs for iteration context (V10-G4: include Loop ref)
+    let refs = fetch_work_surface_refs(ws, loop_id);
 
     let payload = serde_json::json!({
         "loop_id": loop_id,
@@ -1905,8 +2008,18 @@ async fn start_iteration_as_system(
 }
 
 /// Fetch Work Surface refs for iteration context (per C-CTX-1/C-CTX-2)
-fn fetch_work_surface_refs(ws: &WorkSurfaceResponse) -> Vec<TypedRef> {
+///
+/// V10-G4: Includes Loop ref with rel="in_scope_of" per SR-PLAN-LOOPS Test 9.
+fn fetch_work_surface_refs(ws: &WorkSurfaceResponse, loop_id: &str) -> Vec<TypedRef> {
     let mut refs = Vec::new();
+
+    // 0. V10-G4: Loop ref (required by C-CTX-1)
+    refs.push(TypedRef {
+        kind: "Loop".to_string(),
+        id: loop_id.to_string(),
+        rel: "in_scope_of".to_string(),
+        meta: serde_json::Value::Null,
+    });
 
     // 1. Intake ref
     refs.push(TypedRef {
