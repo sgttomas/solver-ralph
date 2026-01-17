@@ -68,125 +68,69 @@ Canonical index for the SR-* document set.
 
 **V10:** ✅ COMPLETE (2026-01-17)
 **V11:** ✅ COMPLETE (2026-01-17)
-**Branch:** `solver-ralph-11`
+**V12:** 🔄 READY FOR IMPLEMENTATION
+**Branch:** `solver-ralph-12`
 
-### V11 Progress (2026-01-17)
+### V12 Reviews (2026-01-17)
 
-**V11-1: Infisical Integration (D-16)** ✅ COMPLETE
-- Added 15 integration tests with wiremock for mock Infisical API
-- Tests cover: get/store/delete secrets, envelope key retrieval, caching, error handling
-- Created `.env.example` with Infisical configuration variables
-- Documentation in `docs/platform/SR-DEPLOYMENT.md`
+**V12 Coherence Review** ✅ APPROVED
+- Validated all file references and line counts in SR-PLAN-V12
+- Confirmed `evidence.rs` (890 lines), `nats.rs` (677 lines), `governor.rs` (1059 lines) — all exact matches
+- See `docs/reviews/SR-PLAN-V12-COHERENCE-REVIEW.md`
 
-**V11-2: Build/Init Scripts (D-32)** ✅ COMPLETE
-- Audited `deploy/init.sh` — confirmed comprehensive initialization
-- Created `scripts/init-all.sh` wrapper with pre-flight checks
-- Documentation in `docs/platform/SR-DEPLOYMENT.md`
-
-**V11-3: Operational Observability (D-33)** ✅ COMPLETE
-- Added `/ready` endpoint with PostgreSQL, MinIO, NATS connectivity checks
-- Added domain-specific metrics (loops, iterations, candidates, oracle runs, events)
-- Created `docs/platform/SR-OBSERVABILITY.md` documentation
-
-**V11-4: E2E Failure Mode Harness (D-35)** ✅ COMPLETE
-- Added `EvidenceMissing` scenario to E2E harness (Test 18)
-- Implemented `run_evidence_missing()` with proper integrity condition detection
-- Added `--evidence-missing` CLI flag
-- Verifies EVIDENCE_MISSING is non-waivable per SR-CONTRACT C-OR-7
-
-**V11-5: Integration Oracle Suite (D-26)** ✅ COMPLETE
-- Created `create_integration_suite()` factory function
-- Added `SUITE_INTEGRATION_ID` constant (`suite:SR-SUITE-INTEGRATION`)
-- Registered in `OracleSuiteRegistry::with_core_suites()` (now 5 suites total)
-- Network mode: Private (integration tests need network access)
-
-**V11-6: GovernedArtifact & Exception Refs (D-08)** ✅ COMPLETE
-- Created `crates/sr-api/src/governed.rs` — GovernedManifest with content-addressed artifacts
-- Computed manifest at API startup with SHA-256 content hashes
-- Added `get_active_exceptions_for_loop()` to ProjectionBuilder
-- Updated `start_iteration()` to add GovernedArtifact and active Exception refs
-- Used corrected schemas per SR-PLAN-V11-CONSISTENCY-REVIEW:
-  - GovernedArtifact: `rel: "depends_on"`, `id: doc_id`, `meta: {content_hash, version, type_key}`
-  - Exceptions: `kind: "Waiver|Deviation|Deferral"`, `id: exception_id`, `rel: "depends_on"`
-
-### V11 Reviews (2026-01-17)
-
-V11 Coherence Review:
-- SR-PLAN-V11 reviewed against codebase — APPROVED
-- Revisions incorporated: V10-G5 addressed, existing infrastructure acknowledged, effort estimates reduced
-- See `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` for detailed findings
-
-V11 Consistency Review:
-- SR-PLAN-V11 reviewed for consistency with canonical SR-* documents — REVISED
-- Corrected V11-6 schemas to align with SR-SPEC §1.5.2 and §1.5.3
-- Fixed: `rel: "governed_by"` → `rel: "depends_on"`, added required `id` field
-- Fixed: `kind: "Exception"` → `kind: "Waiver|Deviation|Deferral"`, moved `exception_id` to `id` field
-- See `docs/planning/SR-PLAN-V11-CONSISTENCY-REVIEW.md` for detailed findings
-
-See `docs/planning/SR-PLAN-LOOPS.md` for V10 verification results.
-See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC updates).
+**V12 Consistency Review** ✅ APPROVED
+- Analyzed SR-PLAN-V12 against canonical SR-* documents (ontology, epistemology, semantics)
+- No high-severity inconsistencies found
+- One low-severity recommendation: explicitly state `classification: required` for manifest-validation oracle
+- See `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md`
 
 ---
 
 ## Next Instance Prompt
 
-> **Assignment:** Review SR-PLAN-V12 for codebase coherence. Do NOT begin implementation until review is complete.
+> **Assignment:** Implement SR-PLAN-V12 (Operational Refinement)
 
 ### Orientation
 
-1. Read `docs/planning/SR-PLAN-V12.md` — the plan to be reviewed
-2. Navigate the codebase to validate referenced files, implementations, and gaps
-3. See `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` for review format example
+1. Read `docs/planning/SR-PLAN-V12.md` — the implementation plan (3 phases)
+2. Read `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md` — approved with one recommendation (S-2)
+3. Reference existing implementations:
+   - `oracle-suites/core-v1/oracles/schema-validation.sh` — oracle implementation pattern
+   - `oracle-suites/core-v1/suite.json` — suite registration pattern
+   - `crates/sr-adapters/src/nats.rs` — MessageEnvelope and contracts to document
+   - `crates/sr-adapters/src/governor.rs` — governor logic to extract
 
-### Task
+### Phase Order
 
-Validate that SR-PLAN-V12's claims about existing code are accurate:
-- Do the referenced files exist? (e.g., `evidence.rs`, `nats.rs`, `governor.rs`)
-- Are the line counts and feature descriptions accurate?
-- Are the identified gaps real? Is anything missing from the gap analysis?
-- Are the proposed tasks feasible given the existing code structure?
+V12-1 and V12-2 can run in parallel (no dependencies).
+V12-3 depends on V12-2 (needs formalized message contracts).
 
-### Deliverable
+### Deliverables
 
-Produce `docs/reviews/SR-PLAN-V12-COHERENCE-REVIEW.md` with:
-- Findings per phase (V12-1, V12-2, V12-3)
-- Recommendations for any needed revisions
-- Verdict: APPROVE or REVISE
+| Phase | Deliverable | Key Files |
+|-------|-------------|-----------|
+| V12-1 | Evidence manifest validation oracle | `oracle-suites/core-v1/oracles/manifest-validation.sh`, update `suite.json` |
+| V12-2 | Message contract documentation + tests | `schemas/messaging/SR-MESSAGE-CONTRACTS.md`, `schemas/messaging/message-envelope.schema.json` |
+| V12-3 | Standalone governor binary | `crates/sr-governor/`, update `deploy/docker-compose.yml` |
 
-### Constraints
+### Verification
 
-- Review only — do not implement
-- Cite specific files and line numbers to support findings
+- V12-1: Oracle passes/fails correctly on valid/invalid manifests
+- V12-2: JSON Schema validates example messages; contract tests pass
+- V12-3: Governor service starts, emits iterations, respects budgets
+
+Git commit after each phase completion.
 
 ---
 
 ## Previous Session Summary (2026-01-17)
 
-### Completed: V11-1, V11-2, V11-3 Implementation
+### Completed: SR-PLAN-V12 Consistency Review
 
-**V11-1: Infisical Integration (D-16)**
-- Added 15 wiremock-based integration tests to `crates/sr-adapters/src/infisical.rs`
-- Tests cover: secret CRUD, envelope key retrieval/caching, error handling (auth, network, not found)
-- Created `.env.example` with Infisical configuration
-
-**V11-2: Build/Init Scripts (D-32)**
-- Created `scripts/init-all.sh` — wrapper with Docker pre-flight, dependency checks, service startup
-- Audited `deploy/init.sh` — confirmed comprehensive (PostgreSQL, MinIO, Zitadel, secrets)
-
-**V11-3: Operational Observability (D-33)**
-- Added `/ready` endpoint with PostgreSQL, MinIO, NATS health checks (HTTP 200/503)
-- Added domain metrics: loops, iterations, candidates, oracle runs, events (with latencies)
-- Created `docs/platform/SR-DEPLOYMENT.md` and `docs/platform/SR-OBSERVABILITY.md`
-
-**Canonical updates:**
-- SR-SPEC §2.3.13 — Added Operational endpoints (`/health`, `/ready`, `/api/v1/metrics`)
-- SR-README — Added SR-DEPLOYMENT, SR-OBSERVABILITY to canonical paths
-- SR-CHANGE v1.4 — Recorded V11-1/2/3 implementation
-
-**Commits:**
-- `ada5202` — feat(v11): Implement V11-1, V11-2, V11-3
-- `8af3298` — docs: Update canonical SR-* documents for V11-1/2/3
-
-**Effort Reduction:** Total estimated effort reduced from 8-12 sessions to 6.5-9.5 sessions due to existing infrastructure.
+- Analyzed V12-1 (manifest validation oracle) — aligned with SR-SPEC §1.9.1.1, C-EVID-1
+- Analyzed V12-2 (message contracts) — MessageEnvelope is adapter-layer, not domain type
+- Analyzed V12-3 (governor service) — satisfies C-LOOP-1, C-LOOP-2, C-CTX-1
+- Verdict: APPROVE — plan can proceed to implementation
+- Produced `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md`
 
 ---
