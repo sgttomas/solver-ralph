@@ -110,136 +110,105 @@ Per `SR-PLAN-GAP-ANALYSIS.md`, the path to Milestone 1 completion:
 
 ---
 
-## Previous Session Summary (V8-5 Implementation)
+## Previous Session Summary (V8-5 Completion + Doc Updates)
 
-**Session Goal:** Implement SR-PLAN-V8 Phase V8-5 — Semantic Oracle Integration
+**Session Goal:** Complete SR-PLAN-V8 Phase V8-5 and update canonical documents
 
 ### What Was Accomplished
 
-1. **Added SemanticEval command to sr-oracles CLI**:
-   - New `semantic-eval` subcommand with `--intake`, `--output-dir`, `--candidate-id` flags
-   - Reuses existing `IntakeAdmissibilityRunner` from `sr-adapters/src/semantic_suite.rs`
-   - Writes 4 output files: eval.json, residual.json, coverage.json, violations.json
-   - Added `serde_yaml` dependency for YAML intake parsing
+1. **Implemented V8-5: Semantic Oracle Suite**
+   - Added `semantic-eval` command to `sr-oracles` CLI
+   - Created `oracle-suites/semantic-v1/` with Dockerfile, suite.json, oracle script
+   - Bundled `intake-admissibility.json` semantic set definition
+   - Added 7 integration tests to `sr-adapters/src/oracle_runner.rs`
+   - All tests passed: sr-adapters (148), sr-api (41), sr-oracles (27)
 
-2. **Created semantic oracle suite directory** (`oracle-suites/semantic-v1/`):
-   - Complete directory structure with Dockerfile, suite.json, oracle script, and semantic set
-   - Suite ID: `suite:sr-semantic-v1`
-   - OCI image: `ghcr.io/solver-ralph/oracle-suite-semantic:v1`
+2. **Updated Canonical Documents**
+   - **SR-PLAN-GAP-ANALYSIS.md**: V8 complete, D-24/25/27/39 complete, Branch 0 criteria updated
+   - **SR-PLAN-V8.md**: Status to Complete, added Appendix E completion summary
+   - **SR-SPEC.md**: Added §1.9.1.2 documenting `sr.semantic_eval.v1` schema
+   - **SR-CHANGE.md**: Added version 0.9 documenting V8-5 + doc updates
 
-3. **Created Dockerfile** (`oracle-suites/semantic-v1/Dockerfile`):
-   - Multi-stage build: compile sr-oracles, copy to slim Debian runtime
-   - Bundles semantic set definition at `/semantic-sets/`
-   - Oracle scripts at `/oracles/`
+### Commits
 
-4. **Created suite.json with semantic_set_binding**:
-   - Single required oracle: `oracle:semantic-eval`
-   - 4 expected outputs per SR-SEMANTIC-ORACLE-SPEC §3
-   - `semantic_set_binding` field links to `semantic_set:INTAKE-ADMISSIBILITY`
-   - Environment constraints: runsc, network:disabled, workspace_readonly:true
+| Hash | Message |
+|------|---------|
+| `f52857c` | V8-5: Complete Semantic Oracle Suite Container |
+| `0e7681d` | docs: Update canonical SR-* documents for V8-5 completion |
 
-5. **Created semantic-eval.sh oracle script**:
-   - Locates intake file in workspace
-   - Invokes `sr-oracles semantic-eval` with appropriate flags
-   - Verifies all 4 output files produced
+### Key Implementation Decisions
 
-6. **Bundled intake-admissibility.json**:
-   - 6 semantic axes (schema_compliance, traceability, contradiction_free, ambiguity, privacy, term_map)
-   - Decision rule: intake_admissibility_v1
-   - Thresholds: max_residual_norm=0.2, min_coverage=0.85, max_error_violations=0
+- Reused existing `IntakeAdmissibilityRunner` instead of creating new crate
+- Added `semantic-eval` command to existing `sr-oracles` crate (cleaner than new binary)
+- No `Waived` variant added to `DecisionStatus` (waivers handled at gate level per C-INT-2)
+- Amendment A-3 followed: used existing types from `sr-domain/src/semantic_oracle.rs`
 
-7. **Added V8-5 integration tests** (`crates/sr-adapters/src/oracle_runner.rs`):
-   - `test_semantic_suite_v1_definition_parsing` — Validates suite.json structure
-   - `test_semantic_suite_v1_semantic_set_binding` — Verifies semantic_set_binding present
-   - `test_semantic_suite_v1_oracle_definition` — Checks oracle and 4 outputs
-   - `test_semantic_suite_v1_metadata` — Verifies contract_refs and spec_refs
-   - `test_semantic_suite_v1_gap_detection_present` — GAP detection with oracle present
-   - `test_semantic_suite_v1_gap_detection_missing` — GAP detection with oracle missing
-   - `test_semantic_set_definition_valid_json` — Validates bundled semantic set
+### SR-PLAN-V8 Status
 
-8. **Created README documentation** (`oracle-suites/semantic-v1/README.md`):
-   - Oracle descriptions and output schemas
-   - Semantic set axes and decision rule
-   - Contract compliance matrix
-   - Build and run instructions
-
-### Test Results
-
-| Package | Result |
-|---------|--------|
-| sr-adapters | ✅ 148 passed (1 ignored) |
-| sr-api | ✅ 41 passed |
-| sr-oracles | ✅ 27 passed |
-
-### Files Created/Modified
-
-| File | Action |
-|------|--------|
-| `oracle-suites/semantic-v1/Dockerfile` | CREATED |
-| `oracle-suites/semantic-v1/suite.json` | CREATED |
-| `oracle-suites/semantic-v1/oracles/semantic-eval.sh` | CREATED |
-| `oracle-suites/semantic-v1/semantic-sets/intake-admissibility.json` | CREATED |
-| `oracle-suites/semantic-v1/README.md` | CREATED |
-| `crates/sr-oracles/src/main.rs` | MODIFIED — Added SemanticEval command |
-| `crates/sr-oracles/Cargo.toml` | MODIFIED — Added serde_yaml dependency |
-| `crates/sr-adapters/src/oracle_runner.rs` | MODIFIED — Added 7 V8-5 integration tests |
-| `Cargo.toml` | MODIFIED — Added serde_yaml workspace dependency |
-| `docs/charter/SR-README.md` | MODIFIED — V8-5 complete, updated status |
-
-### Contract Compliance
-
-| Contract | Requirement | Implementation |
-|----------|-------------|----------------|
-| C-OR-1 | Required oracles deterministic | Evaluation uses deterministic IntakeAdmissibilityRunner |
-| C-OR-2 | Suite pinning | suite.json includes suite_hash and semantic_set_hash |
-| C-OR-3 | Environment constraints | runsc, network:disabled, workspace_readonly:true |
-| C-OR-4 | Oracle gaps blocking | Single required oracle, GAP detection tested |
-| C-EVID-1 | Evidence minimum manifest | 4 output artifacts with defined schemas |
-
-### Implementation Notes
-
-- Leveraged existing `IntakeAdmissibilityRunner` from `sr-adapters/src/semantic_suite.rs`
-- No new types created — all semantic types already exist in `sr-domain/src/semantic_oracle.rs`
-- Amendment A-3 followed: focused on container packaging, not type creation
-- SR-PLAN-V8 is now **COMPLETE** — all 5 phases implemented
+**COMPLETE** — All 5 phases implemented, tested, documented, and committed.
 
 ---
 
-## Next Instance Prompt: Implement SR-PLAN-V9
+## Next Instance Prompt: Author SR-PLAN-V9
 
 ### Assignment
 
-Implement **SR-PLAN-V9: Semantic Worker & Branch 0** — complete the semantic worker integration and implement Branch 0 end-to-end workflow.
+**Plan and author SR-PLAN-V9** — create the implementation plan document for Semantic Worker & Branch 0 completion. Do NOT implement code; focus on creating the plan document.
 
-### Key Deliverables
+### Context
 
-Per `SR-PLAN-GAP-ANALYSIS.md`, V9 covers:
-- D-23: Semantic Worker completes full evaluation cycle
-- D-41: Branch 0 (intake processing) end-to-end
-- D-36: Stage gate pass/fail from semantic eval results
+Per `SR-PLAN-GAP-ANALYSIS.md §4`:
+- V9 scope: Semantic Worker & Branch 0 Completion
+- Target deliverables: D-23, D-41, D-36
+- Blocking items for Milestone 1: D-41 (Semantic worker), D-36 (Replay proof)
 
-### Where to Look
+### What You Must Produce
 
-| Document/File | What You'll Find |
-|---------------|------------------|
-| `docs/planning/SR-PLAN-GAP-ANALYSIS.md` | V9 scope and deliverables |
-| `crates/sr-adapters/src/semantic_worker.rs` | Existing semantic worker |
-| `crates/sr-adapters/src/semantic_suite.rs` | Evaluation runner |
+Create `docs/planning/SR-PLAN-V9.md` following the established pattern from SR-PLAN-V8:
+
+1. **Preamble** — YAML frontmatter with doc_id, refs, status: active
+2. **Overview** — Scope, target deliverables, dependencies
+3. **Phase breakdown** — V9-1 through V9-N with clear deliverables per phase
+4. **Acceptance criteria** — Testable conditions for each phase
+5. **Contract compliance** — How deliverables satisfy C-* contracts
+6. **Appendix: Type inventory** — What exists vs. what needs creation
+
+### Proposed Phases (refine as needed)
+
+From SR-PLAN-GAP-ANALYSIS.md §4:
+
+| Phase | Focus | Deliverables |
+|-------|-------|--------------|
+| V9-1 | Reference worker bridge | D-23 |
+| V9-2 | Reference semantic worker | D-41 |
+| V9-3 | Replayability demonstration | D-36 |
+| V9-4 | Branch 0 acceptance verification | — |
+
+### Research Before Authoring
+
+Read these to understand what V9 must accomplish:
+
+| Document/File | What You'll Learn |
+|---------------|-------------------|
+| `docs/planning/SR-PLAN-GAP-ANALYSIS.md` | Full deliverable status and V9 scope |
+| `docs/planning/SR-PLAN-V8.md` | Template for plan document structure |
 | `docs/platform/SR-PROCEDURE-KIT.md` | Branch 0 procedure definition |
+| `docs/platform/SR-AGENT-WORKER-CONTRACT.md` | Worker interface requirements |
+| `crates/sr-adapters/src/semantic_worker.rs` | Existing worker (if any) |
 
 ### Current State
 
-- Branch: `solver-ralph-8` (continue or create `solver-ralph-9`)
-- V8: ✅ COMPLETE (all 5 phases)
-- V9: 🎯 Your assignment
-- Estimated effort: 2-3 sessions
+- Branch: `solver-ralph-8` (continue)
+- V8: ✅ COMPLETE
+- V9: 📝 Plan authoring needed
+- Milestone 1 completion: ~95% — awaiting V9
 
 ### On Completion
 
-1. Run tests: `cargo test --package sr-adapters && cargo test --package sr-api`
-2. Git commit
-3. Update SR-README: Mark V9 complete, summarize session
-4. Milestone 1 (MVP) projected complete after V9
+1. Verify SR-PLAN-V9.md follows established plan document pattern
+2. Add SR-PLAN-V9 to SR-README roadmap table
+3. Git commit: `docs: Author SR-PLAN-V9 for Semantic Worker & Branch 0`
+4. Do NOT begin implementation — await approval
 
 ---
 
