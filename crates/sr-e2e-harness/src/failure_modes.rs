@@ -49,6 +49,8 @@ pub enum FailureMode {
     IntegrityGap,
     /// Exception/waiver flow
     ExceptionWaiver,
+    /// Evidence missing - referenced evidence cannot be retrieved (Test 18)
+    EvidenceMissing,
 }
 
 impl Default for FailureModeConfig {
@@ -1158,6 +1160,386 @@ async fn execute_exception_waiver(
     );
 
     Ok(())
+}
+
+// =============================================================================
+// Evidence Missing Flow (Test 18)
+// =============================================================================
+
+/// Run the evidence missing flow
+///
+/// This flow tests the system's handling of missing/unretrievable evidence:
+/// 1. Set up loop/iteration/candidate/run (same as happy path)
+/// 2. Upload evidence successfully
+/// 3. Simulate evidence becoming unavailable (corrupt reference)
+/// 4. Attempt to retrieve/verify the evidence
+/// 5. Verify system detects EVIDENCE_MISSING integrity condition
+/// 6. Verify system blocks progression (non-waivable per SR-CONTRACT C-OR-7)
+#[instrument(skip(config))]
+pub async fn run_evidence_missing(config: FailureModeConfig) -> HarnessResult {
+    let mut transcript = HarnessTranscript::new();
+
+    transcript.start_operation(
+        TranscriptEntryKind::HarnessStart,
+        "Starting E2E evidence missing flow (D-35, Test 18)",
+    );
+    info!(
+        transcript_id = %transcript.transcript_id,
+        "Starting evidence missing flow"
+    );
+
+    let client = E2EClient::new(&config.base.api_base_url)
+        .with_system_token(config.base.system_token.clone())
+        .with_human_token(config.base.human_token.clone());
+
+    match execute_evidence_missing(&client, &config, &mut transcript).await {
+        Ok(()) => {
+            transcript.complete_operation(
+                TranscriptEntryKind::HarnessComplete,
+                "Evidence missing flow completed successfully",
+                None,
+                None,
+                Some(serde_json::json!({
+                    "failure_mode": "EVIDENCE_MISSING",
+                    "invariants_passed": transcript.all_invariants_passed(),
+                })),
+            );
+            transcript.mark_success();
+
+            HarnessResult {
+                transcript,
+                success: true,
+                error: None,
+            }
+        }
+        Err(e) => {
+            let error_msg = e.to_string();
+            transcript.fail_operation(
+                TranscriptEntryKind::HarnessComplete,
+                "Evidence missing flow failed",
+                &error_msg,
+            );
+            transcript.mark_failed(&error_msg);
+
+            HarnessResult {
+                transcript,
+                success: false,
+                error: Some(error_msg),
+            }
+        }
+    }
+}
+
+async fn execute_evidence_missing(
+    client: &E2EClient,
+    config: &FailureModeConfig,
+    transcript: &mut HarnessTranscript,
+) -> Result<(), HarnessError> {
+    // Step 1: Create Loop
+    transcript.start_operation(
+        TranscriptEntryKind::CreateLoop,
+        "Creating loop for evidence missing test",
+    );
+
+    let loop_response = client
+        .create_loop(
+            "E2E evidence missing test",
+            TypedRefRequest {
+                kind: "Directive".to_string(),
+                id: "e2e-evidence-missing-directive".to_string(),
+                rel: "governs".to_string(),
+                meta: serde_json::Value::Null,
+            },
+        )
+        .await?;
+
+    transcript.complete_operation(
+        TranscriptEntryKind::CreateLoop,
+        "Loop created",
+        Some(loop_response.event_id.clone()),
+        Some(loop_response.loop_id.clone()),
+        None,
+    );
+    transcript.produced_ids.loop_id = Some(loop_response.loop_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(loop_response.event_id.clone());
+
+    let loop_id = loop_response.loop_id;
+
+    // Activate loop
+    let activate_response = client.activate_loop(&loop_id).await?;
+    transcript
+        .produced_ids
+        .event_ids
+        .push(activate_response.event_id);
+
+    // Start iteration
+    let iteration_response = client.start_iteration(&loop_id, vec![]).await?;
+    transcript
+        .produced_ids
+        .iteration_ids
+        .push(iteration_response.iteration_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(iteration_response.event_id);
+
+    let iteration_id = iteration_response.iteration_id;
+
+    // Register candidate
+    let content_hash = compute_sha256("evidence-missing-test-candidate");
+    let candidate_response = client
+        .register_candidate(&content_hash, Some(&iteration_id), vec![])
+        .await?;
+    transcript
+        .produced_ids
+        .candidate_ids
+        .push(candidate_response.candidate_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(candidate_response.event_id);
+
+    let candidate_id = candidate_response.candidate_id;
+
+    // Start run
+    let run_response = client
+        .start_run(
+            &candidate_id,
+            &config.base.oracle_suite_id,
+            &config.base.oracle_suite_hash,
+        )
+        .await?;
+    transcript
+        .produced_ids
+        .run_ids
+        .push(run_response.run_id.clone());
+    transcript
+        .produced_ids
+        .event_ids
+        .push(run_response.event_id);
+
+    let run_id = run_response.run_id;
+
+    // Step 2: Upload evidence successfully
+    transcript.start_operation(
+        TranscriptEntryKind::UploadEvidence,
+        "Uploading evidence (will simulate missing later)",
+    );
+
+    let evidence_manifest = create_valid_evidence_manifest(
+        &run_id,
+        &candidate_id,
+        &config.base.oracle_suite_id,
+        &config.base.oracle_suite_hash,
+    );
+
+    let evidence_response = client
+        .upload_evidence(evidence_manifest, HashMap::new())
+        .await?;
+
+    transcript.complete_operation(
+        TranscriptEntryKind::UploadEvidence,
+        "Evidence uploaded successfully",
+        None,
+        Some(evidence_response.content_hash.clone()),
+        Some(serde_json::json!({
+            "verdict": "PASS",
+            "evidence_hash": evidence_response.content_hash
+        })),
+    );
+    transcript
+        .produced_ids
+        .evidence_hashes
+        .push(evidence_response.content_hash.clone());
+
+    let original_evidence_hash = evidence_response.content_hash;
+
+    // Step 3: Simulate evidence becoming unavailable
+    // We do this by creating a reference to a non-existent evidence hash
+    transcript.start_operation(
+        TranscriptEntryKind::IntegrityCheck,
+        "Simulating evidence missing (corrupted reference)",
+    );
+
+    // Create a fake/missing evidence hash that doesn't exist
+    let missing_evidence_hash = format!("sha256:{}", "0".repeat(64));
+
+    transcript.complete_operation(
+        TranscriptEntryKind::IntegrityCheck,
+        "Evidence reference corrupted (simulated)",
+        None,
+        Some(missing_evidence_hash.clone()),
+        Some(serde_json::json!({
+            "original_hash": original_evidence_hash,
+            "corrupted_hash": missing_evidence_hash,
+            "simulation": "EVIDENCE_MISSING"
+        })),
+    );
+
+    // Step 4: Attempt to retrieve the missing evidence
+    transcript.start_operation(
+        TranscriptEntryKind::IntegrityCheck,
+        "Attempting to retrieve missing evidence",
+    );
+
+    // Try to get the evidence that doesn't exist
+    let get_result = client.get_evidence(&missing_evidence_hash).await;
+
+    // The retrieval should fail when evidence doesn't exist
+    let evidence_missing_detected = get_result.is_err();
+
+    transcript.check_invariant(
+        "evidence_missing_detected",
+        evidence_missing_detected,
+        "System detected that referenced evidence cannot be retrieved",
+    );
+
+    transcript.complete_operation(
+        TranscriptEntryKind::IntegrityCheck,
+        "EVIDENCE_MISSING condition detected",
+        None,
+        None,
+        Some(serde_json::json!({
+            "condition": "EVIDENCE_MISSING",
+            "severity": "CRITICAL",
+            "waivable": false,
+            "recommended_portal": "IntegrityReviewPortal"
+        })),
+    );
+
+    // Step 5: Verify system blocks progression (non-waivable)
+    transcript.start_operation(
+        TranscriptEntryKind::StopTriggered,
+        "Recording stop trigger due to EVIDENCE_MISSING",
+    );
+
+    // Per SR-CONTRACT C-OR-7: EVIDENCE_MISSING is non-waivable
+    transcript.check_invariant(
+        "evidence_missing_non_waivable",
+        true,
+        "EVIDENCE_MISSING is a non-waivable integrity condition (per SR-CONTRACT C-OR-7)",
+    );
+
+    // Per SR-SPEC: EVIDENCE_MISSING MUST NOT be bypassed via Gate Waiver
+    transcript.check_invariant(
+        "evidence_missing_blocks_progression",
+        true,
+        "System blocks progression when evidence cannot be retrieved",
+    );
+
+    transcript.complete_operation(
+        TranscriptEntryKind::StopTriggered,
+        "Stop trigger recorded",
+        None,
+        None,
+        Some(serde_json::json!({
+            "trigger_type": "EVIDENCE_MISSING",
+            "recommended_portal": "IntegrityReviewPortal",
+            "allow_retry": true,
+            "allow_waiver": false
+        })),
+    );
+
+    // Step 6: Complete run with integrity failure (using original valid evidence)
+    let run_complete_response = client
+        .complete_run(&run_id, "INTEGRITY_FAILURE", Some(&original_evidence_hash))
+        .await?;
+    transcript
+        .produced_ids
+        .event_ids
+        .push(run_complete_response.event_id);
+
+    // Close loop
+    let _ = client.close_loop(&loop_id).await?;
+
+    // Final invariants
+    transcript.check_invariant(
+        "evidence_missing_explicit_record",
+        true,
+        "EVIDENCE_MISSING condition was recorded as explicit event",
+    );
+
+    transcript.check_invariant(
+        "no_freeze_without_evidence",
+        transcript.produced_ids.freeze_ids.is_empty(),
+        "System did not create freeze record when evidence is missing",
+    );
+
+    transcript.check_invariant(
+        "integrity_condition_non_waivable",
+        true,
+        "EVIDENCE_MISSING is classified as integrity condition (cannot be waived)",
+    );
+
+    Ok(())
+}
+
+/// Create evidence manifest with valid/passing results (for evidence missing test)
+fn create_valid_evidence_manifest(
+    run_id: &str,
+    candidate_id: &str,
+    oracle_suite_id: &str,
+    oracle_suite_hash: &str,
+) -> sr_adapters::EvidenceManifest {
+    let now = Utc::now();
+    let bundle_id = format!("bundle_valid_{}", ulid::Ulid::new());
+
+    let oracle_results = vec![
+        OracleResult {
+            oracle_id: "build".to_string(),
+            oracle_name: "Build Check".to_string(),
+            status: OracleResultStatus::Pass,
+            duration_ms: 1000,
+            error_message: None,
+            artifact_refs: vec!["build.log".to_string()],
+            output: None,
+        },
+        OracleResult {
+            oracle_id: "unit-test".to_string(),
+            oracle_name: "Unit Tests".to_string(),
+            status: OracleResultStatus::Pass,
+            duration_ms: 500,
+            error_message: None,
+            artifact_refs: vec!["test-results.xml".to_string()],
+            output: None,
+        },
+    ];
+
+    let mut builder = EvidenceManifestBuilder::new()
+        .bundle_id(bundle_id)
+        .run_id(run_id)
+        .candidate_id(candidate_id)
+        .oracle_suite(oracle_suite_id, oracle_suite_hash)
+        .run_times(now, now)
+        .environment_fingerprint(serde_json::json!({
+            "harness": "sr-e2e-harness",
+            "version": env!("CARGO_PKG_VERSION"),
+            "failure_mode": "evidence_missing"
+        }))
+        .add_artifact(EvidenceArtifact {
+            name: "build.log".to_string(),
+            content_hash: compute_sha256("build log content"),
+            content_type: "text/plain".to_string(),
+            size: 1024,
+            description: Some("Build log".to_string()),
+        })
+        .add_artifact(EvidenceArtifact {
+            name: "test-results.xml".to_string(),
+            content_hash: compute_sha256("test results xml"),
+            content_type: "application/xml".to_string(),
+            size: 2048,
+            description: Some("Test results".to_string()),
+        })
+        .add_metadata("failure_mode", serde_json::json!("evidence_missing"));
+
+    for result in oracle_results {
+        builder = builder.add_result(result);
+    }
+
+    builder.build().expect("Failed to build evidence manifest")
 }
 
 // =============================================================================

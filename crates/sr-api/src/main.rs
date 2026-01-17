@@ -12,6 +12,7 @@
 
 pub mod auth;
 pub mod config;
+pub mod governed;
 pub mod handlers;
 pub mod observability;
 
@@ -57,6 +58,8 @@ pub struct AppState {
     pub event_store: Arc<PostgresEventStore>,
     pub projections: Arc<ProjectionBuilder>,
     pub evidence_store: Arc<MinioEvidenceStore>,
+    /// Governed artifacts manifest computed at startup (V11-6)
+    pub governed_manifest: Arc<governed::GovernedManifest>,
 }
 
 /// Oracle registry state for oracle-related endpoints
@@ -639,12 +642,26 @@ async fn main() {
 
     info!("MinIO attachment store initialized");
 
+    // Compute governed artifacts manifest (V11-6)
+    // Default to current directory + docs if DOCS_PATH is not set
+    let docs_path = std::env::var("DOCS_PATH").unwrap_or_else(|_| "docs".to_string());
+    let governed_manifest = Arc::new(governed::GovernedManifest::compute(std::path::Path::new(
+        &docs_path,
+    )));
+
+    info!(
+        artifact_count = governed_manifest.artifacts.len(),
+        manifest_hash = %governed_manifest.manifest_hash,
+        "Governed artifacts manifest computed"
+    );
+
     // Create application state
     let state = AppState {
         config: config.clone(),
         event_store,
         projections,
         evidence_store,
+        governed_manifest,
     };
 
     // Create metrics state (D-33)

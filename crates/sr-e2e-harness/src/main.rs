@@ -12,6 +12,7 @@
 //!   --oracle-failure       Run oracle failure scenario (D-35)
 //!   --integrity-tamper     Run integrity tamper detection scenario (D-35)
 //!   --exception-waiver     Run exception/waiver flow scenario (D-35)
+//!   --evidence-missing     Run evidence missing scenario (D-35, Test 18)
 //!
 //! Options:
 //!   --api-url URL       API base URL (default: http://localhost:3000)
@@ -23,8 +24,8 @@
 //!   --help              Show help
 
 use sr_e2e_harness::{
-    run_exception_waiver, run_happy_path, run_integrity_tamper, run_oracle_failure, FailureMode,
-    FailureModeConfig, HarnessConfig, ReplayConfig, ReplayRunner,
+    run_evidence_missing, run_exception_waiver, run_happy_path, run_integrity_tamper,
+    run_oracle_failure, FailureMode, FailureModeConfig, HarnessConfig, ReplayConfig, ReplayRunner,
 };
 use std::env;
 use std::fs::File;
@@ -78,6 +79,12 @@ async fn main() {
     // Check for exception/waiver mode
     if args.iter().any(|a| a == "--exception-waiver") {
         run_failure_mode(&args, FailureMode::ExceptionWaiver).await;
+        return;
+    }
+
+    // Check for evidence missing mode (Test 18)
+    if args.iter().any(|a| a == "--evidence-missing") {
+        run_failure_mode(&args, FailureMode::EvidenceMissing).await;
         return;
     }
 
@@ -548,6 +555,7 @@ async fn run_failure_mode(args: &[String], failure_mode: FailureMode) {
         FailureMode::IntegrityTamper => "Integrity Tamper Detection",
         FailureMode::IntegrityGap => "Integrity Coverage Gap",
         FailureMode::ExceptionWaiver => "Exception/Waiver Flow",
+        FailureMode::EvidenceMissing => "Evidence Missing (Test 18)",
     };
 
     println!("==============================================");
@@ -567,6 +575,7 @@ async fn run_failure_mode(args: &[String], failure_mode: FailureMode) {
             run_integrity_tamper(config).await
         }
         FailureMode::ExceptionWaiver => run_exception_waiver(config).await,
+        FailureMode::EvidenceMissing => run_evidence_missing(config).await,
     };
 
     // Output transcript
@@ -675,6 +684,7 @@ Usage:
   sr-e2e-harness --oracle-failure [OPTIONS]
   sr-e2e-harness --integrity-tamper [OPTIONS]
   sr-e2e-harness --exception-waiver [OPTIONS]
+  sr-e2e-harness --evidence-missing [OPTIONS]
 
 Commands:
   (default)              Run E2E happy path flow
@@ -685,6 +695,7 @@ Failure Mode Commands (D-35):
   --oracle-failure       Run oracle failure scenario (oracles fail, stop triggered)
   --integrity-tamper     Run integrity tamper detection scenario
   --exception-waiver     Run exception/waiver flow (create, activate, approve with waiver)
+  --evidence-missing     Run evidence missing scenario (Test 18, non-waivable)
 
 E2E Options:
   --api-url URL           API base URL (default: http://localhost:3000)

@@ -65,6 +65,12 @@ impl OracleSuiteRegistry {
         suites.insert(SUITE_CORE_ID.to_string(), create_core_suite());
         suites.insert(SUITE_FULL_ID.to_string(), create_full_suite());
 
+        // Register integration suite (V11-5, D-26)
+        suites.insert(
+            SUITE_INTEGRATION_ID.to_string(),
+            create_integration_suite(),
+        );
+
         // Register semantic oracle suite (D-39)
         let semantic_suite = create_intake_admissibility_suite();
         suites.insert(
@@ -367,6 +373,8 @@ pub const SUITE_GOV_ID: &str = "suite:SR-SUITE-GOV";
 pub const SUITE_CORE_ID: &str = "suite:SR-SUITE-CORE";
 /// Full verification suite ID
 pub const SUITE_FULL_ID: &str = "suite:SR-SUITE-FULL";
+/// Integration testing suite ID (V11-5, D-26)
+pub const SUITE_INTEGRATION_ID: &str = "suite:SR-SUITE-INTEGRATION";
 
 /// Governance-core profile ID
 pub const PROFILE_GOV_CORE: &str = "profile:GOV-CORE";
@@ -567,6 +575,71 @@ pub fn create_full_suite() -> OracleSuiteDefinition {
         },
         oracles,
         metadata: BTreeMap::new(),
+    }
+}
+
+/// Create the SR-SUITE-INTEGRATION suite (V11-5, D-26)
+///
+/// This suite wraps the IntegrationRunner from sr-oracles to test infrastructure
+/// connectivity: PostgreSQL, MinIO, NATS, and API health checks.
+pub fn create_integration_suite() -> OracleSuiteDefinition {
+    let oracles = vec![create_integration_test_oracle()];
+
+    let suite_hash = compute_suite_hash(&oracles);
+
+    OracleSuiteDefinition {
+        suite_id: SUITE_INTEGRATION_ID.to_string(),
+        suite_hash,
+        oci_image: "ghcr.io/solver-ralph/oracle-integration:latest".to_string(),
+        oci_image_digest: "sha256:PLACEHOLDER_DIGEST_INTEGRATION".to_string(),
+        environment_constraints: EnvironmentConstraints {
+            runtime: "runsc".to_string(),
+            network: NetworkMode::Private, // Integration tests need network
+            cpu_arch: "amd64".to_string(),
+            os: "linux".to_string(),
+            workspace_readonly: true,
+            additional_constraints: vec![
+                "postgres_available=true".to_string(),
+                "minio_available=true".to_string(),
+                "nats_available=true".to_string(),
+            ],
+        },
+        oracles,
+        metadata: BTreeMap::new(),
+    }
+}
+
+/// Create integration test oracle for SR-SUITE-INTEGRATION
+///
+/// This oracle runs the IntegrationRunner which tests:
+/// - PostgreSQL: connection, schema, event append/read, projections
+/// - MinIO: connection, bucket exists, upload/download
+/// - NATS: connection, publish, JetStream
+/// - API: health, info, loops endpoint
+fn create_integration_test_oracle() -> OracleDefinition {
+    OracleDefinition {
+        oracle_id: "oracle:integration_test".to_string(),
+        oracle_name: "Infrastructure Integration Tests".to_string(),
+        command: "sr-oracles integration --workspace /workspace --output /scratch/reports/integration.json 2>&1 | tee /scratch/logs/integration.log".to_string(),
+        args: vec![],
+        timeout_seconds: 900, // 15 minutes
+        expected_outputs: vec![
+            ExpectedOutput {
+                path: "reports/integration.json".to_string(),
+                content_type: "application/json".to_string(),
+                required: true,
+            },
+            ExpectedOutput {
+                path: "logs/integration.log".to_string(),
+                content_type: "text/plain".to_string(),
+                required: true,
+            },
+        ],
+        classification: OracleClassification::Required,
+        working_dir: Some("/workspace".to_string()),
+        env: BTreeMap::from_iter([
+            ("RUST_BACKTRACE".to_string(), "1".to_string()),
+        ]),
     }
 }
 
@@ -1157,9 +1230,9 @@ mod tests {
     fn test_registry_with_core_suites() {
         let registry = OracleSuiteRegistry::with_core_suites();
 
-        // Should have 4 suites (GOV, CORE, FULL, and semantic intake_admissibility)
+        // Should have 5 suites (GOV, CORE, FULL, INTEGRATION, and semantic intake_admissibility)
         let suites = futures::executor::block_on(async { registry.list_suites().await });
-        assert_eq!(suites.len(), 4);
+        assert_eq!(suites.len(), 5);
     }
 
     #[test]

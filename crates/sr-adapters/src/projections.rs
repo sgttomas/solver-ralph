@@ -2926,6 +2926,63 @@ impl ProjectionBuilder {
             .collect())
     }
 
+    /// Get active exceptions for a loop at a given time (V11-6)
+    ///
+    /// Returns exceptions that:
+    /// - Have status = 'ACTIVE'
+    /// - Are scoped to the specified loop (or have no loop scope = global)
+    /// - Are not expired (expires_at is NULL or > at_time)
+    ///
+    /// Per SR-PLAN-V11 and SR-CONTRACT C-CTX-2: Active exceptions must be
+    /// included in IterationStarted.refs[] to make context derivable.
+    pub async fn get_active_exceptions_for_loop(
+        &self,
+        loop_id: &str,
+        at_time: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<ExceptionProjection>, ProjectionError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT exception_id, kind, status, scope, rationale, target_description,
+                   created_by_kind, created_by_id, created_at, expires_at,
+                   resolved_at, resolved_by_kind, resolved_by_id
+            FROM proj.exceptions
+            WHERE status = 'ACTIVE'
+              AND (
+                scope->>'loop_id' IS NULL
+                OR scope->>'loop_id' = $1
+              )
+              AND (
+                expires_at IS NULL
+                OR expires_at > $2
+              )
+            ORDER BY created_at ASC
+            "#,
+        )
+        .bind(loop_id)
+        .bind(at_time)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| ExceptionProjection {
+                exception_id: row.get("exception_id"),
+                kind: row.get("kind"),
+                status: row.get("status"),
+                scope: row.get("scope"),
+                rationale: row.get("rationale"),
+                target_description: row.get("target_description"),
+                created_by_kind: row.get("created_by_kind"),
+                created_by_id: row.get("created_by_id"),
+                created_at: row.get("created_at"),
+                expires_at: row.get("expires_at"),
+                resolved_at: row.get("resolved_at"),
+                resolved_by_kind: row.get("resolved_by_kind"),
+                resolved_by_id: row.get("resolved_by_id"),
+            })
+            .collect())
+    }
+
     // ========================================================================
     // Decision Query Methods
     // ========================================================================

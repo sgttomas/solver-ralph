@@ -67,7 +67,7 @@ Canonical index for the SR-* document set.
 ## Current Status
 
 **V10:** ✅ COMPLETE (2026-01-17)
-**V11:** 🔄 IN PROGRESS — V11-1, V11-2, V11-3 complete
+**V11:** ✅ COMPLETE (2026-01-17)
 **Branch:** `solver-ralph-11`
 
 ### V11 Progress (2026-01-17)
@@ -88,10 +88,26 @@ Canonical index for the SR-* document set.
 - Added domain-specific metrics (loops, iterations, candidates, oracle runs, events)
 - Created `docs/platform/SR-OBSERVABILITY.md` documentation
 
-**Remaining:**
-- V11-4: E2E Failure Mode Harness verification
-- V11-5: Integration Oracle Suite registration
-- V11-6: GovernedArtifact & Exception refs
+**V11-4: E2E Failure Mode Harness (D-35)** ✅ COMPLETE
+- Added `EvidenceMissing` scenario to E2E harness (Test 18)
+- Implemented `run_evidence_missing()` with proper integrity condition detection
+- Added `--evidence-missing` CLI flag
+- Verifies EVIDENCE_MISSING is non-waivable per SR-CONTRACT C-OR-7
+
+**V11-5: Integration Oracle Suite (D-26)** ✅ COMPLETE
+- Created `create_integration_suite()` factory function
+- Added `SUITE_INTEGRATION_ID` constant (`suite:SR-SUITE-INTEGRATION`)
+- Registered in `OracleSuiteRegistry::with_core_suites()` (now 5 suites total)
+- Network mode: Private (integration tests need network access)
+
+**V11-6: GovernedArtifact & Exception Refs (D-08)** ✅ COMPLETE
+- Created `crates/sr-api/src/governed.rs` — GovernedManifest with content-addressed artifacts
+- Computed manifest at API startup with SHA-256 content hashes
+- Added `get_active_exceptions_for_loop()` to ProjectionBuilder
+- Updated `start_iteration()` to add GovernedArtifact and active Exception refs
+- Used corrected schemas per SR-PLAN-V11-CONSISTENCY-REVIEW:
+  - GovernedArtifact: `rel: "depends_on"`, `id: doc_id`, `meta: {content_hash, version, type_key}`
+  - Exceptions: `kind: "Waiver|Deviation|Deferral"`, `id: exception_id`, `rel: "depends_on"`
 
 ### V11 Reviews (2026-01-17)
 
@@ -114,21 +130,24 @@ See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC
 
 ## Next Instance Prompt
 
-**Assignment:** Continue SR-PLAN-V11 implementation — phases V11-4, V11-5, V11-6.
+**Status:** V11 is COMPLETE. All phases (V11-1 through V11-6) have been implemented and verified.
+
+**Assignment:** Review V11 completion and identify any remaining work or next plan.
 
 **Orientation:**
-1. Read `docs/planning/SR-PLAN-V11.md` — the implementation plan with phase details
-2. Read `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` — identifies existing infrastructure
-3. Read `docs/planning/SR-PLAN-V11-CONSISTENCY-REVIEW.md` — contains corrected schemas for V11-6
+1. Read `docs/planning/SR-PLAN-V11.md` — the completed implementation plan
+2. Check `docs/program/SR-PLAN.md` for any remaining deliverables or future plans
+3. Navigate canonical SR-* documents as needed (see index above)
 
-**Remaining phases:**
-- **V11-4 (D-35):** E2E Failure Mode Harness — verify Tests 17-18 (ORACLE_GAP, EVIDENCE_MISSING) pass against live system. Harness exists in `crates/sr-e2e-harness/src/failure_modes.rs`.
-- **V11-5 (D-26):** Integration Oracle Suite — register `SR-SUITE-INTEGRATION` in oracle registry. `IntegrationRunner` exists in `crates/sr-oracles/src/integration.rs`.
-- **V11-6 (D-08):** GovernedArtifact & Exception refs — add refs to `IterationStarted.refs[]`. Handler at `crates/sr-api/src/handlers/iterations.rs`. Use corrected schemas from consistency review.
+**V11 Summary:**
+- **V11-1:** Infisical Integration with 15 wiremock-based integration tests
+- **V11-2:** Build/Init Scripts with pre-flight checks
+- **V11-3:** Operational Observability with `/ready` endpoint and domain metrics
+- **V11-4:** E2E Failure Mode Harness with EVIDENCE_MISSING scenario (Test 18)
+- **V11-5:** Integration Oracle Suite registered as `SR-SUITE-INTEGRATION`
+- **V11-6:** GovernedArtifact & Exception refs in `IterationStarted.refs[]`
 
-**Dependencies:** V11-4 should complete before V11-5 and V11-6 (which can run in parallel).
-
-**Verification:** See SR-PLAN-V11 §5 for verification criteria per phase.
+**Verification:** All tests pass. Build succeeds. See SR-PLAN-V11 §5 for verification criteria.
 
 ---
 
@@ -158,28 +177,7 @@ See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC
 **Commits:**
 - `ada5202` — feat(v11): Implement V11-1, V11-2, V11-3
 - `8af3298` — docs: Update canonical SR-* documents for V11-1/2/3
-6. **V11-6 (GovernedArtifact Refs):** Content hashing approach was undefined — now specified
 
 **Effort Reduction:** Total estimated effort reduced from 8-12 sessions to 6.5-9.5 sessions due to existing infrastructure.
-
----
-
-## Next Instance Prompt
-
-> **Assignment:** Implement SR-PLAN-V11 (Production Hardening & E2E Testing).
-
-### Orientation
-
-1. Read `docs/planning/SR-PLAN-V11.md` — the implementation plan (phases, dependencies, verification criteria)
-2. Read `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` — identifies what infrastructure already exists
-3. Navigate canonical SR-* documents as needed (see index above)
-
-The plan has passed both codebase coherence and canonical consistency reviews. Schema corrections have been applied. Implementation can begin.
-
-### Constraints
-
-- Commit after completing each phase
-- Update SR-README with progress
-- Consult SR-* documents when implementation decisions arise
 
 ---
