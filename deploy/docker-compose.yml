@@ -186,6 +186,43 @@ services:
     profiles:
       - full  # Only start with --profile full
 
+  # SOLVER-Ralph Loop Governor Service (D-22)
+  # Optional service that monitors loops and starts iterations automatically
+  # The API /start endpoint continues to work without this service
+  sr-governor:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.governor
+    container_name: sr-governor
+    restart: unless-stopped
+    environment:
+      SR_DATABASE_URL: "postgres://postgres:postgres@postgres:5432/solver_ralph"
+      SR_NATS_URL: "nats://nats:4222"
+      SR_GOVERNOR_POLL_INTERVAL_MS: "1000"
+      SR_GOVERNOR_MAX_CONCURRENT_LOOPS: "10"
+      SR_GOVERNOR_DRY_RUN: "false"
+      SR_GOVERNOR_HEALTH_PORT: "8081"
+      SR_LOG_LEVEL: "info"
+      SR_SERVICE_NAME: "sr-governor"
+      RUST_BACKTRACE: "1"
+    ports:
+      - "8081:8081"  # Health check endpoint
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - sr-network
+    profiles:
+      - full  # Only start with --profile full
+
   # SOLVER-Ralph UI
   # Note: This requires building the React UI first
   sr-ui:

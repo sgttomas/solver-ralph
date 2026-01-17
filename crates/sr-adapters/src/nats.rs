@@ -674,4 +674,279 @@ mod tests {
         assert!(subjects::LOOP_EVENTS.starts_with("sr.events."));
         assert!(subjects::START_ITERATION.starts_with("sr.commands."));
     }
+
+    // ========================================================================
+    // Contract Tests (V12-2)
+    // Per SR-MESSAGE-CONTRACTS.md and message-envelope.schema.json
+    // ========================================================================
+
+    #[test]
+    fn test_envelope_roundtrip_all_fields() {
+        // Test that all fields survive serialization roundtrip
+        let envelope = MessageEnvelope {
+            schema_version: SCHEMA_VERSION.to_string(),
+            message_type: "LoopCreated".to_string(),
+            message_id: "evt_01HQGX8K9JNPQR5MWTVYZ3F4BC".to_string(),
+            correlation_id: Some("req_01HQGX8K9JNPQR5MWTVYZ3F4AB".to_string()),
+            causation_id: Some("evt_01HQGX8K9JNPQR5MWTVYZ3F4AA".to_string()),
+            timestamp: chrono::Utc::now(),
+            actor_id: "user_01HQGW8K9JNPQR5MWTVYZ3F4AA".to_string(),
+            actor_kind: "HUMAN".to_string(),
+            payload: serde_json::json!({
+                "loop_id": "loop_01HQGX8K9JNPQR5MWTVYZ3F4BD",
+                "nested": { "key": "value" }
+            }),
+            idempotency_key: "sha256:abc123def456".to_string(),
+        };
+
+        // Serialize to bytes
+        let bytes = serialize_envelope(&envelope).unwrap();
+
+        // Deserialize back
+        let parsed: MessageEnvelope = serde_json::from_slice(&bytes).unwrap();
+
+        // Verify all fields match
+        assert_eq!(parsed.schema_version, envelope.schema_version);
+        assert_eq!(parsed.message_type, envelope.message_type);
+        assert_eq!(parsed.message_id, envelope.message_id);
+        assert_eq!(parsed.correlation_id, envelope.correlation_id);
+        assert_eq!(parsed.causation_id, envelope.causation_id);
+        assert_eq!(parsed.actor_id, envelope.actor_id);
+        assert_eq!(parsed.actor_kind, envelope.actor_kind);
+        assert_eq!(parsed.payload, envelope.payload);
+        assert_eq!(parsed.idempotency_key, envelope.idempotency_key);
+        // Timestamp comparison with tolerance for serialization
+        assert!((parsed.timestamp - envelope.timestamp).num_seconds().abs() < 1);
+    }
+
+    #[test]
+    fn test_envelope_schema_version_matches_constant() {
+        // Contract: schema_version must match SCHEMA_VERSION constant
+        assert_eq!(SCHEMA_VERSION, "1.0");
+
+        let envelope = create_envelope(
+            "TestEvent",
+            "evt_test",
+            "test",
+            "SYSTEM",
+            serde_json::json!({}),
+            "key123",
+            None,
+            None,
+        );
+
+        assert_eq!(envelope.schema_version, SCHEMA_VERSION);
+        assert_eq!(envelope.schema_version, "1.0");
+    }
+
+    #[test]
+    fn test_envelope_actor_kinds() {
+        // Contract: actor_kind must be one of HUMAN, AGENT, SYSTEM
+        let valid_kinds = ["HUMAN", "AGENT", "SYSTEM"];
+
+        for kind in &valid_kinds {
+            let envelope = create_envelope(
+                "TestEvent",
+                "evt_test",
+                "actor_id",
+                kind,
+                serde_json::json!({}),
+                "key123",
+                None,
+                None,
+            );
+            assert_eq!(envelope.actor_kind, *kind);
+
+            // Verify serialization preserves the value
+            let bytes = serialize_envelope(&envelope).unwrap();
+            let parsed: MessageEnvelope = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(parsed.actor_kind, *kind);
+        }
+    }
+
+    #[test]
+    fn test_stream_subject_routing() {
+        // Contract: Event subjects must be in sr-events stream
+        for subject in subjects::all_event_subjects() {
+            assert!(
+                subject.starts_with("sr.events."),
+                "Event subject '{}' must start with 'sr.events.'",
+                subject
+            );
+        }
+
+        // Contract: Command subjects must be in sr-commands stream
+        for subject in subjects::all_command_subjects() {
+            assert!(
+                subject.starts_with("sr.commands."),
+                "Command subject '{}' must start with 'sr.commands.'",
+                subject
+            );
+        }
+
+        // Contract: Stream names must match expected values
+        assert_eq!(streams::EVENTS, "events");
+        assert_eq!(streams::COMMANDS, "commands");
+        assert_eq!(streams::QUERIES, "queries");
+    }
+
+    #[test]
+    fn test_idempotency_key_preserved() {
+        // Contract: idempotency_key must be preserved exactly through roundtrip
+        let keys = [
+            "sha256:abc123def456789012345678901234567890",
+            "01HQGX8K9JNPQR5MWTVYZ3F4BC",
+            "simple-key",
+            "key-with-special-chars_123!@#",
+        ];
+
+        for key in &keys {
+            let envelope = create_envelope(
+                "TestEvent",
+                "evt_test",
+                "test",
+                "SYSTEM",
+                serde_json::json!({}),
+                key,
+                None,
+                None,
+            );
+
+            let bytes = serialize_envelope(&envelope).unwrap();
+            let parsed: MessageEnvelope = serde_json::from_slice(&bytes).unwrap();
+
+            assert_eq!(
+                parsed.idempotency_key, *key,
+                "Idempotency key '{}' was not preserved",
+                key
+            );
+        }
+    }
+
+    #[test]
+    fn test_envelope_optional_fields() {
+        // Contract: correlation_id and causation_id are optional
+        let envelope_without_optionals = create_envelope(
+            "TestEvent",
+            "evt_test",
+            "test",
+            "SYSTEM",
+            serde_json::json!({}),
+            "key123",
+            None, // no correlation_id
+            None, // no causation_id
+        );
+
+        let bytes = serialize_envelope(&envelope_without_optionals).unwrap();
+        let parsed: MessageEnvelope = serde_json::from_slice(&bytes).unwrap();
+
+        assert!(parsed.correlation_id.is_none());
+        assert!(parsed.causation_id.is_none());
+
+        // With optionals
+        let envelope_with_optionals = create_envelope(
+            "TestEvent",
+            "evt_test",
+            "test",
+            "SYSTEM",
+            serde_json::json!({}),
+            "key123",
+            Some("corr_123".to_string()),
+            Some("cause_456".to_string()),
+        );
+
+        let bytes = serialize_envelope(&envelope_with_optionals).unwrap();
+        let parsed: MessageEnvelope = serde_json::from_slice(&bytes).unwrap();
+
+        assert_eq!(parsed.correlation_id, Some("corr_123".to_string()));
+        assert_eq!(parsed.causation_id, Some("cause_456".to_string()));
+    }
+
+    #[test]
+    fn test_envelope_payload_complex_json() {
+        // Contract: payload can contain any valid JSON object
+        let complex_payload = serde_json::json!({
+            "string": "value",
+            "number": 42,
+            "float": 3.14,
+            "boolean": true,
+            "null": null,
+            "array": [1, 2, 3],
+            "nested": {
+                "deep": {
+                    "value": "found"
+                }
+            }
+        });
+
+        let envelope = create_envelope(
+            "TestEvent",
+            "evt_test",
+            "test",
+            "SYSTEM",
+            complex_payload.clone(),
+            "key123",
+            None,
+            None,
+        );
+
+        let bytes = serialize_envelope(&envelope).unwrap();
+        let parsed: MessageEnvelope = serde_json::from_slice(&bytes).unwrap();
+
+        assert_eq!(parsed.payload, complex_payload);
+        assert_eq!(parsed.payload["nested"]["deep"]["value"], "found");
+    }
+
+    #[test]
+    fn test_all_event_subjects_complete() {
+        // Contract: all event subjects must be documented
+        let subjects = subjects::all_event_subjects();
+
+        // Verify expected subjects are present
+        let expected = vec![
+            "sr.events.loop",
+            "sr.events.iteration",
+            "sr.events.candidate",
+            "sr.events.run",
+            "sr.events.oracle",
+            "sr.events.governance",
+            "sr.events.freeze",
+            "sr.events.staleness",
+            "sr.events.approval",
+            "sr.events.exception",
+            "sr.events.decision",
+            "sr.events.worksurface",
+            "sr.events.other",
+        ];
+
+        for expected_subject in &expected {
+            assert!(
+                subjects.contains(&expected_subject.to_string()),
+                "Missing expected event subject: {}",
+                expected_subject
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_command_subjects_complete() {
+        // Contract: all command subjects must be documented
+        let subjects = subjects::all_command_subjects();
+
+        // Verify expected subjects are present
+        let expected = vec![
+            "sr.commands.iteration.start",
+            "sr.commands.iteration.complete",
+            "sr.commands.candidate.register",
+            "sr.commands.oracle.run",
+        ];
+
+        for expected_subject in &expected {
+            assert!(
+                subjects.contains(&expected_subject.to_string()),
+                "Missing expected command subject: {}",
+                expected_subject
+            );
+        }
+    }
 }

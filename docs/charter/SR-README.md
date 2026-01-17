@@ -68,116 +68,77 @@ Canonical index for the SR-* document set.
 
 **V10:** ✅ COMPLETE (2026-01-17)
 **V11:** ✅ COMPLETE (2026-01-17)
-**Branch:** `solver-ralph-11`
+**V12:** ✅ COMPLETE (2026-01-17)
+**Branch:** `solver-ralph-12`
 
-### V11 Progress (2026-01-17)
+### V12 Summary (2026-01-17)
 
-**V11-1: Infisical Integration (D-16)** ✅ COMPLETE
-- Added 15 integration tests with wiremock for mock Infisical API
-- Tests cover: get/store/delete secrets, envelope key retrieval, caching, error handling
-- Created `.env.example` with Infisical configuration variables
-- Documentation in `docs/platform/SR-DEPLOYMENT.md`
+**V12-1: Evidence Manifest Validation Oracle (D-15)** ✅ COMPLETE
+- Oracle registered in `oracle-suites/core-v1/suite.json` with `classification: required`
+- Implementation: `oracle-suites/core-v1/oracles/manifest-validation.sh`
 
-**V11-2: Build/Init Scripts (D-32)** ✅ COMPLETE
-- Audited `deploy/init.sh` — confirmed comprehensive initialization
-- Created `scripts/init-all.sh` wrapper with pre-flight checks
-- Documentation in `docs/platform/SR-DEPLOYMENT.md`
+**V12-2: NATS Message Contract Documentation (D-21)** ✅ COMPLETE
+- Documentation: `schemas/messaging/SR-MESSAGE-CONTRACTS.md`
+- JSON Schema: `schemas/messaging/message-envelope.schema.json`
 
-**V11-3: Operational Observability (D-33)** ✅ COMPLETE
-- Added `/ready` endpoint with PostgreSQL, MinIO, NATS connectivity checks
-- Added domain-specific metrics (loops, iterations, candidates, oracle runs, events)
-- Created `docs/platform/SR-OBSERVABILITY.md` documentation
+**V12-3: Standalone Governor Service Binary (D-22)** ✅ COMPLETE
+- Binary: `crates/sr-governor/`
+- Docker: `deploy/docker-compose.yml`
 
-**V11-4: E2E Failure Mode Harness (D-35)** ✅ COMPLETE
-- Added `EvidenceMissing` scenario to E2E harness (Test 18)
-- Implemented `run_evidence_missing()` with proper integrity condition detection
-- Added `--evidence-missing` CLI flag
-- Verifies EVIDENCE_MISSING is non-waivable per SR-CONTRACT C-OR-7
+### V12 Reviews (2026-01-17)
 
-**V11-5: Integration Oracle Suite (D-26)** ✅ COMPLETE
-- Created `create_integration_suite()` factory function
-- Added `SUITE_INTEGRATION_ID` constant (`suite:SR-SUITE-INTEGRATION`)
-- Registered in `OracleSuiteRegistry::with_core_suites()` (now 5 suites total)
-- Network mode: Private (integration tests need network access)
-
-**V11-6: GovernedArtifact & Exception Refs (D-08)** ✅ COMPLETE
-- Created `crates/sr-api/src/governed.rs` — GovernedManifest with content-addressed artifacts
-- Computed manifest at API startup with SHA-256 content hashes
-- Added `get_active_exceptions_for_loop()` to ProjectionBuilder
-- Updated `start_iteration()` to add GovernedArtifact and active Exception refs
-- Used corrected schemas per SR-PLAN-V11-CONSISTENCY-REVIEW:
-  - GovernedArtifact: `rel: "depends_on"`, `id: doc_id`, `meta: {content_hash, version, type_key}`
-  - Exceptions: `kind: "Waiver|Deviation|Deferral"`, `id: exception_id`, `rel: "depends_on"`
-
-### V11 Reviews (2026-01-17)
-
-V11 Coherence Review:
-- SR-PLAN-V11 reviewed against codebase — APPROVED
-- Revisions incorporated: V10-G5 addressed, existing infrastructure acknowledged, effort estimates reduced
-- See `docs/planning/SR-PLAN-V11-COHERENCE-REVIEW.md` for detailed findings
-
-V11 Consistency Review:
-- SR-PLAN-V11 reviewed for consistency with canonical SR-* documents — REVISED
-- Corrected V11-6 schemas to align with SR-SPEC §1.5.2 and §1.5.3
-- Fixed: `rel: "governed_by"` → `rel: "depends_on"`, added required `id` field
-- Fixed: `kind: "Exception"` → `kind: "Waiver|Deviation|Deferral"`, moved `exception_id` to `id` field
-- See `docs/planning/SR-PLAN-V11-CONSISTENCY-REVIEW.md` for detailed findings
-
-See `docs/planning/SR-PLAN-LOOPS.md` for V10 verification results.
-See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC updates).
+- Coherence Review: `docs/reviews/SR-PLAN-V12-COHERENCE-REVIEW.md`
+- Consistency Review: `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md`
 
 ---
 
 ## Next Instance Prompt
 
-**Status:** V11 is COMPLETE. All phases (V11-1 through V11-6) have been implemented and verified.
+> **Assignment:** Audit SOLVER-Ralph codebase for coherence and consistency against SR-CONTRACT, SR-SPEC, and SR-TYPES.
 
-**Assignment:** Review V11 completion and identify any remaining work or next plan.
+### Orientation
 
-**Orientation:**
-1. Read `docs/planning/SR-PLAN-V11.md` — the completed implementation plan
-2. Check `docs/program/SR-PLAN.md` for any remaining deliverables or future plans
-3. Navigate canonical SR-* documents as needed (see index above)
+1. Read `docs/reviews/SR-CODEBASE-AUDIT-METHODOLOGY.md` — the audit methodology and checklists
+2. Read `docs/platform/SR-CONTRACT.md` §1.1 — the invariants index (C-* identifiers)
+3. Read `docs/platform/SR-SPEC.md` §1.5-1.12 — schema definitions
+4. Read `docs/platform/SR-TYPES.md` §4 — type registry
 
-**V11 Summary:**
-- **V11-1:** Infisical Integration with 15 wiremock-based integration tests
-- **V11-2:** Build/Init Scripts with pre-flight checks
-- **V11-3:** Operational Observability with `/ready` endpoint and domain metrics
-- **V11-4:** E2E Failure Mode Harness with EVIDENCE_MISSING scenario (Test 18)
-- **V11-5:** Integration Oracle Suite registered as `SR-SUITE-INTEGRATION`
-- **V11-6:** GovernedArtifact & Exception refs in `IterationStarted.refs[]`
+### Execution
 
-**Verification:** All tests pass. Build succeeds. See SR-PLAN-V11 §5 for verification criteria.
+**Layer 1 (Contract Compliance):** For each C-* invariant, search codebase for enforcement and test coverage.
+**Layer 2 (Schema Alignment):** Compare SR-SPEC schemas to Rust structs in sr-domain/sr-adapters.
+**Layer 3 (Type Conformance):** Verify SR-TYPES §4.3/§4.4 entries have implementations.
+**Layer 4 (API Coverage):** Verify SR-SPEC §2.3 endpoints exist with correct behavior.
+
+### Deliverable
+
+Produce `docs/reviews/SR-CODEBASE-AUDIT-FINDINGS.md` with:
+- Contract compliance matrix (invariant → enforcement → test → status)
+- Schema alignment report (spec schema → code struct → issues)
+- Type registry coverage (type_key → Rust type → status)
+- Prioritized remediation list (P0/P1/P2 with specific actions)
+
+### Success Criteria
+
+- Every C-* invariant has a status: ✅ Enforced | ⚠️ Partial | ❌ Missing
+- Every SR-SPEC schema compared to code
+- Remediation list is actionable (file + function + change)
+
+---
 
 ---
 
 ## Previous Session Summary (2026-01-17)
 
-### Completed: V11-1, V11-2, V11-3 Implementation
+### Completed: SR-PLAN-V12 Implementation
 
-**V11-1: Infisical Integration (D-16)**
-- Added 15 wiremock-based integration tests to `crates/sr-adapters/src/infisical.rs`
-- Tests cover: secret CRUD, envelope key retrieval/caching, error handling (auth, network, not found)
-- Created `.env.example` with Infisical configuration
+- V12-1: Evidence manifest validation oracle (`oracle-suites/core-v1/oracles/manifest-validation.sh`)
+- V12-2: NATS message contract documentation (`schemas/messaging/`)
+- V12-3: Standalone governor service binary (`crates/sr-governor/`)
 
-**V11-2: Build/Init Scripts (D-32)**
-- Created `scripts/init-all.sh` — wrapper with Docker pre-flight, dependency checks, service startup
-- Audited `deploy/init.sh` — confirmed comprehensive (PostgreSQL, MinIO, Zitadel, secrets)
+### Completed: SR-PLAN-V12 Reviews
 
-**V11-3: Operational Observability (D-33)**
-- Added `/ready` endpoint with PostgreSQL, MinIO, NATS health checks (HTTP 200/503)
-- Added domain metrics: loops, iterations, candidates, oracle runs, events (with latencies)
-- Created `docs/platform/SR-DEPLOYMENT.md` and `docs/platform/SR-OBSERVABILITY.md`
-
-**Canonical updates:**
-- SR-SPEC §2.3.13 — Added Operational endpoints (`/health`, `/ready`, `/api/v1/metrics`)
-- SR-README — Added SR-DEPLOYMENT, SR-OBSERVABILITY to canonical paths
-- SR-CHANGE v1.4 — Recorded V11-1/2/3 implementation
-
-**Commits:**
-- `ada5202` — feat(v11): Implement V11-1, V11-2, V11-3
-- `8af3298` — docs: Update canonical SR-* documents for V11-1/2/3
-
-**Effort Reduction:** Total estimated effort reduced from 8-12 sessions to 6.5-9.5 sessions due to existing infrastructure.
+- Coherence Review: APPROVED — `docs/reviews/SR-PLAN-V12-COHERENCE-REVIEW.md`
+- Consistency Review: APPROVED — `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md`
 
 ---

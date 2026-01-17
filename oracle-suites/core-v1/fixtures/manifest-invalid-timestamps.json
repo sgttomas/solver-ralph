@@ -1,0 +1,25 @@
+{
+  "version": "v1",
+  "artifact_type": "evidence.gate_packet",
+  "bundle_id": "bundle-test-003",
+  "run_id": "run-test-003",
+  "candidate_id": "candidate-test-003",
+  "oracle_suite_id": "suite:sr-core-v1",
+  "oracle_suite_hash": "sha256:abc123def456",
+  "run_started_at": "2024-01-01T00:00:10Z",
+  "run_completed_at": "2024-01-01T00:00:05Z",
+  "environment_fingerprint": {
+    "rust_version": "1.75.0",
+    "os": "linux"
+  },
+  "results": [
+    {
+      "oracle_id": "oracle:build",
+      "oracle_name": "Build Check",
+      "status": "PASS",
+      "duration_ms": 1000
+    }
+  ],
+  "verdict": "PASS",
+  "artifacts": []
+}

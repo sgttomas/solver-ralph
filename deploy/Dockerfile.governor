@@ -1,0 +1,75 @@
+# SOLVER-Ralph Governor Dockerfile (D-22)
+#
+# Multi-stage build for the standalone loop governor service.
+# Produces a minimal runtime image with just the binary.
+#
+# The governor is OPTIONAL - the API /start endpoint continues to work without this service.
+
+# Build stage
+FROM rust:1.83-bookworm AS builder
+
+WORKDIR /app
+
+# Copy manifests first for dependency caching
+COPY Cargo.toml Cargo.lock ./
+COPY crates/sr-domain/Cargo.toml crates/sr-domain/
+COPY crates/sr-ports/Cargo.toml crates/sr-ports/
+COPY crates/sr-adapters/Cargo.toml crates/sr-adapters/
+COPY crates/sr-governor/Cargo.toml crates/sr-governor/
+
+# Create dummy source files for dependency compilation
+RUN mkdir -p crates/sr-domain/src && echo "pub fn dummy() {}" > crates/sr-domain/src/lib.rs && \
+    mkdir -p crates/sr-ports/src && echo "pub fn dummy() {}" > crates/sr-ports/src/lib.rs && \
+    mkdir -p crates/sr-adapters/src && echo "pub fn dummy() {}" > crates/sr-adapters/src/lib.rs && \
+    mkdir -p crates/sr-governor/src && echo "fn main() {}" > crates/sr-governor/src/main.rs
+
+# Build dependencies only (this layer will be cached)
+RUN cargo build --release --package sr-governor && rm -rf crates/*/src
+
+# Copy actual source code
+COPY crates/sr-domain/src crates/sr-domain/src
+COPY crates/sr-ports/src crates/sr-ports/src
+COPY crates/sr-adapters/src crates/sr-adapters/src
+COPY crates/sr-governor/src crates/sr-governor/src
+
+# Touch the main files to ensure they rebuild
+RUN touch crates/sr-domain/src/lib.rs && \
+    touch crates/sr-ports/src/lib.rs && \
+    touch crates/sr-adapters/src/lib.rs && \
+    touch crates/sr-governor/src/main.rs
+
+# Build the release binary
+RUN cargo build --release --package sr-governor
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1000 sr-user
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/target/release/sr-governor /app/sr-governor
+
+# Set ownership
+RUN chown -R sr-user:sr-user /app
+
+# Switch to non-root user
+USER sr-user
+
+# Expose health check port
+EXPOSE 8081
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8081/ready || exit 1
+
+# Run the governor service
+CMD ["/app/sr-governor"]

@@ -1,0 +1,53 @@
+{
+  "version": "v1",
+  "artifact_type": "evidence.gate_packet",
+  "bundle_id": "bundle-test-001",
+  "run_id": "run-test-001",
+  "candidate_id": "candidate-test-001",
+  "oracle_suite_id": "suite:sr-core-v1",
+  "oracle_suite_hash": "sha256:abc123def456",
+  "run_started_at": "2024-01-01T00:00:00Z",
+  "run_completed_at": "2024-01-01T00:00:05Z",
+  "environment_fingerprint": {
+    "rust_version": "1.75.0",
+    "os": "linux",
+    "arch": "amd64"
+  },
+  "results": [
+    {
+      "oracle_id": "oracle:build",
+      "oracle_name": "Build Check",
+      "status": "PASS",
+      "duration_ms": 1500,
+      "artifact_refs": ["build.log"]
+    },
+    {
+      "oracle_id": "oracle:unit-tests",
+      "oracle_name": "Unit Tests",
+      "status": "PASS",
+      "duration_ms": 3000,
+      "artifact_refs": ["test-results.json"]
+    }
+  ],
+  "verdict": "PASS",
+  "artifacts": [
+    {
+      "name": "build.log",
+      "content_hash": "sha256:111222333",
+      "content_type": "text/plain",
+      "size": 2048,
+      "description": "Build output log"
+    },
+    {
+      "name": "test-results.json",
+      "content_hash": "sha256:444555666",
+      "content_type": "application/json",
+      "size": 1024,
+      "description": "Test results"
+    }
+  ],
+  "metadata": {
+    "ci_pipeline": "github-actions",
+    "build_number": "42"
+  }
+}

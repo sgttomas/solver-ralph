@@ -7,6 +7,7 @@ members = [
     "crates/sr-api",
     "crates/sr-e2e-harness",
     "crates/sr-oracles",
+    "crates/sr-governor",
 ]
 
 [workspace.package]
