@@ -71,8 +71,8 @@ Per SR-CHARTER, follows Milestone 1. **Not yet scoped.**
 | Deliverable | Title | Status | Completed In | Notes |
 |-------------|-------|--------|--------------|-------|
 | D-14 | Evidence store adapter (MinIO) | ✅ Complete | sr-adapters | minio.rs (440 lines) |
-| D-15 | Evidence manifest v1 library | ⚠️ Partial | sr-adapters | evidence.rs exists; validation oracle not implemented |
-| D-16 | Restricted evidence handling | ❌ Not Started | — | Infisical envelope keys not implemented |
+| D-15 | Evidence manifest v1 library | ⚠️ Partial | sr-adapters | evidence.rs exists; validation oracle not containerized |
+| D-16 | Restricted evidence handling | ✅ Complete | V11-1 | Infisical integration with 15 wiremock tests |
 
 ### PKG-06 — API and identity boundary
 
@@ -97,7 +97,7 @@ Per SR-CHARTER, follows Milestone 1. **Not yet scoped.**
 |-------------|-------|--------|--------------|-------|
 | D-24 | Oracle runner service | ✅ Complete | V8-1, V8-2 | Registry port + event-driven worker |
 | D-25 | Core oracle suite | ✅ Complete | V8-4 | oracle-suites/core-v1 container |
-| D-26 | Integration/E2E oracle suite | ❌ Not Started | — | Depends on D-24, D-25 |
+| D-26 | Integration/E2E oracle suite | ✅ Complete | V11-5 | `SR-SUITE-INTEGRATION` registered |
 | D-27 | Oracle integrity checks | ✅ Complete | V8-3 | TAMPER/GAP/FLAKE/ENV_MISMATCH detection |
 
 ### PKG-09 — UI portals and human review surface
@@ -113,15 +113,15 @@ Per SR-CHARTER, follows Milestone 1. **Not yet scoped.**
 | Deliverable | Title | Status | Completed In | Notes |
 |-------------|-------|--------|--------------|-------|
 | D-31 | Self-host deployment stack | ✅ Complete | docker-compose | Postgres, MinIO, API, UI |
-| D-32 | Build/init scripts | ⚠️ Partial | scripts/ | DB init exists; Infisical setup manual |
-| D-33 | Operational logging | ⚠️ Partial | sr-api | Basic logging; no structured observability |
+| D-32 | Build/init scripts | ✅ Complete | V11-2 | `scripts/init-all.sh` wrapper with pre-flight checks |
+| D-33 | Operational logging | ✅ Complete | V11-3 | `/ready` endpoint + domain metrics |
 
 ### PKG-11 — End-to-end demonstration and determinism proof
 
 | Deliverable | Title | Status | Completed In | Notes |
 |-------------|-------|--------|--------------|-------|
-| D-34 | E2E harness (happy path) | ⚠️ Partial | V6-3 | Manual verification; no automated harness |
-| D-35 | E2E harness (failure modes) | ❌ Not Started | — | Integrity/exception flows not tested |
+| D-34 | E2E harness (happy path) | ✅ Complete | V11-4 | `sr-e2e-harness` crate with automated scenarios |
+| D-35 | E2E harness (failure modes) | ✅ Complete | V11-4 | EVIDENCE_MISSING scenario (Test 18) |
 | D-36 | Replayability demonstration | ✅ Complete | V9-3 | SR-REPLAY-PROOF.md, replay_determinism_test.rs |
 
 ### PKG-12 — Semantic work surface + prompt decomposition
@@ -238,28 +238,27 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | V10-G2 | Repeated failure (3+ consecutive) doesn't pause Loop | C-LOOP-3 | Critical | ✅ Fixed |
 | V10-G3 | Candidate `produced_by_iteration_id` index missing | C-LOOP-4 | High | ✅ Fixed |
 | V10-G4 | Loop ref missing from IterationStarted.refs[] (only in correlation_id) | C-CTX-1 | Medium | ✅ Fixed |
-| V10-G5 | Active exceptions not included in IterationStarted.refs[] | C-CTX-1 | Medium | ⏳ Deferred to V11 |
+| V10-G5 | Active exceptions not included in IterationStarted.refs[] | C-CTX-1 | Medium | ✅ Fixed (V11-6) |
 | V10-G6 | No Loop PATCH endpoint for budget updates | — | Medium | ✅ Fixed |
 | V10-G7 | OracleSuite content_hash has doubled `sha256:sha256:` prefix | — | Low | ✅ Fixed |
 
-### SR-PLAN-V11 (Reviewed)
+### SR-PLAN-V11 (Complete)
 
-**Status:** Reviews Complete — Ready for Implementation
+**Status:** ✅ COMPLETE (2026-01-17)
 **Scope:** Production Hardening & E2E Testing
 **Target Deliverables:** D-16, D-26, D-32, D-33, D-35, D-08
-**Validation Source:** SR-PLAN-LOOPS validation (2026-01-17) — deferred items
-**Reviews:** Coherence review (2026-01-17), Consistency review (2026-01-17)
+**Reviews:** Coherence review, Consistency review (both 2026-01-17)
 
-| Phase | Focus | Deliverables | Gap Source |
-|-------|-------|--------------|------------|
-| V11-1 | Infisical verification | D-16 | — |
-| V11-2 | Build scripts audit | D-32 | — |
-| V11-3 | Observability gaps | D-33 | — |
-| V11-4 | E2E harness verification | D-35 | Tests 17-18 |
-| V11-5 | Integration suite registration | D-26 | — |
-| V11-6 | GovernedArtifact + Exception refs | D-08 | V10-G5 |
+| Phase | Focus | Deliverables | Status |
+|-------|-------|--------------|--------|
+| V11-1 | Infisical Integration | D-16 | ✅ Complete |
+| V11-2 | Build/Init Scripts | D-32 | ✅ Complete |
+| V11-3 | Operational Observability | D-33 | ✅ Complete |
+| V11-4 | E2E Failure Mode Harness | D-34, D-35 | ✅ Complete |
+| V11-5 | Integration Oracle Suite | D-26 | ✅ Complete |
+| V11-6 | GovernedArtifact + Exception Refs | D-08 | ✅ Complete |
 
-**Note:** V11 scope refined after coherence review — much infrastructure already exists.
+**Summary:** All V11 phases implemented. See `docs/charter/SR-README.md` for details.
 
 ### SR-PLAN-V12 (Draft)
 
@@ -283,8 +282,8 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 | Milestone | Target Plans | Estimated Sessions | Status |
 |-----------|--------------|-------------------|--------|
 | Milestone 1 (MVP) | V7, V8, V9 | ~20-25 sessions | ✅ Complete |
-| Production Ready | V10, V11 | ~10-15 sessions | V10 ✅, V11 ready |
-| Operational Refinement | V12 | ~3-5 sessions | Authored |
+| Production Ready | V10, V11 | ~10-15 sessions | ✅ Complete |
+| Operational Refinement | V12 | ~3-5 sessions | Pending Review |
 | Milestone 2 (External API) | V13+ | TBD | Not scoped |
 
 ---
@@ -294,9 +293,9 @@ Per SR-PLAN §4.1, Branch 0 (Semantic Manifold MVP) requires:
 ```
 V7 (Complete) → V8 (Complete) → V9 (Complete) → Milestone 1 COMPLETE
                                                         ↓
-                                              V10 (Complete) → V11 (Ready) → Production Ready
+                                              V10 (Complete) → V11 (Complete) → Production Ready COMPLETE
                                                                                     ↓
-                                                                            V12 (Refinement) → All Deliverables Complete
+                                                                            V12 (Pending Review) → All Deliverables Complete
                                                                                     ↓
                                                                             V13+ (External API) → Milestone 2
 ```
