@@ -66,7 +66,7 @@ Canonical index for the SR-* document set.
 
 **V10:** ✅ COMPLETE (2026-01-17)
 **V11:** Planning phase
-**Branch:** `solver-ralph-10`
+**Branch:** `solver-ralph-11`
 
 All V10 phases verified and complete:
 - V10-1 through V10-4: Loop Governor stop triggers, decision gating, traceability
@@ -75,37 +75,6 @@ All V10 phases verified and complete:
 
 See `docs/planning/SR-PLAN-LOOPS.md` for detailed verification results.
 See `docs/build-governance/SR-CHANGE.md` v1.2 (implementation) and v1.3 (SR-SPEC updates).
-
----
-
-## Previous Session Summary (2026-01-17)
-
-**Completed:**
-1. Implemented V10-5: Loop PATCH endpoint with budget monotonicity
-   - Added `PatchLoopRequest`, `LoopBudgetsPatch` types in `loops.rs`
-   - Added `patch_loop` handler with budget monotonicity validation
-   - Added `PATCH /api/v1/loops/:loop_id` route
-   - Added `LoopUpdated` event and `apply_loop_updated` projection handler
-   - Test 8 now passing ✅
-
-2. Implemented V10-6: OracleSuite hash prefix fix
-   - Fixed doubled `sha256:sha256:` prefix in `work_surfaces.rs:1349`
-   - Fixed 12 test fixtures in `work_surface.rs`
-   - Test 10 now passing ✅
-
-3. Updated planning documentation:
-   - SR-PLAN-LOOPS: All V10 tests verified (17 PASS, 2 DEFERRED)
-   - SR-PLAN-GAP-ANALYSIS: V10 marked complete
-   - SR-CHANGE: Added v1.2 entry
-
-4. Updated canonical SR-SPEC:
-   - §2.3.1: Added `PATCH /loops/{loop_id}` endpoint with budget monotonicity constraint
-   - Appendix A: Added `LoopUpdated` to canonical event registry with payload schema
-   - SR-CHANGE: Added v1.3 entry
-
-**Commits:**
-- `8768706 feat(V10): Complete V10-5 and V10-6 - Loop PATCH endpoint and hash prefix fix`
-- `55caa16 docs(SR-SPEC): Add LoopUpdated event and PATCH endpoint to canonical spec`
 
 ---
 
