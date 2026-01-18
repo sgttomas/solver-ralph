@@ -132,6 +132,7 @@ pub async fn create_evaluation_note(
         body.recommendations,
         None,
         None,
+        None,
         &user,
     );
 
@@ -178,6 +179,7 @@ pub async fn create_assessment_note(
         body.content,
         None,
         body.fitness_judgment,
+        None,
         body.context,
         None,
         None,
@@ -225,6 +227,7 @@ pub async fn create_intervention_note(
         refs,
         body.evidence_refs,
         body.content,
+        None,
         None,
         None,
         None,
@@ -284,6 +287,7 @@ fn build_note_event(
     severity: Option<String>,
     fitness_judgment: Option<String>,
     recommendations: Option<String>,
+    context: Option<String>,
     actions_taken: Option<String>,
     impact: Option<String>,
     user: &AuthenticatedUser,
@@ -310,6 +314,7 @@ fn build_note_event(
         "severity": severity,
         "fitness_judgment": fitness_judgment,
         "recommendations": recommendations,
+        "context": context,
         "details": serde_json::Value::Object(details)
     });
 
@@ -384,6 +389,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             &human_user(),
         );
 
@@ -402,6 +408,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some("ACTION".to_string()),
             Some("IMPACT".to_string()),
             &human_user(),
@@ -410,6 +417,27 @@ mod tests {
         assert_eq!(event.payload["record_type"], "record.intervention_note");
         assert_eq!(event.payload["details"]["actions_taken"], "ACTION");
         assert_eq!(event.payload["details"]["impact"], "IMPACT");
+    }
+
+    #[test]
+    fn build_assessment_note_sets_fitness_and_context() {
+        let (_, event) = build_note_event(
+            "record.assessment_note",
+            vec![],
+            vec![],
+            "content".to_string(),
+            None,
+            Some("FIT".to_string()),
+            None,
+            Some("scope".to_string()),
+            None,
+            None,
+            &human_user(),
+        );
+
+        assert_eq!(event.payload["record_type"], "record.assessment_note");
+        assert_eq!(event.payload["fitness_judgment"], "FIT");
+        assert_eq!(event.payload["context"], "scope");
     }
 
     #[test]

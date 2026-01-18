@@ -684,4 +684,11 @@ mod tests {
         let approval = dummy_approval(RELEASE_APPROVAL_PORTAL, "APPROVED", vec![]);
         assert!(ensure_release_approval(&approval, &[]).is_ok());
     }
+
+    #[test]
+    fn verified_with_exceptions_allowed_when_mode_matches() {
+        let verification =
+            dummy_verification(VerificationStatus::VerifiedWithExceptions, Some("WITH_EXCEPTIONS"));
+        assert!(ensure_verified_for_freeze(&verification, "WITH_EXCEPTIONS").is_ok());
+    }
 }

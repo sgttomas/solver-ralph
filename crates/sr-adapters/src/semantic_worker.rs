@@ -1661,6 +1661,82 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn evidence_missing_emits_stop_and_violation() {
+        let mut config = SemanticWorkerConfig::default();
+        config.base.test_mode = true;
+        config.dry_run = true;
+
+        let event_store = Arc::new(InMemoryEventStore::default());
+        let event_manager = Arc::new(RwLock::new(EventManager::new_in_memory()));
+        let evidence_store = Arc::new(DummyEvidenceStore::default());
+        let oracle_runner = Arc::new(PodmanOracleRunner::new(
+            PodmanOracleRunnerConfig {
+                test_mode: true,
+                ..Default::default()
+            },
+            evidence_store.clone(),
+        ));
+        let registry = Arc::new(OracleSuiteRegistry::with_core_suites());
+        let workspace = Arc::new(DummyWorkspace);
+
+        let worker = SemanticWorkerBridge::new(
+            config,
+            None,
+            event_store.clone(),
+            event_manager,
+            oracle_runner,
+            evidence_store,
+            registry,
+            workspace,
+        );
+
+        let condition = DomainIntegrityCondition::EvidenceMissing {
+            reason: "missing evidence blob".to_string(),
+        };
+
+        worker
+            .handle_integrity_condition(
+                "loop_missing",
+                "run_missing",
+                "cand_missing",
+                "suite:sem",
+                &condition,
+            )
+            .await
+            .expect("integrity handling succeeds");
+
+        let stop_events = event_store.events_for("loop_missing").await;
+        let stop = stop_events
+            .iter()
+            .find(|e| e.event_type == "StopTriggered")
+            .expect("stop emitted");
+        assert_eq!(
+            stop.payload.get("trigger").and_then(|v| v.as_str()),
+            Some("EVIDENCE_MISSING")
+        );
+        assert_eq!(
+            stop.payload
+                .get("recommended_portal")
+                .and_then(|v| v.as_str()),
+            Some("GovernanceChangePortal")
+        );
+
+        let run_events = event_store.events_for("run_missing").await;
+        let violation = run_events
+            .iter()
+            .find(|e| e.event_type == "IntegrityViolationDetected")
+            .expect("violation emitted");
+        assert_eq!(
+            violation
+                .payload
+                .get("condition")
+                .and_then(|v| v.get("condition_type"))
+                .and_then(|v| v.as_str()),
+            Some("EVIDENCE_MISSING")
+        );
+    }
+
     // -----------------------------------------------------------------
     // Test fakes
     // -----------------------------------------------------------------

@@ -38,6 +38,8 @@ import { WorkSurfaceCompose } from "./pages/WorkSurfaceCompose";
 import { WorkSurfaceDetail } from "./pages/WorkSurfaceDetail";
 import { Audit } from "./pages/Audit";
 import { Settings } from "./pages/Settings";
+import { Staleness } from "./pages/Staleness";
+import { Notes } from "./pages/Notes";
 
 export const router = createBrowserRouter([
   // Callback outside layout (OIDC redirect)
@@ -60,6 +62,8 @@ export const router = createBrowserRouter([
       { path: "/artifacts/:contentHash", element: <EvidenceDetail /> },
       { path: "/approvals", element: <Approvals /> },
       { path: "/prompts", element: <PromptLoop /> },
+      { path: "/notes", element: <Notes /> },
+      { path: "/staleness", element: <Staleness /> },
 
       // Agents
       { path: "/agents", element: <Agents /> },

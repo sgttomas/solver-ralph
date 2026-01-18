@@ -1067,5 +1067,6 @@ mod tests {
         assert!(status.available);
         assert!(status.integrity_ok);
         assert!(status.error_code.is_none());
+        assert!(status.last_verified_at.is_some());
     }
 }

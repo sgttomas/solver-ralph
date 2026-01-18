@@ -25,7 +25,7 @@
 - [x] **P2-REFS-VALIDATION** — Validate TypedRef meta: enforce `meta.content_hash` and `meta.type_key` where applicable on ingest; reject incomplete refs; tests ensure invalid refs fail and valid refs pass. (C-META-1..3, C-EVID-4) *(Handlers normalize/validate refs, ensuring content hashes/type keys per StrongTypedRef; validation tests added.)*
 
 ## Phase 5 — UI Parity & Tests (P2/P3)
-- [ ] **P2-TEST-SUITE** — Add automated tests: governor budget/stop-trigger coverage, verification computation + freeze gating, portal whitelist enforcement, integrity flake/evidence-missing triggers, staleness API behavior, note API behavior, evidence status endpoint; prefer integration/E2E where applicable.
+- [x] **P2-TEST-SUITE** — Add automated tests: governor budget/stop-trigger coverage, verification computation + freeze gating, portal whitelist enforcement, integrity flake/evidence-missing triggers, staleness API behavior, note API behavior, evidence status endpoint; prefer integration/E2E where applicable. *(UI parity added with Staleness console + Notes console + seeded-portal UI validation and evidence status surfacing; tests cover portal whitelist validation, staleness resolution kind enforcement, Verified-with-Exceptions freeze gating, evidence-missing integrity stop, note context capture, and evidence status timestamp/integrity flags.)*
 
 ## Phase 6 — Governance & Migration (P3)
 - [ ] **P3-MIGRATIONS** — Adjust projections/tables for new stop triggers, verification status fields, staleness flags, and new record/config types; include data backfill scripts if needed.

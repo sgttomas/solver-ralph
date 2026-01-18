@@ -114,6 +114,40 @@ pub struct ApprovalActionResponse {
 // Handlers
 // ============================================================================
 
+fn validate_approval_request(
+    user: &AuthenticatedUser,
+    decision: &str,
+    portal_id: &str,
+) -> Result<(), ApiError> {
+    if !matches!(user.actor_kind, ActorKind::Human) {
+        return Err(ApiError::Forbidden {
+            message: "Approvals MUST be recorded by HUMAN actors only (SR-CONTRACT C-TB-3)"
+                .to_string(),
+        });
+    }
+
+    let valid_decisions = ["APPROVED", "REJECTED", "DEFERRED"];
+    if !valid_decisions.contains(&decision) {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Invalid decision '{}'. Must be one of: {:?}",
+                decision, valid_decisions
+            ),
+        });
+    }
+
+    if !is_seeded_portal(portal_id) {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Invalid portal_id '{}'. Allowed portals: {:?}",
+                portal_id, SEEDED_PORTALS
+            ),
+        });
+    }
+
+    Ok(())
+}
+
 /// Record an approval (HUMAN-only per SR-CONTRACT C-TB-3)
 ///
 /// POST /api/v1/approvals
@@ -123,33 +157,7 @@ pub async fn record_approval(
     user: AuthenticatedUser,
     Json(body): Json<RecordApprovalRequest>,
 ) -> ApiResult<Json<ApprovalActionResponse>> {
-    // Enforce HUMAN-only per SR-CONTRACT C-TB-3
-    if !matches!(user.actor_kind, ActorKind::Human) {
-        return Err(ApiError::Forbidden {
-            message: "Approvals MUST be recorded by HUMAN actors only (SR-CONTRACT C-TB-3)"
-                .to_string(),
-        });
-    }
-
-    // Validate decision
-    let valid_decisions = ["APPROVED", "REJECTED", "DEFERRED"];
-    if !valid_decisions.contains(&body.decision.as_str()) {
-        return Err(ApiError::BadRequest {
-            message: format!(
-                "Invalid decision '{}'. Must be one of: {:?}",
-                body.decision, valid_decisions
-            ),
-        });
-    }
-
-    if !is_seeded_portal(&body.portal_id) {
-        return Err(ApiError::BadRequest {
-            message: format!(
-                "Invalid portal_id '{}'. Allowed portals: {:?}",
-                body.portal_id, SEEDED_PORTALS
-            ),
-        });
-    }
+    validate_approval_request(&user, &body.decision, &body.portal_id)?;
 
     let approval_id = ApprovalId::new();
     let event_id = EventId::new();
@@ -340,4 +348,58 @@ pub async fn list_approvals(
 
 fn compute_envelope_hash(event_id: &EventId) -> String {
     format!("sha256:{}", event_id.as_str().replace("evt_", ""))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::AuthenticatedUser;
+
+    fn human_user() -> AuthenticatedUser {
+        AuthenticatedUser {
+            actor_kind: ActorKind::Human,
+            actor_id: "human".to_string(),
+            subject: "sub".to_string(),
+            email: None,
+            name: None,
+            roles: vec![],
+            claims: serde_json::json!({}),
+        }
+    }
+
+    fn agent_user() -> AuthenticatedUser {
+        AuthenticatedUser {
+            actor_kind: ActorKind::Agent,
+            actor_id: "agent".to_string(),
+            subject: "sub".to_string(),
+            email: None,
+            name: None,
+            roles: vec![],
+            claims: serde_json::json!({}),
+        }
+    }
+
+    #[test]
+    fn rejects_non_human_actor() {
+        let result = validate_approval_request(&agent_user(), "APPROVED", "ReleaseApprovalPortal");
+        assert!(matches!(result, Err(ApiError::Forbidden { .. })));
+    }
+
+    #[test]
+    fn rejects_invalid_decision() {
+        let result = validate_approval_request(&human_user(), "NOT_A_DECISION", "ReleaseApprovalPortal");
+        assert!(matches!(result, Err(ApiError::BadRequest { .. })));
+    }
+
+    #[test]
+    fn rejects_unseeded_portal() {
+        let result = validate_approval_request(&human_user(), "APPROVED", "portal:STAGE_COMPLETION:stage:FINAL");
+        assert!(matches!(result, Err(ApiError::BadRequest { .. })));
+    }
+
+    #[test]
+    fn accepts_seeded_portal() {
+        let result = validate_approval_request(&human_user(), "APPROVED", "ReleaseApprovalPortal");
+        assert!(result.is_ok());
+    }
 }

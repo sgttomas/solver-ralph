@@ -262,18 +262,7 @@ pub async fn resolve_staleness(
     Path(stale_id): Path<String>,
     Json(body): Json<ResolveStalenessRequest>,
 ) -> ApiResult<Json<ResolveStalenessResponse>> {
-    let resolution_kind = body.resolution_kind.to_uppercase();
-    if resolution_kind != "MECHANICAL" && resolution_kind != "DECISION" {
-        return Err(ApiError::BadRequest {
-            message: "resolution_kind must be MECHANICAL or DECISION".to_string(),
-        });
-    }
-
-    if resolution_kind == "DECISION" && !matches!(user.actor_kind, ActorKind::Human) {
-        return Err(ApiError::Forbidden {
-            message: "DECISION resolution requires HUMAN actor".to_string(),
-        });
-    }
+    let resolution_kind = validate_resolution_kind(&user, &body.resolution_kind)?;
 
     let graph = GraphProjection::new(state.projections.pool().clone());
     let marker = graph
@@ -362,6 +351,26 @@ fn compute_envelope_hash(event_id: &EventId) -> String {
     format!("sha256:{}", event_id.as_str().replace("evt_", ""))
 }
 
+fn validate_resolution_kind(
+    user: &AuthenticatedUser,
+    resolution_kind: &str,
+) -> Result<String, ApiError> {
+    let normalized = resolution_kind.to_uppercase();
+    if normalized != "MECHANICAL" && normalized != "DECISION" {
+        return Err(ApiError::BadRequest {
+            message: "resolution_kind must be MECHANICAL or DECISION".to_string(),
+        });
+    }
+
+    if normalized == "DECISION" && !matches!(user.actor_kind, ActorKind::Human) {
+        return Err(ApiError::Forbidden {
+            message: "DECISION resolution requires HUMAN actor".to_string(),
+        });
+    }
+
+    Ok(normalized)
+}
+
 fn parse_reason(reason: &str) -> Result<StalenessReason, ApiError> {
     StalenessReason::from_str(reason).ok_or_else(|| ApiError::BadRequest {
         message: format!(
@@ -422,6 +431,31 @@ async fn select_dependents(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auth::AuthenticatedUser;
+
+    fn human_user() -> AuthenticatedUser {
+        AuthenticatedUser {
+            actor_kind: ActorKind::Human,
+            actor_id: "human".to_string(),
+            subject: "sub".to_string(),
+            email: None,
+            name: None,
+            roles: vec![],
+            claims: serde_json::json!({}),
+        }
+    }
+
+    fn system_user() -> AuthenticatedUser {
+        AuthenticatedUser {
+            actor_kind: ActorKind::System,
+            actor_id: "system".to_string(),
+            subject: "sub".to_string(),
+            email: None,
+            name: None,
+            roles: vec![],
+            claims: serde_json::json!({}),
+        }
+    }
 
     #[test]
     fn parses_valid_reason_codes() {
@@ -439,5 +473,27 @@ mod tests {
             }
             _ => panic!("expected bad request"),
         }
+    }
+
+    #[test]
+    fn decision_resolution_requires_human() {
+        let err = validate_resolution_kind(&system_user(), "DECISION").unwrap_err();
+        assert!(matches!(err, ApiError::Forbidden { .. }));
+    }
+
+    #[test]
+    fn invalid_resolution_kind_rejected() {
+        let err = validate_resolution_kind(&human_user(), "OTHER").unwrap_err();
+        assert!(matches!(err, ApiError::BadRequest { .. }));
+    }
+
+    #[test]
+    fn mechanical_resolution_allows_system() {
+        assert!(validate_resolution_kind(&system_user(), "MECHANICAL").is_ok());
+    }
+
+    #[test]
+    fn decision_resolution_allows_human() {
+        assert!(validate_resolution_kind(&human_user(), "decision").is_ok());
     }
 }

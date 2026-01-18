@@ -61,14 +61,15 @@ Canonical index for the SR-* document set.
 | SR-README | `charter/` | This index |
 
 
-## Current Assignment: Implement Audit Remediation Plan
+## Current Assignment: Audit Remediation — Phase 6 (Governance & Migration)
 
-> **Assignment:** Implement the remediation plan for findings from the consolidated codebase audit, following the phased approach in `docs/planning/SR-CODEBASE-AUDIT-PLAN.md`.
+> **Assignment:** Proceed to Phase 6 of `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` now that Phase 1–5 UI + test reinforcement is complete.
 
-1) Use `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` as the execution guide. Phase 1 checkpoints complete to date: **P1-STOPS-COMPLETE**, **P1-INTEGRITY-WIRE**, **P1-BUDGET-GOV**, **P1-SHIP-GATE**.
-2) P1-BUDGET-GOV state: defaults aligned (5/25/16), `budgets` payload honored end-to-end (API → projections → governor), `max_oracle_runs` exhaustion emits `StopTriggered` with HumanAuthority routing, and budget extensions via `LoopUpdated` clear budget-exhausted stops.
-3) P1-SHIP-GATE state: freeze creation blocks on Verified (Strict/With-Exceptions), requires ReleaseApprovalPortal approval acknowledging active exceptions, and rejects unresolved staleness on candidate/oracle suite/artifact manifest; unit coverage added for unverified/stale/missing-approval/acknowledged paths.
-4) **Next immediate work (Phase 2 / Ontological completeness):** implement P2-TYPES-NOTES, P2-TYPES-CONFIG, P2-TYPES-PROC/LOOPREC, P2-REFS-VALIDATION per SR-SPEC/SR-TYPES; run `cargo test --workspace` after each deliverable and update the audit plan/blockers.
+1) Use `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` as the guide. Phases 1–5 are complete (trust boundaries, verification/shippable gating, ontology coverage, typed ref validation, staleness/evidence/note APIs, UI parity, and automated tests including portal whitelist + integrity stops).
+2) **Next immediate work (Phase 6):**
+   - **P3-MIGRATIONS:** Adjust projections/tables for new stop triggers, verification status fields, staleness flags, and new record/config types; include backfill scripts if needed.
+   - **P3-GOV-DOCS:** Update governance documentation kits (Gate Registry, portal playbooks) to reflect new stop triggers and portal enforcement hooks; record exceptions in SR-EXCEPTIONS if temporary waivers are needed during rollout.
+3) Re-read SR-DIRECTIVE, SR-SPEC, SR-TEMPLATES, and SR-CONTRACT to ensure migrations and doc updates mirror the binding invariants and routing tables. Treat each deliverable as atomic with tests/migrations documented, and commit per deliverable ID.
 
 ### Input Documents
 
@@ -124,9 +125,3 @@ When all phases are complete:
 3. Push all commits to the remote branch
 
 ---
-
-## Dev Session Log (latest)
-
-- Semantic worker emits `NO_ELIGIBLE_WORK` stops and runs IntegrityChecker post-oracle to emit `IntegrityViolationDetected` + `StopTriggered` (GovernanceChangePortal) for tamper/gap/env/flake/evidence-missing; evidence emission skips when a stop fires.
-- Governor enforces `max_oracle_runs` budgets end-to-end, emits `StopTriggered` with HumanAuthority routing on exhaustion, and clears budget stops when budgets are extended via `LoopUpdated` (coverage added).
-- Freeze gate blocks unverified/stale/approval-missing cases, requires ReleaseApprovalPortal approvals that acknowledge active exceptions, and checks staleness across candidate/oracle suite/artifact manifest (unit coverage added); full test suite passing (`cargo test --workspace`, integration tests remain env-gated).
