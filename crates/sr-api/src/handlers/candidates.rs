@@ -54,6 +54,12 @@ pub struct CandidateResponse {
     pub content_hash: String,
     pub produced_by_iteration_id: Option<String>,
     pub verification_status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_scope: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_basis: Option<serde_json::Value>,
     pub created_at: String,
     pub refs: serde_json::Value,
 }
@@ -285,6 +291,9 @@ fn projection_to_response(p: CandidateProjection) -> CandidateResponse {
         content_hash: p.content_hash,
         produced_by_iteration_id: p.produced_by_iteration_id,
         verification_status: p.verification_status,
+        verification_mode: p.verification_mode,
+        verification_scope: p.verification_scope,
+        verification_basis: p.verification_basis,
         created_at: p.created_at.to_rfc3339(),
         refs: p.refs,
     }

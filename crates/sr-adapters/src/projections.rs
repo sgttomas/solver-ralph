@@ -9,7 +9,7 @@
 
 use chrono::{DateTime, Utc};
 use sqlx::{postgres::PgRow, PgPool, Row};
-use sr_domain::{EventEnvelope, EventId};
+use sr_domain::{is_seeded_portal, EventEnvelope, EventId};
 use sr_ports::{EventStore, EventStoreError};
 use tracing::{debug, error, info, instrument, warn};
 
@@ -21,6 +21,9 @@ pub enum ProjectionError {
 
     #[error("Database error: {message}")]
     DatabaseError { message: String },
+
+    #[error("Validation error: {message}")]
+    ValidationError { message: String },
 
     #[error("Deserialization error: {message}")]
     DeserializationError { message: String },
@@ -801,15 +804,31 @@ impl ProjectionBuilder {
         let status = payload["verification_status"]
             .as_str()
             .unwrap_or("UNVERIFIED");
+        let verification_mode: Option<String> =
+            payload["verification_mode"].as_str().map(|s| s.to_string());
+        let verification_scope: Option<serde_json::Value> =
+            payload.get("verification_scope").cloned();
+        let verification_basis: Option<serde_json::Value> =
+            payload.get("verification_basis").cloned();
 
         sqlx::query(
             r#"
             UPDATE proj.candidates
-            SET verification_status = $1, last_event_id = $2, last_global_seq = $3
-            WHERE candidate_id = $4
+            SET verification_status = $1,
+                verification_mode = $2,
+                verification_scope = $3,
+                verification_basis = $4,
+                verification_computed_at = $5,
+                last_event_id = $6,
+                last_global_seq = $7
+            WHERE candidate_id = $8
             "#,
         )
         .bind(status)
+        .bind(verification_mode)
+        .bind(verification_scope)
+        .bind(verification_basis)
+        .bind(event.occurred_at)
         .bind(event.event_id.as_str())
         .bind(event.global_seq.unwrap_or(0) as i64)
         .bind(&event.stream_id)
@@ -909,6 +928,14 @@ impl ProjectionBuilder {
         let approval_id = &event.stream_id;
 
         let portal_id = payload["portal_id"].as_str().unwrap_or("");
+        if !is_seeded_portal(portal_id) {
+            return Err(ProjectionError::ValidationError {
+                message: format!(
+                    "portal_id '{}' is not permitted (allowed: {:?})",
+                    portal_id, sr_domain::portal::SEEDED_PORTALS
+                ),
+            });
+        }
         let decision = payload["decision"].as_str().unwrap_or("APPROVED");
         let subject_refs = &payload["subject_refs"];
         let evidence_refs: Vec<&str> = payload["evidence_refs"]
@@ -2071,6 +2098,10 @@ pub struct CandidateProjection {
     pub content_hash: String,
     pub produced_by_iteration_id: Option<String>,
     pub verification_status: String,
+    pub verification_mode: Option<String>,
+    pub verification_scope: Option<serde_json::Value>,
+    pub verification_basis: Option<serde_json::Value>,
+    pub verification_computed_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub refs: serde_json::Value,
 }
@@ -2299,7 +2330,9 @@ impl ProjectionBuilder {
         let result = sqlx::query(
             r#"
             SELECT candidate_id, content_hash, produced_by_iteration_id,
-                   verification_status, created_at, refs
+                   verification_status, verification_mode, verification_scope,
+                   verification_basis, verification_computed_at,
+                   created_at, refs
             FROM proj.candidates WHERE candidate_id = $1
             "#,
         )
@@ -2312,6 +2345,10 @@ impl ProjectionBuilder {
             content_hash: row.get("content_hash"),
             produced_by_iteration_id: row.get("produced_by_iteration_id"),
             verification_status: row.get("verification_status"),
+            verification_mode: row.get("verification_mode"),
+            verification_scope: row.get("verification_scope"),
+            verification_basis: row.get("verification_basis"),
+            verification_computed_at: row.get("verification_computed_at"),
             created_at: row.get("created_at"),
             refs: row.get("refs"),
         }))
@@ -2350,6 +2387,23 @@ impl ProjectionBuilder {
                 evidence_bundle_hash: row.get("evidence_bundle_hash"),
             })
             .collect())
+    }
+
+    /// Count oracle runs associated with a loop (via candidate -> iteration lineage)
+    pub async fn count_runs_for_loop(&self, loop_id: &str) -> Result<u32, ProjectionError> {
+        let count: i64 = sqlx::query_scalar(
+            r#"
+            SELECT COUNT(*) FROM proj.runs r
+            JOIN proj.candidates c ON r.candidate_id = c.candidate_id
+            JOIN proj.iterations i ON c.produced_by_iteration_id = i.iteration_id
+            WHERE i.loop_id = $1
+            "#,
+        )
+        .bind(loop_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(count as u32)
     }
 
     /// List loops with optional state filter
@@ -2454,7 +2508,9 @@ impl ProjectionBuilder {
         let rows = sqlx::query(
             r#"
             SELECT candidate_id, content_hash, produced_by_iteration_id,
-                   verification_status, created_at, refs
+                   verification_status, verification_mode, verification_scope,
+                   verification_basis, verification_computed_at,
+                   created_at, refs
             FROM proj.candidates WHERE produced_by_iteration_id = $1
             ORDER BY created_at ASC
             "#,
@@ -2466,14 +2522,18 @@ impl ProjectionBuilder {
         Ok(rows
             .into_iter()
             .map(|row| CandidateProjection {
-                candidate_id: row.get("candidate_id"),
-                content_hash: row.get("content_hash"),
-                produced_by_iteration_id: row.get("produced_by_iteration_id"),
-                verification_status: row.get("verification_status"),
-                created_at: row.get("created_at"),
-                refs: row.get("refs"),
-            })
-            .collect())
+            candidate_id: row.get("candidate_id"),
+            content_hash: row.get("content_hash"),
+            produced_by_iteration_id: row.get("produced_by_iteration_id"),
+            verification_status: row.get("verification_status"),
+            verification_mode: row.get("verification_mode"),
+            verification_scope: row.get("verification_scope"),
+            verification_basis: row.get("verification_basis"),
+            verification_computed_at: row.get("verification_computed_at"),
+            created_at: row.get("created_at"),
+            refs: row.get("refs"),
+        })
+        .collect())
     }
 
     /// List candidates with optional verification status filter
@@ -2487,7 +2547,9 @@ impl ProjectionBuilder {
             sqlx::query(
                 r#"
                 SELECT candidate_id, content_hash, produced_by_iteration_id,
-                       verification_status, created_at, refs
+                       verification_status, verification_mode, verification_scope,
+                       verification_basis, verification_computed_at,
+                       created_at, refs
                 FROM proj.candidates WHERE verification_status = $1
                 ORDER BY created_at DESC
                 LIMIT $2 OFFSET $3
@@ -2502,7 +2564,9 @@ impl ProjectionBuilder {
             sqlx::query(
                 r#"
                 SELECT candidate_id, content_hash, produced_by_iteration_id,
-                       verification_status, created_at, refs
+                       verification_status, verification_mode, verification_scope,
+                       verification_basis, verification_computed_at,
+                       created_at, refs
                 FROM proj.candidates
                 ORDER BY created_at DESC
                 LIMIT $1 OFFSET $2
@@ -2518,13 +2582,17 @@ impl ProjectionBuilder {
             .into_iter()
             .map(|row| CandidateProjection {
                 candidate_id: row.get("candidate_id"),
-                content_hash: row.get("content_hash"),
-                produced_by_iteration_id: row.get("produced_by_iteration_id"),
-                verification_status: row.get("verification_status"),
-                created_at: row.get("created_at"),
-                refs: row.get("refs"),
-            })
-            .collect())
+            content_hash: row.get("content_hash"),
+            produced_by_iteration_id: row.get("produced_by_iteration_id"),
+            verification_status: row.get("verification_status"),
+            verification_mode: row.get("verification_mode"),
+            verification_scope: row.get("verification_scope"),
+            verification_basis: row.get("verification_basis"),
+            verification_computed_at: row.get("verification_computed_at"),
+            created_at: row.get("created_at"),
+            refs: row.get("refs"),
+        })
+        .collect())
     }
 
     /// Get a run by ID

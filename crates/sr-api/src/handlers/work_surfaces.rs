@@ -37,6 +37,7 @@ use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
+use crate::handlers::stop_triggers::emit_stop_triggered;
 use crate::templates::{TemplateCategory, TemplateRegistry};
 use crate::AppState;
 use sr_adapters::oracle_suite::OracleSuiteRegistry;
@@ -1181,68 +1182,6 @@ fn compute_template_hash(template: &sr_domain::work_surface::ProcedureTemplate) 
     format!("sha256:{}", hex::encode(hasher.finalize()))
 }
 
-/// V10-1: Emit StopTriggered event to pause a Loop (C-LOOP-1, C-LOOP-3)
-///
-/// Emits a StopTriggered event that transitions the Loop to PAUSED state.
-/// The `requires_decision` flag indicates whether a Decision must be recorded
-/// before the Loop can be resumed.
-async fn emit_stop_triggered(
-    state: &AppState,
-    loop_id: &str,
-    trigger: &str,
-    requires_decision: bool,
-) -> Result<(), ApiError> {
-    let event_id = EventId::new();
-    let now = Utc::now();
-
-    // Read current stream to get version
-    let events = state.event_store.read_stream(loop_id, 0, 1000).await?;
-    let current_version = events.len() as u64;
-
-    let event = EventEnvelope {
-        event_id: event_id.clone(),
-        stream_id: loop_id.to_string(),
-        stream_kind: StreamKind::Loop,
-        stream_seq: current_version + 1,
-        global_seq: None,
-        event_type: "StopTriggered".to_string(),
-        occurred_at: now,
-        actor_kind: ActorKind::System,
-        actor_id: "system:loop-governor".to_string(),
-        correlation_id: None,
-        causation_id: None,
-        supersedes: vec![],
-        refs: vec![],
-        payload: serde_json::json!({
-            "trigger": trigger,
-            "requires_decision": requires_decision,
-        }),
-        envelope_hash: compute_envelope_hash(&event_id),
-    };
-
-    state
-        .event_store
-        .append(loop_id, current_version, vec![event])
-        .await?;
-
-    state
-        .projections
-        .process_events(&*state.event_store)
-        .await
-        .map_err(|e| ApiError::Internal {
-            message: e.to_string(),
-        })?;
-
-    info!(
-        loop_id = %loop_id,
-        trigger = %trigger,
-        requires_decision = %requires_decision,
-        "StopTriggered event emitted - Loop paused"
-    );
-
-    Ok(())
-}
-
 fn parse_work_kind(kind: &str) -> Result<WorkKind, ApiError> {
     parse_work_kind_option(kind).ok_or_else(|| ApiError::BadRequest {
         message: format!("Invalid work kind: {}", kind),
@@ -1718,6 +1657,7 @@ pub async fn start_work_surface_iteration(
             &loop_proj.loop_id,
             "BUDGET_EXHAUSTED",
             true, // requires_decision = true
+            Some("HumanAuthorityExceptionProcess"),
         )
         .await?;
 
@@ -1738,6 +1678,7 @@ pub async fn start_work_surface_iteration(
             &loop_proj.loop_id,
             "REPEATED_FAILURE",
             true, // requires_decision = true
+            Some("HumanAuthorityExceptionProcess"),
         )
         .await?;
 

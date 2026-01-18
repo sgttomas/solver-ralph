@@ -168,6 +168,7 @@ impl From<ProjectionError> for ApiError {
             ProjectionError::UnknownEventType { event_type } => ApiError::Internal {
                 message: format!("Unknown event type: {}", event_type),
             },
+            ProjectionError::ValidationError { message } => ApiError::BadRequest { message },
         }
     }
 }

@@ -10,7 +10,10 @@ use axum::{
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sr_domain::{ActorKind, ApprovalId, ContentHash, EventEnvelope, EventId, StreamKind, TypedRef};
+use sr_domain::{
+    portal::{is_seeded_portal, SEEDED_PORTALS},
+    ActorKind, ApprovalId, EventEnvelope, EventId, StreamKind, TypedRef,
+};
 use sr_ports::EventStore;
 use tracing::{info, instrument};
 
@@ -134,6 +137,15 @@ pub async fn record_approval(
             message: format!(
                 "Invalid decision '{}'. Must be one of: {:?}",
                 body.decision, valid_decisions
+            ),
+        });
+    }
+
+    if !is_seeded_portal(&body.portal_id) {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Invalid portal_id '{}'. Allowed portals: {:?}",
+                body.portal_id, SEEDED_PORTALS
             ),
         });
     }

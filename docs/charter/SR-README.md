@@ -75,7 +75,7 @@ A multi-agent codebase audit identified gaps between the SR-* specifications and
 2. **`docs/platform/SR-CONTRACT.md`** — The contract invariants being enforced
 3. **`docs/program/SR-DIRECTIVE.md`** — The execution policies being aligned
 
-Reference `docs/platform/SR-SPEC.md` as needed for implementation details.
+Reference `docs/platform/SR-SPEC.md` for API signatures, event schemas, and state machine behavior.
 
 ### Remediation Plan Overview
 
@@ -148,3 +148,20 @@ When all phases are complete:
 3. Push all commits to the remote branch
 
 ---
+
+## Dev Session Log (latest)
+
+- Portal whitelist enforcement and evidence lineage guards are in place (SYSTEM/oracle-only evidence, matching run/candidate/suite).
+- Verification compute endpoint emits `CandidateVerificationComputed`; projections store mode/scope/basis; freeze gating requires Verified + ReleaseApprovalPortal + no staleness; migration `010_verification_columns.sql` authored (not applied locally).
+- Governor budgets aligned to SR-DIRECTIVE defaults (5/25/16); budgets payload parsing hardened; oracle-run budget tracked and enforced at RunStarted with StopTriggered emission on exhaustion; RunStarted now carries loop/iteration refs; shared stop_trigger emitter added and reused in work-surface iteration gating.
+- `cargo test --workspace` passes (Infisical integration tests remain gated behind RUN_INFISICAL_TESTS).
+
+## Handoff Prompt (next instance)
+
+1) Read SR-DIRECTIVE §4 and SR-CONTRACT integrity sections; keep `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` Phase 1 as the checklist.
+2) Finish Phase 1 directive alignment:
+   - Complete stop triggers: EVIDENCE_MISSING, ORACLE_FLAKE propagation, REPEATED_FAILURE, NO_ELIGIBLE_WORK, STAGE_UNKNOWN, SEMANTIC_PROFILE_MISSING, and ensure max_oracle_runs exhaustion routes StopTriggered with recommended_portal per SR-DIRECTIVE.
+   - Wire IntegrityChecker into runner/worker to emit IntegrityViolationDetected + StopTriggered for ORACLE_FLAKE/ENV_MISMATCH/TAMPER/GAP/EVIDENCE_MISSING; ensure verification/shippable respect these conditions.
+3) Ensure governor and projections honor plural `budgets` end-to-end; add tests for oracle-run exhaustion and stop emission.
+4) After Phase 1 stops/integrity are complete, mark deliverables in `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` (and blockers doc if needed); rerun `cargo test --workspace`.
+

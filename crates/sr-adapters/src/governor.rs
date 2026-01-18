@@ -11,17 +11,17 @@
 //! - Handle stop conditions and triggers
 //! - Record all decisions as events (no silent actions)
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sr_domain::{
     ActorKind, EventEnvelope, EventId, IterationState, LoopState, StreamKind, TypedRef,
 };
-use sr_ports::{EventStore, EventStoreError, EvidenceStoreError};
+use sr_ports::{EventStore, EventStoreError};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, info, instrument};
 
 // ============================================================================
 // Governor Configuration
@@ -31,22 +31,53 @@ use tracing::{debug, error, info, instrument, warn};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoopBudget {
     /// Maximum number of iterations allowed (0 = unlimited)
+    #[serde(default = "default_max_iterations")]
     pub max_iterations: u32,
-    /// Maximum wall-clock time for the loop in seconds (0 = unlimited)
-    pub max_duration_secs: i64,
-    /// Maximum cost units (implementation-specific, 0 = unlimited)
-    pub max_cost_units: u64,
+    /// Maximum oracle runs allowed (0 = unlimited)
+    #[serde(default = "default_max_oracle_runs")]
+    pub max_oracle_runs: u32,
+    /// Maximum wall-clock time for the loop in hours (0 = unlimited)
+    #[serde(default = "default_max_wallclock_hours")]
+    pub max_wallclock_hours: u32,
     /// Minimum delay between iterations in seconds
+    #[serde(default = "default_min_iteration_delay_secs")]
     pub min_iteration_delay_secs: i64,
 }
 
 impl Default for LoopBudget {
     fn default() -> Self {
         Self {
-            max_iterations: 100,         // Conservative default
-            max_duration_secs: 3600,     // 1 hour
-            max_cost_units: 0,           // Unlimited by default
-            min_iteration_delay_secs: 1, // 1 second minimum delay
+            max_iterations: default_max_iterations(),
+            max_oracle_runs: default_max_oracle_runs(),
+            max_wallclock_hours: default_max_wallclock_hours(),
+            min_iteration_delay_secs: default_min_iteration_delay_secs(),
+        }
+    }
+}
+
+fn default_max_iterations() -> u32 {
+    5
+}
+
+fn default_max_oracle_runs() -> u32 {
+    25
+}
+
+fn default_max_wallclock_hours() -> u32 {
+    16
+}
+
+fn default_min_iteration_delay_secs() -> i64 {
+    1
+}
+
+impl LoopBudget {
+    /// Convert wall-clock budget to seconds (0 treated as unlimited)
+    fn max_duration_secs(&self) -> i64 {
+        if self.max_wallclock_hours == 0 {
+            i64::MAX
+        } else {
+            (self.max_wallclock_hours as i64) * 3600
         }
     }
 }
@@ -138,6 +169,8 @@ pub struct LoopTrackingState {
     pub budget: LoopBudget,
     /// Number of iterations started
     pub iteration_count: u32,
+    /// Number of oracle runs started
+    pub oracle_runs_started: u32,
     /// Current iteration ID (if any)
     pub current_iteration_id: Option<String>,
     /// Current iteration state (if any)
@@ -167,6 +200,7 @@ impl LoopTrackingState {
             loop_state: LoopState::Created,
             budget,
             iteration_count: 0,
+            oracle_runs_started: 0,
             current_iteration_id: None,
             current_iteration_state: None,
             created_at,
@@ -192,6 +226,7 @@ impl LoopTrackingState {
             loop_state: LoopState::Created,
             budget,
             iteration_count: 0,
+            oracle_runs_started: 0,
             current_iteration_id: None,
             current_iteration_state: None,
             created_at,
@@ -246,6 +281,7 @@ pub struct PreconditionSnapshot {
     pub loop_state: String,
     pub iteration_count: u32,
     pub budget_remaining_iterations: u32,
+    pub budget_remaining_oracle_runs: u32,
     pub budget_remaining_secs: i64,
     pub has_incomplete_iteration: bool,
     pub stop_triggers: Vec<String>,
@@ -345,7 +381,8 @@ impl<E: EventStore> LoopGovernor<E> {
                 // Extract budget from payload if present
                 let budget = event
                     .payload
-                    .get("budget")
+                    .get("budgets")
+                    .or_else(|| event.payload.get("budget"))
                     .and_then(|b| serde_json::from_value(b.clone()).ok())
                     .unwrap_or_default();
 
@@ -353,6 +390,33 @@ impl<E: EventStore> LoopGovernor<E> {
                     LoopTrackingState::new(event.stream_id.clone(), budget, event.occurred_at);
                 loops.insert(event.stream_id.clone(), state);
                 debug!(loop_id = %event.stream_id, "Loop created");
+            }
+            "RunStarted" => {
+                // Track oracle run budget usage when loop context is available
+                let loop_id = event
+                    .payload
+                    .get("loop_id")
+                    .and_then(|l| l.as_str())
+                    .or_else(|| {
+                        event.refs.iter().find_map(|r| {
+                            if r.kind.eq_ignore_ascii_case("loop") {
+                                Some(r.id.as_str())
+                            } else {
+                                None
+                            }
+                        })
+                    });
+
+                if let Some(loop_id) = loop_id {
+                    if let Some(state) = loops.get_mut(loop_id) {
+                        state.oracle_runs_started = state.oracle_runs_started.saturating_add(1);
+                        debug!(
+                            loop_id = %loop_id,
+                            oracle_runs_started = state.oracle_runs_started,
+                            "RunStarted tracked for loop"
+                        );
+                    }
+                }
             }
             "LoopActivated" => {
                 if let Some(state) = loops.get_mut(&event.stream_id) {
@@ -512,10 +576,19 @@ impl<E: EventStore> LoopGovernor<E> {
                 .saturating_sub(state.iteration_count)
         };
 
-        let duration_remaining = if state.budget.max_duration_secs == 0 {
+        let runs_remaining = if state.budget.max_oracle_runs == 0 {
+            u32::MAX
+        } else {
+            state
+                .budget
+                .max_oracle_runs
+                .saturating_sub(state.oracle_runs_started)
+        };
+
+        let duration_remaining = if state.budget.max_wallclock_hours == 0 {
             i64::MAX
         } else {
-            state.budget.max_duration_secs - (now - state.created_at).num_seconds()
+            state.budget.max_duration_secs() - (now - state.created_at).num_seconds()
         };
 
         // Check delay
@@ -538,7 +611,7 @@ impl<E: EventStore> LoopGovernor<E> {
             no_incomplete_iteration: state.current_iteration_id.is_none()
                 || state.current_iteration_state == Some(IterationState::Completed)
                 || state.current_iteration_state == Some(IterationState::Failed),
-            budget_available: iterations_remaining > 0 && duration_remaining > 0,
+            budget_available: iterations_remaining > 0 && runs_remaining > 0 && duration_remaining > 0,
             delay_elapsed,
             no_stop_triggers: state.stop_triggers.is_empty(),
             approvals_satisfied: state.pending_portal_approvals.is_empty(),
@@ -580,10 +653,18 @@ impl<E: EventStore> LoopGovernor<E> {
                         .max_iterations
                         .saturating_sub(state.iteration_count)
                 },
-                budget_remaining_secs: if state.budget.max_duration_secs == 0 {
+                budget_remaining_oracle_runs: if state.budget.max_oracle_runs == 0 {
+                    u32::MAX
+                } else {
+                    state
+                        .budget
+                        .max_oracle_runs
+                        .saturating_sub(state.oracle_runs_started)
+                },
+                budget_remaining_secs: if state.budget.max_wallclock_hours == 0 {
                     i64::MAX
                 } else {
-                    state.budget.max_duration_secs - (now - state.created_at).num_seconds()
+                    state.budget.max_duration_secs() - (now - state.created_at).num_seconds()
                 },
                 has_incomplete_iteration: state.current_iteration_id.is_some()
                     && state.current_iteration_state != Some(IterationState::Completed)
@@ -775,6 +856,7 @@ impl<E: EventStore> LoopGovernor<E> {
                 loop_state: format!("{:?}", state.loop_state),
                 iteration_count: state.iteration_count,
                 budget_remaining_iterations: 0,
+                budget_remaining_oracle_runs: 0,
                 budget_remaining_secs: 0,
                 has_incomplete_iteration: false,
                 stop_triggers: state
@@ -892,6 +974,8 @@ impl<E: EventStore> LoopGovernor<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+    use std::sync::Arc;
 
     #[test]
     fn test_preconditions_all_satisfied() {
@@ -924,8 +1008,10 @@ mod tests {
     #[test]
     fn test_budget_default() {
         let budget = LoopBudget::default();
-        assert_eq!(budget.max_iterations, 100);
-        assert_eq!(budget.max_duration_secs, 3600);
+        assert_eq!(budget.max_iterations, 5);
+        assert_eq!(budget.max_oracle_runs, 25);
+        assert_eq!(budget.max_wallclock_hours, 16);
+        assert_eq!(budget.min_iteration_delay_secs, 1);
     }
 
     #[test]
@@ -935,6 +1021,7 @@ mod tests {
 
         assert_eq!(state.loop_state, LoopState::Created);
         assert_eq!(state.iteration_count, 0);
+        assert_eq!(state.oracle_runs_started, 0);
         assert!(state.current_iteration_id.is_none());
         assert!(state.stop_triggers.is_empty());
         assert!(state.work_unit_id.is_none());
@@ -952,6 +1039,7 @@ mod tests {
 
         assert_eq!(state.loop_state, LoopState::Created);
         assert_eq!(state.work_unit_id, Some("wu_test".to_string()));
+        assert_eq!(state.oracle_runs_started, 0);
         assert!(state.work_surface_id.is_none());
     }
 
@@ -994,6 +1082,7 @@ mod tests {
                 loop_state: "Active".to_string(),
                 iteration_count: 5,
                 budget_remaining_iterations: 95,
+                budget_remaining_oracle_runs: 25,
                 budget_remaining_secs: 3000,
                 has_incomplete_iteration: false,
                 stop_triggers: vec![],
@@ -1009,6 +1098,72 @@ mod tests {
 
         assert_eq!(parsed.decision_id, "dec_test");
         assert_eq!(parsed.decision_type, GovernorDecisionType::StartIteration);
+    }
+
+    #[tokio::test]
+    async fn run_budget_exhaustion_blocks_preconditions() {
+        let governor = LoopGovernor::new(Arc::new(DummyEventStore));
+        governor
+            .register_loop(
+                "loop_test",
+                LoopBudget {
+                    max_iterations: 5,
+                    max_oracle_runs: 1,
+                    max_wallclock_hours: 1,
+                    min_iteration_delay_secs: 0,
+                },
+                Utc::now(),
+            )
+            .await;
+
+        // Activate the loop so budget is the limiting factor
+        let activate_event = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "loop_test".to_string(),
+            stream_kind: StreamKind::Loop,
+            stream_seq: 1,
+            global_seq: None,
+            event_type: "LoopActivated".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "test".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload: json!({}),
+            envelope_hash: "hash".to_string(),
+        };
+        governor.handle_event(&activate_event).await.unwrap();
+
+        // First run consumes the only allowed oracle run
+        let run_event = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "run_test".to_string(),
+            stream_kind: StreamKind::Run,
+            stream_seq: 1,
+            global_seq: None,
+            event_type: "RunStarted".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "runner".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![TypedRef {
+                kind: "Loop".to_string(),
+                id: "loop_test".to_string(),
+                rel: "parent".to_string(),
+                meta: serde_json::Value::Null,
+            }],
+            payload: json!({ "loop_id": "loop_test" }),
+            envelope_hash: "hash".to_string(),
+        };
+        governor.handle_event(&run_event).await.unwrap();
+
+        let preconditions = governor.check_preconditions("loop_test").await.unwrap();
+        assert!(!preconditions.budget_available);
+        assert_eq!(preconditions.first_unsatisfied(), Some("budget_exhausted"));
     }
 
     #[test]

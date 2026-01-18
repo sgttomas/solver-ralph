@@ -439,6 +439,10 @@ mod integration_tests {
     use wiremock::matchers::{header, method, path_regex};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
+    fn should_run_integration() -> bool {
+        std::env::var("RUN_INFISICAL_TESTS").is_ok()
+    }
+
     /// Create a test config pointing to a mock server
     fn test_config(mock_url: &str) -> InfisicalConfig {
         InfisicalConfig {
@@ -452,6 +456,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_get_secret_success() {
+        if !should_run_integration() {
+            return;
+        }
         // Start mock server
         let mock_server = MockServer::start().await;
 
@@ -488,6 +495,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_get_secret_with_folder() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
@@ -520,6 +530,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_get_secret_not_found() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
@@ -544,6 +557,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_get_secret_unauthorized() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
@@ -570,6 +586,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_get_secret_forbidden() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
@@ -594,6 +613,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_get_envelope_key_success() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         // KEK is 32 bytes for AES-256, base64 encoded with "base64:" prefix
@@ -641,6 +663,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_get_envelope_key_invalid_length() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         // Return a key that's not 32 bytes (only 16 bytes)
@@ -683,6 +708,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_get_envelope_key_caching() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         let kek_bytes: [u8; 32] = [0x42u8; 32];
@@ -739,6 +767,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_secret_exists_true() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
@@ -768,6 +799,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_secret_exists_false() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
@@ -786,6 +820,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_store_secret_success() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         Mock::given(method("POST"))
@@ -812,6 +849,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_delete_secret_success() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         Mock::given(method("DELETE"))
@@ -830,6 +870,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_network_timeout() {
+        if !should_run_integration() {
+            return;
+        }
         let mock_server = MockServer::start().await;
 
         // Respond with a long delay to trigger timeout

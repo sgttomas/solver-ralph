@@ -29,7 +29,7 @@ use handlers::{
     approvals, attachments, candidates, decisions, evidence, exceptions, freeze, intakes,
     iterations, loops, oracles,
     prompt_loop::{prompt_loop, prompt_loop_stream},
-    references, runs, templates, work_surfaces,
+    references, runs, templates, verification, work_surfaces,
 };
 use observability::{
     metrics_endpoint, ready_endpoint, request_context_middleware, Metrics, MetricsState,
@@ -58,6 +58,7 @@ pub struct AppState {
     pub event_store: Arc<PostgresEventStore>,
     pub projections: Arc<ProjectionBuilder>,
     pub evidence_store: Arc<MinioEvidenceStore>,
+    pub oracle_registry: Arc<OracleSuiteRegistry>,
     /// Governed artifacts manifest computed at startup (V11-6)
     pub governed_manifest: Arc<governed::GovernedManifest>,
 }
@@ -222,6 +223,10 @@ fn create_router(
         .route(
             "/api/v1/candidates/:candidate_id",
             get(candidates::get_candidate),
+        )
+        .route(
+            "/api/v1/candidates/:candidate_id/verify",
+            post(verification::verify_candidate),
         )
         .route(
             "/api/v1/candidates/:candidate_id/runs",
@@ -655,15 +660,6 @@ async fn main() {
         "Governed artifacts manifest computed"
     );
 
-    // Create application state
-    let state = AppState {
-        config: config.clone(),
-        event_store,
-        projections,
-        evidence_store,
-        governed_manifest,
-    };
-
     // Create metrics state (D-33)
     let metrics = Arc::new(Metrics::new());
     let metrics_state = MetricsState {
@@ -699,6 +695,16 @@ async fn main() {
     };
 
     info!("Template registry initialized with schemas");
+
+    // Create application state
+    let state = AppState {
+        config: config.clone(),
+        event_store,
+        projections,
+        evidence_store,
+        oracle_registry: oracle_registry.clone(),
+        governed_manifest,
+    };
 
     // Create work surface state (SR-PLAN-V4 Phase 4b)
     let work_surface_state = WorkSurfaceState {

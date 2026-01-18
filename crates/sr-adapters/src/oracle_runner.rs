@@ -1518,8 +1518,8 @@ mod tests {
         assert_eq!(suite.environment_constraints.cpu_arch, "amd64");
         assert_eq!(suite.environment_constraints.os, "linux");
 
-        // Verify 4 oracles are defined
-        assert_eq!(suite.oracles.len(), 4);
+        // Verify 5 oracles are defined (manifest validation added)
+        assert_eq!(suite.oracles.len(), 5);
     }
 
     #[test]
@@ -1608,8 +1608,8 @@ mod tests {
             .filter(|o| o.classification == OracleClassification::Advisory)
             .count();
 
-        // 3 required (build, unit-tests, schema-validation) + 1 advisory (lint)
-        assert_eq!(required_count, 3);
+        // 4 required (build, unit-tests, schema-validation, manifest-validation) + 1 advisory (lint)
+        assert_eq!(required_count, 4);
         assert_eq!(advisory_count, 1);
     }
 
@@ -1649,6 +1649,15 @@ mod tests {
                 output: None,
             },
             // Note: lint is advisory, so missing it is OK
+            OracleResult {
+                oracle_id: "oracle:manifest-validation".to_string(),
+                oracle_name: "Evidence Manifest Validation".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 40,
+                error_message: None,
+                artifact_refs: vec![],
+                output: None,
+            },
         ];
 
         // Should not detect a gap because all required oracles have results

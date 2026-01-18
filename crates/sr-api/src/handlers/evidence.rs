@@ -14,7 +14,7 @@ use axum::{
 use base64::Engine;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sr_adapters::{EvidenceArtifact, EvidenceManifest, OracleResult, OracleResultStatus};
+use sr_adapters::{EvidenceArtifact, EvidenceManifest};
 use sr_domain::{EventEnvelope, EventId, StreamKind};
 use sr_ports::{EventStore, EvidenceStore};
 use tracing::{debug, info, instrument, warn};
@@ -163,6 +163,45 @@ pub async fn upload_evidence(
     body.manifest.validate().map_err(|e| ApiError::BadRequest {
         message: format!("Invalid evidence manifest: {}", e),
     })?;
+
+    // Require an existing run for lineage and trust enforcement (C-TB-2)
+    let run = state
+        .projections
+        .get_run(&body.manifest.run_id)
+        .await?
+        .ok_or_else(|| ApiError::NotFound {
+            resource: "Run".to_string(),
+            id: body.manifest.run_id.clone(),
+        })?;
+
+    // Enforce trust boundary: only SYSTEM/oracle actors may record evidence bundles
+    enforce_evidence_lineage(&user, &run)?;
+
+    // Candidate and suite lineage must match the originating run
+    if run.candidate_id != body.manifest.candidate_id {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Evidence manifest candidate_id '{}' does not match run candidate '{}'",
+                body.manifest.candidate_id, run.candidate_id
+            ),
+        });
+    }
+    if run.oracle_suite_id != body.manifest.oracle_suite_id {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Evidence oracle_suite_id '{}' does not match run '{}'",
+                body.manifest.oracle_suite_id, run.oracle_suite_id
+            ),
+        });
+    }
+    if run.oracle_suite_hash != body.manifest.oracle_suite_hash {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Evidence oracle_suite_hash '{}' does not match run '{}'",
+                body.manifest.oracle_suite_hash, run.oracle_suite_hash
+            ),
+        });
+    }
 
     // Serialize manifest to JSON
     let manifest_json = body
@@ -808,4 +847,87 @@ pub struct VerifyEvidenceResponse {
 
 fn compute_envelope_hash(event_id: &EventId) -> String {
     format!("sha256:{}", event_id.as_str().replace("evt_", ""))
+}
+
+/// Enforce actor/run lineage rules for evidence ingestion
+fn enforce_evidence_lineage(
+    user: &AuthenticatedUser,
+    run: &sr_adapters::RunProjection,
+) -> Result<(), ApiError> {
+    use sr_domain::ActorKind;
+
+    if matches!(user.actor_kind, ActorKind::Agent) {
+        return Err(ApiError::Forbidden {
+            message: "Evidence bundles MUST be recorded by SYSTEM/oracle actors (agent submissions are non-authoritative per C-TB-2)"
+                .to_string(),
+        });
+    }
+
+    if run.actor_kind.to_uppercase() != "SYSTEM" {
+        return Err(ApiError::Forbidden {
+            message: format!(
+                "Run {} was started by {}. Evidence bundles must originate from SYSTEM runs.",
+                run.run_id, run.actor_kind
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::AuthenticatedUser;
+    use chrono::Utc;
+    use sr_adapters::RunProjection;
+    use sr_domain::ActorKind;
+
+    fn dummy_user(kind: ActorKind) -> AuthenticatedUser {
+        AuthenticatedUser {
+            actor_kind: kind,
+            actor_id: "user".to_string(),
+            subject: "sub".to_string(),
+            email: None,
+            name: None,
+            roles: vec![],
+            claims: serde_json::json!({}),
+        }
+    }
+
+    fn dummy_run(actor_kind: &str) -> RunProjection {
+        RunProjection {
+            run_id: "run_123".to_string(),
+            candidate_id: "cand_123".to_string(),
+            oracle_suite_id: "suite:core".to_string(),
+            oracle_suite_hash: "sha256:abc".to_string(),
+            state: "COMPLETED".to_string(),
+            started_at: Utc::now(),
+            completed_at: Some(Utc::now()),
+            actor_kind: actor_kind.to_string(),
+            actor_id: "runner".to_string(),
+            evidence_bundle_hash: Some("sha256:evid".to_string()),
+        }
+    }
+
+    #[test]
+    fn agent_uploads_are_rejected() {
+        let user = dummy_user(ActorKind::Agent);
+        let run = dummy_run("SYSTEM");
+        assert!(enforce_evidence_lineage(&user, &run).is_err());
+    }
+
+    #[test]
+    fn system_uploads_require_system_run() {
+        let user = dummy_user(ActorKind::System);
+        let run = dummy_run("HUMAN");
+        assert!(enforce_evidence_lineage(&user, &run).is_err());
+    }
+
+    #[test]
+    fn system_uploads_with_system_run_are_allowed() {
+        let user = dummy_user(ActorKind::System);
+        let run = dummy_run("SYSTEM");
+        assert!(enforce_evidence_lineage(&user, &run).is_ok());
+    }
 }
