@@ -168,6 +168,12 @@ pub async fn create_freeze_record(
 
     let expected_mode = ensure_verified_for_freeze(&verification, &body.verification_mode)?;
 
+    let (oracle_suite_id, oracle_suite_hash) = verification
+        .oracle_suite_summaries
+        .first()
+        .map(|s| (s.suite_id.clone(), s.suite_hash.clone()))
+        .unwrap_or_else(|| (body.oracle_suite_id.clone(), body.oracle_suite_hash.clone()));
+
     // Verify approval exists and is a ReleaseApprovalPortal approval
     let approval = state
         .projections
@@ -178,24 +184,55 @@ pub async fn create_freeze_record(
             id: body.release_approval_id.clone(),
         })?;
 
-    ensure_release_approval(&approval)?;
+    ensure_release_approval(&approval, &body.active_exceptions)?;
 
-    // Block if candidate has unresolved staleness markers
+    // Block if candidate, suite, or governed artifacts are stale
     let graph = GraphProjection::new(state.projections.pool().clone());
-    let has_staleness = graph
+    let mut stale_reasons: Vec<String> = Vec::new();
+
+    let candidate_stale = graph
         .has_unresolved_staleness(&body.candidate_id)
         .await
         .map_err(|e| ApiError::Internal {
-            message: format!("Failed staleness check: {}", e),
+            message: format!("Failed staleness check for candidate: {}", e),
         })?;
+    if candidate_stale {
+        stale_reasons.push(format!("candidate {}", body.candidate_id));
+    }
 
-    ensure_not_stale(has_staleness)?;
+    if !oracle_suite_id.is_empty() {
+        let suite_stale = graph
+            .has_unresolved_staleness(&oracle_suite_id)
+            .await
+            .map_err(|e| ApiError::Internal {
+                message: format!(
+                    "Failed staleness check for oracle suite {}: {}",
+                    oracle_suite_id, e
+                ),
+            })?;
+        if suite_stale {
+            stale_reasons.push(format!("oracle suite {}", oracle_suite_id));
+        }
+    }
 
-    let (oracle_suite_id, oracle_suite_hash) = verification
-        .oracle_suite_summaries
-        .first()
-        .map(|s| (s.suite_id.clone(), s.suite_hash.clone()))
-        .unwrap_or_else(|| (body.oracle_suite_id.clone(), body.oracle_suite_hash.clone()));
+    for artifact in &body.artifact_manifest {
+        if !artifact.artifact_id.is_empty() {
+            let stale = graph
+                .has_unresolved_staleness(&artifact.artifact_id)
+                .await
+                .map_err(|e| ApiError::Internal {
+                    message: format!(
+                        "Failed staleness check for artifact {}: {}",
+                        artifact.artifact_id, e
+                    ),
+                })?;
+            if stale {
+                stale_reasons.push(format!("artifact {}", artifact.artifact_id));
+            }
+        }
+    }
+
+    ensure_no_stale(&stale_reasons)?;
 
     if oracle_suite_id != body.oracle_suite_id || oracle_suite_hash != body.oracle_suite_hash {
         return Err(ApiError::BadRequest {
@@ -468,7 +505,10 @@ fn ensure_verified_for_freeze(
     Ok(expected_mode)
 }
 
-fn ensure_release_approval(approval: &sr_adapters::ApprovalProjection) -> Result<(), ApiError> {
+fn ensure_release_approval(
+    approval: &sr_adapters::ApprovalProjection,
+    active_exceptions: &[ActiveExceptionEntryRequest],
+) -> Result<(), ApiError> {
     if approval.portal_id != RELEASE_APPROVAL_PORTAL {
         return Err(ApiError::BadRequest {
             message: format!(
@@ -487,17 +527,43 @@ fn ensure_release_approval(approval: &sr_adapters::ApprovalProjection) -> Result
         });
     }
 
+    if !active_exceptions.is_empty() {
+        if approval.exceptions_acknowledged.is_empty() {
+            return Err(ApiError::BadRequest {
+                message: "Release approval must acknowledge active exceptions".to_string(),
+            });
+        }
+
+        for exception in active_exceptions {
+            if !approval
+                .exceptions_acknowledged
+                .iter()
+                .any(|ack| ack == &exception.exception_id)
+            {
+                return Err(ApiError::BadRequest {
+                    message: format!(
+                        "Release approval missing acknowledgement for exception {}",
+                        exception.exception_id
+                    ),
+                });
+            }
+        }
+    }
+
     Ok(())
 }
 
-fn ensure_not_stale(has_staleness: bool) -> Result<(), ApiError> {
-    if has_staleness {
-        return Err(ApiError::BadRequest {
-            message: "Freeze blocked: candidate has unresolved staleness markers (C-EVT-6)"
-                .to_string(),
-        });
+fn ensure_no_stale(stale_reasons: &[String]) -> Result<(), ApiError> {
+    if stale_reasons.is_empty() {
+        Ok(())
+    } else {
+        Err(ApiError::BadRequest {
+            message: format!(
+                "Freeze blocked: unresolved staleness for {}",
+                stale_reasons.join(", ")
+            ),
+        })
     }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -525,14 +591,18 @@ mod tests {
         }
     }
 
-    fn dummy_approval(portal: &str, decision: &str) -> ApprovalProjection {
+    fn dummy_approval(
+        portal: &str,
+        decision: &str,
+        exceptions_acknowledged: Vec<String>,
+    ) -> ApprovalProjection {
         ApprovalProjection {
             approval_id: "appr".to_string(),
             portal_id: portal.to_string(),
             decision: decision.to_string(),
             subject_refs: serde_json::json!([]),
             evidence_refs: vec![],
-            exceptions_acknowledged: vec![],
+            exceptions_acknowledged,
             rationale: None,
             approved_by_kind: "HUMAN".to_string(),
             approved_by_id: "user".to_string(),
@@ -547,21 +617,52 @@ mod tests {
     }
 
     #[test]
-    fn stale_candidate_is_rejected() {
-        assert!(ensure_not_stale(true).is_err());
-        assert!(ensure_not_stale(false).is_ok());
+    fn stale_entities_are_rejected() {
+        let reasons = vec!["candidate cand1".to_string(), "oracle suite suite1".to_string()];
+        let err = ensure_no_stale(&reasons).unwrap_err();
+        assert!(format!("{err:?}").contains("candidate cand1"));
+
+        assert!(ensure_no_stale(&[]).is_ok());
     }
 
     #[test]
     fn missing_release_portal_is_rejected() {
-        let approval = dummy_approval("OtherPortal", "APPROVED");
-        assert!(ensure_release_approval(&approval).is_err());
+        let approval = dummy_approval("OtherPortal", "APPROVED", vec![]);
+        assert!(ensure_release_approval(&approval, &[]).is_err());
     }
 
     #[test]
     fn wrong_decision_is_rejected() {
-        let approval = dummy_approval(RELEASE_APPROVAL_PORTAL, "REJECTED");
-        assert!(ensure_release_approval(&approval).is_err());
+        let approval = dummy_approval(RELEASE_APPROVAL_PORTAL, "REJECTED", vec![]);
+        assert!(ensure_release_approval(&approval, &[]).is_err());
+    }
+
+    #[test]
+    fn missing_exception_acknowledgement_is_rejected() {
+        let approval = dummy_approval(RELEASE_APPROVAL_PORTAL, "APPROVED", vec![]);
+        let active_exceptions = vec![ActiveExceptionEntryRequest {
+            exception_id: "exc_123".to_string(),
+            kind: "WAIVER".to_string(),
+            status: "ACTIVE".to_string(),
+        }];
+
+        assert!(ensure_release_approval(&approval, &active_exceptions).is_err());
+    }
+
+    #[test]
+    fn acknowledged_exceptions_pass() {
+        let approval = dummy_approval(
+            RELEASE_APPROVAL_PORTAL,
+            "APPROVED",
+            vec!["exc_123".to_string()],
+        );
+        let active_exceptions = vec![ActiveExceptionEntryRequest {
+            exception_id: "exc_123".to_string(),
+            kind: "WAIVER".to_string(),
+            status: "ACTIVE".to_string(),
+        }];
+
+        assert!(ensure_release_approval(&approval, &active_exceptions).is_ok());
     }
 
     #[test]
@@ -569,7 +670,7 @@ mod tests {
         let verification = dummy_verification(VerificationStatus::VerifiedStrict, Some("STRICT"));
         assert!(ensure_verified_for_freeze(&verification, "STRICT").is_ok());
 
-        let approval = dummy_approval(RELEASE_APPROVAL_PORTAL, "APPROVED");
-        assert!(ensure_release_approval(&approval).is_ok());
+        let approval = dummy_approval(RELEASE_APPROVAL_PORTAL, "APPROVED", vec![]);
+        assert!(ensure_release_approval(&approval, &[]).is_ok());
     }
 }

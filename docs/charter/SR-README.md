@@ -65,10 +65,10 @@ Canonical index for the SR-* document set.
 
 > **Assignment:** Implement the remediation plan for findings from the consolidated codebase audit, following the phased approach in `docs/planning/SR-CODEBASE-AUDIT-PLAN.md`.
 
-1) Use `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` Phase 1 as the checklist; P1-STOPS-COMPLETE and P1-INTEGRITY-WIRE are now done.
-2) Finish **P1-BUDGET-GOV**: add end-to-end proof that requested budgets propagate (API → projections → governor) and enforce max_oracle_runs exhaustion routing; document any gaps.
-3) Finish **P1-SHIP-GATE**: add coverage that freeze/release gate rejects unverified, stale, or approval-missing states and passes the happy path; ensure stop/staleness flags are honored.
-4) When Phase 1 is clear, proceed to staleness/evidence-status/note APIs (P1-STALENESS-API, P1-EVID-STATUS, P1-NOTES-API) per plan; rerun `cargo test --workspace` after each deliverable and update plan/blockers.
+1) Use `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` as the execution guide. Phase 1 checkpoints complete to date: **P1-STOPS-COMPLETE**, **P1-INTEGRITY-WIRE**, **P1-BUDGET-GOV**, **P1-SHIP-GATE**.
+2) P1-BUDGET-GOV state: defaults aligned (5/25/16), `budgets` payload honored end-to-end (API → projections → governor), `max_oracle_runs` exhaustion emits `StopTriggered` with HumanAuthority routing, and budget extensions via `LoopUpdated` clear budget-exhausted stops.
+3) P1-SHIP-GATE state: freeze creation blocks on Verified (Strict/With-Exceptions), requires ReleaseApprovalPortal approval acknowledging active exceptions, and rejects unresolved staleness on candidate/oracle suite/artifact manifest; unit coverage added for unverified/stale/missing-approval/acknowledged paths.
+4) **Next immediate work (Phase 1 semantic/API gaps):** implement P1-STALENESS-API, P1-EVID-STATUS, P1-NOTES-API per SR-SPEC/SR-CONTRACT/SR-DIRECTIVE; run `cargo test --workspace` after each deliverable and update the audit plan/blockers.
 
 ### Input Documents
 
@@ -127,6 +127,6 @@ When all phases are complete:
 
 ## Dev Session Log (latest)
 
-- Semantic worker now emits `NO_ELIGIBLE_WORK` stops and runs IntegrityChecker post-oracle to emit `IntegrityViolationDetected` + `StopTriggered` (GovernanceChangePortal) for tamper/gap/env/flake/evidence-missing; evidence emission skips when a stop fires.
-- Governor enforces `max_oracle_runs` budgets end-to-end and emits `StopTriggered` with HumanAuthority routing when exhausted; budget patch helper reused across API + tests.
-- Portal recommendation alignment fixed for repeated failures; budget/test suite still passing (`cargo test --workspace`, integration tests gated by env flags).
+- Semantic worker emits `NO_ELIGIBLE_WORK` stops and runs IntegrityChecker post-oracle to emit `IntegrityViolationDetected` + `StopTriggered` (GovernanceChangePortal) for tamper/gap/env/flake/evidence-missing; evidence emission skips when a stop fires.
+- Governor enforces `max_oracle_runs` budgets end-to-end, emits `StopTriggered` with HumanAuthority routing on exhaustion, and clears budget stops when budgets are extended via `LoopUpdated` (coverage added).
+- Freeze gate blocks unverified/stale/approval-missing cases, requires ReleaseApprovalPortal approvals that acknowledge active exceptions, and checks staleness across candidate/oracle suite/artifact manifest (unit coverage added); full test suite passing (`cargo test --workspace`, integration tests remain env-gated).

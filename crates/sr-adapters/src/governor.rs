@@ -410,6 +410,44 @@ impl<E: EventStore> LoopGovernor<E> {
                 loops.insert(event.stream_id.clone(), state);
                 debug!(loop_id = %event.stream_id, "Loop created");
             }
+            "LoopUpdated" => {
+                if let Some(state) = loops.get_mut(&event.stream_id) {
+                    if let Some(budget_val) = event.payload.get("budgets") {
+                        if let Ok(new_budget) = serde_json::from_value::<LoopBudget>(
+                            budget_val.clone(),
+                        ) {
+                            let previous_budget = state.budget.clone();
+                            state.budget = new_budget;
+
+                            // If budget was previously exhausted but the new budget allows progress,
+                            // clear the budget stop trigger and portal requirement.
+                            if (state.budget.max_oracle_runs == 0
+                                || state.oracle_runs_started < state.budget.max_oracle_runs)
+                                && state
+                                    .stop_triggers
+                                    .iter()
+                                    .any(|c| matches!(c, StopCondition::BudgetExhausted))
+                            {
+                                state
+                                    .stop_triggers
+                                    .retain(|c| !matches!(c, StopCondition::BudgetExhausted));
+                                state
+                                    .pending_portal_approvals
+                                    .retain(|p| p != "HumanAuthorityExceptionProcess");
+                            }
+
+                            debug!(
+                                loop_id = %event.stream_id,
+                                previous_max_runs = previous_budget.max_oracle_runs,
+                                new_max_runs = state.budget.max_oracle_runs,
+                                previous_max_iterations = previous_budget.max_iterations,
+                                new_max_iterations = state.budget.max_iterations,
+                                "Loop budget updated"
+                            );
+                        }
+                    }
+                }
+            }
             "RunStarted" => {
                 // Track oracle run budget usage when loop context is available
                 let loop_id = event
@@ -1352,6 +1390,134 @@ mod tests {
         let preconditions = governor.check_preconditions("loop_test").await.unwrap();
         assert!(!preconditions.budget_available);
         assert_eq!(preconditions.first_unsatisfied(), Some("budget_exhausted"));
+    }
+
+    #[tokio::test]
+    async fn loop_updated_budget_extension_clears_budget_stop() {
+        let event_store = Arc::new(DummyEventStore::default());
+        let governor = LoopGovernor::new(event_store.clone());
+
+        let loop_created = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "loop_budget_update".to_string(),
+            stream_kind: StreamKind::Loop,
+            stream_seq: 1,
+            global_seq: None,
+            event_type: "LoopCreated".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "tester".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload: json!({
+                "budgets": {
+                    "max_iterations": 5,
+                    "max_oracle_runs": 1,
+                    "max_wallclock_hours": 16
+                }
+            }),
+            envelope_hash: "hash".to_string(),
+        };
+        governor.handle_event(&loop_created).await.unwrap();
+
+        let activate_event = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "loop_budget_update".to_string(),
+            stream_kind: StreamKind::Loop,
+            stream_seq: 2,
+            global_seq: None,
+            event_type: "LoopActivated".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "tester".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload: json!({}),
+            envelope_hash: "hash".to_string(),
+        };
+        governor.handle_event(&activate_event).await.unwrap();
+
+        // Exhaust the original oracle-run budget
+        let run_started = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "run_evt".to_string(),
+            stream_kind: StreamKind::Run,
+            stream_seq: 1,
+            global_seq: None,
+            event_type: "RunStarted".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "tester".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload: json!({"loop_id": "loop_budget_update"}),
+            envelope_hash: "hash".to_string(),
+        };
+        governor.handle_event(&run_started).await.unwrap();
+
+        let pre_before = governor
+            .check_preconditions("loop_budget_update")
+            .await
+            .unwrap();
+        assert!(!pre_before.budget_available);
+        assert_eq!(pre_before.first_unsatisfied(), Some("budget_exhausted"));
+
+        // Extend budgets via LoopUpdated and ensure the stop condition is cleared
+        let loop_updated = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "loop_budget_update".to_string(),
+            stream_kind: StreamKind::Loop,
+            stream_seq: 3,
+            global_seq: None,
+            event_type: "LoopUpdated".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "tester".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload: json!({
+                "budgets": {
+                    "max_iterations": 5,
+                    "max_oracle_runs": 3,
+                    "max_wallclock_hours": 16
+                }
+            }),
+            envelope_hash: "hash".to_string(),
+        };
+        governor.handle_event(&loop_updated).await.unwrap();
+
+        let state = governor
+            .get_loop_state("loop_budget_update")
+            .await
+            .expect("loop exists");
+        assert_eq!(state.budget.max_oracle_runs, 3);
+        assert!(
+            !state
+                .stop_triggers
+                .iter()
+                .any(|c| matches!(c, StopCondition::BudgetExhausted))
+        );
+        assert!(
+            !state
+                .pending_portal_approvals
+                .contains("HumanAuthorityExceptionProcess")
+        );
+
+        let pre_after = governor
+            .check_preconditions("loop_budget_update")
+            .await
+            .unwrap();
+        assert!(pre_after.budget_available);
+        assert!(pre_after.no_stop_triggers);
+        assert_eq!(pre_after.first_unsatisfied(), None);
     }
 
     #[tokio::test]
