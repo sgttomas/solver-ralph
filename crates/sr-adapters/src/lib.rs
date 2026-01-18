@@ -104,6 +104,7 @@ pub use projections::{
     ExceptionProjection, FreezeRecordProjection, IterationProjection, LoopProjection,
     ProjectionBuilder, ProjectionConfig, ProjectionError, RunProjection,
 };
+pub use replay::{EligibleSetComparison, ExtendedReplayProof, ReplayDiscrepancy, ReplayProof};
 pub use restricted::{
     standard_redaction_rules, EncryptionMetadata, EvidenceClassification, EvidenceRedactor,
     InMemorySecretProvider, RedactedContentType, RedactionEntry, RedactionManifest, RedactionRule,
@@ -123,7 +124,4 @@ pub use semantic_worker::{
 pub use worker::{
     run_worker, ContentResolver, ReferenceWorkerBridge, WorkAction, WorkResult, WorkerConfig,
     WorkerError,
-};
-pub use replay::{
-    EligibleSetComparison, ExtendedReplayProof, ReplayDiscrepancy, ReplayProof,
 };

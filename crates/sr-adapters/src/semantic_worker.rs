@@ -818,11 +818,10 @@ impl<E: EvidenceStore + 'static, W: CandidateWorkspace + 'static> SemanticWorker
         };
 
         // 1. Serialize and store in MinIO
-        let manifest_bytes = serde_json::to_vec(&payload).map_err(|e| {
-            WorkerError::SerializationError {
+        let manifest_bytes =
+            serde_json::to_vec(&payload).map_err(|e| WorkerError::SerializationError {
                 message: format!("Failed to serialize evidence bundle: {}", e),
-            }
-        })?;
+            })?;
 
         let content_hash = self
             .evidence_store
@@ -850,11 +849,10 @@ impl<E: EvidenceStore + 'static, W: CandidateWorkspace + 'static> SemanticWorker
             "recorded_at": Utc::now(),
         });
 
-        let event_bytes = serde_json::to_vec(&event_payload).map_err(|e| {
-            WorkerError::SerializationError {
+        let event_bytes =
+            serde_json::to_vec(&event_payload).map_err(|e| WorkerError::SerializationError {
                 message: format!("Failed to serialize event: {}", e),
-            }
-        })?;
+            })?;
 
         self.message_bus
             .publish_with_id(subjects::ORACLE_EVENTS, &event_bytes, &bundle_id)

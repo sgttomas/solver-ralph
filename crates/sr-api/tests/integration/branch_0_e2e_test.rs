@@ -723,8 +723,8 @@ async fn test_branch_0_complete_flow() {
         ("stage:FRAME", false),
         ("stage:OPTIONS", false),
         ("stage:DRAFT", false),
-        ("stage:SEMANTIC_EVAL", true),  // Trust boundary - requires approval
-        ("stage:FINAL", true),          // Trust boundary - requires approval
+        ("stage:SEMANTIC_EVAL", true), // Trust boundary - requires approval
+        ("stage:FINAL", true),         // Trust boundary - requires approval
     ];
 
     for (stage_id, requires_approval) in stages.iter() {
@@ -735,7 +735,8 @@ async fn test_branch_0_complete_flow() {
             let _iter_id = start_iteration(&client, &loop_id).await;
         }
 
-        let completion = complete_stage(&client, &work_surface_id, stage_id, *requires_approval).await;
+        let completion =
+            complete_stage(&client, &work_surface_id, stage_id, *requires_approval).await;
 
         if *requires_approval {
             println!("    (Approval recorded at portal)");
@@ -785,7 +786,8 @@ async fn test_branch_0_complete_flow() {
         "portal:RELEASE_APPROVAL",
         &work_surface_id,
         "sha256:branch0-release-evidence",
-    ).await;
+    )
+    .await;
     println!("  Release approval: {}", release_approval_id);
 
     let freeze_req = CreateFreezeRecordRequest {
@@ -928,7 +930,8 @@ async fn test_branch_0_portal_approvals_required() {
         "portal:STAGE_COMPLETION:stage:SEMANTIC_EVAL",
         &work_surface_id,
         evidence_ref,
-    ).await;
+    )
+    .await;
 
     let resp = client
         .http
@@ -990,7 +993,8 @@ async fn test_branch_0_portal_approvals_required() {
         "portal:STAGE_COMPLETION:stage:FINAL",
         &work_surface_id,
         evidence_ref,
-    ).await;
+    )
+    .await;
 
     let resp = client
         .http
@@ -1107,7 +1111,8 @@ async fn test_branch_0_freeze_baseline() {
         "portal:RELEASE_APPROVAL",
         &work_surface_id,
         "sha256:release-evidence",
-    ).await;
+    )
+    .await;
     println!("  Release approval: {}", release_approval_id);
 
     let baseline_id = format!("baseline:freeze-test-{}", ulid::Ulid::new());

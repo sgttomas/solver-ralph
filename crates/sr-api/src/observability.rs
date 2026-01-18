@@ -693,8 +693,8 @@ mod tests {
         let metrics = Metrics::new();
 
         // Record 3 oracle runs: 2 passed, 1 failed
-        metrics.record_oracle_run(true, 1000);  // 1ms
-        metrics.record_oracle_run(true, 2000);  // 2ms
+        metrics.record_oracle_run(true, 1000); // 1ms
+        metrics.record_oracle_run(true, 2000); // 2ms
         metrics.record_oracle_run(false, 3000); // 3ms
 
         let snapshot = metrics.domain_snapshot();
@@ -709,7 +709,7 @@ mod tests {
     fn test_domain_metrics_event_append() {
         let metrics = Metrics::new();
 
-        metrics.record_event_append(500);  // 0.5ms
+        metrics.record_event_append(500); // 0.5ms
         metrics.record_event_append(1500); // 1.5ms
 
         let snapshot = metrics.domain_snapshot();

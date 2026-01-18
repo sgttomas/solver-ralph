@@ -83,7 +83,7 @@ impl LoopBudget {
 }
 
 /// Stop condition types per SR-SPEC
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum StopCondition {
     /// Budget exhausted (iterations, time, or cost)
@@ -98,6 +98,8 @@ pub enum StopCondition {
     LoopClosed,
     /// Work Surface missing or archived per SR-PLAN-V4 Phase 4c
     WorkSurfaceMissing,
+    /// Any other stop trigger string (kept for audit)
+    Trigger(String),
 }
 
 /// Iteration start preconditions per SR-SPEC
@@ -150,6 +152,19 @@ impl IterationPreconditions {
             Some("work_surface_missing")
         } else {
             None
+        }
+    }
+}
+
+impl StopCondition {
+    fn from_trigger(trigger: &str) -> Self {
+        match trigger {
+            "BUDGET_EXHAUSTED" => StopCondition::BudgetExhausted,
+            "HUMAN_STOP" => StopCondition::HumanStop,
+            "GOAL_ACHIEVED" => StopCondition::GoalAchieved,
+            "LOOP_CLOSED" => StopCondition::LoopClosed,
+            "WORK_SURFACE_MISSING" => StopCondition::WorkSurfaceMissing,
+            _ => StopCondition::Trigger(trigger.to_string()),
         }
     }
 }
@@ -479,12 +494,15 @@ impl<E: EventStore> LoopGovernor<E> {
             }
             "StopTriggered" => {
                 if let Some(state) = loops.get_mut(&event.stream_id) {
-                    let condition = event
+                    let trigger = event
                         .payload
-                        .get("condition")
-                        .and_then(|c| serde_json::from_value(c.clone()).ok())
-                        .unwrap_or(StopCondition::HumanStop);
-                    state.stop_triggers.push(condition);
+                        .get("trigger")
+                        .and_then(|t| t.as_str())
+                        .or_else(|| event.payload.get("condition").and_then(|c| c.as_str()))
+                        .unwrap_or("HUMAN_STOP");
+
+                    let condition = StopCondition::from_trigger(trigger);
+                    state.stop_triggers.push(condition.clone());
 
                     // Track pending portal approval if recommended_portal is specified
                     if let Some(portal) = event
@@ -611,7 +629,9 @@ impl<E: EventStore> LoopGovernor<E> {
             no_incomplete_iteration: state.current_iteration_id.is_none()
                 || state.current_iteration_state == Some(IterationState::Completed)
                 || state.current_iteration_state == Some(IterationState::Failed),
-            budget_available: iterations_remaining > 0 && runs_remaining > 0 && duration_remaining > 0,
+            budget_available: iterations_remaining > 0
+                && runs_remaining > 0
+                && duration_remaining > 0,
             delay_elapsed,
             no_stop_triggers: state.stop_triggers.is_empty(),
             approvals_satisfied: state.pending_portal_approvals.is_empty(),
@@ -846,7 +866,7 @@ impl<E: EventStore> LoopGovernor<E> {
             loop_id: loop_id.to_string(),
         })?;
 
-        state.stop_triggers.push(condition);
+        state.stop_triggers.push(condition.clone());
 
         let decision = GovernorDecision {
             decision_id: format!("dec_{}", ulid::Ulid::new()),
@@ -1164,6 +1184,45 @@ mod tests {
         let preconditions = governor.check_preconditions("loop_test").await.unwrap();
         assert!(!preconditions.budget_available);
         assert_eq!(preconditions.first_unsatisfied(), Some("budget_exhausted"));
+    }
+
+    #[tokio::test]
+    async fn stop_trigger_uses_trigger_field_and_tracks_portal() {
+        let governor = LoopGovernor::new(Arc::new(DummyEventStore));
+        governor
+            .register_loop("loop_test", LoopBudget::default(), Utc::now())
+            .await;
+
+        let event = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "loop_test".to_string(),
+            stream_kind: StreamKind::Loop,
+            stream_seq: 1,
+            global_seq: None,
+            event_type: "StopTriggered".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "tester".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload: json!({
+                "trigger": "REPEATED_FAILURE",
+                "recommended_portal": "GovernanceChangePortal",
+                "requires_decision": true
+            }),
+            envelope_hash: "hash".to_string(),
+        };
+
+        governor.handle_event(&event).await.unwrap();
+        let state = governor.get_loop_state("loop_test").await.unwrap();
+
+        assert_eq!(state.stop_triggers.len(), 1);
+        assert_eq!(
+            state.pending_portal_approvals,
+            std::collections::HashSet::from(["GovernanceChangePortal".to_string()])
+        );
     }
 
     #[test]

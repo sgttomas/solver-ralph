@@ -650,9 +650,7 @@ mod integration_tests {
         let config = test_config(&mock_server.uri());
         let provider = InfisicalSecretProvider::new(config).unwrap();
 
-        let result = provider
-            .get_envelope_key("solver-ralph/kek/test-kek")
-            .await;
+        let result = provider.get_envelope_key("solver-ralph/kek/test-kek").await;
         assert!(result.is_ok());
 
         let key = result.unwrap();
@@ -841,7 +839,11 @@ mod integration_tests {
         let provider = InfisicalSecretProvider::new(config).unwrap();
 
         let result = provider
-            .store_secret("my-new-secret", b"my-secret-value", SecretMetadata::default())
+            .store_secret(
+                "my-new-secret",
+                b"my-secret-value",
+                SecretMetadata::default(),
+            )
             .await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "my-new-secret");

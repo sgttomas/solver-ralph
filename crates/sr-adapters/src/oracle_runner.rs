@@ -435,6 +435,11 @@ impl<E: EvidenceStore> PodmanOracleRunner<E> {
         cache.insert(suite.suite_id.clone(), suite);
     }
 
+    /// Access the backing evidence store (for integrity checks)
+    pub fn evidence_store(&self) -> Arc<E> {
+        Arc::clone(&self.evidence_store)
+    }
+
     /// Get a suite definition
     pub async fn get_suite(&self, suite_id: &str) -> Option<OracleSuiteDefinition> {
         let cache = self.suite_cache.read().await;
@@ -1506,10 +1511,7 @@ mod tests {
 
         // Verify suite identity
         assert_eq!(suite.suite_id, "suite:sr-core-v1");
-        assert_eq!(
-            suite.oci_image,
-            "ghcr.io/solver-ralph/oracle-suite-core:v1"
-        );
+        assert_eq!(suite.oci_image, "ghcr.io/solver-ralph/oracle-suite-core:v1");
 
         // Verify environment constraints
         assert_eq!(suite.environment_constraints.runtime, "runsc");
@@ -1695,7 +1697,10 @@ mod tests {
 
         // Should detect a gap for oracle:unit-tests
         let result = check_for_gaps(&suite, &results);
-        assert!(result.is_err(), "Missing oracle:unit-tests should trigger gap");
+        assert!(
+            result.is_err(),
+            "Missing oracle:unit-tests should trigger gap"
+        );
 
         if let Err(IntegrityCondition::OracleGap {
             missing_oracles,
@@ -1878,8 +1883,9 @@ mod tests {
     #[test]
     fn test_semantic_set_definition_valid_json() {
         // Load and parse the bundled semantic set definition
-        let semantic_set_json =
-            include_str!("../../../oracle-suites/semantic-v1/semantic-sets/intake-admissibility.json");
+        let semantic_set_json = include_str!(
+            "../../../oracle-suites/semantic-v1/semantic-sets/intake-admissibility.json"
+        );
 
         let semantic_set: serde_json::Value =
             serde_json::from_str(semantic_set_json).expect("semantic set should be valid JSON");

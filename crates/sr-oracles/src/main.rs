@@ -975,10 +975,7 @@ async fn run_semantic_eval(
     use sr_adapters::semantic_suite::IntakeAdmissibilityRunner;
     use sr_domain::Intake;
 
-    info!(
-        "Running semantic evaluation on {}",
-        intake_path.display()
-    );
+    info!("Running semantic evaluation on {}", intake_path.display());
 
     // Read and parse intake file
     let intake_content = std::fs::read_to_string(intake_path).map_err(|e| {
@@ -1049,12 +1046,17 @@ async fn run_semantic_eval(
         "\nSemantic Evaluation Result: {:?}",
         eval_result.decision.status
     );
-    println!("  Residual norm: {:.4}", eval_result.metrics.residual.composite_norm);
-    println!("  Coverage: {:.2}%", eval_result.metrics.coverage.composite * 100.0);
+    println!(
+        "  Residual norm: {:.4}",
+        eval_result.metrics.residual.composite_norm
+    );
+    println!(
+        "  Coverage: {:.2}%",
+        eval_result.metrics.coverage.composite * 100.0
+    );
     println!(
         "  Violations: {} errors, {} warnings",
-        reports.violations.summary.error_count,
-        reports.violations.summary.warning_count
+        reports.violations.summary.error_count, reports.violations.summary.warning_count
     );
     println!("\nReports written to: {}", output_dir.display());
 

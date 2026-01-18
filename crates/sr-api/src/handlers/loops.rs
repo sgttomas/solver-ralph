@@ -378,14 +378,15 @@ pub async fn resume_loop(
     Json(body): Json<ResumeLoopRequest>,
 ) -> ApiResult<Json<LoopActionResponse>> {
     // 1. Get current Loop projection
-    let loop_proj = state
-        .projections
-        .get_loop(&loop_id)
-        .await?
-        .ok_or_else(|| ApiError::NotFound {
-            resource: "Loop".to_string(),
-            id: loop_id.clone(),
-        })?;
+    let loop_proj =
+        state
+            .projections
+            .get_loop(&loop_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Loop".to_string(),
+                id: loop_id.clone(),
+            })?;
 
     // 2. Verify Loop is PAUSED
     if loop_proj.state != "PAUSED" {
@@ -398,13 +399,16 @@ pub async fn resume_loop(
     // 3. V10-2: Check if decision is required (stop-trigger-induced pause)
     if loop_proj.requires_decision {
         // Validate decision_id was provided
-        let decision_id = body.decision_id.as_ref().ok_or_else(|| ApiError::PreconditionFailed {
-            code: "DECISION_REQUIRED".to_string(),
-            message: format!(
+        let decision_id =
+            body.decision_id
+                .as_ref()
+                .ok_or_else(|| ApiError::PreconditionFailed {
+                    code: "DECISION_REQUIRED".to_string(),
+                    message: format!(
                 "Loop was paused by {}. A Decision must be recorded and provided to resume.",
                 loop_proj.last_stop_trigger.as_deref().unwrap_or("stop trigger")
             ),
-        })?;
+                })?;
 
         // Validate decision exists
         let decision = state
@@ -418,7 +422,9 @@ pub async fn resume_loop(
 
         // Validate decision references this Loop in scope
         // The scope should contain loop_id or a reference to this Loop
-        let scope_contains_loop = decision.scope.get("loop_id")
+        let scope_contains_loop = decision
+            .scope
+            .get("loop_id")
             .and_then(|v| v.as_str())
             .map(|id| id == loop_id)
             .unwrap_or(false);
@@ -530,14 +536,15 @@ pub async fn patch_loop(
     Json(body): Json<PatchLoopRequest>,
 ) -> ApiResult<Json<LoopActionResponse>> {
     // 1. Get current Loop projection
-    let loop_proj = state
-        .projections
-        .get_loop(&loop_id)
-        .await?
-        .ok_or_else(|| ApiError::NotFound {
-            resource: "Loop".to_string(),
-            id: loop_id.clone(),
-        })?;
+    let loop_proj =
+        state
+            .projections
+            .get_loop(&loop_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Loop".to_string(),
+                id: loop_id.clone(),
+            })?;
 
     // 2. Validate Loop is not CLOSED
     if loop_proj.state == "CLOSED" {
@@ -553,8 +560,12 @@ pub async fn patch_loop(
 
     // 4. Validate budget monotonicity if budgets are being updated
     let new_budgets = if let Some(ref patch) = body.budgets {
-        let new_max_iterations = patch.max_iterations.unwrap_or(current_budgets.max_iterations);
-        let new_max_oracle_runs = patch.max_oracle_runs.unwrap_or(current_budgets.max_oracle_runs);
+        let new_max_iterations = patch
+            .max_iterations
+            .unwrap_or(current_budgets.max_iterations);
+        let new_max_oracle_runs = patch
+            .max_oracle_runs
+            .unwrap_or(current_budgets.max_oracle_runs);
         let new_max_wallclock_hours = patch
             .max_wallclock_hours
             .unwrap_or(current_budgets.max_wallclock_hours);
@@ -607,7 +618,10 @@ pub async fn patch_loop(
         payload.insert("goal".to_string(), serde_json::json!(goal));
     }
     if let Some(ref budgets) = new_budgets {
-        payload.insert("budgets".to_string(), serde_json::to_value(budgets).unwrap());
+        payload.insert(
+            "budgets".to_string(),
+            serde_json::to_value(budgets).unwrap(),
+        );
     }
 
     // 7. Create event

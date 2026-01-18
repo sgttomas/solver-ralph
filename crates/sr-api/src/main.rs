@@ -44,9 +44,9 @@ use sr_adapters::{
     PodmanOracleRunnerConfig, PostgresEventStore, ProjectionBuilder, SemanticWorkerBridge,
     SemanticWorkerConfig, SimpleCandidateWorkspace,
 };
-use tokio::sync::RwLock;
 use std::sync::Arc;
 use std::time::Instant;
+use tokio::sync::RwLock;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::{info, warn};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};

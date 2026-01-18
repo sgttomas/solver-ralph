@@ -204,8 +204,7 @@ pub struct ExtendedReplayProof {
 impl ExtendedReplayProof {
     /// Create from core proof and eligible set comparison
     pub fn new(core_proof: ReplayProof, eligible_set_comparison: EligibleSetComparison) -> Self {
-        let all_verified =
-            core_proof.is_deterministic() && eligible_set_comparison.sets_match;
+        let all_verified = core_proof.is_deterministic() && eligible_set_comparison.sets_match;
 
         Self {
             core_proof,

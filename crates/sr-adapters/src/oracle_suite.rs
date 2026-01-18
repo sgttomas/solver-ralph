@@ -66,10 +66,7 @@ impl OracleSuiteRegistry {
         suites.insert(SUITE_FULL_ID.to_string(), create_full_suite());
 
         // Register integration suite (V11-5, D-26)
-        suites.insert(
-            SUITE_INTEGRATION_ID.to_string(),
-            create_integration_suite(),
-        );
+        suites.insert(SUITE_INTEGRATION_ID.to_string(), create_integration_suite());
 
         // Register semantic oracle suite (D-39)
         let semantic_suite = create_intake_admissibility_suite();

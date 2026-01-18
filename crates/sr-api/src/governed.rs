@@ -51,8 +51,16 @@ impl GovernedManifest {
 
         // Define the governed documents to include
         let governed_docs = [
-            ("SR-DIRECTIVE", "charter/SR-DIRECTIVE.md", "governance.dev_directive"),
-            ("SR-CONTRACT", "charter/SR-CONTRACT.md", "governance.contract"),
+            (
+                "SR-DIRECTIVE",
+                "charter/SR-DIRECTIVE.md",
+                "governance.dev_directive",
+            ),
+            (
+                "SR-CONTRACT",
+                "charter/SR-CONTRACT.md",
+                "governance.contract",
+            ),
             ("SR-SPEC", "platform/SR-SPEC.md", "governance.specification"),
             ("SR-LOOPS", "platform/SR-LOOPS.md", "governance.loops_model"),
             ("SR-PLAN-V11", "planning/SR-PLAN-V11.md", "governance.plan"),
@@ -285,9 +293,6 @@ title: Test Document
         assert_eq!(ref0.kind, "GovernedArtifact");
         assert_eq!(ref0.id, "SR-DIRECTIVE");
         assert_eq!(ref0.rel, "depends_on");
-        assert_eq!(
-            ref0.meta.get("content_hash").unwrap(),
-            "sha256:abc123"
-        );
+        assert_eq!(ref0.meta.get("content_hash").unwrap(), "sha256:abc123");
     }
 }

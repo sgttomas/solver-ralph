@@ -27,6 +27,8 @@ pub async fn emit_stop_triggered(
 
     let mut payload = serde_json::json!({
         "trigger": trigger,
+        // Provide condition alias for listeners expecting `condition`
+        "condition": trigger,
         "requires_decision": requires_decision,
     });
 

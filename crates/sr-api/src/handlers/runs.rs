@@ -143,14 +143,15 @@ pub async fn start_run(
 
     // Enforce oracle run budget (SR-DIRECTIVE §4.1)
     if let Some(ref loop_id) = loop_id {
-        let loop_proj = state
-            .projections
-            .get_loop(loop_id)
-            .await?
-            .ok_or_else(|| ApiError::NotFound {
-                resource: "Loop".to_string(),
-                id: loop_id.clone(),
-            })?;
+        let loop_proj =
+            state
+                .projections
+                .get_loop(loop_id)
+                .await?
+                .ok_or_else(|| ApiError::NotFound {
+                    resource: "Loop".to_string(),
+                    id: loop_id.clone(),
+                })?;
 
         let budgets: LoopBudgets =
             serde_json::from_value(loop_proj.budgets.clone()).unwrap_or_default();

@@ -681,12 +681,11 @@ impl ProjectionBuilder {
 
         // V10-1: Track consecutive failures for REPEATED_FAILURE stop trigger (C-LOOP-3)
         // Get loop_id from the iteration, then update consecutive_failures
-        let loop_id_result: Option<(String,)> = sqlx::query_as(
-            "SELECT loop_id FROM proj.iterations WHERE iteration_id = $1",
-        )
-        .bind(iteration_id)
-        .fetch_optional(&mut **tx)
-        .await?;
+        let loop_id_result: Option<(String,)> =
+            sqlx::query_as("SELECT loop_id FROM proj.iterations WHERE iteration_id = $1")
+                .bind(iteration_id)
+                .fetch_optional(&mut **tx)
+                .await?;
 
         if let Some((loop_id,)) = loop_id_result {
             if state == "FAILED" {
@@ -932,7 +931,8 @@ impl ProjectionBuilder {
             return Err(ProjectionError::ValidationError {
                 message: format!(
                     "portal_id '{}' is not permitted (allowed: {:?})",
-                    portal_id, sr_domain::portal::SEEDED_PORTALS
+                    portal_id,
+                    sr_domain::portal::SEEDED_PORTALS
                 ),
             });
         }
@@ -2522,18 +2522,18 @@ impl ProjectionBuilder {
         Ok(rows
             .into_iter()
             .map(|row| CandidateProjection {
-            candidate_id: row.get("candidate_id"),
-            content_hash: row.get("content_hash"),
-            produced_by_iteration_id: row.get("produced_by_iteration_id"),
-            verification_status: row.get("verification_status"),
-            verification_mode: row.get("verification_mode"),
-            verification_scope: row.get("verification_scope"),
-            verification_basis: row.get("verification_basis"),
-            verification_computed_at: row.get("verification_computed_at"),
-            created_at: row.get("created_at"),
-            refs: row.get("refs"),
-        })
-        .collect())
+                candidate_id: row.get("candidate_id"),
+                content_hash: row.get("content_hash"),
+                produced_by_iteration_id: row.get("produced_by_iteration_id"),
+                verification_status: row.get("verification_status"),
+                verification_mode: row.get("verification_mode"),
+                verification_scope: row.get("verification_scope"),
+                verification_basis: row.get("verification_basis"),
+                verification_computed_at: row.get("verification_computed_at"),
+                created_at: row.get("created_at"),
+                refs: row.get("refs"),
+            })
+            .collect())
     }
 
     /// List candidates with optional verification status filter
@@ -2582,17 +2582,17 @@ impl ProjectionBuilder {
             .into_iter()
             .map(|row| CandidateProjection {
                 candidate_id: row.get("candidate_id"),
-            content_hash: row.get("content_hash"),
-            produced_by_iteration_id: row.get("produced_by_iteration_id"),
-            verification_status: row.get("verification_status"),
-            verification_mode: row.get("verification_mode"),
-            verification_scope: row.get("verification_scope"),
-            verification_basis: row.get("verification_basis"),
-            verification_computed_at: row.get("verification_computed_at"),
-            created_at: row.get("created_at"),
-            refs: row.get("refs"),
-        })
-        .collect())
+                content_hash: row.get("content_hash"),
+                produced_by_iteration_id: row.get("produced_by_iteration_id"),
+                verification_status: row.get("verification_status"),
+                verification_mode: row.get("verification_mode"),
+                verification_scope: row.get("verification_scope"),
+                verification_basis: row.get("verification_basis"),
+                verification_computed_at: row.get("verification_computed_at"),
+                created_at: row.get("created_at"),
+                refs: row.get("refs"),
+            })
+            .collect())
     }
 
     /// Get a run by ID

@@ -151,17 +151,15 @@ When all phases are complete:
 
 ## Dev Session Log (latest)
 
-- Portal whitelist enforcement and evidence lineage guards are in place (SYSTEM/oracle-only evidence, matching run/candidate/suite).
-- Verification compute endpoint emits `CandidateVerificationComputed`; projections store mode/scope/basis; freeze gating requires Verified + ReleaseApprovalPortal + no staleness; migration `010_verification_columns.sql` authored (not applied locally).
-- Governor budgets aligned to SR-DIRECTIVE defaults (5/25/16); budgets payload parsing hardened; oracle-run budget tracked and enforced at RunStarted with StopTriggered emission on exhaustion; RunStarted now carries loop/iteration refs; shared stop_trigger emitter added and reused in work-surface iteration gating.
-- `cargo test --workspace` passes (Infisical integration tests remain gated behind RUN_INFISICAL_TESTS).
+- Stop triggers now include `condition` aliases; governor consumes trigger strings and tracks recommended portals. Work-surface iteration start emits StopTriggered for `STAGE_UNKNOWN` and `SEMANTIC_PROFILE_MISSING` with GovernanceChangePortal routing.
+- OracleExecutionWorker runs IntegrityChecker post-run (tamper/gap/env/flake/evidence_missing/manifest_invalid) and emits IntegrityViolationDetected plus StopTriggered to GovernanceChangePortal; integrity domain enums expanded for evidence missing/manifest invalid.
+- Evidence-stop conditions flow via integrity violations; stage-semantic gaps now stop before iteration. `cargo test --workspace` passes (Infisical integration tests remain gated behind RUN_INFISICAL_TESTS).
 
 ## Handoff Prompt (next instance)
 
-1) Read SR-DIRECTIVE §4 and SR-CONTRACT integrity sections; keep `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` Phase 1 as the checklist.
-2) Finish Phase 1 directive alignment:
-   - Complete stop triggers: EVIDENCE_MISSING, ORACLE_FLAKE propagation, REPEATED_FAILURE, NO_ELIGIBLE_WORK, STAGE_UNKNOWN, SEMANTIC_PROFILE_MISSING, and ensure max_oracle_runs exhaustion routes StopTriggered with recommended_portal per SR-DIRECTIVE.
-   - Wire IntegrityChecker into runner/worker to emit IntegrityViolationDetected + StopTriggered for ORACLE_FLAKE/ENV_MISMATCH/TAMPER/GAP/EVIDENCE_MISSING; ensure verification/shippable respect these conditions.
-3) Ensure governor and projections honor plural `budgets` end-to-end; add tests for oracle-run exhaustion and stop emission.
-4) After Phase 1 stops/integrity are complete, mark deliverables in `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` (and blockers doc if needed); rerun `cargo test --workspace`.
-
+1) Re-read SR-DIRECTIVE §4 and SR-CONTRACT integrity sections; keep `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` Phase 1 as the checklist.
+2) Finish Phase 1 stops/integrity:
+   - Add remaining stop triggers and tests: NO_ELIGIBLE_WORK (semantic worker), ORACLE_FLAKE propagation, REPEATED_FAILURE coverage, max_oracle_runs exhaustion routing, and portal recommendations per directive.
+   - Extend integrity wiring/tests: simulate flake/gap/env/tamper/evidence-missing paths to assert IntegrityViolationDetected + StopTriggered; ensure verification/shippable honor integrity conditions.
+3) Close budget alignment gaps: honor requested budgets end-to-end, monotonic PATCH tests, projections/governor consistency.
+4) Update plan progress and blockers as needed; rerun `cargo test --workspace` before moving to next deliverables.

@@ -13,7 +13,9 @@ use sr_adapters::{
     oracle_suite::{VerificationProfile, PROFILE_STRICT_CORE},
     EvidenceManifest, OracleResultStatus,
 };
-use sr_domain::{EventEnvelope, EventId, StreamKind, TypedRef, VerificationComputer, VerificationStatus};
+use sr_domain::{
+    EventEnvelope, EventId, StreamKind, TypedRef, VerificationComputer, VerificationStatus,
+};
 use sr_ports::{EventStore, EvidenceStore};
 
 use crate::auth::AuthenticatedUser;
@@ -100,7 +102,8 @@ pub async fn verify_candidate(
     Json(body): Json<VerificationRequest>,
 ) -> ApiResult<Json<VerificationResponse>> {
     let (event_id, computation) =
-        compute_and_record_verification(&state, &candidate_id, body.verification_profile_id).await?;
+        compute_and_record_verification(&state, &candidate_id, body.verification_profile_id)
+            .await?;
 
     Ok(Json(VerificationResponse {
         candidate_id,
@@ -240,12 +243,7 @@ async fn compute_verification(
             }
         };
 
-        let manifest_bytes = match state
-            .evidence_store
-            .as_ref()
-            .retrieve(&evidence_hash)
-            .await
-        {
+        let manifest_bytes = match state.evidence_store.as_ref().retrieve(&evidence_hash).await {
             Ok(bytes) => bytes,
             Err(_) => {
                 integrity_conditions.push("EVIDENCE_MISSING".to_string());
@@ -392,8 +390,7 @@ async fn collect_active_waivers(
                     continue;
                 }
                 waiver_ids.push(exception.exception_id.clone());
-                if let Some(oracle_id) = exception.scope.get("oracle_id").and_then(|v| v.as_str())
-                {
+                if let Some(oracle_id) = exception.scope.get("oracle_id").and_then(|v| v.as_str()) {
                     waived_oracle_ids.push(oracle_id.to_string());
                 }
             }
@@ -445,8 +442,9 @@ mod tests {
     #[test]
     fn waived_fail_is_verified_with_exceptions() {
         let results = vec![("suite::oracle:lint".to_string(), false)];
-        let status = VerificationComputer::compute(&results, &["suite::oracle:lint".to_string()], false)
-            .expect("verification compute");
+        let status =
+            VerificationComputer::compute(&results, &["suite::oracle:lint".to_string()], false)
+                .expect("verification compute");
         assert_eq!(status_to_string(&status), "VERIFIED_WITH_EXCEPTIONS");
     }
 

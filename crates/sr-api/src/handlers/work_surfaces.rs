@@ -36,8 +36,8 @@ use std::sync::Arc;
 use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
-use crate::handlers::{ApiError, ApiResult};
 use crate::handlers::stop_triggers::emit_stop_triggered;
+use crate::handlers::{ApiError, ApiResult};
 use crate::templates::{TemplateCategory, TemplateRegistry};
 use crate::AppState;
 use sr_adapters::oracle_suite::OracleSuiteRegistry;
@@ -1645,6 +1645,48 @@ pub async fn start_work_surface_iteration(
         return Err(ApiError::PreconditionFailed {
             code: "LOOP_NOT_ACTIVE".to_string(),
             message: format!("Loop state is '{}', must be 'ACTIVE'", loop_proj.state),
+        });
+    }
+
+    // 3a. Validate stage exists and semantic profile is bound (C-OR-7, SR-DIRECTIVE §4.2)
+    let stage_status = ws.stage_status.as_object().cloned().unwrap_or_default();
+    if !stage_status.contains_key(&ws.current_stage_id) {
+        emit_stop_triggered(
+            &state.app_state,
+            &loop_proj.loop_id,
+            "STAGE_UNKNOWN",
+            true,
+            Some("GovernanceChangePortal"),
+        )
+        .await?;
+
+        return Err(ApiError::PreconditionFailed {
+            code: "STAGE_UNKNOWN".to_string(),
+            message: format!(
+                "Current stage '{}' is not defined in stage_status",
+                ws.current_stage_id
+            ),
+        });
+    }
+
+    let bound_suites: Vec<OracleSuiteBinding> =
+        serde_json::from_value(ws.current_oracle_suites.clone()).unwrap_or_default();
+    if bound_suites.is_empty() {
+        emit_stop_triggered(
+            &state.app_state,
+            &loop_proj.loop_id,
+            "SEMANTIC_PROFILE_MISSING",
+            true,
+            Some("GovernanceChangePortal"),
+        )
+        .await?;
+
+        return Err(ApiError::PreconditionFailed {
+            code: "SEMANTIC_PROFILE_MISSING".to_string(),
+            message: format!(
+                "No oracle suites bound for current stage '{}' on Work Surface",
+                ws.current_stage_id
+            ),
         });
     }
 

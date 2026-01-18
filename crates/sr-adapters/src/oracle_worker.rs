@@ -12,16 +12,17 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sr_domain::{
     entities::ActorKind,
     events::{
         EventEnvelope, EventId, IntegrityViolationDetected, OracleExecutionCompleted,
         OracleExecutionStarted, OracleExecutionStatus, StreamKind,
     },
-    integrity::IntegrityCondition,
+    integrity::IntegrityCondition as DomainIntegrityCondition,
 };
 use sr_ports::{
-    EventStore, EvidenceStore, MessageBusError, OracleRunResult, OracleStatus,
+    EventStore, EvidenceStore, MessageBusError, OracleRunResult, OracleRunnerError, OracleStatus,
     OracleSuiteRegistryPort,
 };
 use std::collections::HashMap;
@@ -30,6 +31,8 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::candidate_store::{CandidateWorkspace, WorkspaceError};
+use crate::evidence::EvidenceManifest;
+use crate::integrity::{IntegrityChecker, IntegrityViolation};
 use crate::nats::{streams, subjects, MessageEnvelope, NatsConsumer, NatsMessageBus};
 use crate::oracle_runner::PodmanOracleRunner;
 
@@ -141,6 +144,10 @@ struct RunStartedPayload {
     candidate_id: String,
     oracle_suite_id: String,
     oracle_suite_hash: String,
+    #[serde(default)]
+    loop_id: Option<String>,
+    #[serde(default)]
+    iteration_id: Option<String>,
 }
 
 // ============================================================================
@@ -167,6 +174,8 @@ where
     candidate_workspace: Arc<C>,
     /// Processed run IDs (for idempotency)
     processed_runs: Arc<RwLock<HashMap<String, DateTime<Utc>>>>,
+    /// Integrity checks for oracle outputs
+    integrity_checker: IntegrityChecker,
 }
 
 impl<S, R, Ev, C> OracleExecutionWorker<S, R, Ev, C>
@@ -193,7 +202,316 @@ where
             oracle_runner,
             candidate_workspace,
             processed_runs: Arc::new(RwLock::new(HashMap::new())),
+            integrity_checker: IntegrityChecker::new(Default::default()),
         }
+    }
+
+    /// Resolve loop_id from payload or persisted RunStarted event
+    async fn resolve_loop_id(&self, run_id: &str, payload: &RunStartedPayload) -> Option<String> {
+        if let Some(loop_id) = &payload.loop_id {
+            return Some(loop_id.clone());
+        }
+
+        if let Ok(events) = self.event_store.read_stream(run_id, 0, 1).await {
+            if let Some(event) = events.first() {
+                if let Some(loop_id) = event.payload.get("loop_id").and_then(Value::as_str) {
+                    return Some(loop_id.to_string());
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Emit StopTriggered for integrity/stop conditions
+    async fn emit_stop_triggered(
+        &self,
+        loop_id: &str,
+        trigger: &str,
+        recommended_portal: &str,
+    ) -> Result<(), OracleWorkerError> {
+        let events = self
+            .event_store
+            .read_stream(loop_id, 0, 1000)
+            .await
+            .map_err(|e| OracleWorkerError::EventStoreError {
+                message: e.to_string(),
+            })?;
+        let current_version = events.len() as u64;
+
+        let event_id = EventId::new();
+        let payload = serde_json::json!({
+            "trigger": trigger,
+            "condition": trigger,
+            "requires_decision": true,
+            "recommended_portal": recommended_portal,
+        });
+
+        let event = EventEnvelope {
+            event_id: event_id.clone(),
+            stream_id: loop_id.to_string(),
+            stream_kind: StreamKind::Loop,
+            stream_seq: current_version + 1,
+            global_seq: None,
+            event_type: "StopTriggered".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: self.config.worker_id.clone(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload,
+            envelope_hash: compute_envelope_hash(&event_id),
+        };
+
+        self.event_store
+            .append(loop_id, current_version, vec![event])
+            .await
+            .map_err(|e| OracleWorkerError::EventStoreError {
+                message: e.to_string(),
+            })?;
+
+        info!(
+            loop_id = %loop_id,
+            trigger = %trigger,
+            portal = %recommended_portal,
+            "StopTriggered emitted by oracle worker"
+        );
+
+        Ok(())
+    }
+
+    fn violation_code(condition: &crate::oracle_suite::IntegrityCondition) -> &'static str {
+        match condition {
+            crate::oracle_suite::IntegrityCondition::OracleTamper => "ORACLE_TAMPER",
+            crate::oracle_suite::IntegrityCondition::OracleGap => "ORACLE_GAP",
+            crate::oracle_suite::IntegrityCondition::OracleEnvMismatch => "ORACLE_ENV_MISMATCH",
+            crate::oracle_suite::IntegrityCondition::OracleFlake => "ORACLE_FLAKE",
+            crate::oracle_suite::IntegrityCondition::EvidenceMissing => "EVIDENCE_MISSING",
+            crate::oracle_suite::IntegrityCondition::ManifestInvalid => "MANIFEST_INVALID",
+        }
+    }
+
+    fn map_violation_to_domain_condition(
+        &self,
+        violation: &IntegrityViolation,
+        suite_id: &str,
+    ) -> DomainIntegrityCondition {
+        match violation.condition {
+            crate::oracle_suite::IntegrityCondition::OracleTamper => {
+                DomainIntegrityCondition::OracleTamper {
+                    expected_hash: violation
+                        .context
+                        .get("expected_manifest_hash")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    actual_hash: violation
+                        .context
+                        .get("actual_manifest_hash")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    suite_id: suite_id.to_string(),
+                }
+            }
+            crate::oracle_suite::IntegrityCondition::OracleGap => {
+                DomainIntegrityCondition::OracleGap {
+                    missing_oracles: violation
+                        .context
+                        .get("missing_oracles")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(Value::as_str)
+                                .map(ToString::to_string)
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    suite_id: suite_id.to_string(),
+                }
+            }
+            crate::oracle_suite::IntegrityCondition::OracleEnvMismatch => {
+                let violations = violation
+                    .context
+                    .get("violations")
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+                let first = violations
+                    .get(0)
+                    .and_then(|v| v.get("constraint").and_then(Value::as_str))
+                    .unwrap_or("unknown");
+
+                DomainIntegrityCondition::OracleEnvMismatch {
+                    constraint: first.to_string(),
+                    expected: violations
+                        .get(0)
+                        .and_then(|v| v.get("expected").and_then(Value::as_str))
+                        .unwrap_or_default()
+                        .to_string(),
+                    actual: violations
+                        .get(0)
+                        .and_then(|v| v.get("actual").and_then(Value::as_str))
+                        .unwrap_or_default()
+                        .to_string(),
+                }
+            }
+            crate::oracle_suite::IntegrityCondition::OracleFlake => {
+                DomainIntegrityCondition::OracleFlake {
+                    oracle_id: violation
+                        .context
+                        .get("flaky_oracles")
+                        .and_then(|v| v.as_array())
+                        .and_then(|arr| arr.first())
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                        .to_string(),
+                    run_1_hash: "".to_string(),
+                    run_2_hash: "".to_string(),
+                    description: violation.message.clone(),
+                }
+            }
+            crate::oracle_suite::IntegrityCondition::EvidenceMissing => {
+                DomainIntegrityCondition::EvidenceMissing {
+                    reason: violation.message.clone(),
+                }
+            }
+            crate::oracle_suite::IntegrityCondition::ManifestInvalid => {
+                DomainIntegrityCondition::ManifestInvalid {
+                    reason: violation.message.clone(),
+                }
+            }
+        }
+    }
+
+    /// Run post-execution integrity checks using recorded evidence
+    async fn run_integrity_checks(
+        &self,
+        run_id: &str,
+        payload: &RunStartedPayload,
+        result: &OracleRunResult,
+        duration_ms: u64,
+    ) -> Result<bool, OracleWorkerError> {
+        let suite_def = self
+            .oracle_runner
+            .get_suite(&payload.oracle_suite_id)
+            .await
+            .ok_or_else(|| OracleWorkerError::SuiteNotFound {
+                suite_id: payload.oracle_suite_id.clone(),
+            })?;
+
+        let manifest_bytes = match self
+            .oracle_runner
+            .evidence_store()
+            .retrieve(&result.evidence_bundle_hash)
+            .await
+        {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                let condition = DomainIntegrityCondition::EvidenceMissing {
+                    reason: e.to_string(),
+                };
+                self.handle_integrity_violation_condition(run_id, payload, &condition, duration_ms)
+                    .await?;
+                return Ok(false);
+            }
+        };
+
+        let manifest: EvidenceManifest = match serde_json::from_slice(&manifest_bytes) {
+            Ok(m) => m,
+            Err(e) => {
+                let condition = DomainIntegrityCondition::ManifestInvalid {
+                    reason: e.to_string(),
+                };
+                self.handle_integrity_violation_condition(run_id, payload, &condition, duration_ms)
+                    .await?;
+                return Ok(false);
+            }
+        };
+
+        let check = self
+            .integrity_checker
+            .check_integrity(
+                &payload.candidate_id,
+                run_id,
+                &manifest,
+                &suite_def,
+                None,
+                None,
+                Some(&result.evidence_bundle_hash),
+                Some(&payload.candidate_id),
+            )
+            .await;
+
+        if check.passed {
+            return Ok(true);
+        }
+
+        let loop_id = self.resolve_loop_id(run_id, payload).await;
+
+        if let Some(violation) = check.violations.first() {
+            let domain_condition =
+                self.map_violation_to_domain_condition(violation, &payload.oracle_suite_id);
+
+            self.emit_integrity_violation(
+                run_id,
+                &payload.candidate_id,
+                &payload.oracle_suite_id,
+                domain_condition,
+            )
+            .await?;
+
+            if let Some(loop_id) = loop_id {
+                let trigger = Self::violation_code(&violation.condition);
+                self.emit_stop_triggered(&loop_id, trigger, "GovernanceChangePortal")
+                    .await?;
+            }
+        }
+
+        Ok(false)
+    }
+
+    async fn handle_integrity_violation_condition(
+        &self,
+        run_id: &str,
+        payload: &RunStartedPayload,
+        condition: &DomainIntegrityCondition,
+        duration_ms: u64,
+    ) -> Result<(), OracleWorkerError> {
+        let loop_id = self.resolve_loop_id(run_id, payload).await;
+
+        if !self.config.test_mode {
+            self.emit_integrity_violation(
+                run_id,
+                &payload.candidate_id,
+                &payload.oracle_suite_id,
+                condition.clone(),
+            )
+            .await?;
+
+            if let Some(loop_id) = loop_id {
+                self.emit_stop_triggered(
+                    &loop_id,
+                    condition.condition_code(),
+                    "GovernanceChangePortal",
+                )
+                .await?;
+            }
+
+            // Also record run completion as error for projections
+            self.emit_execution_completed_error(
+                run_id,
+                &payload.candidate_id,
+                &payload.oracle_suite_id,
+                duration_ms,
+                &condition.message(),
+            )
+            .await?;
+        }
+
+        Ok(())
     }
 
     /// Start the oracle execution worker
@@ -349,27 +667,16 @@ where
                 "TAMPER DETECTED: Suite hash mismatch"
             );
 
-            // V8-3: Emit IntegrityViolationDetected event per C-OR-7
-            let condition = IntegrityCondition::OracleTamper {
+            let condition = DomainIntegrityCondition::OracleTamper {
                 expected_hash: payload.oracle_suite_hash.clone(),
                 actual_hash: suite_record.suite_hash.clone(),
                 suite_id: payload.oracle_suite_id.clone(),
             };
 
-            if !self.config.test_mode {
-                self.emit_integrity_violation(
-                    run_id,
-                    &payload.candidate_id,
-                    &payload.oracle_suite_id,
-                    condition.clone(),
-                )
+            self.handle_integrity_violation_condition(run_id, payload, &condition, 0)
                 .await?;
-            }
 
-            return Err(OracleWorkerError::SuiteHashMismatch {
-                expected: payload.oracle_suite_hash.clone(),
-                actual: suite_record.suite_hash.clone(),
-            });
+            return Ok(());
         }
         debug!("Suite hash validated");
 
@@ -413,7 +720,14 @@ where
         info!("Step 5: Emitting OracleExecutionCompleted event");
         match execution_result {
             Ok(result) => {
+                let mut emit_completion = true;
                 if !self.config.test_mode {
+                    emit_completion = self
+                        .run_integrity_checks(run_id, payload, &result, duration_ms)
+                        .await?;
+                }
+
+                if !self.config.test_mode && emit_completion {
                     self.emit_execution_completed(
                         run_id,
                         &payload.candidate_id,
@@ -429,6 +743,11 @@ where
                     evidence_hash = %result.evidence_bundle_hash,
                     "Oracle execution successful"
                 );
+                Ok(())
+            }
+            Err(OracleRunnerError::IntegrityViolation { condition }) => {
+                self.handle_integrity_violation_condition(run_id, payload, &condition, duration_ms)
+                    .await?;
                 Ok(())
             }
             Err(e) => {
@@ -668,7 +987,7 @@ where
         run_id: &str,
         candidate_id: &str,
         suite_id: &str,
-        condition: IntegrityCondition,
+        condition: DomainIntegrityCondition,
     ) -> Result<(), OracleWorkerError> {
         let event_id = EventId::new();
         let now = Utc::now();

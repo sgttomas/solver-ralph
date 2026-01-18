@@ -214,10 +214,7 @@ pub async fn create_freeze_record(
     for hash in &verification.evidence_bundle_hashes {
         if !evidence_bundle_refs.contains(hash) {
             return Err(ApiError::BadRequest {
-                message: format!(
-                    "Missing evidence bundle {} required for verification",
-                    hash
-                ),
+                message: format!("Missing evidence bundle {} required for verification", hash),
             });
         }
     }
@@ -509,7 +506,10 @@ mod tests {
     use sr_adapters::ApprovalProjection;
     use sr_domain::VerificationStatus;
 
-    fn dummy_verification(status: VerificationStatus, mode: Option<&str>) -> VerificationComputation {
+    fn dummy_verification(
+        status: VerificationStatus,
+        mode: Option<&str>,
+    ) -> VerificationComputation {
         VerificationComputation {
             candidate_id: "cand".to_string(),
             status,
@@ -566,8 +566,7 @@ mod tests {
 
     #[test]
     fn verified_and_release_approval_passes() {
-        let verification =
-            dummy_verification(VerificationStatus::VerifiedStrict, Some("STRICT"));
+        let verification = dummy_verification(VerificationStatus::VerifiedStrict, Some("STRICT"));
         assert!(ensure_verified_for_freeze(&verification, "STRICT").is_ok());
 
         let approval = dummy_approval(RELEASE_APPROVAL_PORTAL, "APPROVED");
