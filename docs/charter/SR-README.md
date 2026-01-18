@@ -43,7 +43,6 @@ Canonical index for the SR-* document set.
 | SR-SPEC | `platform/` | Platform mechanics |
 | SR-TYPES | `platform/` | Type registry and schemas |
 | SR-WORK-SURFACE | `platform/` | Work surface definitions |
-| SR-PROCEDURE-KIT | `platform/` | Procedure templates |
 | SR-SEMANTIC-ORACLE-SPEC | `platform/` | Semantic oracle interface |
 | SR-EVENT-MANAGER | `platform/` | Event projections spec |
 | SR-REPLAY-PROOF | `platform/` | Determinism proof (C-EVT-7) |
@@ -57,98 +56,57 @@ Canonical index for the SR-* document set.
 | SR-EXCEPTIONS | `build-governance/` | Exception ledger |
 | SR-PLAN | `program/` | Build plan instance |
 | SR-DIRECTIVE | `program/` | Execution policy |
-| SR-TEMPLATES | `platform/` | User configuration registry |
+| SR-TEMPLATES | `platform/` | Template definitions (merged with former SR-PROCEDURE-KIT) |
 | SR-README | `charter/` | This index |
 
 
-## Current Assignment: MVP Simplification — Planning Phase
+## Current Assignment: Execute SR-PLAN-MVP1
 
-> **Assignment:** Generate detailed implementation plans for simplifying the MVP to provide a user-friendly workflow where humans review agent work at checkpoints and decide whether to proceed.
+**Assignment:** Execute the implementation plan at `docs/planning/SR-PLAN-MVP1.md`.
 
-### Core Intent
+### Quick Start
 
-The target user experience:
-1. **Create** — Define what work to do (Work Surface)
-2. **Work** — Agent runs iterations autonomously
-3. **Checkpoint** — When stopped or stage complete, user sees summary and decides
-4. **Done** — Release approval when complete
+1. **Read the plan:** `docs/planning/SR-PLAN-MVP1.md`
+2. **Start at:** Task A1 (Documentation)
+3. **Follow:** The execution order diagram in the plan
+4. **Verify:** Each task has verification commands — run them before moving on
+5. **Gate:** Complete the Part A Completion Gate before starting Part B
 
-The user should **never** have to manually select evidence bundles from a list of hashes.
+### What You're Implementing
 
----
+| Part | Description | Key Outcome |
+|------|-------------|-------------|
+| **Part A** | Nomenclature Refactor | `ProcedureTemplate` → `Template`, remove `GateRule` |
+| **Part B** | Fresh UI Build | New WorkScreen with auto-linked evidence |
 
-### Task: Generate Implementation Plans
+### Critical Path
 
-Create detailed implementation plans in `docs/planning/` for each of the following deliverables. Each plan should specify:
+```
+A1 → A2 → A3 → A4/A5 → A5.5 → A6 → A7 → A8 → [Part A Gate] → B1 → B2 → B3 → B4 → B5 → B6 → B7
+```
 
-- **Files to modify** (with specific functions/components)
-- **New files to create** (migrations, endpoints, components)
-- **Data flow** (how information moves through the system)
-- **API contracts** (request/response shapes)
-- **UI wireframes** (text-based description of the interface)
-- **Test cases** (what to verify)
-- **Migration/backfill strategy** (for existing data)
+### Key Documents to Reference
 
----
-
-### Deliverables to Plan
-
-#### MVP-1: Auto-Link Evidence to Work Surface/Stage
-
-**Problem:** Evidence bundles are tracked by `run_id`/`candidate_id` but not by `work_surface_id`/`stage_id`, forcing users to manually select from cryptic hashes.
-
-**Plan should cover:**
-- Database migration for new columns
-- Projection handler changes to populate them
-- API endpoint to query evidence by work surface + stage
-- Backfill strategy for existing evidence bundles
-- How evidence gets associated during iteration execution
-
----
-
-#### MVP-2: Unified Work Surface View
-
-**Problem:** Users bounce between Work Surfaces page (context) and Loops page (state).
-
-**Plan should cover:**
-- What loop data to embed in Work Surface detail view
-- Decision UI component design
-- API changes needed (or existing endpoints to use)
-- Which Loops page features to keep vs. remove
-- Navigation/routing changes
-
----
-
-#### MVP-3: Simplified Stage Completion
-
-**Problem:** Stage completion form requires manual evidence selection, gate result radio buttons, oracle result entry.
-
-**Plan should cover:**
-- New stage completion component design
-- Auto-fetch evidence logic
-- Oracle result summary display format
-- Button actions and their API calls
-- Waiver flow (when failures exist)
-- What to do when no evidence exists for the stage
-
----
-
-### Output
-
-Create the following files:
-
-1. `docs/planning/MVP-1-EVIDENCE-LINKING.md` — Plan for auto-linking evidence
-2. `docs/planning/MVP-2-UNIFIED-VIEW.md` — Plan for unified Work Surface view
-3. `docs/planning/MVP-3-SIMPLE-COMPLETION.md` — Plan for simplified stage completion
-
-Each plan should be detailed enough that implementation can proceed without ambiguity.
+| Document | When to Reference |
+|----------|-------------------|
+| `docs/planning/SR-PLAN-MVP1.md` | Primary task list and verification steps |
+| `docs/platform/SR-TEMPLATES.md` | Template schema (update in A1) |
+| `docs/platform/SR-WORK-SURFACE.md` | Work surface definitions |
+| `docs/platform/SR-CONTRACT.md` | Binding invariants |
 
 ### Success Criteria
 
-1. Plans are complete and unambiguous
-2. Plans identify all files that need modification
-3. Plans include test cases
-4. Plans address backward compatibility with existing data
-5. Plans are reviewed and approved before implementation begins
+**Part A Complete When:**
+- All `grep` searches for old terminology return 0 results
+- `SR-PROCEDURE-KIT.md` deleted
+- All tests pass (`cargo test --workspace`)
+- UI compiles and typechecks
+- API responds with new field names
+
+**Part B Complete When:**
+- WorkScreen renders at `/work/{id}`
+- Evidence loads automatically (no hash selection)
+- Approve/Reject/Waive actions functional
+- End-to-end test passes
 
 ---
