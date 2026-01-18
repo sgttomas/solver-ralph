@@ -68,7 +68,7 @@ Canonical index for the SR-* document set.
 1) Use `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` as the execution guide. Phase 1 checkpoints complete to date: **P1-STOPS-COMPLETE**, **P1-INTEGRITY-WIRE**, **P1-BUDGET-GOV**, **P1-SHIP-GATE**.
 2) P1-BUDGET-GOV state: defaults aligned (5/25/16), `budgets` payload honored end-to-end (API → projections → governor), `max_oracle_runs` exhaustion emits `StopTriggered` with HumanAuthority routing, and budget extensions via `LoopUpdated` clear budget-exhausted stops.
 3) P1-SHIP-GATE state: freeze creation blocks on Verified (Strict/With-Exceptions), requires ReleaseApprovalPortal approval acknowledging active exceptions, and rejects unresolved staleness on candidate/oracle suite/artifact manifest; unit coverage added for unverified/stale/missing-approval/acknowledged paths.
-4) **Next immediate work (Phase 1 semantic/API gaps):** implement P1-STALENESS-API, P1-EVID-STATUS, P1-NOTES-API per SR-SPEC/SR-CONTRACT/SR-DIRECTIVE; run `cargo test --workspace` after each deliverable and update the audit plan/blockers.
+4) **Next immediate work (Phase 2 / Ontological completeness):** implement P2-TYPES-NOTES, P2-TYPES-CONFIG, P2-TYPES-PROC/LOOPREC, P2-REFS-VALIDATION per SR-SPEC/SR-TYPES; run `cargo test --workspace` after each deliverable and update the audit plan/blockers.
 
 ### Input Documents
 

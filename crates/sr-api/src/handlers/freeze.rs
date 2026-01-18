@@ -618,7 +618,10 @@ mod tests {
 
     #[test]
     fn stale_entities_are_rejected() {
-        let reasons = vec!["candidate cand1".to_string(), "oracle suite suite1".to_string()];
+        let reasons = vec![
+            "candidate cand1".to_string(),
+            "oracle suite suite1".to_string(),
+        ];
         let err = ensure_no_stale(&reasons).unwrap_err();
         assert!(format!("{err:?}").contains("candidate cand1"));
 

@@ -29,7 +29,7 @@ use handlers::{
     approvals, attachments, candidates, decisions, evidence, exceptions, freeze, intakes,
     iterations, loops, oracles,
     prompt_loop::{prompt_loop, prompt_loop_stream},
-    references, runs, templates, verification, work_surfaces,
+    records, references, runs, staleness, templates, verification, work_surfaces,
 };
 use observability::{
     metrics_endpoint, ready_endpoint, request_context_middleware, Metrics, MetricsState,
@@ -301,6 +301,10 @@ fn create_router(
             get(evidence::get_evidence),
         )
         .route(
+            "/api/v1/evidence/:content_hash/status",
+            get(evidence::get_evidence_status),
+        )
+        .route(
             "/api/v1/evidence/:content_hash/associate",
             post(evidence::associate_evidence),
         )
@@ -501,6 +505,30 @@ fn create_router(
         )
         .with_state(references_state);
 
+    // Staleness routes per SR-SPEC §2.3.9
+    let staleness_routes = Router::new()
+        .route("/api/v1/staleness/mark", post(staleness::mark_staleness))
+        .route(
+            "/api/v1/staleness/dependents",
+            get(staleness::list_stale_dependents),
+        )
+        .route(
+            "/api/v1/staleness/:stale_id/resolve",
+            post(staleness::resolve_staleness),
+        );
+
+    // Human judgment records (non-binding notes)
+    let record_routes = Router::new()
+        .route(
+            "/api/v1/records/evaluation-notes",
+            post(records::create_evaluation_note),
+        )
+        .route(
+            "/api/v1/records/assessment-notes",
+            post(records::create_assessment_note),
+        )
+        .route("/api/v1/records/:record_id", get(records::get_record));
+
     // Combine all routes (D-33: request context middleware for correlation tracking)
     Router::new()
         .merge(public_routes)
@@ -522,6 +550,8 @@ fn create_router(
         .merge(work_surface_routes)
         .merge(attachment_routes)
         .merge(references_routes)
+        .merge(staleness_routes)
+        .merge(record_routes)
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(request_context_middleware))
         .layer(TraceLayer::new_for_http())

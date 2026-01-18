@@ -7,6 +7,7 @@
 //! - Association with runs/candidates/iterations
 //! - Listing evidence for runs and candidates
 
+use axum::async_trait;
 use axum::{
     extract::{Path, Query, State},
     Json,
@@ -14,6 +15,7 @@ use axum::{
 use base64::Engine;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use sr_adapters::MinioEvidenceStore;
 use sr_adapters::{EvidenceArtifact, EvidenceManifest};
 use sr_domain::{EventEnvelope, EventId, StreamKind};
 use sr_ports::{EventStore, EvidenceStore};
@@ -141,6 +143,18 @@ pub struct BlobResponse {
     /// Base64-encoded blob content
     pub content: String,
     pub size: usize,
+}
+
+/// Evidence availability/status response
+#[derive(Debug, Serialize)]
+pub struct EvidenceStatusResponse {
+    pub content_hash: String,
+    pub available: bool,
+    pub integrity_ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_verified_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
 }
 
 // ============================================================================
@@ -388,6 +402,19 @@ pub async fn get_evidence(
         manifest,
         blob_names,
     }))
+}
+
+/// Get evidence availability/status
+///
+/// GET /api/v1/evidence/{content_hash}/status
+#[instrument(skip(state, _user))]
+pub async fn get_evidence_status(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+    Path(content_hash): Path<String>,
+) -> ApiResult<Json<EvidenceStatusResponse>> {
+    let status = evidence_status(&*state.evidence_store, &content_hash).await?;
+    Ok(Json(status))
 }
 
 /// Get a specific blob from an evidence bundle
@@ -845,6 +872,61 @@ pub struct VerifyEvidenceResponse {
 // Helper Functions
 // ============================================================================
 
+#[async_trait]
+trait EvidenceStatusOps {
+    async fn status_exists(&self, content_hash: &str) -> Result<bool, ApiError>;
+    async fn status_verify(&self, content_hash: &str) -> Result<bool, ApiError>;
+}
+
+#[async_trait]
+impl EvidenceStatusOps for MinioEvidenceStore {
+    async fn status_exists(&self, content_hash: &str) -> Result<bool, ApiError> {
+        EvidenceStore::exists(self, content_hash)
+            .await
+            .map_err(|e| ApiError::Internal {
+                message: format!("Failed to check evidence existence: {}", e),
+            })
+    }
+
+    async fn status_verify(&self, content_hash: &str) -> Result<bool, ApiError> {
+        MinioEvidenceStore::verify_integrity(self, content_hash)
+            .await
+            .map_err(|e| ApiError::Internal {
+                message: format!("Failed to verify evidence integrity: {}", e),
+            })
+    }
+}
+
+async fn evidence_status<S: EvidenceStatusOps + Sync>(
+    store: &S,
+    content_hash: &str,
+) -> Result<EvidenceStatusResponse, ApiError> {
+    let exists = store.status_exists(content_hash).await?;
+    if !exists {
+        return Ok(EvidenceStatusResponse {
+            content_hash: content_hash.to_string(),
+            available: false,
+            integrity_ok: false,
+            last_verified_at: None,
+            error_code: Some("EVIDENCE_MISSING".to_string()),
+        });
+    }
+
+    let integrity_ok = store.status_verify(content_hash).await?;
+
+    Ok(EvidenceStatusResponse {
+        content_hash: content_hash.to_string(),
+        available: true,
+        integrity_ok,
+        last_verified_at: Some(Utc::now().to_rfc3339()),
+        error_code: if integrity_ok {
+            None
+        } else {
+            Some("EVIDENCE_INTEGRITY_FAILED".to_string())
+        },
+    })
+}
+
 fn compute_envelope_hash(event_id: &EventId) -> String {
     format!("sha256:{}", event_id.as_str().replace("evt_", ""))
 }
@@ -929,5 +1011,61 @@ mod tests {
         let user = dummy_user(ActorKind::System);
         let run = dummy_run("SYSTEM");
         assert!(enforce_evidence_lineage(&user, &run).is_ok());
+    }
+
+    struct MockStatusStore {
+        exists: bool,
+        integrity_ok: bool,
+    }
+
+    #[async_trait]
+    impl EvidenceStatusOps for MockStatusStore {
+        async fn status_exists(&self, _content_hash: &str) -> Result<bool, ApiError> {
+            Ok(self.exists)
+        }
+
+        async fn status_verify(&self, _content_hash: &str) -> Result<bool, ApiError> {
+            Ok(self.integrity_ok)
+        }
+    }
+
+    #[tokio::test]
+    async fn status_reports_missing() {
+        let store = MockStatusStore {
+            exists: false,
+            integrity_ok: false,
+        };
+        let status = evidence_status(&store, "sha256:missing")
+            .await
+            .expect("status");
+        assert!(!status.available);
+        assert_eq!(status.error_code.as_deref(), Some("EVIDENCE_MISSING"));
+    }
+
+    #[tokio::test]
+    async fn status_reports_integrity_failure() {
+        let store = MockStatusStore {
+            exists: true,
+            integrity_ok: false,
+        };
+        let status = evidence_status(&store, "sha256:bad").await.expect("status");
+        assert!(status.available);
+        assert!(!status.integrity_ok);
+        assert_eq!(
+            status.error_code.as_deref(),
+            Some("EVIDENCE_INTEGRITY_FAILED")
+        );
+    }
+
+    #[tokio::test]
+    async fn status_reports_ok() {
+        let store = MockStatusStore {
+            exists: true,
+            integrity_ok: true,
+        };
+        let status = evidence_status(&store, "sha256:ok").await.expect("status");
+        assert!(status.available);
+        assert!(status.integrity_ok);
+        assert!(status.error_code.is_none());
     }
 }

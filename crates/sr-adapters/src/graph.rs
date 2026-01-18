@@ -504,13 +504,21 @@ impl GraphProjection {
                 String,
                 String,
                 String,
+                String,
+                String,
                 Option<String>,
                 DateTime<Utc>,
+                String,
+                String,
+                Option<DateTime<Utc>>,
+                Option<String>,
             ),
         >(
             r#"
-            SELECT stale_id, root_kind, root_id, reason_code, reason_detail, marked_at
-            FROM graph.get_staleness_markers($1)
+            SELECT stale_id, root_kind, root_id, dependent_kind, dependent_id, reason_code, reason_detail, marked_at, marked_by_kind, marked_by_id, resolved_at, resolution_event_id
+            FROM graph.stale_nodes
+            WHERE dependent_id = $1 AND resolved_at IS NULL
+            ORDER BY marked_at DESC
             "#,
         )
         .bind(node_id)
@@ -520,24 +528,167 @@ impl GraphProjection {
         Ok(rows
             .into_iter()
             .map(
-                |(stale_id, root_kind, root_id, reason_code, reason_detail, marked_at)| {
-                    StalenessMarker {
-                        stale_id,
-                        root_kind,
-                        root_id,
-                        dependent_kind: String::new(), // Not returned by this function
-                        dependent_id: node_id.to_string(),
-                        reason_code,
-                        reason_detail,
-                        marked_at,
-                        marked_by_kind: String::new(),
-                        marked_by_id: String::new(),
-                        resolved_at: None,
-                        resolution_event_id: None,
-                    }
+                |(
+                    stale_id,
+                    root_kind,
+                    root_id,
+                    dependent_kind,
+                    dependent_id,
+                    reason_code,
+                    reason_detail,
+                    marked_at,
+                    marked_by_kind,
+                    marked_by_id,
+                    resolved_at,
+                    resolution_event_id,
+                )| StalenessMarker {
+                    stale_id,
+                    root_kind,
+                    root_id,
+                    dependent_kind,
+                    dependent_id,
+                    reason_code,
+                    reason_detail,
+                    marked_at,
+                    marked_by_kind,
+                    marked_by_id,
+                    resolved_at,
+                    resolution_event_id,
                 },
             )
             .collect())
+    }
+
+    /// Get unresolved stale dependents for a root node
+    pub async fn get_stale_dependents(
+        &self,
+        root_kind: &str,
+        root_id: &str,
+    ) -> Result<Vec<StalenessMarker>, GraphError> {
+        let rows = sqlx::query_as::<
+            _,
+            (
+                String,
+                String,
+                String,
+                String,
+                String,
+                String,
+                Option<String>,
+                DateTime<Utc>,
+                String,
+                String,
+                Option<DateTime<Utc>>,
+                Option<String>,
+            ),
+        >(
+            r#"
+            SELECT stale_id, root_kind, root_id, dependent_kind, dependent_id, reason_code, reason_detail, marked_at, marked_by_kind, marked_by_id, resolved_at, resolution_event_id
+            FROM graph.stale_nodes
+            WHERE root_kind = $1 AND root_id = $2 AND resolved_at IS NULL
+            ORDER BY marked_at DESC
+            "#,
+        )
+        .bind(root_kind)
+        .bind(root_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(
+                |(
+                    stale_id,
+                    root_kind,
+                    root_id,
+                    dependent_kind,
+                    dependent_id,
+                    reason_code,
+                    reason_detail,
+                    marked_at,
+                    marked_by_kind,
+                    marked_by_id,
+                    resolved_at,
+                    resolution_event_id,
+                )| StalenessMarker {
+                    stale_id,
+                    root_kind,
+                    root_id,
+                    dependent_kind,
+                    dependent_id,
+                    reason_code,
+                    reason_detail,
+                    marked_at,
+                    marked_by_kind,
+                    marked_by_id,
+                    resolved_at,
+                    resolution_event_id,
+                },
+            )
+            .collect())
+    }
+
+    /// Get a staleness marker by id
+    pub async fn get_staleness_marker_by_id(
+        &self,
+        stale_id: &str,
+    ) -> Result<Option<StalenessMarker>, GraphError> {
+        let result = sqlx::query_as::<
+            _,
+            (
+                String,
+                String,
+                String,
+                String,
+                String,
+                String,
+                Option<String>,
+                DateTime<Utc>,
+                String,
+                String,
+                Option<DateTime<Utc>>,
+                Option<String>,
+            ),
+        >(
+            r#"
+            SELECT stale_id, root_kind, root_id, dependent_kind, dependent_id, reason_code, reason_detail, marked_at, marked_by_kind, marked_by_id, resolved_at, resolution_event_id
+            FROM graph.stale_nodes
+            WHERE stale_id = $1
+            "#,
+        )
+        .bind(stale_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result.map(
+            |(
+                stale_id,
+                root_kind,
+                root_id,
+                dependent_kind,
+                dependent_id,
+                reason_code,
+                reason_detail,
+                marked_at,
+                marked_by_kind,
+                marked_by_id,
+                resolved_at,
+                resolution_event_id,
+            )| StalenessMarker {
+                stale_id,
+                root_kind,
+                root_id,
+                dependent_kind,
+                dependent_id,
+                reason_code,
+                reason_detail,
+                marked_at,
+                marked_by_kind,
+                marked_by_id,
+                resolved_at,
+                resolution_event_id,
+            },
+        ))
     }
 
     /// Propagate staleness to dependents

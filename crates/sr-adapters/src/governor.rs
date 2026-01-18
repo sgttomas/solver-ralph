@@ -413,9 +413,9 @@ impl<E: EventStore> LoopGovernor<E> {
             "LoopUpdated" => {
                 if let Some(state) = loops.get_mut(&event.stream_id) {
                     if let Some(budget_val) = event.payload.get("budgets") {
-                        if let Ok(new_budget) = serde_json::from_value::<LoopBudget>(
-                            budget_val.clone(),
-                        ) {
+                        if let Ok(new_budget) =
+                            serde_json::from_value::<LoopBudget>(budget_val.clone())
+                        {
                             let previous_budget = state.budget.clone();
                             state.budget = new_budget;
 
@@ -1499,17 +1499,13 @@ mod tests {
             .await
             .expect("loop exists");
         assert_eq!(state.budget.max_oracle_runs, 3);
-        assert!(
-            !state
-                .stop_triggers
-                .iter()
-                .any(|c| matches!(c, StopCondition::BudgetExhausted))
-        );
-        assert!(
-            !state
-                .pending_portal_approvals
-                .contains("HumanAuthorityExceptionProcess")
-        );
+        assert!(!state
+            .stop_triggers
+            .iter()
+            .any(|c| matches!(c, StopCondition::BudgetExhausted)));
+        assert!(!state
+            .pending_portal_approvals
+            .contains("HumanAuthorityExceptionProcess"));
 
         let pre_after = governor
             .check_preconditions("loop_budget_update")

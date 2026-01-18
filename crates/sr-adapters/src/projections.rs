@@ -7,6 +7,7 @@
 //! - Tracks last processed event (global_seq) for incremental updates
 //! - All projections rebuildable from es.events alone
 
+use crate::graph::GraphProjection;
 use chrono::{DateTime, Utc};
 use sqlx::{postgres::PgRow, PgPool, Row};
 use sr_domain::{is_seeded_portal, EventEnvelope, EventId};
@@ -22,6 +23,9 @@ pub enum ProjectionError {
     #[error("Database error: {message}")]
     DatabaseError { message: String },
 
+    #[error("Graph error: {message}")]
+    GraphError { message: String },
+
     #[error("Validation error: {message}")]
     ValidationError { message: String },
 
@@ -35,6 +39,14 @@ pub enum ProjectionError {
 impl From<sqlx::Error> for ProjectionError {
     fn from(e: sqlx::Error) -> Self {
         ProjectionError::DatabaseError {
+            message: e.to_string(),
+        }
+    }
+}
+
+impl From<crate::GraphError> for ProjectionError {
+    fn from(e: crate::GraphError) -> Self {
+        ProjectionError::GraphError {
             message: e.to_string(),
         }
     }
@@ -195,6 +207,10 @@ impl ProjectionBuilder {
     /// Apply a single event to projections
     #[instrument(skip(self, event), fields(event_id = %event.event_id.as_str(), event_type = %event.event_type))]
     pub async fn apply_event(&self, event: &EventEnvelope) -> Result<(), ProjectionError> {
+        // Keep the graph projection in sync for dependency and staleness queries
+        let graph = GraphProjection::new(self.pool.clone());
+        graph.process_event(event).await?;
+
         let mut tx = self.pool.begin().await?;
 
         let result = match event.event_type.as_str() {
@@ -242,6 +258,14 @@ impl ProjectionBuilder {
             // Decision events
             "DecisionRecorded" => self.apply_decision_recorded(&mut tx, event).await,
 
+            // Record events (human judgment notes are non-binding)
+            "RecordCreated" => self.apply_record_created(&mut tx, event).await,
+
+            // Staleness events
+            "NodeMarkedStale" => self.apply_node_marked_stale(&mut tx, event).await,
+            "StalenessResolved" => self.apply_staleness_resolved(&mut tx, event).await,
+            "ReEvaluationTriggered" => Ok(()),
+
             // Governed artifact events
             "GovernedArtifactVersionRecorded" => {
                 self.apply_governed_artifact_recorded(&mut tx, event).await
@@ -270,11 +294,7 @@ impl ProjectionBuilder {
             | "OracleSuiteUpdated"
             | "OracleSuitePinned"
             | "OracleSuiteRebased"
-            | "NodeMarkedStale"
-            | "ReEvaluationTriggered"
-            | "StalenessResolved"
             | "EvidenceMissingDetected"
-            | "RecordCreated"
             | "RecordSuperseded"
             | "WorkSurfaceRecorded"
             | "ProcedureTemplateSelected"
@@ -1234,6 +1254,175 @@ impl ProjectionBuilder {
     }
 
     // ========================================================================
+    // Record Event Handlers (human judgment, non-binding)
+    // ========================================================================
+
+    async fn apply_record_created(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let record_type = payload["record_type"].as_str().unwrap_or("");
+
+        // Only project human judgment records here
+        if record_type != "record.evaluation_note" && record_type != "record.assessment_note" {
+            return Ok(());
+        }
+
+        if !matches!(event.actor_kind, sr_domain::ActorKind::Human) {
+            return Err(ProjectionError::ValidationError {
+                message: "Human judgment records MUST be recorded by HUMAN actors (per C-TB-7)"
+                    .into(),
+            });
+        }
+
+        let subject_refs = payload["subject_refs"].clone();
+        let evidence_refs: Vec<&str> = payload["evidence_refs"]
+            .as_array()
+            .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
+            .unwrap_or_default();
+        let content = payload["content"].as_str().unwrap_or("");
+        let severity = payload["severity"].as_str();
+        let fitness_judgment = payload["fitness_judgment"].as_str();
+        let recommendations = payload["recommendations"].as_str();
+
+        sqlx::query(
+            r#"
+            INSERT INTO proj.human_judgment_records (
+                record_id, record_type, subject_refs, evidence_refs, content, severity,
+                fitness_judgment, recommendations, is_binding, recorded_by_kind, recorded_by_id,
+                recorded_at, last_event_id, last_global_seq
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE, $9, $10, $11, $12, $13)
+            ON CONFLICT (record_id) DO UPDATE
+            SET subject_refs = $3, evidence_refs = $4, content = $5, severity = $6,
+                fitness_judgment = $7, recommendations = $8, recorded_by_kind = $9,
+                recorded_by_id = $10, recorded_at = $11, last_event_id = $12, last_global_seq = $13
+            "#,
+        )
+        .bind(&event.stream_id)
+        .bind(record_type)
+        .bind(subject_refs)
+        .bind(&evidence_refs)
+        .bind(content)
+        .bind(severity)
+        .bind(fitness_judgment)
+        .bind(recommendations)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.occurred_at)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .execute(&mut **tx)
+        .await?;
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Staleness Event Handlers
+    // ========================================================================
+
+    async fn apply_node_marked_stale(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let dependent_id = payload["dependent_id"].as_str().unwrap_or("").to_string();
+        let dependent_kind = payload["dependent_kind"].as_str().unwrap_or("");
+
+        if dependent_id.is_empty() {
+            return Ok(());
+        }
+
+        // Update shippable status if the dependent is a candidate
+        if dependent_kind.eq_ignore_ascii_case("candidate") {
+            sqlx::query(
+                r#"
+                INSERT INTO proj.shippable_status (
+                    candidate_id, is_verified, verification_mode, latest_evidence_hash,
+                    release_approval_id, freeze_id, has_unresolved_staleness,
+                    computed_at, last_event_id, last_global_seq
+                ) VALUES ($1, FALSE, NULL, NULL, NULL, NULL, TRUE, $2, $3, $4)
+                ON CONFLICT (candidate_id) DO UPDATE
+                SET has_unresolved_staleness = TRUE, computed_at = $2, last_event_id = $3, last_global_seq = $4
+                "#,
+            )
+            .bind(&dependent_id)
+            .bind(event.occurred_at)
+            .bind(event.event_id.as_str())
+            .bind(event.global_seq.unwrap_or(0) as i64)
+            .execute(&mut **tx)
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn apply_staleness_resolved(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let stale_id = payload["stale_id"].as_str().unwrap_or("");
+
+        if stale_id.is_empty() {
+            return Ok(());
+        }
+
+        // Look up the dependent for this stale marker
+        let row = sqlx::query_as::<_, (String, String)>(
+            r#"
+            SELECT dependent_id, dependent_kind
+            FROM graph.stale_nodes
+            WHERE stale_id = $1
+            "#,
+        )
+        .bind(stale_id)
+        .fetch_optional(&mut **tx)
+        .await?;
+
+        if let Some((dependent_id, dependent_kind)) = row {
+            if dependent_kind.eq_ignore_ascii_case("candidate") {
+                let has_unresolved: bool = sqlx::query_scalar(
+                    r#"
+                    SELECT EXISTS (
+                        SELECT 1 FROM graph.stale_nodes
+                        WHERE dependent_id = $1 AND resolved_at IS NULL
+                    )
+                    "#,
+                )
+                .bind(&dependent_id)
+                .fetch_one(&mut **tx)
+                .await?;
+
+                sqlx::query(
+                    r#"
+                    INSERT INTO proj.shippable_status (
+                        candidate_id, is_verified, verification_mode, latest_evidence_hash,
+                        release_approval_id, freeze_id, has_unresolved_staleness,
+                        computed_at, last_event_id, last_global_seq
+                    ) VALUES ($1, FALSE, NULL, NULL, NULL, NULL, $2, $3, $4, $5)
+                    ON CONFLICT (candidate_id) DO UPDATE
+                    SET has_unresolved_staleness = $2, computed_at = $3, last_event_id = $4, last_global_seq = $5
+                    "#,
+                )
+                .bind(&dependent_id)
+                .bind(has_unresolved)
+                .bind(event.occurred_at)
+                .bind(event.event_id.as_str())
+                .bind(event.global_seq.unwrap_or(0) as i64)
+                .execute(&mut **tx)
+                .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    // ========================================================================
     // Governed Artifact Event Handlers
     // ========================================================================
 
@@ -2106,6 +2295,19 @@ pub struct CandidateProjection {
     pub refs: serde_json::Value,
 }
 
+/// Shippable status projection per SR-SPEC §1.12.5
+#[derive(Debug, Clone)]
+pub struct ShippableStatusProjection {
+    pub candidate_id: String,
+    pub is_verified: bool,
+    pub verification_mode: Option<String>,
+    pub latest_evidence_hash: Option<String>,
+    pub release_approval_id: Option<String>,
+    pub freeze_id: Option<String>,
+    pub has_unresolved_staleness: bool,
+    pub computed_at: DateTime<Utc>,
+}
+
 /// Run projection read model
 #[derive(Debug, Clone)]
 pub struct RunProjection {
@@ -2134,6 +2336,22 @@ pub struct ApprovalProjection {
     pub approved_by_kind: String,
     pub approved_by_id: String,
     pub approved_at: DateTime<Utc>,
+}
+
+/// Human judgment record projection read model
+#[derive(Debug, Clone)]
+pub struct HumanJudgmentRecord {
+    pub record_id: String,
+    pub record_type: String,
+    pub subject_refs: serde_json::Value,
+    pub evidence_refs: Vec<String>,
+    pub content: String,
+    pub severity: Option<String>,
+    pub fitness_judgment: Option<String>,
+    pub recommendations: Option<String>,
+    pub recorded_by_kind: String,
+    pub recorded_by_id: String,
+    pub recorded_at: DateTime<Utc>,
 }
 
 /// Exception projection read model
@@ -2595,6 +2813,35 @@ impl ProjectionBuilder {
             .collect())
     }
 
+    /// Get shippable status for a candidate
+    pub async fn get_shippable_status(
+        &self,
+        candidate_id: &str,
+    ) -> Result<Option<ShippableStatusProjection>, ProjectionError> {
+        let row = sqlx::query(
+            r#"
+            SELECT candidate_id, is_verified, verification_mode, latest_evidence_hash,
+                   release_approval_id, freeze_id, has_unresolved_staleness, computed_at
+            FROM proj.shippable_status
+            WHERE candidate_id = $1
+            "#,
+        )
+        .bind(candidate_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|row| ShippableStatusProjection {
+            candidate_id: row.get("candidate_id"),
+            is_verified: row.get("is_verified"),
+            verification_mode: row.get("verification_mode"),
+            latest_evidence_hash: row.get("latest_evidence_hash"),
+            release_approval_id: row.get("release_approval_id"),
+            freeze_id: row.get("freeze_id"),
+            has_unresolved_staleness: row.get("has_unresolved_staleness"),
+            computed_at: row.get("computed_at"),
+        }))
+    }
+
     /// Get a run by ID
     pub async fn get_run(&self, run_id: &str) -> Result<Option<RunProjection>, ProjectionError> {
         let result = sqlx::query(
@@ -2854,6 +3101,43 @@ impl ProjectionBuilder {
             approved_by_kind: row.get("approved_by_kind"),
             approved_by_id: row.get("approved_by_id"),
             approved_at: row.get("approved_at"),
+        }))
+    }
+
+    // ========================================================================
+    // Human Judgment Record Query Methods
+    // ========================================================================
+
+    /// Get an evaluation or assessment note
+    pub async fn get_human_judgment_record(
+        &self,
+        record_id: &str,
+    ) -> Result<Option<HumanJudgmentRecord>, ProjectionError> {
+        let row = sqlx::query(
+            r#"
+            SELECT record_id, record_type, subject_refs, evidence_refs, content,
+                   severity, fitness_judgment, recommendations, recorded_by_kind,
+                   recorded_by_id, recorded_at
+            FROM proj.human_judgment_records
+            WHERE record_id = $1
+            "#,
+        )
+        .bind(record_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|row| HumanJudgmentRecord {
+            record_id: row.get("record_id"),
+            record_type: row.get("record_type"),
+            subject_refs: row.get("subject_refs"),
+            evidence_refs: row.get("evidence_refs"),
+            content: row.get("content"),
+            severity: row.get("severity"),
+            fitness_judgment: row.get("fitness_judgment"),
+            recommendations: row.get("recommendations"),
+            recorded_by_kind: row.get("recorded_by_kind"),
+            recorded_by_id: row.get("recorded_by_id"),
+            recorded_at: row.get("recorded_at"),
         }))
     }
 

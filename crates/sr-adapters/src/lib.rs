@@ -101,8 +101,9 @@ pub use postgres::PostgresEventStore;
 pub use postgres_oracle_registry::PostgresOracleSuiteRegistry;
 pub use projections::{
     ApprovalProjection, CandidateProjection, DecisionProjection, EvidenceProjection,
-    ExceptionProjection, FreezeRecordProjection, IterationProjection, LoopProjection,
-    ProjectionBuilder, ProjectionConfig, ProjectionError, RunProjection,
+    ExceptionProjection, FreezeRecordProjection, HumanJudgmentRecord, IterationProjection,
+    LoopProjection, ProjectionBuilder, ProjectionConfig, ProjectionError, RunProjection,
+    ShippableStatusProjection,
 };
 pub use replay::{EligibleSetComparison, ExtendedReplayProof, ReplayDiscrepancy, ReplayProof};
 pub use restricted::{
