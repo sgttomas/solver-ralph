@@ -96,6 +96,8 @@ pub enum StopCondition {
     IntegrityCondition,
     /// Loop closed
     LoopClosed,
+    /// No eligible work available (SR-DIRECTIVE §4.2)
+    NoEligibleWork,
     /// Work Surface missing or archived per SR-PLAN-V4 Phase 4c
     WorkSurfaceMissing,
     /// Any other stop trigger string (kept for audit)
@@ -163,6 +165,7 @@ impl StopCondition {
             "HUMAN_STOP" => StopCondition::HumanStop,
             "GOAL_ACHIEVED" => StopCondition::GoalAchieved,
             "LOOP_CLOSED" => StopCondition::LoopClosed,
+            "NO_ELIGIBLE_WORK" => StopCondition::NoEligibleWork,
             "WORK_SURFACE_MISSING" => StopCondition::WorkSurfaceMissing,
             _ => StopCondition::Trigger(trigger.to_string()),
         }
@@ -390,6 +393,7 @@ impl<E: EventStore> LoopGovernor<E> {
     #[instrument(skip(self))]
     pub async fn handle_event(&self, event: &EventEnvelope) -> Result<(), GovernorError> {
         let mut loops = self.loops.write().await;
+        let mut budget_stop: Option<(String, String)> = None;
 
         match event.event_type.as_str() {
             "LoopCreated" => {
@@ -425,6 +429,27 @@ impl<E: EventStore> LoopGovernor<E> {
                 if let Some(loop_id) = loop_id {
                     if let Some(state) = loops.get_mut(loop_id) {
                         state.oracle_runs_started = state.oracle_runs_started.saturating_add(1);
+
+                        // Emit stop when oracle run budget is exhausted
+                        if state.budget.max_oracle_runs > 0
+                            && state.oracle_runs_started >= state.budget.max_oracle_runs
+                        {
+                            if !state
+                                .stop_triggers
+                                .iter()
+                                .any(|c| matches!(c, StopCondition::BudgetExhausted))
+                            {
+                                state.stop_triggers.push(StopCondition::BudgetExhausted);
+                                state
+                                    .pending_portal_approvals
+                                    .insert("HumanAuthorityExceptionProcess".to_string());
+                                budget_stop = Some((
+                                    loop_id.to_string(),
+                                    "HumanAuthorityExceptionProcess".to_string(),
+                                ));
+                            }
+                        }
+
                         debug!(
                             loop_id = %loop_id,
                             oracle_runs_started = state.oracle_runs_started,
@@ -566,6 +591,14 @@ impl<E: EventStore> LoopGovernor<E> {
                 }
             }
             _ => {}
+        }
+
+        drop(loops);
+
+        // Emit stop after releasing loop lock to avoid holding across await
+        if let Some((loop_id, portal)) = budget_stop {
+            self.emit_stop_triggered(&loop_id, "BUDGET_EXHAUSTED", Some(&portal))
+                .await?;
         }
 
         Ok(())
@@ -985,6 +1018,55 @@ impl<E: EventStore> LoopGovernor<E> {
         let loops = self.loops.read().await;
         loops.get(loop_id).and_then(|s| s.work_unit_id.clone())
     }
+
+    async fn emit_stop_triggered(
+        &self,
+        loop_id: &str,
+        trigger: &str,
+        recommended_portal: Option<&str>,
+    ) -> Result<(), GovernorError> {
+        let events = self.event_store.read_stream(loop_id, 0, 1000).await?;
+        let current_version = events.len() as u64;
+        let event_id = EventId::new();
+
+        let mut payload = serde_json::json!({
+            "trigger": trigger,
+            "condition": trigger,
+            "requires_decision": true,
+        });
+
+        if let Some(portal) = recommended_portal {
+            payload["recommended_portal"] = serde_json::json!(portal);
+        }
+
+        let event = EventEnvelope {
+            event_id: event_id.clone(),
+            stream_id: loop_id.to_string(),
+            stream_kind: StreamKind::Loop,
+            stream_seq: current_version.saturating_add(1),
+            global_seq: None,
+            event_type: "StopTriggered".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "governor".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload,
+            envelope_hash: compute_envelope_hash(&event_id),
+        };
+
+        self.event_store
+            .append(loop_id, current_version, vec![event])
+            .await?;
+
+        Ok(())
+    }
+}
+
+fn compute_envelope_hash(event_id: &EventId) -> String {
+    format!("sha256:{}", event_id.as_str().replace("evt_", ""))
 }
 
 // ============================================================================
@@ -995,7 +1077,9 @@ impl<E: EventStore> LoopGovernor<E> {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::collections::HashMap;
     use std::sync::Arc;
+    use tokio::sync::Mutex;
 
     #[test]
     fn test_preconditions_all_satisfied() {
@@ -1032,6 +1116,80 @@ mod tests {
         assert_eq!(budget.max_oracle_runs, 25);
         assert_eq!(budget.max_wallclock_hours, 16);
         assert_eq!(budget.min_iteration_delay_secs, 1);
+    }
+
+    #[tokio::test]
+    async fn max_oracle_runs_exhaustion_emits_stop() {
+        let event_store = Arc::new(DummyEventStore::default());
+        let governor = LoopGovernor::new(event_store.clone());
+
+        let loop_event = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "loop_budget".to_string(),
+            stream_kind: StreamKind::Loop,
+            stream_seq: 1,
+            global_seq: None,
+            event_type: "LoopCreated".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "tester".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload: json!({
+                "budgets": {
+                    "max_iterations": 5,
+                    "max_oracle_runs": 2,
+                    "max_wallclock_hours": 16
+                }
+            }),
+            envelope_hash: "hash".to_string(),
+        };
+
+        governor.handle_event(&loop_event).await.unwrap();
+
+        let run_started = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "run_evt".to_string(),
+            stream_kind: StreamKind::Run,
+            stream_seq: 1,
+            global_seq: None,
+            event_type: "RunStarted".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "tester".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload: json!({"loop_id": "loop_budget"}),
+            envelope_hash: "hash".to_string(),
+        };
+
+        governor.handle_event(&run_started).await.unwrap();
+        governor.handle_event(&run_started).await.unwrap();
+
+        let state = governor.get_loop_state("loop_budget").await.unwrap();
+        assert!(state
+            .stop_triggers
+            .iter()
+            .any(|c| matches!(c, StopCondition::BudgetExhausted)));
+        assert!(state
+            .pending_portal_approvals
+            .contains("HumanAuthorityExceptionProcess"));
+
+        let events = event_store.events_for("loop_budget").await;
+        let stop = events
+            .iter()
+            .find(|e| e.event_type == "StopTriggered")
+            .expect("stop emitted");
+        assert_eq!(
+            stop.payload
+                .get("recommended_portal")
+                .and_then(|v| v.as_str()),
+            Some("HumanAuthorityExceptionProcess")
+        );
     }
 
     #[test]
@@ -1071,6 +1229,16 @@ mod tests {
 
         let parsed: StopCondition = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, StopCondition::WorkSurfaceMissing);
+    }
+
+    #[test]
+    fn test_no_eligible_work_stop_condition() {
+        let condition = StopCondition::NoEligibleWork;
+        let json = serde_json::to_string(&condition).unwrap();
+        assert_eq!(json, "\"NO_ELIGIBLE_WORK\"");
+
+        let parsed: StopCondition = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, StopCondition::NoEligibleWork);
     }
 
     #[test]
@@ -1122,7 +1290,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_budget_exhaustion_blocks_preconditions() {
-        let governor = LoopGovernor::new(Arc::new(DummyEventStore));
+        let governor = LoopGovernor::new(Arc::new(DummyEventStore::default()));
         governor
             .register_loop(
                 "loop_test",
@@ -1187,8 +1355,85 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn loop_created_event_uses_payload_budget() {
+        let governor = LoopGovernor::new(Arc::new(DummyEventStore::default()));
+
+        let event = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "loop_budget".to_string(),
+            stream_kind: StreamKind::Loop,
+            stream_seq: 1,
+            global_seq: None,
+            event_type: "LoopCreated".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "tester".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload: json!({
+                "budgets": {
+                    "max_iterations": 2,
+                    "max_oracle_runs": 3,
+                    "max_wallclock_hours": 4
+                }
+            }),
+            envelope_hash: "hash".to_string(),
+        };
+
+        governor.handle_event(&event).await.unwrap();
+        let state = governor.get_loop_state("loop_budget").await.unwrap();
+
+        assert_eq!(state.budget.max_iterations, 2);
+        assert_eq!(state.budget.max_oracle_runs, 3);
+        assert_eq!(state.budget.max_wallclock_hours, 4);
+    }
+
+    #[tokio::test]
+    async fn budget_exhausted_stop_tracks_portal_recommendation() {
+        let governor = LoopGovernor::new(Arc::new(DummyEventStore::default()));
+        governor
+            .register_loop("loop_stop", LoopBudget::default(), Utc::now())
+            .await;
+
+        let event = EventEnvelope {
+            event_id: EventId::new(),
+            stream_id: "loop_stop".to_string(),
+            stream_kind: StreamKind::Loop,
+            stream_seq: 1,
+            global_seq: None,
+            event_type: "StopTriggered".to_string(),
+            occurred_at: Utc::now(),
+            actor_kind: ActorKind::System,
+            actor_id: "tester".to_string(),
+            correlation_id: None,
+            causation_id: None,
+            supersedes: vec![],
+            refs: vec![],
+            payload: json!({
+                "trigger": "BUDGET_EXHAUSTED",
+                "recommended_portal": "HumanAuthorityExceptionProcess",
+                "requires_decision": true
+            }),
+            envelope_hash: "hash".to_string(),
+        };
+
+        governor.handle_event(&event).await.unwrap();
+        let state = governor.get_loop_state("loop_stop").await.unwrap();
+
+        assert!(state
+            .pending_portal_approvals
+            .contains("HumanAuthorityExceptionProcess"));
+        assert!(state
+            .stop_triggers
+            .iter()
+            .any(|c| matches!(c, StopCondition::BudgetExhausted)));
+    }
+
+    #[tokio::test]
     async fn stop_trigger_uses_trigger_field_and_tracks_portal() {
-        let governor = LoopGovernor::new(Arc::new(DummyEventStore));
+        let governor = LoopGovernor::new(Arc::new(DummyEventStore::default()));
         governor
             .register_loop("loop_test", LoopBudget::default(), Utc::now())
             .await;
@@ -1209,7 +1454,7 @@ mod tests {
             refs: vec![],
             payload: json!({
                 "trigger": "REPEATED_FAILURE",
-                "recommended_portal": "GovernanceChangePortal",
+                "recommended_portal": "HumanAuthorityExceptionProcess",
                 "requires_decision": true
             }),
             envelope_hash: "hash".to_string(),
@@ -1221,7 +1466,7 @@ mod tests {
         assert_eq!(state.stop_triggers.len(), 1);
         assert_eq!(
             state.pending_portal_approvals,
-            std::collections::HashSet::from(["GovernanceChangePortal".to_string()])
+            std::collections::HashSet::from(["HumanAuthorityExceptionProcess".to_string()])
         );
     }
 
@@ -1241,25 +1486,48 @@ mod tests {
     }
 
     // Dummy event store for tests
-    struct DummyEventStore;
+    #[derive(Default)]
+    struct DummyEventStore {
+        streams: Arc<Mutex<HashMap<String, Vec<EventEnvelope>>>>,
+    }
+
+    impl DummyEventStore {
+        async fn events_for(&self, stream_id: &str) -> Vec<EventEnvelope> {
+            let guard = self.streams.lock().await;
+            guard.get(stream_id).cloned().unwrap_or_default()
+        }
+    }
 
     impl EventStore for DummyEventStore {
         async fn append(
             &self,
-            _stream_id: &str,
+            stream_id: &str,
             _expected_version: u64,
-            _events: Vec<EventEnvelope>,
+            events: Vec<EventEnvelope>,
         ) -> Result<u64, EventStoreError> {
-            Ok(1)
+            let mut guard = self.streams.lock().await;
+            let stream = guard.entry(stream_id.to_string()).or_default();
+            stream.extend(events);
+            Ok(stream.len() as u64)
         }
 
         async fn read_stream(
             &self,
-            _stream_id: &str,
-            _from_seq: u64,
-            _limit: usize,
+            stream_id: &str,
+            from_seq: u64,
+            limit: usize,
         ) -> Result<Vec<EventEnvelope>, EventStoreError> {
-            Ok(vec![])
+            let guard = self.streams.lock().await;
+            let events = guard.get(stream_id).cloned().unwrap_or_else(Vec::new);
+
+            let start = from_seq as usize;
+            let end = if limit == 0 {
+                events.len()
+            } else {
+                std::cmp::min(events.len(), start + limit)
+            };
+
+            Ok(events.get(start..end).unwrap_or(&[]).to_vec())
         }
 
         async fn replay_all(
@@ -1267,7 +1535,12 @@ mod tests {
             _from_global_seq: u64,
             _limit: usize,
         ) -> Result<Vec<EventEnvelope>, EventStoreError> {
-            Ok(vec![])
+            let guard = self.streams.lock().await;
+            let mut all = Vec::new();
+            for events in guard.values() {
+                all.extend(events.clone());
+            }
+            Ok(all)
         }
     }
 }

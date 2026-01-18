@@ -560,47 +560,7 @@ pub async fn patch_loop(
 
     // 4. Validate budget monotonicity if budgets are being updated
     let new_budgets = if let Some(ref patch) = body.budgets {
-        let new_max_iterations = patch
-            .max_iterations
-            .unwrap_or(current_budgets.max_iterations);
-        let new_max_oracle_runs = patch
-            .max_oracle_runs
-            .unwrap_or(current_budgets.max_oracle_runs);
-        let new_max_wallclock_hours = patch
-            .max_wallclock_hours
-            .unwrap_or(current_budgets.max_wallclock_hours);
-
-        // Enforce monotonicity: new values must be >= current values
-        if new_max_iterations < current_budgets.max_iterations {
-            return Err(ApiError::BadRequest {
-                message: format!(
-                    "Budget max_iterations cannot decrease: current={}, requested={}",
-                    current_budgets.max_iterations, new_max_iterations
-                ),
-            });
-        }
-        if new_max_oracle_runs < current_budgets.max_oracle_runs {
-            return Err(ApiError::BadRequest {
-                message: format!(
-                    "Budget max_oracle_runs cannot decrease: current={}, requested={}",
-                    current_budgets.max_oracle_runs, new_max_oracle_runs
-                ),
-            });
-        }
-        if new_max_wallclock_hours < current_budgets.max_wallclock_hours {
-            return Err(ApiError::BadRequest {
-                message: format!(
-                    "Budget max_wallclock_hours cannot decrease: current={}, requested={}",
-                    current_budgets.max_wallclock_hours, new_max_wallclock_hours
-                ),
-            });
-        }
-
-        Some(LoopBudgets {
-            max_iterations: new_max_iterations,
-            max_oracle_runs: new_max_oracle_runs,
-            max_wallclock_hours: new_max_wallclock_hours,
-        })
+        Some(apply_budget_patch(&current_budgets, patch)?)
     } else {
         None
     };
@@ -776,6 +736,53 @@ fn compute_envelope_hash(event_id: &EventId) -> String {
     format!("sha256:{}", event_id.as_str().replace("evt_", ""))
 }
 
+/// Apply a budget patch with monotonicity enforcement (budgets cannot decrease).
+fn apply_budget_patch(
+    current_budgets: &LoopBudgets,
+    patch: &LoopBudgetsPatch,
+) -> Result<LoopBudgets, ApiError> {
+    let new_max_iterations = patch
+        .max_iterations
+        .unwrap_or(current_budgets.max_iterations);
+    let new_max_oracle_runs = patch
+        .max_oracle_runs
+        .unwrap_or(current_budgets.max_oracle_runs);
+    let new_max_wallclock_hours = patch
+        .max_wallclock_hours
+        .unwrap_or(current_budgets.max_wallclock_hours);
+
+    if new_max_iterations < current_budgets.max_iterations {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Budget max_iterations cannot decrease: current={}, requested={}",
+                current_budgets.max_iterations, new_max_iterations
+            ),
+        });
+    }
+    if new_max_oracle_runs < current_budgets.max_oracle_runs {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Budget max_oracle_runs cannot decrease: current={}, requested={}",
+                current_budgets.max_oracle_runs, new_max_oracle_runs
+            ),
+        });
+    }
+    if new_max_wallclock_hours < current_budgets.max_wallclock_hours {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Budget max_wallclock_hours cannot decrease: current={}, requested={}",
+                current_budgets.max_wallclock_hours, new_max_wallclock_hours
+            ),
+        });
+    }
+
+    Ok(LoopBudgets {
+        max_iterations: new_max_iterations,
+        max_oracle_runs: new_max_oracle_runs,
+        max_wallclock_hours: new_max_wallclock_hours,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -786,5 +793,56 @@ mod tests {
         assert_eq!(budgets.max_iterations, 5);
         assert_eq!(budgets.max_oracle_runs, 25);
         assert_eq!(budgets.max_wallclock_hours, 16);
+    }
+
+    #[test]
+    fn budget_patch_rejects_decrease() {
+        let current = LoopBudgets {
+            max_iterations: 5,
+            max_oracle_runs: 25,
+            max_wallclock_hours: 16,
+        };
+
+        let patch = LoopBudgetsPatch {
+            max_iterations: Some(4),
+            max_oracle_runs: None,
+            max_wallclock_hours: None,
+        };
+
+        let result = apply_budget_patch(&current, &patch);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn budget_patch_applies_increase_and_preserves_other_fields() {
+        let current = LoopBudgets {
+            max_iterations: 5,
+            max_oracle_runs: 25,
+            max_wallclock_hours: 16,
+        };
+
+        let patch = LoopBudgetsPatch {
+            max_iterations: Some(6),
+            max_oracle_runs: None,
+            max_wallclock_hours: Some(20),
+        };
+
+        let updated = apply_budget_patch(&current, &patch).expect("budget patch");
+        assert_eq!(updated.max_iterations, 6);
+        assert_eq!(updated.max_oracle_runs, 25);
+        assert_eq!(updated.max_wallclock_hours, 20);
+    }
+
+    #[test]
+    fn create_loop_respects_custom_budgets() {
+        let budgets = LoopBudgetsRequest {
+            max_iterations: 7,
+            max_oracle_runs: 30,
+            max_wallclock_hours: 24,
+        };
+
+        assert_eq!(budgets.max_iterations, 7);
+        assert_eq!(budgets.max_oracle_runs, 30);
+        assert_eq!(budgets.max_wallclock_hours, 24);
     }
 }

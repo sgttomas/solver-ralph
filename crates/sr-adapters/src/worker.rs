@@ -118,6 +118,10 @@ pub enum WorkerError {
     /// Evidence storage error (V9-1)
     #[error("Storage error: {message}")]
     StorageError { message: String },
+
+    /// Event store error (stop/violation emission)
+    #[error("Event store error: {message}")]
+    EventStoreError { message: String },
 }
 
 impl From<MessageBusError> for WorkerError {

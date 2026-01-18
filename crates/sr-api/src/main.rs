@@ -783,7 +783,8 @@ async fn main() {
                 let worker_config = SemanticWorkerConfig::from_env();
                 let semantic_worker = SemanticWorkerBridge::new(
                     worker_config,
-                    nats_bus,
+                    Some(nats_bus),
+                    state.event_store.clone(),
                     event_manager,
                     oracle_runner,
                     state.evidence_store.clone(),
