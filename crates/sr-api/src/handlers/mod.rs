@@ -10,6 +10,7 @@
 pub mod approvals;
 pub mod attachments;
 pub mod candidates;
+pub mod config;
 pub mod decisions;
 pub mod error;
 pub mod evidence;
@@ -20,9 +21,13 @@ pub mod iterations;
 pub mod loops;
 pub mod oracles;
 pub mod prompt_loop;
+pub mod records;
 pub mod references;
 pub mod runs;
+pub mod staleness;
+pub mod stop_triggers;
 pub mod templates;
+pub mod verification;
 pub mod work_surfaces;
 
 pub use error::{ApiError, ApiResult};

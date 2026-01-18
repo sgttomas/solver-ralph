@@ -7,6 +7,7 @@
 //! - Association with runs/candidates/iterations
 //! - Listing evidence for runs and candidates
 
+use axum::async_trait;
 use axum::{
     extract::{Path, Query, State},
     Json,
@@ -14,10 +15,11 @@ use axum::{
 use base64::Engine;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sr_adapters::{EvidenceArtifact, EvidenceManifest, OracleResult, OracleResultStatus};
+use sr_adapters::EvidenceManifest;
+use sr_adapters::MinioEvidenceStore;
 use sr_domain::{EventEnvelope, EventId, StreamKind};
 use sr_ports::{EventStore, EvidenceStore};
-use tracing::{debug, info, instrument, warn};
+use tracing::{info, instrument, warn};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
@@ -143,6 +145,18 @@ pub struct BlobResponse {
     pub size: usize,
 }
 
+/// Evidence availability/status response
+#[derive(Debug, Serialize)]
+pub struct EvidenceStatusResponse {
+    pub content_hash: String,
+    pub available: bool,
+    pub integrity_ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_verified_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+}
+
 // ============================================================================
 // Handlers
 // ============================================================================
@@ -164,6 +178,45 @@ pub async fn upload_evidence(
         message: format!("Invalid evidence manifest: {}", e),
     })?;
 
+    // Require an existing run for lineage and trust enforcement (C-TB-2)
+    let run = state
+        .projections
+        .get_run(&body.manifest.run_id)
+        .await?
+        .ok_or_else(|| ApiError::NotFound {
+            resource: "Run".to_string(),
+            id: body.manifest.run_id.clone(),
+        })?;
+
+    // Enforce trust boundary: only SYSTEM/oracle actors may record evidence bundles
+    enforce_evidence_lineage(&user, &run)?;
+
+    // Candidate and suite lineage must match the originating run
+    if run.candidate_id != body.manifest.candidate_id {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Evidence manifest candidate_id '{}' does not match run candidate '{}'",
+                body.manifest.candidate_id, run.candidate_id
+            ),
+        });
+    }
+    if run.oracle_suite_id != body.manifest.oracle_suite_id {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Evidence oracle_suite_id '{}' does not match run '{}'",
+                body.manifest.oracle_suite_id, run.oracle_suite_id
+            ),
+        });
+    }
+    if run.oracle_suite_hash != body.manifest.oracle_suite_hash {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Evidence oracle_suite_hash '{}' does not match run '{}'",
+                body.manifest.oracle_suite_hash, run.oracle_suite_hash
+            ),
+        });
+    }
+
     // Serialize manifest to JSON
     let manifest_json = body
         .manifest
@@ -175,11 +228,11 @@ pub async fn upload_evidence(
     // Decode blobs from base64
     let mut blobs_decoded: Vec<(String, Vec<u8>)> = Vec::new();
     for (name, content_b64) in &body.blobs {
-        let decoded =
-            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, content_b64)
-                .map_err(|e| ApiError::BadRequest {
-                    message: format!("Invalid base64 in blob '{}': {}", name, e),
-                })?;
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(content_b64)
+            .map_err(|e| ApiError::BadRequest {
+                message: format!("Invalid base64 in blob '{}': {}", name, e),
+            })?;
         blobs_decoded.push((name.clone(), decoded));
     }
 
@@ -351,6 +404,19 @@ pub async fn get_evidence(
     }))
 }
 
+/// Get evidence availability/status
+///
+/// GET /api/v1/evidence/{content_hash}/status
+#[instrument(skip(state, _user))]
+pub async fn get_evidence_status(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+    Path(content_hash): Path<String>,
+) -> ApiResult<Json<EvidenceStatusResponse>> {
+    let status = evidence_status(&*state.evidence_store, &content_hash).await?;
+    Ok(Json(status))
+}
+
 /// Get a specific blob from an evidence bundle
 ///
 /// GET /api/v1/evidence/{content_hash}/blobs/{blob_name}
@@ -381,13 +447,13 @@ pub async fn get_evidence_blob(
         .evidence_store
         .retrieve_blob(&content_hash, &blob_name)
         .await
-        .map_err(|e| ApiError::NotFound {
+        .map_err(|_e| ApiError::NotFound {
             resource: "Blob".to_string(),
             id: format!("{}:{}", content_hash, blob_name),
         })?;
 
     // Encode as base64
-    let content = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &blob_data);
+    let content = base64::engine::general_purpose::STANDARD.encode(&blob_data);
 
     Ok(Json(BlobResponse {
         content_hash,
@@ -806,6 +872,201 @@ pub struct VerifyEvidenceResponse {
 // Helper Functions
 // ============================================================================
 
+#[async_trait]
+trait EvidenceStatusOps {
+    async fn status_exists(&self, content_hash: &str) -> Result<bool, ApiError>;
+    async fn status_verify(&self, content_hash: &str) -> Result<bool, ApiError>;
+}
+
+#[async_trait]
+impl EvidenceStatusOps for MinioEvidenceStore {
+    async fn status_exists(&self, content_hash: &str) -> Result<bool, ApiError> {
+        EvidenceStore::exists(self, content_hash)
+            .await
+            .map_err(|e| ApiError::Internal {
+                message: format!("Failed to check evidence existence: {}", e),
+            })
+    }
+
+    async fn status_verify(&self, content_hash: &str) -> Result<bool, ApiError> {
+        MinioEvidenceStore::verify_integrity(self, content_hash)
+            .await
+            .map_err(|e| ApiError::Internal {
+                message: format!("Failed to verify evidence integrity: {}", e),
+            })
+    }
+}
+
+async fn evidence_status<S: EvidenceStatusOps + Sync>(
+    store: &S,
+    content_hash: &str,
+) -> Result<EvidenceStatusResponse, ApiError> {
+    let exists = store.status_exists(content_hash).await?;
+    if !exists {
+        return Ok(EvidenceStatusResponse {
+            content_hash: content_hash.to_string(),
+            available: false,
+            integrity_ok: false,
+            last_verified_at: None,
+            error_code: Some("EVIDENCE_MISSING".to_string()),
+        });
+    }
+
+    let integrity_ok = store.status_verify(content_hash).await?;
+
+    Ok(EvidenceStatusResponse {
+        content_hash: content_hash.to_string(),
+        available: true,
+        integrity_ok,
+        last_verified_at: Some(Utc::now().to_rfc3339()),
+        error_code: if integrity_ok {
+            None
+        } else {
+            Some("EVIDENCE_INTEGRITY_FAILED".to_string())
+        },
+    })
+}
+
 fn compute_envelope_hash(event_id: &EventId) -> String {
     format!("sha256:{}", event_id.as_str().replace("evt_", ""))
+}
+
+/// Enforce actor/run lineage rules for evidence ingestion
+fn enforce_evidence_lineage(
+    user: &AuthenticatedUser,
+    run: &sr_adapters::RunProjection,
+) -> Result<(), ApiError> {
+    use sr_domain::ActorKind;
+
+    if matches!(user.actor_kind, ActorKind::Agent) {
+        return Err(ApiError::Forbidden {
+            message: "Evidence bundles MUST be recorded by SYSTEM/oracle actors (agent submissions are non-authoritative per C-TB-2)"
+                .to_string(),
+        });
+    }
+
+    if run.actor_kind.to_uppercase() != "SYSTEM" {
+        return Err(ApiError::Forbidden {
+            message: format!(
+                "Run {} was started by {}. Evidence bundles must originate from SYSTEM runs.",
+                run.run_id, run.actor_kind
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::AuthenticatedUser;
+    use chrono::Utc;
+    use sr_adapters::RunProjection;
+    use sr_domain::ActorKind;
+
+    fn dummy_user(kind: ActorKind) -> AuthenticatedUser {
+        AuthenticatedUser {
+            actor_kind: kind,
+            actor_id: "user".to_string(),
+            subject: "sub".to_string(),
+            email: None,
+            name: None,
+            roles: vec![],
+            claims: serde_json::json!({}),
+        }
+    }
+
+    fn dummy_run(actor_kind: &str) -> RunProjection {
+        RunProjection {
+            run_id: "run_123".to_string(),
+            candidate_id: "cand_123".to_string(),
+            oracle_suite_id: "suite:core".to_string(),
+            oracle_suite_hash: "sha256:abc".to_string(),
+            state: "COMPLETED".to_string(),
+            started_at: Utc::now(),
+            completed_at: Some(Utc::now()),
+            actor_kind: actor_kind.to_string(),
+            actor_id: "runner".to_string(),
+            evidence_bundle_hash: Some("sha256:evid".to_string()),
+        }
+    }
+
+    #[test]
+    fn agent_uploads_are_rejected() {
+        let user = dummy_user(ActorKind::Agent);
+        let run = dummy_run("SYSTEM");
+        assert!(enforce_evidence_lineage(&user, &run).is_err());
+    }
+
+    #[test]
+    fn system_uploads_require_system_run() {
+        let user = dummy_user(ActorKind::System);
+        let run = dummy_run("HUMAN");
+        assert!(enforce_evidence_lineage(&user, &run).is_err());
+    }
+
+    #[test]
+    fn system_uploads_with_system_run_are_allowed() {
+        let user = dummy_user(ActorKind::System);
+        let run = dummy_run("SYSTEM");
+        assert!(enforce_evidence_lineage(&user, &run).is_ok());
+    }
+
+    struct MockStatusStore {
+        exists: bool,
+        integrity_ok: bool,
+    }
+
+    #[async_trait]
+    impl EvidenceStatusOps for MockStatusStore {
+        async fn status_exists(&self, _content_hash: &str) -> Result<bool, ApiError> {
+            Ok(self.exists)
+        }
+
+        async fn status_verify(&self, _content_hash: &str) -> Result<bool, ApiError> {
+            Ok(self.integrity_ok)
+        }
+    }
+
+    #[tokio::test]
+    async fn status_reports_missing() {
+        let store = MockStatusStore {
+            exists: false,
+            integrity_ok: false,
+        };
+        let status = evidence_status(&store, "sha256:missing")
+            .await
+            .expect("status");
+        assert!(!status.available);
+        assert_eq!(status.error_code.as_deref(), Some("EVIDENCE_MISSING"));
+    }
+
+    #[tokio::test]
+    async fn status_reports_integrity_failure() {
+        let store = MockStatusStore {
+            exists: true,
+            integrity_ok: false,
+        };
+        let status = evidence_status(&store, "sha256:bad").await.expect("status");
+        assert!(status.available);
+        assert!(!status.integrity_ok);
+        assert_eq!(
+            status.error_code.as_deref(),
+            Some("EVIDENCE_INTEGRITY_FAILED")
+        );
+    }
+
+    #[tokio::test]
+    async fn status_reports_ok() {
+        let store = MockStatusStore {
+            exists: true,
+            integrity_ok: true,
+        };
+        let status = evidence_status(&store, "sha256:ok").await.expect("status");
+        assert!(status.available);
+        assert!(status.integrity_ok);
+        assert!(status.error_code.is_none());
+        assert!(status.last_verified_at.is_some());
+    }
 }

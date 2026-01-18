@@ -52,6 +52,14 @@ interface EvidenceBundle {
   manifest: EvidenceManifest;
 }
 
+interface EvidenceStatus {
+  content_hash: string;
+  available: boolean;
+  integrity_ok: boolean;
+  last_verified_at?: string | null;
+  error_code?: string | null;
+}
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -67,6 +75,8 @@ export function EvidenceDetail(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showRawManifest, setShowRawManifest] = useState(false);
+  const [status, setStatus] = useState<EvidenceStatus | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!auth.user?.access_token || !contentHash) return;
@@ -85,6 +95,27 @@ export function EvidenceDetail(): JSX.Element {
       .catch(err => {
         setError(err.message);
         setLoading(false);
+      });
+  }, [auth.user?.access_token, contentHash]);
+
+  useEffect(() => {
+    if (!auth.user?.access_token || !contentHash) return;
+
+    setStatusError(null);
+    setStatus(null);
+
+    fetch(`${config.apiUrl}/api/v1/evidence/${contentHash}/status`, {
+      headers: { Authorization: `Bearer ${auth.user.access_token}` },
+    })
+      .then(res => {
+        if (!res.ok) throw new Error(`Status fetch failed: HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data: EvidenceStatus) => {
+        setStatus(data);
+      })
+      .catch(err => {
+        setStatusError(err.message);
       });
   }, [auth.user?.access_token, contentHash]);
 
@@ -137,6 +168,50 @@ export function EvidenceDetail(): JSX.Element {
         </div>
         <Pill tone={getStatusTone(manifest.verdict)}>{manifest.verdict}</Pill>
       </div>
+
+      {/* Availability / Integrity */}
+      <Card title="Availability & Integrity" className={styles.cardSpacing}>
+        {statusError && <div className={styles.error}>{statusError}</div>}
+        {status ? (
+          <div className={styles.statsGrid}>
+            <div className={styles.stat}>
+              <div className={styles.statLabel}>Available</div>
+              <div className={styles.statValue}>
+                <Pill tone={status.available ? 'success' : 'danger'}>
+                  {status.available ? 'Available' : 'Missing'}
+                </Pill>
+              </div>
+            </div>
+            <div className={styles.stat}>
+              <div className={styles.statLabel}>Integrity</div>
+              <div className={styles.statValue}>
+                <Pill tone={status.integrity_ok ? 'success' : 'danger'}>
+                  {status.integrity_ok ? 'Verified' : 'Integrity Check Failed'}
+                </Pill>
+              </div>
+            </div>
+            <div className={styles.stat}>
+              <div className={styles.statLabel}>Last Verified</div>
+              <div className={styles.statValue}>
+                {status.last_verified_at
+                  ? new Date(status.last_verified_at).toLocaleString()
+                  : '—'}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.placeholder}>
+            <p className={styles.placeholderText}>Checking artifact availability...</p>
+          </div>
+        )}
+
+        {status?.error_code && (
+          <div className={styles.note} style={{ marginTop: 'var(--space3)' }}>
+            Status: <strong>{status.error_code}</strong> — evidence must be available and integrity-verified
+            for verification and freeze gating.
+          </div>
+        )}
+      </Card>
 
       {/* Overview Card */}
       <Card title="Overview" className={styles.cardSpacing}>

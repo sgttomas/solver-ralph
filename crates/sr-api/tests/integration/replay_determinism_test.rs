@@ -13,6 +13,8 @@
 //! Per SR-PLAN-V9 §3.3, this test produces a ReplayProof artifact that
 //! captures the determinism verification result.
 
+use chrono::Utc;
+use sha2::{Digest, Sha256};
 use sr_adapters::{EligibleSetComparison, EventManager};
 use sr_domain::entities::ContentHash;
 use sr_domain::plan_instance::{PlanInstance, SourceRef, SourceRefId, WorkUnitPlan};
@@ -20,8 +22,6 @@ use sr_domain::work_surface::{
     ContentAddressedRef, ProcedureTemplateId, StageId, WorkKind, WorkUnitId,
 };
 use sr_domain::{ActorKind, EventEnvelope, EventId, StreamKind, TypedRef};
-use chrono::Utc;
-use sha2::{Digest, Sha256};
 
 // =============================================================================
 // Test Fixtures
@@ -415,8 +415,7 @@ fn test_eligible_set_determinism_after_replay() {
     assert!(
         comparison.sets_match,
         "Eligible sets must match. Only in original: {:?}, Only in replayed: {:?}",
-        comparison.only_in_original,
-        comparison.only_in_replayed
+        comparison.only_in_original, comparison.only_in_replayed
     );
 
     // WU-002 should be eligible (WU-001 is complete, deps satisfied)

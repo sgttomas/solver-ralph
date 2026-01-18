@@ -6,7 +6,9 @@
 //! Per SR-PLAN-V3 §1.1, this unifies the previous separate InputRef and TypedRef
 //! into a single strongly-typed schema.
 
+use crate::entities::TypedRef;
 use serde::{Deserialize, Serialize};
+use serde_json;
 
 // ============================================================================
 // RefKind — Reference type taxonomy per SR-SPEC §1.5.3
@@ -57,12 +59,9 @@ impl RefKind {
             self,
             RefKind::GovernedArtifact
                 | RefKind::Candidate
+                | RefKind::OracleSuite
                 | RefKind::EvidenceBundle
-                | RefKind::Intake
-                | RefKind::ProcedureTemplate
-                | RefKind::SemanticSet
-                | RefKind::AgentDefinition
-                | RefKind::GatingPolicy
+                | RefKind::Record
         )
     }
 
@@ -78,7 +77,7 @@ impl RefKind {
 
     /// Returns true if this ref kind requires type_key in meta
     pub fn requires_type_key(&self) -> bool {
-        matches!(self, RefKind::Record | RefKind::GovernedArtifact)
+        matches!(self, RefKind::Record)
     }
 }
 
@@ -437,6 +436,7 @@ pub enum RefValidationError {
     MissingVersion { kind: RefKind, id: String },
     MissingTypeKey { kind: RefKind, id: String },
     EmptyId { kind: RefKind },
+    InvalidFormat { reason: String },
 }
 
 impl std::fmt::Display for RefValidationError {
@@ -454,11 +454,36 @@ impl std::fmt::Display for RefValidationError {
             Self::EmptyId { kind } => {
                 write!(f, "{kind:?} ref has empty id")
             }
+            Self::InvalidFormat { reason } => {
+                write!(f, "Invalid TypedRef format: {reason}")
+            }
         }
     }
 }
 
 impl std::error::Error for RefValidationError {}
+
+/// Validate a single loosely-typed reference by converting to StrongTypedRef
+pub fn validate_typed_ref(r: &TypedRef) -> Result<(), RefValidationError> {
+    let strong: StrongTypedRef = serde_json::from_value(serde_json::to_value(r).map_err(|e| {
+        RefValidationError::InvalidFormat {
+            reason: e.to_string(),
+        }
+    })?)
+    .map_err(|e| RefValidationError::InvalidFormat {
+        reason: e.to_string(),
+    })?;
+
+    strong.validate()
+}
+
+/// Validate a collection of loosely-typed references
+pub fn validate_typed_refs(refs: &[TypedRef]) -> Result<(), RefValidationError> {
+    for r in refs {
+        validate_typed_ref(r)?;
+    }
+    Ok(())
+}
 
 // ============================================================================
 // Tests
@@ -467,6 +492,7 @@ impl std::error::Error for RefValidationError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::TypedRef;
 
     #[test]
     fn test_ref_kind_serialization() {
@@ -529,7 +555,7 @@ mod tests {
 
     #[test]
     fn test_validation_missing_content_hash() {
-        let r = StrongTypedRef::new(RefKind::Intake, "intake:01ABC123", RefRelation::DependsOn);
+        let r = StrongTypedRef::new(RefKind::Candidate, "cand_01ABC123", RefRelation::DependsOn);
 
         let result = r.validate();
         assert!(result.is_err());
@@ -606,9 +632,13 @@ mod tests {
     fn test_ref_kind_requirements() {
         assert!(RefKind::GovernedArtifact.requires_content_hash());
         assert!(RefKind::GovernedArtifact.requires_version());
-        assert!(RefKind::GovernedArtifact.requires_type_key());
+        assert!(RefKind::Record.requires_type_key());
 
-        assert!(RefKind::Intake.requires_content_hash());
+        assert!(RefKind::Candidate.requires_content_hash());
+        assert!(RefKind::OracleSuite.requires_content_hash());
+
+        assert!(!RefKind::Intake.requires_content_hash());
+        assert!(!RefKind::ProcedureTemplate.requires_content_hash());
         assert!(!RefKind::Intake.requires_version());
         assert!(!RefKind::Intake.requires_type_key());
 
@@ -642,5 +672,33 @@ mod tests {
         let parsed: StrongTypedRef = serde_json::from_str(&json).unwrap();
 
         assert_eq!(original, parsed);
+    }
+
+    #[test]
+    fn validate_requires_content_hash_for_candidate() {
+        let ref_without_hash =
+            StrongTypedRef::new(RefKind::Candidate, "cand_123", RefRelation::DependsOn);
+
+        let result = ref_without_hash.validate();
+        assert!(matches!(
+            result,
+            Err(RefValidationError::MissingContentHash { .. })
+        ));
+    }
+
+    #[test]
+    fn validate_requires_type_key_for_record_refs() {
+        let record_ref = TypedRef {
+            kind: "Record".to_string(),
+            id: "rec_123".to_string(),
+            rel: "depends_on".to_string(),
+            meta: serde_json::json!({"content_hash": "sha256:abc123"}),
+        };
+
+        let result = validate_typed_refs(&[record_ref]);
+        assert!(matches!(
+            result,
+            Err(RefValidationError::MissingTypeKey { .. })
+        ));
     }
 }

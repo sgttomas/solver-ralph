@@ -20,19 +20,15 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sr_domain::integrity::IntegrityCondition;
-use sr_ports::{
-    EvidenceStore, EvidenceStoreError, OracleRunResult, OracleRunner, OracleRunnerError,
-    OracleStatus,
-};
+use sr_ports::{EvidenceStore, OracleRunResult, OracleRunner, OracleRunnerError, OracleStatus};
 use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 use crate::evidence::{
     EvidenceArtifact, EvidenceManifest, EvidenceManifestBuilder, OracleResult, OracleResultStatus,
@@ -433,6 +429,11 @@ impl<E: EvidenceStore> PodmanOracleRunner<E> {
     pub async fn register_suite(&self, suite: OracleSuiteDefinition) {
         let mut cache = self.suite_cache.write().await;
         cache.insert(suite.suite_id.clone(), suite);
+    }
+
+    /// Access the backing evidence store (for integrity checks)
+    pub fn evidence_store(&self) -> Arc<E> {
+        Arc::clone(&self.evidence_store)
     }
 
     /// Get a suite definition
@@ -1506,10 +1507,7 @@ mod tests {
 
         // Verify suite identity
         assert_eq!(suite.suite_id, "suite:sr-core-v1");
-        assert_eq!(
-            suite.oci_image,
-            "ghcr.io/solver-ralph/oracle-suite-core:v1"
-        );
+        assert_eq!(suite.oci_image, "ghcr.io/solver-ralph/oracle-suite-core:v1");
 
         // Verify environment constraints
         assert_eq!(suite.environment_constraints.runtime, "runsc");
@@ -1518,8 +1516,8 @@ mod tests {
         assert_eq!(suite.environment_constraints.cpu_arch, "amd64");
         assert_eq!(suite.environment_constraints.os, "linux");
 
-        // Verify 4 oracles are defined
-        assert_eq!(suite.oracles.len(), 4);
+        // Verify 5 oracles are defined (manifest validation added)
+        assert_eq!(suite.oracles.len(), 5);
     }
 
     #[test]
@@ -1608,8 +1606,8 @@ mod tests {
             .filter(|o| o.classification == OracleClassification::Advisory)
             .count();
 
-        // 3 required (build, unit-tests, schema-validation) + 1 advisory (lint)
-        assert_eq!(required_count, 3);
+        // 4 required (build, unit-tests, schema-validation, manifest-validation) + 1 advisory (lint)
+        assert_eq!(required_count, 4);
         assert_eq!(advisory_count, 1);
     }
 
@@ -1649,6 +1647,15 @@ mod tests {
                 output: None,
             },
             // Note: lint is advisory, so missing it is OK
+            OracleResult {
+                oracle_id: "oracle:manifest-validation".to_string(),
+                oracle_name: "Evidence Manifest Validation".to_string(),
+                status: OracleResultStatus::Pass,
+                duration_ms: 40,
+                error_message: None,
+                artifact_refs: vec![],
+                output: None,
+            },
         ];
 
         // Should not detect a gap because all required oracles have results
@@ -1686,7 +1693,10 @@ mod tests {
 
         // Should detect a gap for oracle:unit-tests
         let result = check_for_gaps(&suite, &results);
-        assert!(result.is_err(), "Missing oracle:unit-tests should trigger gap");
+        assert!(
+            result.is_err(),
+            "Missing oracle:unit-tests should trigger gap"
+        );
 
         if let Err(IntegrityCondition::OracleGap {
             missing_oracles,
@@ -1869,8 +1879,9 @@ mod tests {
     #[test]
     fn test_semantic_set_definition_valid_json() {
         // Load and parse the bundled semantic set definition
-        let semantic_set_json =
-            include_str!("../../../oracle-suites/semantic-v1/semantic-sets/intake-admissibility.json");
+        let semantic_set_json = include_str!(
+            "../../../oracle-suites/semantic-v1/semantic-sets/intake-admissibility.json"
+        );
 
         let semantic_set: serde_json::Value =
             serde_json::from_str(semantic_set_json).expect("semantic set should be valid JSON");

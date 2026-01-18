@@ -16,7 +16,7 @@ use tracing::{debug, error, info, instrument};
 
 use crate::flake_control::{FlakeControl, RetryPolicy};
 use crate::report::{
-    EnvironmentInfo, HealthStatus, IntegrationReport, OracleStatus, ServiceTestResult, TestResult,
+    EnvironmentInfo, HealthStatus, IntegrationReport, ServiceTestResult, TestResult,
 };
 
 // ============================================================================
@@ -1057,6 +1057,7 @@ pub enum IntegrationError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::report::OracleStatus;
 
     #[test]
     fn test_default_config() {

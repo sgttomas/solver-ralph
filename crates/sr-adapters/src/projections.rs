@@ -7,9 +7,10 @@
 //! - Tracks last processed event (global_seq) for incremental updates
 //! - All projections rebuildable from es.events alone
 
+use crate::graph::GraphProjection;
 use chrono::{DateTime, Utc};
-use sqlx::{postgres::PgRow, PgPool, Row};
-use sr_domain::{EventEnvelope, EventId};
+use sqlx::{PgPool, Row};
+use sr_domain::{is_seeded_portal, EventEnvelope};
 use sr_ports::{EventStore, EventStoreError};
 use tracing::{debug, error, info, instrument, warn};
 
@@ -22,6 +23,12 @@ pub enum ProjectionError {
     #[error("Database error: {message}")]
     DatabaseError { message: String },
 
+    #[error("Graph error: {message}")]
+    GraphError { message: String },
+
+    #[error("Validation error: {message}")]
+    ValidationError { message: String },
+
     #[error("Deserialization error: {message}")]
     DeserializationError { message: String },
 
@@ -32,6 +39,14 @@ pub enum ProjectionError {
 impl From<sqlx::Error> for ProjectionError {
     fn from(e: sqlx::Error) -> Self {
         ProjectionError::DatabaseError {
+            message: e.to_string(),
+        }
+    }
+}
+
+impl From<crate::GraphError> for ProjectionError {
+    fn from(e: crate::GraphError) -> Self {
+        ProjectionError::GraphError {
             message: e.to_string(),
         }
     }
@@ -192,6 +207,10 @@ impl ProjectionBuilder {
     /// Apply a single event to projections
     #[instrument(skip(self, event), fields(event_id = %event.event_id.as_str(), event_type = %event.event_type))]
     pub async fn apply_event(&self, event: &EventEnvelope) -> Result<(), ProjectionError> {
+        // Keep the graph projection in sync for dependency and staleness queries
+        let graph = GraphProjection::new(self.pool.clone());
+        graph.process_event(event).await?;
+
         let mut tx = self.pool.begin().await?;
 
         let result = match event.event_type.as_str() {
@@ -239,6 +258,17 @@ impl ProjectionBuilder {
             // Decision events
             "DecisionRecorded" => self.apply_decision_recorded(&mut tx, event).await,
 
+            // Record events (human judgment notes are non-binding)
+            "RecordCreated" => self.apply_record_created(&mut tx, event).await,
+            "ConfigDefinitionRecorded" => {
+                self.apply_config_definition_recorded(&mut tx, event).await
+            }
+
+            // Staleness events
+            "NodeMarkedStale" => self.apply_node_marked_stale(&mut tx, event).await,
+            "StalenessResolved" => self.apply_staleness_resolved(&mut tx, event).await,
+            "ReEvaluationTriggered" => Ok(()),
+
             // Governed artifact events
             "GovernedArtifactVersionRecorded" => {
                 self.apply_governed_artifact_recorded(&mut tx, event).await
@@ -267,11 +297,7 @@ impl ProjectionBuilder {
             | "OracleSuiteUpdated"
             | "OracleSuitePinned"
             | "OracleSuiteRebased"
-            | "NodeMarkedStale"
-            | "ReEvaluationTriggered"
-            | "StalenessResolved"
             | "EvidenceMissingDetected"
-            | "RecordCreated"
             | "RecordSuperseded"
             | "WorkSurfaceRecorded"
             | "ProcedureTemplateSelected"
@@ -326,6 +352,7 @@ impl ProjectionBuilder {
             "proj.evidence_bundles",
             "proj.work_surface_stage_history", // Must truncate before work_surfaces due to FK
             "proj.work_surfaces",
+            "proj.loop_stop_triggers",
             "proj.loops",
             "proj.iterations",
             "proj.candidates",
@@ -337,6 +364,7 @@ impl ProjectionBuilder {
             "proj.decisions",
             "proj.governed_artifacts",
             "proj.shippable_status",
+            "proj.config_definitions",
             "proj.human_judgment_records",
             "proj.checkpoints",
         ];
@@ -448,6 +476,21 @@ impl ProjectionBuilder {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         event: &EventEnvelope,
     ) -> Result<(), ProjectionError> {
+        sqlx::query(
+            r#"
+            UPDATE proj.loop_stop_triggers
+            SET resolved_at = $1,
+                resolution_event_id = $2
+            WHERE loop_id = $3
+              AND resolved_at IS NULL
+            "#,
+        )
+        .bind(event.occurred_at)
+        .bind(event.event_id.as_str())
+        .bind(&event.stream_id)
+        .execute(&mut **tx)
+        .await?;
+
         // Clear stop trigger state when Loop is resumed (V10-2)
         sqlx::query(
             r#"
@@ -456,6 +499,7 @@ impl ProjectionBuilder {
                 last_stop_trigger = NULL,
                 paused_at = NULL,
                 requires_decision = false,
+                last_recommended_portal = NULL,
                 last_event_id = $1,
                 last_global_seq = $2
             WHERE loop_id = $3
@@ -561,7 +605,33 @@ impl ProjectionBuilder {
         let loop_id = &event.stream_id;
 
         let trigger = payload["trigger"].as_str().unwrap_or("UNKNOWN");
+        let condition = payload["condition"].as_str().unwrap_or(trigger);
         let requires_decision = payload["requires_decision"].as_bool().unwrap_or(true);
+        let recommended_portal = payload["recommended_portal"].as_str();
+
+        sqlx::query(
+            r#"
+            INSERT INTO proj.loop_stop_triggers (
+                stop_id, loop_id, trigger, condition, recommended_portal,
+                requires_decision, occurred_at, actor_kind, actor_id,
+                resolution_event_id, resolved_at, last_event_id, last_global_seq
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL, NULL, $10, $11)
+            ON CONFLICT (stop_id) DO NOTHING
+            "#,
+        )
+        .bind(event.event_id.as_str())
+        .bind(loop_id)
+        .bind(trigger)
+        .bind(condition)
+        .bind(recommended_portal)
+        .bind(requires_decision)
+        .bind(event.occurred_at)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .execute(&mut **tx)
+        .await?;
 
         sqlx::query(
             r#"
@@ -570,14 +640,16 @@ impl ProjectionBuilder {
                 last_stop_trigger = $1,
                 paused_at = $2,
                 requires_decision = $3,
-                last_event_id = $4,
-                last_global_seq = $5
-            WHERE loop_id = $6
+                last_recommended_portal = $4,
+                last_event_id = $5,
+                last_global_seq = $6
+            WHERE loop_id = $7
             "#,
         )
         .bind(trigger)
         .bind(event.occurred_at)
         .bind(requires_decision)
+        .bind(recommended_portal)
         .bind(event.event_id.as_str())
         .bind(event.global_seq.unwrap_or(0) as i64)
         .bind(loop_id)
@@ -588,6 +660,7 @@ impl ProjectionBuilder {
             loop_id = %loop_id,
             trigger = %trigger,
             requires_decision = %requires_decision,
+            recommended_portal = ?recommended_portal,
             "StopTriggered event projected - Loop paused"
         );
 
@@ -678,12 +751,11 @@ impl ProjectionBuilder {
 
         // V10-1: Track consecutive failures for REPEATED_FAILURE stop trigger (C-LOOP-3)
         // Get loop_id from the iteration, then update consecutive_failures
-        let loop_id_result: Option<(String,)> = sqlx::query_as(
-            "SELECT loop_id FROM proj.iterations WHERE iteration_id = $1",
-        )
-        .bind(iteration_id)
-        .fetch_optional(&mut **tx)
-        .await?;
+        let loop_id_result: Option<(String,)> =
+            sqlx::query_as("SELECT loop_id FROM proj.iterations WHERE iteration_id = $1")
+                .bind(iteration_id)
+                .fetch_optional(&mut **tx)
+                .await?;
 
         if let Some((loop_id,)) = loop_id_result {
             if state == "FAILED" {
@@ -801,15 +873,82 @@ impl ProjectionBuilder {
         let status = payload["verification_status"]
             .as_str()
             .unwrap_or("UNVERIFIED");
+        let verification_mode: Option<String> =
+            payload["verification_mode"].as_str().map(|s| s.to_string());
+        let verification_scope: Option<serde_json::Value> =
+            payload.get("verification_scope").cloned();
+        let verification_basis: Option<serde_json::Value> =
+            payload.get("verification_basis").cloned();
+        let verification_profile_id = payload["verification_profile_id"]
+            .as_str()
+            .map(|s| s.to_string());
+        let integrity_conditions: Vec<String> = payload["integrity_conditions"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let evidence_bundle_hashes: Vec<String> = payload["evidence_bundle_hashes"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let waiver_ids: Vec<String> = payload["waiver_ids"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let waived_oracle_ids: Vec<String> = payload["waived_oracle_ids"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let oracle_suite_summaries = payload
+            .get("oracle_suite_summaries")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!([]));
 
         sqlx::query(
             r#"
             UPDATE proj.candidates
-            SET verification_status = $1, last_event_id = $2, last_global_seq = $3
-            WHERE candidate_id = $4
+            SET verification_status = $1,
+                verification_mode = $2,
+                verification_scope = $3,
+                verification_basis = $4,
+                verification_computed_at = $5,
+                verification_profile_id = $6,
+                verification_integrity_conditions = $7,
+                verification_evidence_hashes = $8,
+                verification_waiver_ids = $9,
+                verification_waived_oracle_ids = $10,
+                verification_oracle_summaries = $11,
+                last_event_id = $12,
+                last_global_seq = $13
+            WHERE candidate_id = $14
             "#,
         )
         .bind(status)
+        .bind(verification_mode)
+        .bind(verification_scope)
+        .bind(verification_basis)
+        .bind(event.occurred_at)
+        .bind(verification_profile_id)
+        .bind(integrity_conditions)
+        .bind(evidence_bundle_hashes)
+        .bind(waiver_ids)
+        .bind(waived_oracle_ids)
+        .bind(oracle_suite_summaries)
         .bind(event.event_id.as_str())
         .bind(event.global_seq.unwrap_or(0) as i64)
         .bind(&event.stream_id)
@@ -909,6 +1048,15 @@ impl ProjectionBuilder {
         let approval_id = &event.stream_id;
 
         let portal_id = payload["portal_id"].as_str().unwrap_or("");
+        if !is_seeded_portal(portal_id) {
+            return Err(ProjectionError::ValidationError {
+                message: format!(
+                    "portal_id '{}' is not permitted (allowed: {:?})",
+                    portal_id,
+                    sr_domain::portal::SEEDED_PORTALS
+                ),
+            });
+        }
         let decision = payload["decision"].as_str().unwrap_or("APPROVED");
         let subject_refs = &payload["subject_refs"];
         let evidence_refs: Vec<&str> = payload["evidence_refs"]
@@ -1202,6 +1350,257 @@ impl ProjectionBuilder {
         .bind(event.global_seq.unwrap_or(0) as i64)
         .execute(&mut **tx)
         .await?;
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Record Event Handlers (human judgment, non-binding)
+    // ========================================================================
+
+    async fn apply_record_created(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let record_type = payload["record_type"].as_str().unwrap_or("");
+
+        // Only project human judgment records here
+        if record_type != "record.evaluation_note"
+            && record_type != "record.assessment_note"
+            && record_type != "record.intervention_note"
+        {
+            return Ok(());
+        }
+
+        if !matches!(event.actor_kind, sr_domain::ActorKind::Human) {
+            return Err(ProjectionError::ValidationError {
+                message: "Human judgment records MUST be recorded by HUMAN actors (per C-TB-7)"
+                    .into(),
+            });
+        }
+
+        let subject_refs = payload["subject_refs"].clone();
+        let evidence_refs: Vec<&str> = payload["evidence_refs"]
+            .as_array()
+            .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
+            .unwrap_or_default();
+        let content = payload["content"].as_str().unwrap_or("");
+        let severity = payload["severity"].as_str();
+        let fitness_judgment = payload["fitness_judgment"].as_str();
+        let recommendations = payload["recommendations"].as_str();
+        let details = payload["details"].clone();
+
+        sqlx::query(
+            r#"
+            INSERT INTO proj.human_judgment_records (
+                record_id, record_type, subject_refs, evidence_refs, content, severity,
+                fitness_judgment, recommendations, details, is_binding, recorded_by_kind, recorded_by_id,
+                recorded_at, last_event_id, last_global_seq
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, $10, $11, $12, $13, $14)
+            ON CONFLICT (record_id) DO UPDATE
+            SET subject_refs = $3, evidence_refs = $4, content = $5, severity = $6,
+                fitness_judgment = $7, recommendations = $8, details = $9, recorded_by_kind = $10,
+                recorded_by_id = $11, recorded_at = $12, last_event_id = $13, last_global_seq = $14
+            "#,
+        )
+        .bind(&event.stream_id)
+        .bind(record_type)
+        .bind(subject_refs)
+        .bind(&evidence_refs)
+        .bind(content)
+        .bind(severity)
+        .bind(fitness_judgment)
+        .bind(recommendations)
+        .bind(details)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.occurred_at)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .execute(&mut **tx)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Config definition registry handler
+    async fn apply_config_definition_recorded(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let config_id = payload["config_id"].as_str().unwrap_or("");
+        let type_key = payload["type_key"].as_str().unwrap_or("");
+        let name = payload["name"].as_str().unwrap_or("");
+        let definition = payload["definition"].clone();
+
+        if config_id.is_empty() || type_key.is_empty() || name.is_empty() {
+            return Err(ProjectionError::ValidationError {
+                message: "ConfigDefinitionRecorded missing required fields".into(),
+            });
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO proj.config_definitions (
+                config_id, type_key, name, definition,
+                recorded_by_kind, recorded_by_id, recorded_at,
+                last_event_id, last_global_seq
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (config_id) DO UPDATE
+            SET type_key = $2, name = $3, definition = $4,
+                recorded_by_kind = $5, recorded_by_id = $6,
+                recorded_at = $7, last_event_id = $8, last_global_seq = $9
+            "#,
+        )
+        .bind(config_id)
+        .bind(type_key)
+        .bind(name)
+        .bind(definition)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.occurred_at)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .execute(&mut **tx)
+        .await?;
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Staleness Event Handlers
+    // ========================================================================
+
+    async fn apply_node_marked_stale(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let dependent_id = payload["dependent_id"].as_str().unwrap_or("").to_string();
+        let dependent_kind = payload["dependent_kind"].as_str().unwrap_or("");
+
+        if dependent_id.is_empty() {
+            return Ok(());
+        }
+
+        // Update shippable status if the dependent is a candidate
+        if dependent_kind.eq_ignore_ascii_case("candidate") {
+            sqlx::query(
+                r#"
+                INSERT INTO proj.shippable_status (
+                    candidate_id, is_verified, verification_mode, latest_evidence_hash,
+                    release_approval_id, freeze_id, has_unresolved_staleness,
+                    computed_at, last_event_id, last_global_seq
+                ) VALUES ($1, FALSE, NULL, NULL, NULL, NULL, TRUE, $2, $3, $4)
+                ON CONFLICT (candidate_id) DO UPDATE
+                SET has_unresolved_staleness = TRUE, computed_at = $2, last_event_id = $3, last_global_seq = $4
+                "#,
+            )
+            .bind(&dependent_id)
+            .bind(event.occurred_at)
+            .bind(event.event_id.as_str())
+            .bind(event.global_seq.unwrap_or(0) as i64)
+            .execute(&mut **tx)
+            .await?;
+
+            sqlx::query(
+                r#"
+                UPDATE proj.candidates
+                SET has_unresolved_staleness = TRUE,
+                    last_event_id = $1,
+                    last_global_seq = $2
+                WHERE candidate_id = $3
+                "#,
+            )
+            .bind(event.event_id.as_str())
+            .bind(event.global_seq.unwrap_or(0) as i64)
+            .bind(&dependent_id)
+            .execute(&mut **tx)
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn apply_staleness_resolved(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let stale_id = payload["stale_id"].as_str().unwrap_or("");
+
+        if stale_id.is_empty() {
+            return Ok(());
+        }
+
+        // Look up the dependent for this stale marker
+        let row = sqlx::query_as::<_, (String, String)>(
+            r#"
+            SELECT dependent_id, dependent_kind
+            FROM graph.stale_nodes
+            WHERE stale_id = $1
+            "#,
+        )
+        .bind(stale_id)
+        .fetch_optional(&mut **tx)
+        .await?;
+
+        if let Some((dependent_id, dependent_kind)) = row {
+            if dependent_kind.eq_ignore_ascii_case("candidate") {
+                let has_unresolved: bool = sqlx::query_scalar(
+                    r#"
+                    SELECT EXISTS (
+                        SELECT 1 FROM graph.stale_nodes
+                        WHERE dependent_id = $1 AND resolved_at IS NULL
+                    )
+                    "#,
+                )
+                .bind(&dependent_id)
+                .fetch_one(&mut **tx)
+                .await?;
+
+                sqlx::query(
+                    r#"
+                    INSERT INTO proj.shippable_status (
+                        candidate_id, is_verified, verification_mode, latest_evidence_hash,
+                        release_approval_id, freeze_id, has_unresolved_staleness,
+                        computed_at, last_event_id, last_global_seq
+                    ) VALUES ($1, FALSE, NULL, NULL, NULL, NULL, $2, $3, $4, $5)
+                    ON CONFLICT (candidate_id) DO UPDATE
+                    SET has_unresolved_staleness = $2, computed_at = $3, last_event_id = $4, last_global_seq = $5
+                    "#,
+                )
+                .bind(&dependent_id)
+                .bind(has_unresolved)
+                .bind(event.occurred_at)
+                .bind(event.event_id.as_str())
+                .bind(event.global_seq.unwrap_or(0) as i64)
+                .execute(&mut **tx)
+                .await?;
+
+                sqlx::query(
+                    r#"
+                    UPDATE proj.candidates
+                    SET has_unresolved_staleness = $1,
+                        last_event_id = $2,
+                        last_global_seq = $3
+                    WHERE candidate_id = $4
+                    "#,
+                )
+                .bind(has_unresolved)
+                .bind(event.event_id.as_str())
+                .bind(event.global_seq.unwrap_or(0) as i64)
+                .bind(&dependent_id)
+                .execute(&mut **tx)
+                .await?;
+            }
+        }
 
         Ok(())
     }
@@ -2049,6 +2448,23 @@ pub struct LoopProjection {
     pub last_stop_trigger: Option<String>,
     pub paused_at: Option<DateTime<Utc>>,
     pub requires_decision: bool,
+    pub last_recommended_portal: Option<String>,
+}
+
+/// Stop trigger history for a loop
+#[derive(Debug, Clone)]
+pub struct LoopStopTriggerProjection {
+    pub stop_id: String,
+    pub loop_id: String,
+    pub trigger: String,
+    pub condition: Option<String>,
+    pub recommended_portal: Option<String>,
+    pub requires_decision: bool,
+    pub occurred_at: DateTime<Utc>,
+    pub actor_kind: String,
+    pub actor_id: String,
+    pub resolution_event_id: Option<String>,
+    pub resolved_at: Option<DateTime<Utc>>,
 }
 
 /// Iteration projection read model
@@ -2071,8 +2487,32 @@ pub struct CandidateProjection {
     pub content_hash: String,
     pub produced_by_iteration_id: Option<String>,
     pub verification_status: String,
+    pub verification_mode: Option<String>,
+    pub verification_scope: Option<serde_json::Value>,
+    pub verification_basis: Option<serde_json::Value>,
+    pub verification_computed_at: Option<DateTime<Utc>>,
+    pub verification_profile_id: Option<String>,
+    pub verification_integrity_conditions: Vec<String>,
+    pub verification_evidence_hashes: Vec<String>,
+    pub verification_waiver_ids: Vec<String>,
+    pub verification_waived_oracle_ids: Vec<String>,
+    pub verification_oracle_summaries: serde_json::Value,
+    pub has_unresolved_staleness: bool,
     pub created_at: DateTime<Utc>,
     pub refs: serde_json::Value,
+}
+
+/// Shippable status projection per SR-SPEC §1.12.5
+#[derive(Debug, Clone)]
+pub struct ShippableStatusProjection {
+    pub candidate_id: String,
+    pub is_verified: bool,
+    pub verification_mode: Option<String>,
+    pub latest_evidence_hash: Option<String>,
+    pub release_approval_id: Option<String>,
+    pub freeze_id: Option<String>,
+    pub has_unresolved_staleness: bool,
+    pub computed_at: DateTime<Utc>,
 }
 
 /// Run projection read model
@@ -2103,6 +2543,35 @@ pub struct ApprovalProjection {
     pub approved_by_kind: String,
     pub approved_by_id: String,
     pub approved_at: DateTime<Utc>,
+}
+
+/// Human judgment record projection read model
+#[derive(Debug, Clone)]
+pub struct HumanJudgmentRecord {
+    pub record_id: String,
+    pub record_type: String,
+    pub subject_refs: serde_json::Value,
+    pub evidence_refs: Vec<String>,
+    pub content: String,
+    pub severity: Option<String>,
+    pub fitness_judgment: Option<String>,
+    pub recommendations: Option<String>,
+    pub details: serde_json::Value,
+    pub recorded_by_kind: String,
+    pub recorded_by_id: String,
+    pub recorded_at: DateTime<Utc>,
+}
+
+/// Config definition projection read model
+#[derive(Debug, Clone)]
+pub struct ConfigDefinitionProjection {
+    pub config_id: String,
+    pub type_key: String,
+    pub name: String,
+    pub definition: serde_json::Value,
+    pub recorded_by_kind: String,
+    pub recorded_by_id: String,
+    pub recorded_at: DateTime<Utc>,
 }
 
 /// Exception projection read model
@@ -2185,7 +2654,8 @@ impl ProjectionBuilder {
             SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                    created_by_kind, created_by_id, created_at, activated_at,
                    closed_at, iteration_count,
-                   consecutive_failures, last_stop_trigger, paused_at, requires_decision
+                   consecutive_failures, last_stop_trigger, paused_at, requires_decision,
+                   last_recommended_portal
             FROM proj.loops WHERE loop_id = $1
             "#,
         )
@@ -2211,6 +2681,7 @@ impl ProjectionBuilder {
             last_stop_trigger: row.get("last_stop_trigger"),
             paused_at: row.get("paused_at"),
             requires_decision: row.get("requires_decision"),
+            last_recommended_portal: row.get("last_recommended_portal"),
         }))
     }
 
@@ -2228,7 +2699,8 @@ impl ProjectionBuilder {
             SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                    created_by_kind, created_by_id, created_at, activated_at,
                    closed_at, iteration_count,
-                   consecutive_failures, last_stop_trigger, paused_at, requires_decision
+                   consecutive_failures, last_stop_trigger, paused_at, requires_decision,
+                   last_recommended_portal
             FROM proj.loops WHERE work_unit = $1
             ORDER BY created_at DESC
             LIMIT 1
@@ -2256,7 +2728,45 @@ impl ProjectionBuilder {
             last_stop_trigger: row.get("last_stop_trigger"),
             paused_at: row.get("paused_at"),
             requires_decision: row.get("requires_decision"),
+            last_recommended_portal: row.get("last_recommended_portal"),
         }))
+    }
+
+    /// Stop trigger history for a loop
+    pub async fn get_stop_triggers_for_loop(
+        &self,
+        loop_id: &str,
+    ) -> Result<Vec<LoopStopTriggerProjection>, ProjectionError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT stop_id, loop_id, trigger, condition, recommended_portal,
+                   requires_decision, occurred_at, actor_kind, actor_id,
+                   resolution_event_id, resolved_at
+            FROM proj.loop_stop_triggers
+            WHERE loop_id = $1
+            ORDER BY occurred_at DESC
+            "#,
+        )
+        .bind(loop_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| LoopStopTriggerProjection {
+                stop_id: row.get("stop_id"),
+                loop_id: row.get("loop_id"),
+                trigger: row.get("trigger"),
+                condition: row.get("condition"),
+                recommended_portal: row.get("recommended_portal"),
+                requires_decision: row.get("requires_decision"),
+                occurred_at: row.get("occurred_at"),
+                actor_kind: row.get("actor_kind"),
+                actor_id: row.get("actor_id"),
+                resolution_event_id: row.get("resolution_event_id"),
+                resolved_at: row.get("resolved_at"),
+            })
+            .collect())
     }
 
     /// Get iterations for a loop
@@ -2299,7 +2809,13 @@ impl ProjectionBuilder {
         let result = sqlx::query(
             r#"
             SELECT candidate_id, content_hash, produced_by_iteration_id,
-                   verification_status, created_at, refs
+                   verification_status, verification_mode, verification_scope,
+                   verification_basis, verification_computed_at,
+                   verification_profile_id, verification_integrity_conditions,
+                   verification_evidence_hashes, verification_waiver_ids,
+                   verification_waived_oracle_ids, verification_oracle_summaries,
+                   has_unresolved_staleness,
+                   created_at, refs
             FROM proj.candidates WHERE candidate_id = $1
             "#,
         )
@@ -2312,6 +2828,17 @@ impl ProjectionBuilder {
             content_hash: row.get("content_hash"),
             produced_by_iteration_id: row.get("produced_by_iteration_id"),
             verification_status: row.get("verification_status"),
+            verification_mode: row.get("verification_mode"),
+            verification_scope: row.get("verification_scope"),
+            verification_basis: row.get("verification_basis"),
+            verification_computed_at: row.get("verification_computed_at"),
+            verification_profile_id: row.get("verification_profile_id"),
+            verification_integrity_conditions: row.get("verification_integrity_conditions"),
+            verification_evidence_hashes: row.get("verification_evidence_hashes"),
+            verification_waiver_ids: row.get("verification_waiver_ids"),
+            verification_waived_oracle_ids: row.get("verification_waived_oracle_ids"),
+            verification_oracle_summaries: row.get("verification_oracle_summaries"),
+            has_unresolved_staleness: row.get("has_unresolved_staleness"),
             created_at: row.get("created_at"),
             refs: row.get("refs"),
         }))
@@ -2352,6 +2879,23 @@ impl ProjectionBuilder {
             .collect())
     }
 
+    /// Count oracle runs associated with a loop (via candidate -> iteration lineage)
+    pub async fn count_runs_for_loop(&self, loop_id: &str) -> Result<u32, ProjectionError> {
+        let count: i64 = sqlx::query_scalar(
+            r#"
+            SELECT COUNT(*) FROM proj.runs r
+            JOIN proj.candidates c ON r.candidate_id = c.candidate_id
+            JOIN proj.iterations i ON c.produced_by_iteration_id = i.iteration_id
+            WHERE i.loop_id = $1
+            "#,
+        )
+        .bind(loop_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(count as u32)
+    }
+
     /// List loops with optional state filter
     pub async fn list_loops(
         &self,
@@ -2365,7 +2909,8 @@ impl ProjectionBuilder {
                 SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                        created_by_kind, created_by_id, created_at, activated_at,
                        closed_at, iteration_count,
-                       consecutive_failures, last_stop_trigger, paused_at, requires_decision
+                       consecutive_failures, last_stop_trigger, paused_at, requires_decision,
+                       last_recommended_portal
                 FROM proj.loops WHERE state = $1
                 ORDER BY created_at DESC
                 LIMIT $2 OFFSET $3
@@ -2382,7 +2927,8 @@ impl ProjectionBuilder {
                 SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                        created_by_kind, created_by_id, created_at, activated_at,
                        closed_at, iteration_count,
-                       consecutive_failures, last_stop_trigger, paused_at, requires_decision
+                       consecutive_failures, last_stop_trigger, paused_at, requires_decision,
+                       last_recommended_portal
                 FROM proj.loops
                 ORDER BY created_at DESC
                 LIMIT $1 OFFSET $2
@@ -2414,6 +2960,7 @@ impl ProjectionBuilder {
                 last_stop_trigger: row.get("last_stop_trigger"),
                 paused_at: row.get("paused_at"),
                 requires_decision: row.get("requires_decision"),
+                last_recommended_portal: row.get("last_recommended_portal"),
             })
             .collect())
     }
@@ -2454,7 +3001,13 @@ impl ProjectionBuilder {
         let rows = sqlx::query(
             r#"
             SELECT candidate_id, content_hash, produced_by_iteration_id,
-                   verification_status, created_at, refs
+                   verification_status, verification_mode, verification_scope,
+                   verification_basis, verification_computed_at,
+                   verification_profile_id, verification_integrity_conditions,
+                   verification_evidence_hashes, verification_waiver_ids,
+                   verification_waived_oracle_ids, verification_oracle_summaries,
+                   has_unresolved_staleness,
+                   created_at, refs
             FROM proj.candidates WHERE produced_by_iteration_id = $1
             ORDER BY created_at ASC
             "#,
@@ -2470,6 +3023,17 @@ impl ProjectionBuilder {
                 content_hash: row.get("content_hash"),
                 produced_by_iteration_id: row.get("produced_by_iteration_id"),
                 verification_status: row.get("verification_status"),
+                verification_mode: row.get("verification_mode"),
+                verification_scope: row.get("verification_scope"),
+                verification_basis: row.get("verification_basis"),
+                verification_computed_at: row.get("verification_computed_at"),
+                verification_profile_id: row.get("verification_profile_id"),
+                verification_integrity_conditions: row.get("verification_integrity_conditions"),
+                verification_evidence_hashes: row.get("verification_evidence_hashes"),
+                verification_waiver_ids: row.get("verification_waiver_ids"),
+                verification_waived_oracle_ids: row.get("verification_waived_oracle_ids"),
+                verification_oracle_summaries: row.get("verification_oracle_summaries"),
+                has_unresolved_staleness: row.get("has_unresolved_staleness"),
                 created_at: row.get("created_at"),
                 refs: row.get("refs"),
             })
@@ -2487,7 +3051,13 @@ impl ProjectionBuilder {
             sqlx::query(
                 r#"
                 SELECT candidate_id, content_hash, produced_by_iteration_id,
-                       verification_status, created_at, refs
+                       verification_status, verification_mode, verification_scope,
+                       verification_basis, verification_computed_at,
+                       verification_profile_id, verification_integrity_conditions,
+                       verification_evidence_hashes, verification_waiver_ids,
+                       verification_waived_oracle_ids, verification_oracle_summaries,
+                       has_unresolved_staleness,
+                       created_at, refs
                 FROM proj.candidates WHERE verification_status = $1
                 ORDER BY created_at DESC
                 LIMIT $2 OFFSET $3
@@ -2502,7 +3072,13 @@ impl ProjectionBuilder {
             sqlx::query(
                 r#"
                 SELECT candidate_id, content_hash, produced_by_iteration_id,
-                       verification_status, created_at, refs
+                       verification_status, verification_mode, verification_scope,
+                       verification_basis, verification_computed_at,
+                       verification_profile_id, verification_integrity_conditions,
+                       verification_evidence_hashes, verification_waiver_ids,
+                       verification_waived_oracle_ids, verification_oracle_summaries,
+                       has_unresolved_staleness,
+                       created_at, refs
                 FROM proj.candidates
                 ORDER BY created_at DESC
                 LIMIT $1 OFFSET $2
@@ -2521,10 +3097,50 @@ impl ProjectionBuilder {
                 content_hash: row.get("content_hash"),
                 produced_by_iteration_id: row.get("produced_by_iteration_id"),
                 verification_status: row.get("verification_status"),
+                verification_mode: row.get("verification_mode"),
+                verification_scope: row.get("verification_scope"),
+                verification_basis: row.get("verification_basis"),
+                verification_computed_at: row.get("verification_computed_at"),
+                verification_profile_id: row.get("verification_profile_id"),
+                verification_integrity_conditions: row.get("verification_integrity_conditions"),
+                verification_evidence_hashes: row.get("verification_evidence_hashes"),
+                verification_waiver_ids: row.get("verification_waiver_ids"),
+                verification_waived_oracle_ids: row.get("verification_waived_oracle_ids"),
+                verification_oracle_summaries: row.get("verification_oracle_summaries"),
+                has_unresolved_staleness: row.get("has_unresolved_staleness"),
                 created_at: row.get("created_at"),
                 refs: row.get("refs"),
             })
             .collect())
+    }
+
+    /// Get shippable status for a candidate
+    pub async fn get_shippable_status(
+        &self,
+        candidate_id: &str,
+    ) -> Result<Option<ShippableStatusProjection>, ProjectionError> {
+        let row = sqlx::query(
+            r#"
+            SELECT candidate_id, is_verified, verification_mode, latest_evidence_hash,
+                   release_approval_id, freeze_id, has_unresolved_staleness, computed_at
+            FROM proj.shippable_status
+            WHERE candidate_id = $1
+            "#,
+        )
+        .bind(candidate_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|row| ShippableStatusProjection {
+            candidate_id: row.get("candidate_id"),
+            is_verified: row.get("is_verified"),
+            verification_mode: row.get("verification_mode"),
+            latest_evidence_hash: row.get("latest_evidence_hash"),
+            release_approval_id: row.get("release_approval_id"),
+            freeze_id: row.get("freeze_id"),
+            has_unresolved_staleness: row.get("has_unresolved_staleness"),
+            computed_at: row.get("computed_at"),
+        }))
     }
 
     /// Get a run by ID
@@ -2787,6 +3403,93 @@ impl ProjectionBuilder {
             approved_by_id: row.get("approved_by_id"),
             approved_at: row.get("approved_at"),
         }))
+    }
+
+    // ========================================================================
+    // Human Judgment Record Query Methods
+    // ========================================================================
+
+    /// Get an evaluation or assessment note
+    pub async fn get_human_judgment_record(
+        &self,
+        record_id: &str,
+    ) -> Result<Option<HumanJudgmentRecord>, ProjectionError> {
+        let row = sqlx::query(
+            r#"
+            SELECT record_id, record_type, subject_refs, evidence_refs, content,
+                   severity, fitness_judgment, recommendations, details, recorded_by_kind,
+                   recorded_by_id, recorded_at
+            FROM proj.human_judgment_records
+            WHERE record_id = $1
+            "#,
+        )
+        .bind(record_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|row| HumanJudgmentRecord {
+            record_id: row.get("record_id"),
+            record_type: row.get("record_type"),
+            subject_refs: row.get("subject_refs"),
+            evidence_refs: row.get("evidence_refs"),
+            content: row.get("content"),
+            severity: row.get("severity"),
+            fitness_judgment: row.get("fitness_judgment"),
+            recommendations: row.get("recommendations"),
+            details: row.get("details"),
+            recorded_by_kind: row.get("recorded_by_kind"),
+            recorded_by_id: row.get("recorded_by_id"),
+            recorded_at: row.get("recorded_at"),
+        }))
+    }
+
+    // ========================================================================
+    // Config Definition Query Methods
+    // ========================================================================
+
+    /// List config definitions (optionally filtered by type_key)
+    pub async fn list_config_definitions(
+        &self,
+        type_key: Option<&str>,
+    ) -> Result<Vec<ConfigDefinitionProjection>, ProjectionError> {
+        let rows = if let Some(tk) = type_key {
+            sqlx::query(
+                r#"
+                SELECT config_id, type_key, name, definition, recorded_by_kind,
+                       recorded_by_id, recorded_at
+                FROM proj.config_definitions
+                WHERE type_key = $1
+                ORDER BY recorded_at DESC
+                "#,
+            )
+            .bind(tk)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT config_id, type_key, name, definition, recorded_by_kind,
+                       recorded_by_id, recorded_at
+                FROM proj.config_definitions
+                ORDER BY recorded_at DESC
+                "#,
+            )
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|row| ConfigDefinitionProjection {
+                config_id: row.get("config_id"),
+                type_key: row.get("type_key"),
+                name: row.get("name"),
+                definition: row.get("definition"),
+                recorded_by_kind: row.get("recorded_by_kind"),
+                recorded_by_id: row.get("recorded_by_id"),
+                recorded_at: row.get("recorded_at"),
+            })
+            .collect())
     }
 
     // ========================================================================

@@ -20,7 +20,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, instrument};
+use tracing::{info, instrument};
 
 use crate::oracle_runner::{
     EnvironmentConstraints, ExpectedOutput, NetworkMode, OracleClassification, OracleDefinition,
@@ -57,8 +57,6 @@ impl OracleSuiteRegistry {
 
     /// Create registry with core suites pre-registered
     pub fn with_core_suites() -> Self {
-        let registry = Self::new();
-
         // We'll register suites synchronously using blocking
         let mut suites = BTreeMap::new();
         suites.insert(SUITE_GOV_ID.to_string(), create_gov_suite());
@@ -66,10 +64,7 @@ impl OracleSuiteRegistry {
         suites.insert(SUITE_FULL_ID.to_string(), create_full_suite());
 
         // Register integration suite (V11-5, D-26)
-        suites.insert(
-            SUITE_INTEGRATION_ID.to_string(),
-            create_integration_suite(),
-        );
+        suites.insert(SUITE_INTEGRATION_ID.to_string(), create_integration_suite());
 
         // Register semantic oracle suite (D-39)
         let semantic_suite = create_intake_admissibility_suite();
@@ -272,7 +267,7 @@ impl OracleSuiteRegistryPort for OracleSuiteRegistry {
         let mut records: Vec<OracleSuiteRecord> = suites
             .values()
             .map(definition_to_record)
-            .filter(|r| {
+            .filter(|_| {
                 // In-memory registry only has active suites
                 filter.status.is_none() || filter.status == Some(OracleSuiteStatus::Active)
             })

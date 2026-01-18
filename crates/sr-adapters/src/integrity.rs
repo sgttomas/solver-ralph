@@ -22,7 +22,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{info, instrument};
 
 use crate::evidence::{EvidenceManifest, OracleResultStatus};
 use crate::oracle_runner::{
@@ -879,23 +879,23 @@ impl IntegrityChecker {
             match violation.condition {
                 IntegrityCondition::OracleTamper => (
                     StopTriggerType::TamperDetected,
-                    "SecurityReviewPortal".to_string(),
+                    "GovernanceChangePortal".to_string(),
                 ),
                 IntegrityCondition::OracleGap => (
                     StopTriggerType::CoverageGap,
-                    "OracleSuiteChangePortal".to_string(),
+                    "GovernanceChangePortal".to_string(),
                 ),
                 IntegrityCondition::OracleEnvMismatch => (
                     StopTriggerType::EnvironmentMismatch,
-                    "InfrastructureReviewPortal".to_string(),
+                    "GovernanceChangePortal".to_string(),
                 ),
                 IntegrityCondition::OracleFlake => (
                     StopTriggerType::FlakeDetected,
-                    "TestStabilityPortal".to_string(),
+                    "GovernanceChangePortal".to_string(),
                 ),
                 IntegrityCondition::EvidenceMissing => (
                     StopTriggerType::EvidenceMissing,
-                    "EvidenceReviewPortal".to_string(),
+                    "GovernanceChangePortal".to_string(),
                 ),
                 IntegrityCondition::ManifestInvalid => (
                     StopTriggerType::ManifestInvalid,
@@ -1360,7 +1360,7 @@ mod tests {
         let trigger = checker.compute_stop_trigger(&violations, None);
 
         assert_eq!(trigger.trigger_type, StopTriggerType::TamperDetected);
-        assert_eq!(trigger.recommended_portal, "SecurityReviewPortal");
+        assert_eq!(trigger.recommended_portal, "GovernanceChangePortal");
         assert!(!trigger.allow_retry);
     }
 

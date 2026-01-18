@@ -100,10 +100,12 @@ pub use outbox::{OutboxEntry, OutboxError, OutboxPublisher, OutboxPublisherConfi
 pub use postgres::PostgresEventStore;
 pub use postgres_oracle_registry::PostgresOracleSuiteRegistry;
 pub use projections::{
-    ApprovalProjection, CandidateProjection, DecisionProjection, EvidenceProjection,
-    ExceptionProjection, FreezeRecordProjection, IterationProjection, LoopProjection,
-    ProjectionBuilder, ProjectionConfig, ProjectionError, RunProjection,
+    ApprovalProjection, CandidateProjection, ConfigDefinitionProjection, DecisionProjection,
+    EvidenceProjection, ExceptionProjection, FreezeRecordProjection, HumanJudgmentRecord,
+    IterationProjection, LoopProjection, LoopStopTriggerProjection, ProjectionBuilder,
+    ProjectionConfig, ProjectionError, RunProjection, ShippableStatusProjection,
 };
+pub use replay::{EligibleSetComparison, ExtendedReplayProof, ReplayDiscrepancy, ReplayProof};
 pub use restricted::{
     standard_redaction_rules, EncryptionMetadata, EvidenceClassification, EvidenceRedactor,
     InMemorySecretProvider, RedactedContentType, RedactionEntry, RedactionManifest, RedactionRule,
@@ -123,7 +125,4 @@ pub use semantic_worker::{
 pub use worker::{
     run_worker, ContentResolver, ReferenceWorkerBridge, WorkAction, WorkResult, WorkerConfig,
     WorkerError,
-};
-pub use replay::{
-    EligibleSetComparison, ExtendedReplayProof, ReplayDiscrepancy, ReplayProof,
 };

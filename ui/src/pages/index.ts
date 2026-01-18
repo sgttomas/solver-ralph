@@ -35,3 +35,5 @@ export { WorkSurfaceCompose } from './WorkSurfaceCompose';
 export { WorkSurfaceDetail } from './WorkSurfaceDetail';
 export { Audit } from './Audit';
 export { Settings } from './Settings';
+export { Staleness } from './Staleness';
+export { Notes } from './Notes';

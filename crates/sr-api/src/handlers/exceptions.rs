@@ -17,6 +17,7 @@ use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 // Integrity conditions that cannot be waived
@@ -193,7 +194,7 @@ pub async fn create_exception(
         .map(|dt| dt.with_timezone(&Utc));
 
     // Convert scope to artifact refs
-    let artifact_refs: Vec<TypedRef> = body
+    let artifact_refs_raw: Vec<TypedRef> = body
         .scope
         .artifact_refs
         .into_iter()
@@ -204,6 +205,7 @@ pub async fn create_exception(
             meta: r.meta,
         })
         .collect();
+    let artifact_refs = normalize_and_validate_refs(&state, artifact_refs_raw).await?;
 
     let scope = serde_json::json!({
         "loop_id": body.scope.loop_id,

@@ -78,6 +78,20 @@ pub enum IntegrityCondition {
         /// Actual value from environment fingerprint
         actual: String,
     },
+
+    /// C-EVID-6: Referenced evidence missing or unavailable
+    #[serde(rename = "EVIDENCE_MISSING")]
+    EvidenceMissing {
+        /// Human-readable reason or missing content hash
+        reason: String,
+    },
+
+    /// Manifest validation failed (schema/verdict mismatch)
+    #[serde(rename = "MANIFEST_INVALID")]
+    ManifestInvalid {
+        /// Human-readable reason
+        reason: String,
+    },
 }
 
 impl IntegrityCondition {
@@ -88,6 +102,8 @@ impl IntegrityCondition {
             IntegrityCondition::OracleGap { .. } => "ORACLE_GAP",
             IntegrityCondition::OracleFlake { .. } => "ORACLE_FLAKE",
             IntegrityCondition::OracleEnvMismatch { .. } => "ORACLE_ENV_MISMATCH",
+            IntegrityCondition::EvidenceMissing { .. } => "EVIDENCE_MISSING",
+            IntegrityCondition::ManifestInvalid { .. } => "MANIFEST_INVALID",
         }
     }
 
@@ -112,6 +128,8 @@ impl IntegrityCondition {
             IntegrityCondition::OracleGap { .. } => "C-OR-4",
             IntegrityCondition::OracleFlake { .. } => "C-OR-5",
             IntegrityCondition::OracleEnvMismatch { .. } => "C-OR-3",
+            IntegrityCondition::EvidenceMissing { .. } => "C-EVID-6",
+            IntegrityCondition::ManifestInvalid { .. } => "C-EVID-1",
         }
     }
 
@@ -122,6 +140,8 @@ impl IntegrityCondition {
             IntegrityCondition::OracleGap { suite_id, .. } => Some(suite_id),
             IntegrityCondition::OracleFlake { .. } => None,
             IntegrityCondition::OracleEnvMismatch { .. } => None,
+            IntegrityCondition::EvidenceMissing { .. } => None,
+            IntegrityCondition::ManifestInvalid { .. } => None,
         }
     }
 
@@ -171,6 +191,12 @@ impl IntegrityCondition {
                     "Environment constraint '{}' violated. Expected '{}', got '{}'.",
                     constraint, expected, actual
                 )
+            }
+            IntegrityCondition::EvidenceMissing { reason } => {
+                format!("Evidence missing or unavailable: {reason}")
+            }
+            IntegrityCondition::ManifestInvalid { reason } => {
+                format!("Evidence manifest invalid: {reason}")
             }
         }
     }
@@ -363,6 +389,23 @@ mod tests {
         assert_eq!(condition.condition_code(), "ORACLE_ENV_MISMATCH");
         assert_eq!(condition.contract_ref(), "C-OR-3");
         assert!(condition.message().contains("runtime"));
+    }
+
+    #[test]
+    fn test_evidence_missing_condition() {
+        let condition = IntegrityCondition::EvidenceMissing {
+            reason: "hash:missing".to_string(),
+        };
+
+        assert_eq!(condition.condition_code(), "EVIDENCE_MISSING");
+        assert_eq!(condition.contract_ref(), "C-EVID-6");
+        assert!(condition.message().contains("Evidence missing"));
+
+        let json = serde_json::to_string(&condition).unwrap();
+        assert!(json.contains("EVIDENCE_MISSING"));
+
+        let parsed: IntegrityCondition = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, condition);
     }
 
     #[test]

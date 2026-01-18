@@ -737,7 +737,7 @@ impl IntakeAdmissibilityRunner {
         (1.0 - coverage, coverage, violations)
     }
 
-    fn evaluate_contradictions(&self, intake: &Intake) -> (f64, f64, Vec<ConstraintViolation>) {
+    fn evaluate_contradictions(&self, _intake: &Intake) -> (f64, f64, Vec<ConstraintViolation>) {
         // Simple contradiction check: look for conflicting constraints
         // In a real implementation, this would use NLP/semantic analysis
         let violations = Vec::new();
@@ -776,7 +776,7 @@ impl IntakeAdmissibilityRunner {
     fn evaluate_privacy(&self, intake: &Intake) -> (f64, f64, Vec<ConstraintViolation>) {
         // Simple PII scan: look for common patterns
         // In a real implementation, this would use proper PII detection
-        let text = format!(
+        let _text = format!(
             "{} {} {} {:?}",
             intake.title, intake.objective, intake.audience, intake.constraints
         );

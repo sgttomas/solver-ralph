@@ -9,16 +9,14 @@ use axum::{
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sr_adapters::{LoopProjection, ProjectionBuilder};
-use sr_domain::{
-    ActorId, ActorKind, EventEnvelope, EventId, LoopBudgets, LoopId, LoopState, LoopStateMachine,
-    StreamKind, TypedRef,
-};
+use sr_adapters::{LoopProjection, LoopStopTriggerProjection};
+use sr_domain::{EventEnvelope, EventId, LoopBudgets, LoopId, StreamKind, TypedRef};
 use sr_ports::EventStore;
-use tracing::{debug, info, instrument};
+use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 // ============================================================================
@@ -90,6 +88,16 @@ pub struct LoopResponse {
     pub activated_at: Option<String>,
     pub closed_at: Option<String>,
     pub iteration_count: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub paused_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_stop_trigger: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_recommended_portal: Option<String>,
+    #[serde(default)]
+    pub requires_decision: bool,
+    #[serde(default)]
+    pub stop_triggers_fired: Vec<StopTriggerResponse>,
 }
 
 #[derive(Debug, Serialize)]
@@ -120,6 +128,17 @@ pub struct ListLoopsResponse {
     pub total: usize,
     pub limit: u32,
     pub offset: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StopTriggerResponse {
+    pub trigger_code: String,
+    pub fired_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decision_id: Option<String>,
+    pub resolved: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recommended_portal: Option<String>,
 }
 
 /// Request to transition loop state
@@ -218,12 +237,21 @@ pub async fn create_loop(
         None
     };
 
-    let directive_ref = TypedRef {
-        kind: body.directive_ref.kind,
-        id: body.directive_ref.id,
-        rel: body.directive_ref.rel,
-        meta: body.directive_ref.meta,
-    };
+    let directive_ref = normalize_and_validate_refs(
+        &state,
+        vec![TypedRef {
+            kind: body.directive_ref.kind,
+            id: body.directive_ref.id,
+            rel: body.directive_ref.rel,
+            meta: body.directive_ref.meta,
+        }],
+    )
+    .await?
+    .into_iter()
+    .next()
+    .ok_or(ApiError::Internal {
+        message: "Failed to normalize directive_ref".to_string(),
+    })?;
 
     let payload = serde_json::json!({
         "goal": body.goal,
@@ -300,7 +328,12 @@ pub async fn get_loop(
                 id: loop_id.clone(),
             })?;
 
-    Ok(Json(projection_to_response(projection)))
+    let stop_triggers = state
+        .projections
+        .get_stop_triggers_for_loop(&loop_id)
+        .await?;
+
+    Ok(Json(projection_to_response(projection, stop_triggers)))
 }
 
 /// List loops with optional filtering
@@ -319,7 +352,7 @@ pub async fn list_loops(
 
     let responses: Vec<LoopResponse> = loops
         .iter()
-        .map(|p| projection_to_response(p.clone()))
+        .map(|p| projection_to_response(p.clone(), Vec::new()))
         .collect();
 
     Ok(Json(ListLoopsResponse {
@@ -378,14 +411,15 @@ pub async fn resume_loop(
     Json(body): Json<ResumeLoopRequest>,
 ) -> ApiResult<Json<LoopActionResponse>> {
     // 1. Get current Loop projection
-    let loop_proj = state
-        .projections
-        .get_loop(&loop_id)
-        .await?
-        .ok_or_else(|| ApiError::NotFound {
-            resource: "Loop".to_string(),
-            id: loop_id.clone(),
-        })?;
+    let loop_proj =
+        state
+            .projections
+            .get_loop(&loop_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Loop".to_string(),
+                id: loop_id.clone(),
+            })?;
 
     // 2. Verify Loop is PAUSED
     if loop_proj.state != "PAUSED" {
@@ -398,13 +432,16 @@ pub async fn resume_loop(
     // 3. V10-2: Check if decision is required (stop-trigger-induced pause)
     if loop_proj.requires_decision {
         // Validate decision_id was provided
-        let decision_id = body.decision_id.as_ref().ok_or_else(|| ApiError::PreconditionFailed {
-            code: "DECISION_REQUIRED".to_string(),
-            message: format!(
+        let decision_id =
+            body.decision_id
+                .as_ref()
+                .ok_or_else(|| ApiError::PreconditionFailed {
+                    code: "DECISION_REQUIRED".to_string(),
+                    message: format!(
                 "Loop was paused by {}. A Decision must be recorded and provided to resume.",
                 loop_proj.last_stop_trigger.as_deref().unwrap_or("stop trigger")
             ),
-        })?;
+                })?;
 
         // Validate decision exists
         let decision = state
@@ -418,7 +455,9 @@ pub async fn resume_loop(
 
         // Validate decision references this Loop in scope
         // The scope should contain loop_id or a reference to this Loop
-        let scope_contains_loop = decision.scope.get("loop_id")
+        let scope_contains_loop = decision
+            .scope
+            .get("loop_id")
             .and_then(|v| v.as_str())
             .map(|id| id == loop_id)
             .unwrap_or(false);
@@ -530,14 +569,15 @@ pub async fn patch_loop(
     Json(body): Json<PatchLoopRequest>,
 ) -> ApiResult<Json<LoopActionResponse>> {
     // 1. Get current Loop projection
-    let loop_proj = state
-        .projections
-        .get_loop(&loop_id)
-        .await?
-        .ok_or_else(|| ApiError::NotFound {
-            resource: "Loop".to_string(),
-            id: loop_id.clone(),
-        })?;
+    let loop_proj =
+        state
+            .projections
+            .get_loop(&loop_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Loop".to_string(),
+                id: loop_id.clone(),
+            })?;
 
     // 2. Validate Loop is not CLOSED
     if loop_proj.state == "CLOSED" {
@@ -553,43 +593,7 @@ pub async fn patch_loop(
 
     // 4. Validate budget monotonicity if budgets are being updated
     let new_budgets = if let Some(ref patch) = body.budgets {
-        let new_max_iterations = patch.max_iterations.unwrap_or(current_budgets.max_iterations);
-        let new_max_oracle_runs = patch.max_oracle_runs.unwrap_or(current_budgets.max_oracle_runs);
-        let new_max_wallclock_hours = patch
-            .max_wallclock_hours
-            .unwrap_or(current_budgets.max_wallclock_hours);
-
-        // Enforce monotonicity: new values must be >= current values
-        if new_max_iterations < current_budgets.max_iterations {
-            return Err(ApiError::BadRequest {
-                message: format!(
-                    "Budget max_iterations cannot decrease: current={}, requested={}",
-                    current_budgets.max_iterations, new_max_iterations
-                ),
-            });
-        }
-        if new_max_oracle_runs < current_budgets.max_oracle_runs {
-            return Err(ApiError::BadRequest {
-                message: format!(
-                    "Budget max_oracle_runs cannot decrease: current={}, requested={}",
-                    current_budgets.max_oracle_runs, new_max_oracle_runs
-                ),
-            });
-        }
-        if new_max_wallclock_hours < current_budgets.max_wallclock_hours {
-            return Err(ApiError::BadRequest {
-                message: format!(
-                    "Budget max_wallclock_hours cannot decrease: current={}, requested={}",
-                    current_budgets.max_wallclock_hours, new_max_wallclock_hours
-                ),
-            });
-        }
-
-        Some(LoopBudgets {
-            max_iterations: new_max_iterations,
-            max_oracle_runs: new_max_oracle_runs,
-            max_wallclock_hours: new_max_wallclock_hours,
-        })
+        Some(apply_budget_patch(&current_budgets, patch)?)
     } else {
         None
     };
@@ -607,7 +611,10 @@ pub async fn patch_loop(
         payload.insert("goal".to_string(), serde_json::json!(goal));
     }
     if let Some(ref budgets) = new_budgets {
-        payload.insert("budgets".to_string(), serde_json::to_value(budgets).unwrap());
+        payload.insert(
+            "budgets".to_string(),
+            serde_json::to_value(budgets).unwrap(),
+        );
     }
 
     // 7. Create event
@@ -734,7 +741,10 @@ async fn transition_loop(
     }))
 }
 
-fn projection_to_response(p: LoopProjection) -> LoopResponse {
+fn projection_to_response(
+    p: LoopProjection,
+    stop_triggers: Vec<LoopStopTriggerProjection>,
+) -> LoopResponse {
     let budgets: LoopBudgets = serde_json::from_value(p.budgets.clone()).unwrap_or_default();
 
     LoopResponse {
@@ -753,6 +763,24 @@ fn projection_to_response(p: LoopProjection) -> LoopResponse {
         activated_at: p.activated_at.map(|t| t.to_rfc3339()),
         closed_at: p.closed_at.map(|t| t.to_rfc3339()),
         iteration_count: p.iteration_count,
+        paused_at: p.paused_at.map(|t| t.to_rfc3339()),
+        last_stop_trigger: p.last_stop_trigger,
+        last_recommended_portal: p.last_recommended_portal,
+        requires_decision: p.requires_decision,
+        stop_triggers_fired: stop_triggers
+            .into_iter()
+            .map(stop_projection_to_response)
+            .collect(),
+    }
+}
+
+fn stop_projection_to_response(st: LoopStopTriggerProjection) -> StopTriggerResponse {
+    StopTriggerResponse {
+        trigger_code: st.trigger,
+        fired_at: st.occurred_at.to_rfc3339(),
+        decision_id: None,
+        resolved: st.resolved_at.is_some(),
+        recommended_portal: st.recommended_portal,
     }
 }
 
@@ -760,6 +788,53 @@ fn compute_envelope_hash(event_id: &EventId) -> String {
     // In production, this would be a proper content hash
     // For now, use event_id as a placeholder
     format!("sha256:{}", event_id.as_str().replace("evt_", ""))
+}
+
+/// Apply a budget patch with monotonicity enforcement (budgets cannot decrease).
+fn apply_budget_patch(
+    current_budgets: &LoopBudgets,
+    patch: &LoopBudgetsPatch,
+) -> Result<LoopBudgets, ApiError> {
+    let new_max_iterations = patch
+        .max_iterations
+        .unwrap_or(current_budgets.max_iterations);
+    let new_max_oracle_runs = patch
+        .max_oracle_runs
+        .unwrap_or(current_budgets.max_oracle_runs);
+    let new_max_wallclock_hours = patch
+        .max_wallclock_hours
+        .unwrap_or(current_budgets.max_wallclock_hours);
+
+    if new_max_iterations < current_budgets.max_iterations {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Budget max_iterations cannot decrease: current={}, requested={}",
+                current_budgets.max_iterations, new_max_iterations
+            ),
+        });
+    }
+    if new_max_oracle_runs < current_budgets.max_oracle_runs {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Budget max_oracle_runs cannot decrease: current={}, requested={}",
+                current_budgets.max_oracle_runs, new_max_oracle_runs
+            ),
+        });
+    }
+    if new_max_wallclock_hours < current_budgets.max_wallclock_hours {
+        return Err(ApiError::BadRequest {
+            message: format!(
+                "Budget max_wallclock_hours cannot decrease: current={}, requested={}",
+                current_budgets.max_wallclock_hours, new_max_wallclock_hours
+            ),
+        });
+    }
+
+    Ok(LoopBudgets {
+        max_iterations: new_max_iterations,
+        max_oracle_runs: new_max_oracle_runs,
+        max_wallclock_hours: new_max_wallclock_hours,
+    })
 }
 
 #[cfg(test)]
@@ -772,5 +847,56 @@ mod tests {
         assert_eq!(budgets.max_iterations, 5);
         assert_eq!(budgets.max_oracle_runs, 25);
         assert_eq!(budgets.max_wallclock_hours, 16);
+    }
+
+    #[test]
+    fn budget_patch_rejects_decrease() {
+        let current = LoopBudgets {
+            max_iterations: 5,
+            max_oracle_runs: 25,
+            max_wallclock_hours: 16,
+        };
+
+        let patch = LoopBudgetsPatch {
+            max_iterations: Some(4),
+            max_oracle_runs: None,
+            max_wallclock_hours: None,
+        };
+
+        let result = apply_budget_patch(&current, &patch);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn budget_patch_applies_increase_and_preserves_other_fields() {
+        let current = LoopBudgets {
+            max_iterations: 5,
+            max_oracle_runs: 25,
+            max_wallclock_hours: 16,
+        };
+
+        let patch = LoopBudgetsPatch {
+            max_iterations: Some(6),
+            max_oracle_runs: None,
+            max_wallclock_hours: Some(20),
+        };
+
+        let updated = apply_budget_patch(&current, &patch).expect("budget patch");
+        assert_eq!(updated.max_iterations, 6);
+        assert_eq!(updated.max_oracle_runs, 25);
+        assert_eq!(updated.max_wallclock_hours, 20);
+    }
+
+    #[test]
+    fn create_loop_respects_custom_budgets() {
+        let budgets = LoopBudgetsRequest {
+            max_iterations: 7,
+            max_oracle_runs: 30,
+            max_wallclock_hours: 24,
+        };
+
+        assert_eq!(budgets.max_iterations, 7);
+        assert_eq!(budgets.max_oracle_runs, 30);
+        assert_eq!(budgets.max_wallclock_hours, 24);
     }
 }

@@ -83,7 +83,6 @@ impl FlakeControl {
         E: std::fmt::Display,
     {
         let mut attempts = 0;
-        let mut last_error: Option<String> = None;
         let mut current_delay = self.retry_policy.initial_delay;
 
         loop {
@@ -124,7 +123,6 @@ impl FlakeControl {
                 }
                 Err(e) => {
                     let error_msg = e.to_string();
-                    last_error = Some(error_msg.clone());
 
                     self.record_attempt(RetryAttempt {
                         operation: operation_name.to_string(),
@@ -465,7 +463,7 @@ mod tests {
 
         let result = control
             .execute_with_retry::<_, _, i32, &str>("test", || {
-                let count = attempt_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let _ = attempt_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 async move { Err::<i32, _>("always fails") }
             })
             .await;

@@ -10,12 +10,14 @@ use axum::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sr_adapters::RunProjection;
-use sr_domain::{ContentHash, EventEnvelope, EventId, RunId, StreamKind};
+use sr_domain::{EventEnvelope, EventId, LoopBudgets, RunId, StreamKind, TypedRef};
 use sr_ports::EventStore;
 use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
+use crate::handlers::stop_triggers::emit_stop_triggered;
 use crate::handlers::{ApiError, ApiResult};
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 // ============================================================================
@@ -109,25 +111,116 @@ pub async fn start_run(
     user: AuthenticatedUser,
     Json(body): Json<StartRunRequest>,
 ) -> ApiResult<Json<RunActionResponse>> {
-    // Verify candidate exists
-    let _ = state
+    let StartRunRequest {
+        candidate_id,
+        oracle_suite_id,
+        oracle_suite_hash,
+    } = body;
+
+    // Verify candidate exists and capture lineage for budget enforcement
+    let candidate = state
         .projections
-        .get_candidate(&body.candidate_id)
+        .get_candidate(&candidate_id)
         .await?
         .ok_or_else(|| ApiError::NotFound {
             resource: "Candidate".to_string(),
-            id: body.candidate_id.clone(),
+            id: candidate_id.clone(),
         })?;
+
+    let iteration_id = candidate.produced_by_iteration_id.clone();
+    let loop_id = if let Some(ref iter_id) = iteration_id {
+        let iteration = state
+            .projections
+            .get_iteration(iter_id)
+            .await?
+            .ok_or_else(|| ApiError::NotFound {
+                resource: "Iteration".to_string(),
+                id: iter_id.clone(),
+            })?;
+        Some(iteration.loop_id)
+    } else {
+        None
+    };
+
+    // Enforce oracle run budget (SR-DIRECTIVE §4.1)
+    if let Some(ref loop_id) = loop_id {
+        let loop_proj =
+            state
+                .projections
+                .get_loop(loop_id)
+                .await?
+                .ok_or_else(|| ApiError::NotFound {
+                    resource: "Loop".to_string(),
+                    id: loop_id.clone(),
+                })?;
+
+        let budgets: LoopBudgets =
+            serde_json::from_value(loop_proj.budgets.clone()).unwrap_or_default();
+        let current_runs = state.projections.count_runs_for_loop(loop_id).await?;
+
+        if budgets.max_oracle_runs > 0 && current_runs >= budgets.max_oracle_runs {
+            emit_stop_triggered(
+                &state,
+                loop_id,
+                "BUDGET_EXHAUSTED",
+                true,
+                Some("HumanAuthorityExceptionProcess"),
+            )
+            .await?;
+
+            return Err(ApiError::PreconditionFailed {
+                code: "BUDGET_EXHAUSTED".to_string(),
+                message: format!(
+                    "Loop has exhausted max_oracle_runs ({}/{})",
+                    current_runs, budgets.max_oracle_runs
+                ),
+            });
+        }
+    }
 
     let run_id = RunId::new();
     let event_id = EventId::new();
     let now = Utc::now();
 
-    let payload = serde_json::json!({
-        "candidate_id": body.candidate_id,
-        "oracle_suite_id": body.oracle_suite_id,
-        "oracle_suite_hash": body.oracle_suite_hash
+    let mut payload = serde_json::json!({
+        "candidate_id": candidate_id,
+        "oracle_suite_id": oracle_suite_id,
+        "oracle_suite_hash": oracle_suite_hash
     });
+
+    if let Some(ref lid) = loop_id {
+        payload["loop_id"] = serde_json::json!(lid);
+    }
+    if let Some(ref iter_id) = iteration_id {
+        payload["iteration_id"] = serde_json::json!(iter_id);
+    }
+
+    let mut refs = vec![TypedRef {
+        kind: "Candidate".to_string(),
+        id: candidate_id.clone(),
+        rel: "subject".to_string(),
+        meta: serde_json::Value::Null,
+    }];
+
+    if let Some(ref iter_id) = iteration_id {
+        refs.push(TypedRef {
+            kind: "Iteration".to_string(),
+            id: iter_id.clone(),
+            rel: "produced_by".to_string(),
+            meta: serde_json::Value::Null,
+        });
+    }
+
+    if let Some(ref lid) = loop_id {
+        refs.push(TypedRef {
+            kind: "Loop".to_string(),
+            id: lid.clone(),
+            rel: "parent".to_string(),
+            meta: serde_json::Value::Null,
+        });
+    }
+
+    let refs = normalize_and_validate_refs(&state, refs).await?;
 
     let event = EventEnvelope {
         event_id: event_id.clone(),
@@ -142,7 +235,7 @@ pub async fn start_run(
         correlation_id: None,
         causation_id: None,
         supersedes: vec![],
-        refs: vec![],
+        refs,
         payload,
         envelope_hash: compute_envelope_hash(&event_id),
     };
@@ -159,14 +252,14 @@ pub async fn start_run(
 
     info!(
         run_id = %run_id.as_str(),
-        candidate_id = %body.candidate_id,
-        oracle_suite_id = %body.oracle_suite_id,
+        candidate_id = %candidate_id,
+        oracle_suite_id = %oracle_suite_id,
         "Run started"
     );
 
     Ok(Json(RunActionResponse {
         run_id: run_id.as_str().to_string(),
-        candidate_id: body.candidate_id,
+        candidate_id,
         state: "STARTED".to_string(),
         event_id: event_id.as_str().to_string(),
     }))

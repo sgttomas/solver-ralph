@@ -21,11 +21,11 @@ use sr_domain::{
     context::{CompilerConfig, ContextBundle, ContextCompiler, ItemClassification},
     ContentHash, TypedRef,
 };
-use sr_ports::{MessageBus, MessageBusError};
+use sr_ports::MessageBusError;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument};
 
 use crate::nats::{streams, subjects, MessageEnvelope, NatsConsumer, NatsMessageBus};
 
@@ -118,6 +118,10 @@ pub enum WorkerError {
     /// Evidence storage error (V9-1)
     #[error("Storage error: {message}")]
     StorageError { message: String },
+
+    /// Event store error (stop/violation emission)
+    #[error("Event store error: {message}")]
+    EventStoreError { message: String },
 }
 
 impl From<MessageBusError> for WorkerError {

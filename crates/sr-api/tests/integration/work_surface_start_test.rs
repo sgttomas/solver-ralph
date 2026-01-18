@@ -171,6 +171,7 @@ struct LoopActionResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct LoopResponse {
     loop_id: String,
     state: String,

@@ -151,6 +151,7 @@ struct WorkSurfaceActionResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct WorkSurfaceResponse {
     work_surface_id: String,
     status: String,
@@ -177,6 +178,7 @@ struct LoopActionResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct LoopResponse {
     loop_id: String,
     work_surface_id: Option<String>,
@@ -245,6 +247,7 @@ struct OracleResultRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct StageCompletionResponse {
     work_surface_id: String,
     completed_stage_id: String,
@@ -301,6 +304,7 @@ struct EvidenceBundleInfo {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ApiErrorResponse {
     error: String,
     code: u16,
@@ -723,8 +727,8 @@ async fn test_branch_0_complete_flow() {
         ("stage:FRAME", false),
         ("stage:OPTIONS", false),
         ("stage:DRAFT", false),
-        ("stage:SEMANTIC_EVAL", true),  // Trust boundary - requires approval
-        ("stage:FINAL", true),          // Trust boundary - requires approval
+        ("stage:SEMANTIC_EVAL", true), // Trust boundary - requires approval
+        ("stage:FINAL", true),         // Trust boundary - requires approval
     ];
 
     for (stage_id, requires_approval) in stages.iter() {
@@ -735,7 +739,8 @@ async fn test_branch_0_complete_flow() {
             let _iter_id = start_iteration(&client, &loop_id).await;
         }
 
-        let completion = complete_stage(&client, &work_surface_id, stage_id, *requires_approval).await;
+        let completion =
+            complete_stage(&client, &work_surface_id, stage_id, *requires_approval).await;
 
         if *requires_approval {
             println!("    (Approval recorded at portal)");
@@ -785,7 +790,8 @@ async fn test_branch_0_complete_flow() {
         "portal:RELEASE_APPROVAL",
         &work_surface_id,
         "sha256:branch0-release-evidence",
-    ).await;
+    )
+    .await;
     println!("  Release approval: {}", release_approval_id);
 
     let freeze_req = CreateFreezeRecordRequest {
@@ -928,7 +934,8 @@ async fn test_branch_0_portal_approvals_required() {
         "portal:STAGE_COMPLETION:stage:SEMANTIC_EVAL",
         &work_surface_id,
         evidence_ref,
-    ).await;
+    )
+    .await;
 
     let resp = client
         .http
@@ -990,7 +997,8 @@ async fn test_branch_0_portal_approvals_required() {
         "portal:STAGE_COMPLETION:stage:FINAL",
         &work_surface_id,
         evidence_ref,
-    ).await;
+    )
+    .await;
 
     let resp = client
         .http
@@ -1032,7 +1040,7 @@ async fn test_branch_0_evidence_capture() {
     println!("Work Unit ID: {}", work_unit_id);
 
     // Setup
-    let work_surface_id = create_work_surface_generic(&client, &work_unit_id).await;
+    let _work_surface_id = create_work_surface_generic(&client, &work_unit_id).await;
     let loop_id = create_and_activate_loop(&client, &work_unit_id).await;
 
     println!("\n[Test] Starting iteration and polling for evidence...");
@@ -1107,7 +1115,8 @@ async fn test_branch_0_freeze_baseline() {
         "portal:RELEASE_APPROVAL",
         &work_surface_id,
         "sha256:release-evidence",
-    ).await;
+    )
+    .await;
     println!("  Release approval: {}", release_approval_id);
 
     let baseline_id = format!("baseline:freeze-test-{}", ulid::Ulid::new());

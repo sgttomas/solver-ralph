@@ -27,15 +27,18 @@ use sr_domain::entities::ContentHash;
 use sr_domain::events::{GateResult, GateResultStatus, OracleResultSummary};
 use sr_domain::work_surface::{
     validate_work_kind_compatibility, ContentAddressedRef, ManagedWorkSurface, OracleSuiteBinding,
-    ProcedureTemplate, StageId, WorkKind, WorkSurfaceId, WorkUnitId,
+    ProcedureTemplate, StageId, StageStatusRecord, WorkKind, WorkSurfaceId, WorkUnitId,
 };
-use sr_domain::{ActorKind, EventEnvelope, EventId, IterationId, LoopId, StreamKind, TypedRef};
+use sr_domain::{
+    ActorKind, EventEnvelope, EventId, IterationId, LoopId, ProcedureInstance, StreamKind, TypedRef,
+};
 use sr_ports::EventStore;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
+use crate::handlers::stop_triggers::emit_stop_triggered;
 use crate::handlers::{ApiError, ApiResult};
 use crate::templates::{TemplateCategory, TemplateRegistry};
 use crate::AppState;
@@ -497,6 +500,39 @@ pub async fn get_work_surface(
 ) -> ApiResult<Json<WorkSurfaceResponse>> {
     let ws = get_work_surface_projection(&state.app_state, &work_surface_id).await?;
     Ok(Json(ws))
+}
+
+/// Get ProcedureInstance representation for a Work Surface
+///
+/// GET /api/v1/procedure-instances/:work_surface_id
+#[instrument(skip(state, _user))]
+pub async fn get_procedure_instance(
+    State(state): State<WorkSurfaceState>,
+    _user: AuthenticatedUser,
+    Path(work_surface_id): Path<String>,
+) -> ApiResult<Json<ProcedureInstance>> {
+    let ws = get_work_surface_projection(&state.app_state, &work_surface_id).await?;
+
+    let stage_status: HashMap<String, StageStatusRecord> =
+        serde_json::from_value(ws.stage_status.clone()).unwrap_or_default();
+    let oracle_suites = ws
+        .current_oracle_suites
+        .as_array()
+        .map(|arr| arr.to_vec())
+        .unwrap_or_default();
+
+    let proc_instance = ProcedureInstance::new(
+        WorkSurfaceId::from_string(ws.work_surface_id.clone()),
+        ws.work_unit_id.clone(),
+        ws.procedure_template_id.clone(),
+        ws.current_stage_id.clone(),
+        stage_status,
+        oracle_suites,
+        ws.params.clone(),
+        Some(ws.content_hash.clone()),
+    );
+
+    Ok(Json(proc_instance))
 }
 
 /// Get the active Work Surface for a Work Unit
@@ -1181,68 +1217,6 @@ fn compute_template_hash(template: &sr_domain::work_surface::ProcedureTemplate) 
     format!("sha256:{}", hex::encode(hasher.finalize()))
 }
 
-/// V10-1: Emit StopTriggered event to pause a Loop (C-LOOP-1, C-LOOP-3)
-///
-/// Emits a StopTriggered event that transitions the Loop to PAUSED state.
-/// The `requires_decision` flag indicates whether a Decision must be recorded
-/// before the Loop can be resumed.
-async fn emit_stop_triggered(
-    state: &AppState,
-    loop_id: &str,
-    trigger: &str,
-    requires_decision: bool,
-) -> Result<(), ApiError> {
-    let event_id = EventId::new();
-    let now = Utc::now();
-
-    // Read current stream to get version
-    let events = state.event_store.read_stream(loop_id, 0, 1000).await?;
-    let current_version = events.len() as u64;
-
-    let event = EventEnvelope {
-        event_id: event_id.clone(),
-        stream_id: loop_id.to_string(),
-        stream_kind: StreamKind::Loop,
-        stream_seq: current_version + 1,
-        global_seq: None,
-        event_type: "StopTriggered".to_string(),
-        occurred_at: now,
-        actor_kind: ActorKind::System,
-        actor_id: "system:loop-governor".to_string(),
-        correlation_id: None,
-        causation_id: None,
-        supersedes: vec![],
-        refs: vec![],
-        payload: serde_json::json!({
-            "trigger": trigger,
-            "requires_decision": requires_decision,
-        }),
-        envelope_hash: compute_envelope_hash(&event_id),
-    };
-
-    state
-        .event_store
-        .append(loop_id, current_version, vec![event])
-        .await?;
-
-    state
-        .projections
-        .process_events(&*state.event_store)
-        .await
-        .map_err(|e| ApiError::Internal {
-            message: e.to_string(),
-        })?;
-
-    info!(
-        loop_id = %loop_id,
-        trigger = %trigger,
-        requires_decision = %requires_decision,
-        "StopTriggered event emitted - Loop paused"
-    );
-
-    Ok(())
-}
-
 fn parse_work_kind(kind: &str) -> Result<WorkKind, ApiError> {
     parse_work_kind_option(kind).ok_or_else(|| ApiError::BadRequest {
         message: format!("Invalid work kind: {}", kind),
@@ -1709,6 +1683,48 @@ pub async fn start_work_surface_iteration(
         });
     }
 
+    // 3a. Validate stage exists and semantic profile is bound (C-OR-7, SR-DIRECTIVE §4.2)
+    let stage_status = ws.stage_status.as_object().cloned().unwrap_or_default();
+    if !stage_status.contains_key(&ws.current_stage_id) {
+        emit_stop_triggered(
+            &state.app_state,
+            &loop_proj.loop_id,
+            "STAGE_UNKNOWN",
+            true,
+            Some("GovernanceChangePortal"),
+        )
+        .await?;
+
+        return Err(ApiError::PreconditionFailed {
+            code: "STAGE_UNKNOWN".to_string(),
+            message: format!(
+                "Current stage '{}' is not defined in stage_status",
+                ws.current_stage_id
+            ),
+        });
+    }
+
+    let bound_suites: Vec<OracleSuiteBinding> =
+        serde_json::from_value(ws.current_oracle_suites.clone()).unwrap_or_default();
+    if bound_suites.is_empty() {
+        emit_stop_triggered(
+            &state.app_state,
+            &loop_proj.loop_id,
+            "SEMANTIC_PROFILE_MISSING",
+            true,
+            Some("GovernanceChangePortal"),
+        )
+        .await?;
+
+        return Err(ApiError::PreconditionFailed {
+            code: "SEMANTIC_PROFILE_MISSING".to_string(),
+            message: format!(
+                "No oracle suites bound for current stage '{}' on Work Surface",
+                ws.current_stage_id
+            ),
+        });
+    }
+
     // 3b. V10-1: Check budget before starting iteration (C-LOOP-1, C-LOOP-3)
     let max_iterations = loop_proj.budgets["max_iterations"].as_i64().unwrap_or(5) as i32;
     if loop_proj.iteration_count >= max_iterations {
@@ -1718,6 +1734,7 @@ pub async fn start_work_surface_iteration(
             &loop_proj.loop_id,
             "BUDGET_EXHAUSTED",
             true, // requires_decision = true
+            Some("HumanAuthorityExceptionProcess"),
         )
         .await?;
 
@@ -1738,6 +1755,7 @@ pub async fn start_work_surface_iteration(
             &loop_proj.loop_id,
             "REPEATED_FAILURE",
             true, // requires_decision = true
+            Some("HumanAuthorityExceptionProcess"),
         )
         .await?;
 

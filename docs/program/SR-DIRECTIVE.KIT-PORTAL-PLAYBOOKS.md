@@ -49,6 +49,7 @@ The portal accepts the following request types (each produces a binding record):
 - **DEVIATION** — approve a deviation from a workflow requirement (e.g., CI shape) with compensating controls.
 - **ENG_ACCEPT** — record engineering acceptance approval for plan deliverables that require human sign-off (treated as a request type here to stay within the 3 seeded portals).
 - **BUDGET_ESCALATION** — approve a budget increase / scope change with explicit accounting and stop-trigger reassessment.
+- **STOP_TRIGGER_RECOVERY** — resolve stop triggers routed here (e.g., BUDGET_EXHAUSTED, NO_ELIGIBLE_WORK, REPEATED_FAILURE when exception is allowed) with explicit DecisionRecorded/Loop resume path.
 
 
 ## 4) Actor rules
@@ -72,6 +73,7 @@ The portal accepts the following request types (each produces a binding record):
  - gate_id(s) impacted
 - Request must include links to the relevant evidence bundles (gate packets) and the current verification profile selection for that scope.
 - For **BUDGET_ESCALATION**, request must include current budget burn and proposed new ceilings.
+- For **STOP_TRIGGER_RECOVERY**, honor the `recommended_portal` in the StopTriggered payload; integrity-driven triggers (ORACLE_*, EVIDENCE_MISSING, profile/stage misbinding) route to GovernanceChangePortal.
 
 
 ## 6) Evidence review checklist (Accountability harness)
@@ -188,7 +190,7 @@ solver_ralph:
 ## 2) Purpose and boundary
 
 - **Purpose (one sentence):**
- Provide an audited, human-only workflow to propose and ratify changes to governed policy (gates, profiles, portal policies, stop-trigger thresholds, and directive structure).
+ Provide an audited, human-only workflow to propose and ratify changes to governed policy (gates, profiles, portal policies, stop-trigger thresholds, and directive structure) and to adjudicate stop triggers routed here (integrity/stage/profile gaps).
 
 - **Trust boundary being crossed (SR-CONTRACT/SR-SPEC trust boundaries membranes):**
  Change; Authority Boundary; Evidence Integrity; Accountability
@@ -206,6 +208,7 @@ Allowed request types (each produces a binding record):
 - **ORACLE_SUITE_OR_PROFILE_CHANGE** — change oracle suite definitions or verification profile selection matrix.
 - **PORTAL_POLICY_CHANGE** — adjust allowed request types, role rules, or checklists for portals.
 - **STOPTRIGGER_POLICY_CHANGE** — change thresholds (e.g., REPEATED_FAILURE N), budgets policy, or escalation routing.
+- **STOP_TRIGGER_RESPONSE** — process StopTriggered events that name GovernanceChangePortal (integrity violations, EVIDENCE_MISSING, STAGE_UNKNOWN, SEMANTIC_PROFILE_MISSING, WORK_SURFACE_MISSING) and record the required governance decision.
 
 
 ## 4) Actor rules
@@ -232,6 +235,7 @@ Allowed request types (each produces a binding record):
 - If the change affects stop triggers/budgets, request must include:
  - updated thresholds/ceilings
  - failure-mode routing expectations
+- StopTriggered payloads with `recommended_portal=GovernanceChangePortal` must include the trigger code, affected loop/work surface context, and the integrity/stage/profile gap that caused the stop.
 
 
 ## 6) Evidence review checklist (Accountability harness)

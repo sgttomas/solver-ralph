@@ -1319,11 +1319,8 @@ impl EventManager {
     ///
     /// Per SR-CONTRACT C-EVT-7 and C-CTX-2 (no ghost inputs), the replay
     /// must produce identical state since `apply_event()` uses only event data.
-    pub fn verify_replay(
-        &self,
-        events: &[EventEnvelope],
-    ) -> crate::replay::ReplayProof {
-        use crate::replay::{ReplayProof, ReplayDiscrepancy};
+    pub fn verify_replay(&self, events: &[EventEnvelope]) -> crate::replay::ReplayProof {
+        use crate::replay::ReplayProof;
 
         // 1. Compute original state hash
         let original_hash = self.compute_state_hash();
@@ -1351,7 +1348,9 @@ impl EventManager {
             original_hash,
             replayed_hash,
             discrepancies,
-            self.plan_instance.as_ref().map(|p| p.plan_instance_id.as_str().to_string()),
+            self.plan_instance
+                .as_ref()
+                .map(|p| p.plan_instance_id.as_str().to_string()),
             self.statuses.len(),
         )
     }
@@ -1417,7 +1416,10 @@ impl EventManager {
                             id.clone(),
                             "current_stage_id",
                             serde_json::json!(status.current_stage_id.as_ref().map(|s| s.as_str())),
-                            serde_json::json!(other_status.current_stage_id.as_ref().map(|s| s.as_str())),
+                            serde_json::json!(other_status
+                                .current_stage_id
+                                .as_ref()
+                                .map(|s| s.as_str())),
                         ));
                     }
 
@@ -2162,9 +2164,7 @@ mod tests {
         assert!(!discrepancies.is_empty());
 
         // Should have discrepancy for has_work_surface
-        let has_ws_discrepancy = discrepancies
-            .iter()
-            .find(|d| d.field == "has_work_surface");
+        let has_ws_discrepancy = discrepancies.iter().find(|d| d.field == "has_work_surface");
         assert!(has_ws_discrepancy.is_some());
     }
 

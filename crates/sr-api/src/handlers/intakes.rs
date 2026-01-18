@@ -20,6 +20,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sr_domain::intake::IntakeUlidId;
+use sr_domain::refs::StrongTypedRef;
 use sr_domain::{EventEnvelope, EventId, StreamKind};
 use sr_ports::EventStore;
 use std::collections::HashMap;
@@ -216,6 +217,28 @@ pub async fn create_intake(
         return Err(ApiError::BadRequest {
             message: "At least one deliverable is required".to_string(),
         });
+    }
+
+    for input in &body.inputs {
+        let strong: StrongTypedRef = serde_json::from_value(serde_json::json!({
+            "kind": input.kind,
+            "id": input.id,
+            "rel": input.rel,
+            "meta": {
+                "content_hash": input.meta.content_hash,
+                "version": input.meta.version,
+                "type_key": input.meta.type_key,
+                "selector": input.meta.selector,
+            },
+            "label": input.label,
+        }))
+        .map_err(|e| ApiError::BadRequest {
+            message: format!("Invalid input ref: {e}"),
+        })?;
+
+        strong.validate().map_err(|e| ApiError::BadRequest {
+            message: format!("Invalid input ref: {e}"),
+        })?;
     }
 
     // Convert inputs to StrongTypedRef for storage
@@ -510,6 +533,27 @@ pub async fn update_intake(
         changes.insert("definitions".to_string(), serde_json::json!(definitions));
     }
     if let Some(inputs) = &body.inputs {
+        for input in inputs {
+            let strong: StrongTypedRef = serde_json::from_value(serde_json::json!({
+                "kind": input.kind,
+                "id": input.id,
+                "rel": input.rel,
+                "meta": {
+                    "content_hash": input.meta.content_hash,
+                    "version": input.meta.version,
+                    "type_key": input.meta.type_key,
+                    "selector": input.meta.selector,
+                },
+                "label": input.label,
+            }))
+            .map_err(|e| ApiError::BadRequest {
+                message: format!("Invalid input ref: {e}"),
+            })?;
+
+            strong.validate().map_err(|e| ApiError::BadRequest {
+                message: format!("Invalid input ref: {e}"),
+            })?;
+        }
         let inputs_json: Vec<serde_json::Value> = inputs
             .iter()
             .map(|r| {

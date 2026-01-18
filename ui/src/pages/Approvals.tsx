@@ -68,6 +68,12 @@ interface Decision {
 
 type TabType = 'approvals' | 'exceptions' | 'decisions';
 
+const SEEDED_PORTALS = [
+  'HumanAuthorityExceptionProcess',
+  'GovernanceChangePortal',
+  'ReleaseApprovalPortal',
+];
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -222,7 +228,12 @@ export function Approvals(): JSX.Element {
     clearMessages();
 
     if (!approvalPortalId || !approvalRationale) {
-      setError('Portal ID and rationale are required');
+      setError('Portal and rationale are required');
+      return;
+    }
+
+    if (!SEEDED_PORTALS.includes(approvalPortalId)) {
+      setError('Portal must be one of the seeded portal IDs per SR-DIRECTIVE.');
       return;
     }
 
@@ -423,14 +434,23 @@ export function Approvals(): JSX.Element {
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
                 <label className={styles.label}>Portal ID *</label>
-                <input
-                  className={styles.input}
-                  type="text"
-                  placeholder="e.g., portal:intake-acceptance"
+                <select
+                  className={styles.select}
                   value={approvalPortalId}
                   onChange={e => setApprovalPortalId(e.target.value)}
                   required
-                />
+                >
+                  <option value="">Select a seeded portal</option>
+                  {SEEDED_PORTALS.map(portal => (
+                    <option key={portal} value={portal}>
+                      {portal}
+                    </option>
+                  ))}
+                </select>
+                <div className={styles.note} style={{ marginTop: 'var(--space1)' }}>
+                  Only seeded portals are valid routing targets: HumanAuthorityExceptionProcess,
+                  GovernanceChangePortal, ReleaseApprovalPortal.
+                </div>
               </div>
               <div className={styles.formGroup}>
                 <label className={styles.label}>Decision *</label>

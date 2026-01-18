@@ -130,6 +130,7 @@ struct TypedRefRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct IntakeResponse {
     intake_id: String,
     status: String,
@@ -147,6 +148,7 @@ struct CreateWorkSurfaceRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct WorkSurfaceActionResponse {
     work_surface_id: String,
     status: String,
@@ -155,6 +157,7 @@ struct WorkSurfaceActionResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct WorkSurfaceResponse {
     work_surface_id: String,
     status: String,
@@ -172,6 +175,7 @@ struct CreateLoopRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct LoopActionResponse {
     loop_id: String,
     #[allow(dead_code)]
@@ -181,6 +185,7 @@ struct LoopActionResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct LoopResponse {
     #[allow(dead_code)]
     loop_id: String,
@@ -204,6 +209,7 @@ struct IterationActionResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct IterationResponse {
     #[allow(dead_code)]
     iteration_id: String,
@@ -224,6 +230,7 @@ struct RecordApprovalRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ApprovalActionResponse {
     approval_id: String,
     #[allow(dead_code)]
@@ -256,6 +263,7 @@ struct OracleResultRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct StageCompletionResponse {
     work_surface_id: String,
     completed_stage_id: String,
@@ -266,6 +274,7 @@ struct StageCompletionResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ApiErrorResponse {
     error: String,
     code: u16,

@@ -15,27 +15,26 @@ pub mod config;
 pub mod governed;
 pub mod handlers;
 pub mod observability;
+pub mod ref_validation;
 
 use auth::{init_oidc, AuthenticatedUser, OptionalAuth};
 use axum::{
-    extract::State,
-    http::StatusCode,
     middleware,
     routing::{get, patch, post, put},
     Json, Router,
 };
 use config::ApiConfig;
 use handlers::{
-    approvals, attachments, candidates, decisions, evidence, exceptions, freeze, intakes,
-    iterations, loops, oracles,
+    approvals, attachments, candidates, config as config_handlers, decisions, evidence, exceptions,
+    freeze, intakes, iterations, loops, oracles,
     prompt_loop::{prompt_loop, prompt_loop_stream},
-    references, runs, templates, work_surfaces,
+    records, references, runs, staleness, templates, verification, work_surfaces,
 };
 use observability::{
     metrics_endpoint, ready_endpoint, request_context_middleware, Metrics, MetricsState,
     ReadinessState,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::PgPool;
 use sr_adapters::oracle_suite::OracleSuiteRegistry;
 use sr_adapters::{
@@ -44,9 +43,9 @@ use sr_adapters::{
     PodmanOracleRunnerConfig, PostgresEventStore, ProjectionBuilder, SemanticWorkerBridge,
     SemanticWorkerConfig, SimpleCandidateWorkspace,
 };
-use tokio::sync::RwLock;
 use std::sync::Arc;
 use std::time::Instant;
+use tokio::sync::RwLock;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::{info, warn};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
@@ -58,6 +57,7 @@ pub struct AppState {
     pub event_store: Arc<PostgresEventStore>,
     pub projections: Arc<ProjectionBuilder>,
     pub evidence_store: Arc<MinioEvidenceStore>,
+    pub oracle_registry: Arc<OracleSuiteRegistry>,
     /// Governed artifacts manifest computed at startup (V11-6)
     pub governed_manifest: Arc<governed::GovernedManifest>,
 }
@@ -207,6 +207,10 @@ fn create_router(
             get(iterations::get_iteration),
         )
         .route(
+            "/api/v1/iterations/:iteration_id/loop-record",
+            get(iterations::get_loop_record),
+        )
+        .route(
             "/api/v1/iterations/:iteration_id/complete",
             post(iterations::complete_iteration),
         )
@@ -222,6 +226,10 @@ fn create_router(
         .route(
             "/api/v1/candidates/:candidate_id",
             get(candidates::get_candidate),
+        )
+        .route(
+            "/api/v1/candidates/:candidate_id/verify",
+            post(verification::verify_candidate),
         )
         .route(
             "/api/v1/candidates/:candidate_id/runs",
@@ -296,6 +304,10 @@ fn create_router(
             get(evidence::get_evidence),
         )
         .route(
+            "/api/v1/evidence/:content_hash/status",
+            get(evidence::get_evidence_status),
+        )
+        .route(
             "/api/v1/evidence/:content_hash/associate",
             post(evidence::associate_evidence),
         )
@@ -355,6 +367,29 @@ fn create_router(
         )
         .with_state(template_state);
 
+    // Config definition routes - P2-TYPES-CONFIG
+    let config_routes = Router::new()
+        .route(
+            "/api/v1/config/definitions",
+            get(config_handlers::list_config_definitions),
+        )
+        .route(
+            "/api/v1/agents",
+            post(config_handlers::create_agent_definition).get(config_handlers::list_agents),
+        )
+        .route(
+            "/api/v1/portals",
+            post(config_handlers::create_portal_definition),
+        )
+        .route(
+            "/api/v1/oracle-definitions",
+            post(config_handlers::create_oracle_definition),
+        )
+        .route(
+            "/api/v1/semantic-profiles",
+            post(config_handlers::create_semantic_profile),
+        );
+
     // Intake routes - Per SR-PLAN-V3 Phase 0b
     let intake_routes = Router::new()
         .route(
@@ -401,6 +436,10 @@ fn create_router(
         .route(
             "/api/v1/work-surfaces/:work_surface_id",
             get(work_surfaces::get_work_surface),
+        )
+        .route(
+            "/api/v1/procedure-instances/:work_surface_id",
+            get(work_surfaces::get_procedure_instance),
         )
         .route(
             "/api/v1/work-surfaces/:work_surface_id/stages/:stage_id/complete",
@@ -496,6 +535,34 @@ fn create_router(
         )
         .with_state(references_state);
 
+    // Staleness routes per SR-SPEC §2.3.9
+    let staleness_routes = Router::new()
+        .route("/api/v1/staleness/mark", post(staleness::mark_staleness))
+        .route(
+            "/api/v1/staleness/dependents",
+            get(staleness::list_stale_dependents),
+        )
+        .route(
+            "/api/v1/staleness/:stale_id/resolve",
+            post(staleness::resolve_staleness),
+        );
+
+    // Human judgment records (non-binding notes)
+    let record_routes = Router::new()
+        .route(
+            "/api/v1/records/evaluation-notes",
+            post(records::create_evaluation_note),
+        )
+        .route(
+            "/api/v1/records/assessment-notes",
+            post(records::create_assessment_note),
+        )
+        .route(
+            "/api/v1/records/intervention-notes",
+            post(records::create_intervention_note),
+        )
+        .route("/api/v1/records/:record_id", get(records::get_record));
+
     // Combine all routes (D-33: request context middleware for correlation tracking)
     Router::new()
         .merge(public_routes)
@@ -513,10 +580,13 @@ fn create_router(
         .merge(prompt_routes)
         .merge(oracle_routes)
         .merge(template_routes)
+        .merge(config_routes)
         .merge(intake_routes)
         .merge(work_surface_routes)
         .merge(attachment_routes)
         .merge(references_routes)
+        .merge(staleness_routes)
+        .merge(record_routes)
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(request_context_middleware))
         .layer(TraceLayer::new_for_http())
@@ -655,15 +725,6 @@ async fn main() {
         "Governed artifacts manifest computed"
     );
 
-    // Create application state
-    let state = AppState {
-        config: config.clone(),
-        event_store,
-        projections,
-        evidence_store,
-        governed_manifest,
-    };
-
     // Create metrics state (D-33)
     let metrics = Arc::new(Metrics::new());
     let metrics_state = MetricsState {
@@ -699,6 +760,16 @@ async fn main() {
     };
 
     info!("Template registry initialized with schemas");
+
+    // Create application state
+    let state = AppState {
+        config: config.clone(),
+        event_store,
+        projections,
+        evidence_store,
+        oracle_registry: oracle_registry.clone(),
+        governed_manifest,
+    };
 
     // Create work surface state (SR-PLAN-V4 Phase 4b)
     let work_surface_state = WorkSurfaceState {
@@ -777,7 +848,8 @@ async fn main() {
                 let worker_config = SemanticWorkerConfig::from_env();
                 let semantic_worker = SemanticWorkerBridge::new(
                     worker_config,
-                    nats_bus,
+                    Some(nats_bus),
+                    state.event_store.clone(),
                     event_manager,
                     oracle_runner,
                     state.evidence_store.clone(),
@@ -832,9 +904,6 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::body::Body;
-    use axum::http::{Request, StatusCode};
-    use tower::ServiceExt;
 
     // Note: Tests that require database are skipped in this module.
     // Full integration tests will be in a separate test crate or require

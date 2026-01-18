@@ -165,9 +165,11 @@ impl From<ProjectionError> for ApiError {
             ProjectionError::DatabaseError { message } => ApiError::Internal { message },
             ProjectionError::DeserializationError { message } => ApiError::Internal { message },
             ProjectionError::EventStoreError(es) => es.into(),
+            ProjectionError::GraphError { message } => ApiError::Internal { message },
             ProjectionError::UnknownEventType { event_type } => ApiError::Internal {
                 message: format!("Unknown event type: {}", event_type),
             },
+            ProjectionError::ValidationError { message } => ApiError::BadRequest { message },
         }
     }
 }

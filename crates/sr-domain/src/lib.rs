@@ -16,6 +16,7 @@
 //! DB clients, HTTP frameworks, container runtimes, or LLM SDKs.
 
 pub mod commands;
+pub mod config;
 pub mod context;
 pub mod entities;
 pub mod errors;
@@ -23,13 +24,16 @@ pub mod events;
 pub mod intake;
 pub mod integrity;
 pub mod plan_instance;
+pub mod portal;
 pub mod procedure_templates;
+pub mod records;
 pub mod refs;
 pub mod semantic_oracle;
 pub mod state_machines;
 pub mod work_surface;
 
 pub use commands::*;
+pub use config::*;
 pub use context::*;
 pub use entities::*;
 pub use errors::*;
@@ -37,7 +41,9 @@ pub use events::*;
 pub use intake::*;
 pub use integrity::*;
 pub use plan_instance::*;
+pub use portal::*;
 pub use procedure_templates::*;
+pub use records::*;
 pub use refs::*;
 pub use semantic_oracle::*;
 pub use state_machines::*;

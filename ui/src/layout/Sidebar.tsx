@@ -15,6 +15,8 @@ const items = [
   { to: "/prompts", label: "Prompts" },
   { to: "/artifacts", label: "Artifacts" },
   { to: "/approvals", label: "Approvals" },
+  { to: "/notes", label: "Notes" },
+  { to: "/staleness", label: "Staleness" },
   { to: "/audit", label: "Audit Log" },
   { to: "/settings", label: "Settings" },
 ];
