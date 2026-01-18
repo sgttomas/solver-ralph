@@ -352,6 +352,7 @@ impl ProjectionBuilder {
             "proj.evidence_bundles",
             "proj.work_surface_stage_history", // Must truncate before work_surfaces due to FK
             "proj.work_surfaces",
+            "proj.loop_stop_triggers",
             "proj.loops",
             "proj.iterations",
             "proj.candidates",
@@ -475,6 +476,21 @@ impl ProjectionBuilder {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         event: &EventEnvelope,
     ) -> Result<(), ProjectionError> {
+        sqlx::query(
+            r#"
+            UPDATE proj.loop_stop_triggers
+            SET resolved_at = $1,
+                resolution_event_id = $2
+            WHERE loop_id = $3
+              AND resolved_at IS NULL
+            "#,
+        )
+        .bind(event.occurred_at)
+        .bind(event.event_id.as_str())
+        .bind(&event.stream_id)
+        .execute(&mut **tx)
+        .await?;
+
         // Clear stop trigger state when Loop is resumed (V10-2)
         sqlx::query(
             r#"
@@ -483,6 +499,7 @@ impl ProjectionBuilder {
                 last_stop_trigger = NULL,
                 paused_at = NULL,
                 requires_decision = false,
+                last_recommended_portal = NULL,
                 last_event_id = $1,
                 last_global_seq = $2
             WHERE loop_id = $3
@@ -588,7 +605,33 @@ impl ProjectionBuilder {
         let loop_id = &event.stream_id;
 
         let trigger = payload["trigger"].as_str().unwrap_or("UNKNOWN");
+        let condition = payload["condition"].as_str().unwrap_or(trigger);
         let requires_decision = payload["requires_decision"].as_bool().unwrap_or(true);
+        let recommended_portal = payload["recommended_portal"].as_str();
+
+        sqlx::query(
+            r#"
+            INSERT INTO proj.loop_stop_triggers (
+                stop_id, loop_id, trigger, condition, recommended_portal,
+                requires_decision, occurred_at, actor_kind, actor_id,
+                resolution_event_id, resolved_at, last_event_id, last_global_seq
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL, NULL, $10, $11)
+            ON CONFLICT (stop_id) DO NOTHING
+            "#,
+        )
+        .bind(event.event_id.as_str())
+        .bind(loop_id)
+        .bind(trigger)
+        .bind(condition)
+        .bind(recommended_portal)
+        .bind(requires_decision)
+        .bind(event.occurred_at)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .execute(&mut **tx)
+        .await?;
 
         sqlx::query(
             r#"
@@ -597,14 +640,16 @@ impl ProjectionBuilder {
                 last_stop_trigger = $1,
                 paused_at = $2,
                 requires_decision = $3,
-                last_event_id = $4,
-                last_global_seq = $5
-            WHERE loop_id = $6
+                last_recommended_portal = $4,
+                last_event_id = $5,
+                last_global_seq = $6
+            WHERE loop_id = $7
             "#,
         )
         .bind(trigger)
         .bind(event.occurred_at)
         .bind(requires_decision)
+        .bind(recommended_portal)
         .bind(event.event_id.as_str())
         .bind(event.global_seq.unwrap_or(0) as i64)
         .bind(loop_id)
@@ -615,6 +660,7 @@ impl ProjectionBuilder {
             loop_id = %loop_id,
             trigger = %trigger,
             requires_decision = %requires_decision,
+            recommended_portal = ?recommended_portal,
             "StopTriggered event projected - Loop paused"
         );
 
@@ -833,6 +879,45 @@ impl ProjectionBuilder {
             payload.get("verification_scope").cloned();
         let verification_basis: Option<serde_json::Value> =
             payload.get("verification_basis").cloned();
+        let verification_profile_id = payload["verification_profile_id"]
+            .as_str()
+            .map(|s| s.to_string());
+        let integrity_conditions: Vec<String> = payload["integrity_conditions"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let evidence_bundle_hashes: Vec<String> = payload["evidence_bundle_hashes"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let waiver_ids: Vec<String> = payload["waiver_ids"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let waived_oracle_ids: Vec<String> = payload["waived_oracle_ids"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let oracle_suite_summaries = payload
+            .get("oracle_suite_summaries")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!([]));
 
         sqlx::query(
             r#"
@@ -842,9 +927,15 @@ impl ProjectionBuilder {
                 verification_scope = $3,
                 verification_basis = $4,
                 verification_computed_at = $5,
-                last_event_id = $6,
-                last_global_seq = $7
-            WHERE candidate_id = $8
+                verification_profile_id = $6,
+                verification_integrity_conditions = $7,
+                verification_evidence_hashes = $8,
+                verification_waiver_ids = $9,
+                verification_waived_oracle_ids = $10,
+                verification_oracle_summaries = $11,
+                last_event_id = $12,
+                last_global_seq = $13
+            WHERE candidate_id = $14
             "#,
         )
         .bind(status)
@@ -852,6 +943,12 @@ impl ProjectionBuilder {
         .bind(verification_scope)
         .bind(verification_basis)
         .bind(event.occurred_at)
+        .bind(verification_profile_id)
+        .bind(integrity_conditions)
+        .bind(evidence_bundle_hashes)
+        .bind(waiver_ids)
+        .bind(waived_oracle_ids)
+        .bind(oracle_suite_summaries)
         .bind(event.event_id.as_str())
         .bind(event.global_seq.unwrap_or(0) as i64)
         .bind(&event.stream_id)
@@ -1410,6 +1507,21 @@ impl ProjectionBuilder {
             .bind(event.global_seq.unwrap_or(0) as i64)
             .execute(&mut **tx)
             .await?;
+
+            sqlx::query(
+                r#"
+                UPDATE proj.candidates
+                SET has_unresolved_staleness = TRUE,
+                    last_event_id = $1,
+                    last_global_seq = $2
+                WHERE candidate_id = $3
+                "#,
+            )
+            .bind(event.event_id.as_str())
+            .bind(event.global_seq.unwrap_or(0) as i64)
+            .bind(&dependent_id)
+            .execute(&mut **tx)
+            .await?;
         }
 
         Ok(())
@@ -1469,6 +1581,22 @@ impl ProjectionBuilder {
                 .bind(event.occurred_at)
                 .bind(event.event_id.as_str())
                 .bind(event.global_seq.unwrap_or(0) as i64)
+                .execute(&mut **tx)
+                .await?;
+
+                sqlx::query(
+                    r#"
+                    UPDATE proj.candidates
+                    SET has_unresolved_staleness = $1,
+                        last_event_id = $2,
+                        last_global_seq = $3
+                    WHERE candidate_id = $4
+                    "#,
+                )
+                .bind(has_unresolved)
+                .bind(event.event_id.as_str())
+                .bind(event.global_seq.unwrap_or(0) as i64)
+                .bind(&dependent_id)
                 .execute(&mut **tx)
                 .await?;
             }
@@ -2320,6 +2448,23 @@ pub struct LoopProjection {
     pub last_stop_trigger: Option<String>,
     pub paused_at: Option<DateTime<Utc>>,
     pub requires_decision: bool,
+    pub last_recommended_portal: Option<String>,
+}
+
+/// Stop trigger history for a loop
+#[derive(Debug, Clone)]
+pub struct LoopStopTriggerProjection {
+    pub stop_id: String,
+    pub loop_id: String,
+    pub trigger: String,
+    pub condition: Option<String>,
+    pub recommended_portal: Option<String>,
+    pub requires_decision: bool,
+    pub occurred_at: DateTime<Utc>,
+    pub actor_kind: String,
+    pub actor_id: String,
+    pub resolution_event_id: Option<String>,
+    pub resolved_at: Option<DateTime<Utc>>,
 }
 
 /// Iteration projection read model
@@ -2346,6 +2491,13 @@ pub struct CandidateProjection {
     pub verification_scope: Option<serde_json::Value>,
     pub verification_basis: Option<serde_json::Value>,
     pub verification_computed_at: Option<DateTime<Utc>>,
+    pub verification_profile_id: Option<String>,
+    pub verification_integrity_conditions: Vec<String>,
+    pub verification_evidence_hashes: Vec<String>,
+    pub verification_waiver_ids: Vec<String>,
+    pub verification_waived_oracle_ids: Vec<String>,
+    pub verification_oracle_summaries: serde_json::Value,
+    pub has_unresolved_staleness: bool,
     pub created_at: DateTime<Utc>,
     pub refs: serde_json::Value,
 }
@@ -2502,7 +2654,8 @@ impl ProjectionBuilder {
             SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                    created_by_kind, created_by_id, created_at, activated_at,
                    closed_at, iteration_count,
-                   consecutive_failures, last_stop_trigger, paused_at, requires_decision
+                   consecutive_failures, last_stop_trigger, paused_at, requires_decision,
+                   last_recommended_portal
             FROM proj.loops WHERE loop_id = $1
             "#,
         )
@@ -2528,6 +2681,7 @@ impl ProjectionBuilder {
             last_stop_trigger: row.get("last_stop_trigger"),
             paused_at: row.get("paused_at"),
             requires_decision: row.get("requires_decision"),
+            last_recommended_portal: row.get("last_recommended_portal"),
         }))
     }
 
@@ -2545,7 +2699,8 @@ impl ProjectionBuilder {
             SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                    created_by_kind, created_by_id, created_at, activated_at,
                    closed_at, iteration_count,
-                   consecutive_failures, last_stop_trigger, paused_at, requires_decision
+                   consecutive_failures, last_stop_trigger, paused_at, requires_decision,
+                   last_recommended_portal
             FROM proj.loops WHERE work_unit = $1
             ORDER BY created_at DESC
             LIMIT 1
@@ -2573,7 +2728,45 @@ impl ProjectionBuilder {
             last_stop_trigger: row.get("last_stop_trigger"),
             paused_at: row.get("paused_at"),
             requires_decision: row.get("requires_decision"),
+            last_recommended_portal: row.get("last_recommended_portal"),
         }))
+    }
+
+    /// Stop trigger history for a loop
+    pub async fn get_stop_triggers_for_loop(
+        &self,
+        loop_id: &str,
+    ) -> Result<Vec<LoopStopTriggerProjection>, ProjectionError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT stop_id, loop_id, trigger, condition, recommended_portal,
+                   requires_decision, occurred_at, actor_kind, actor_id,
+                   resolution_event_id, resolved_at
+            FROM proj.loop_stop_triggers
+            WHERE loop_id = $1
+            ORDER BY occurred_at DESC
+            "#,
+        )
+        .bind(loop_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| LoopStopTriggerProjection {
+                stop_id: row.get("stop_id"),
+                loop_id: row.get("loop_id"),
+                trigger: row.get("trigger"),
+                condition: row.get("condition"),
+                recommended_portal: row.get("recommended_portal"),
+                requires_decision: row.get("requires_decision"),
+                occurred_at: row.get("occurred_at"),
+                actor_kind: row.get("actor_kind"),
+                actor_id: row.get("actor_id"),
+                resolution_event_id: row.get("resolution_event_id"),
+                resolved_at: row.get("resolved_at"),
+            })
+            .collect())
     }
 
     /// Get iterations for a loop
@@ -2618,6 +2811,10 @@ impl ProjectionBuilder {
             SELECT candidate_id, content_hash, produced_by_iteration_id,
                    verification_status, verification_mode, verification_scope,
                    verification_basis, verification_computed_at,
+                   verification_profile_id, verification_integrity_conditions,
+                   verification_evidence_hashes, verification_waiver_ids,
+                   verification_waived_oracle_ids, verification_oracle_summaries,
+                   has_unresolved_staleness,
                    created_at, refs
             FROM proj.candidates WHERE candidate_id = $1
             "#,
@@ -2635,6 +2832,13 @@ impl ProjectionBuilder {
             verification_scope: row.get("verification_scope"),
             verification_basis: row.get("verification_basis"),
             verification_computed_at: row.get("verification_computed_at"),
+            verification_profile_id: row.get("verification_profile_id"),
+            verification_integrity_conditions: row.get("verification_integrity_conditions"),
+            verification_evidence_hashes: row.get("verification_evidence_hashes"),
+            verification_waiver_ids: row.get("verification_waiver_ids"),
+            verification_waived_oracle_ids: row.get("verification_waived_oracle_ids"),
+            verification_oracle_summaries: row.get("verification_oracle_summaries"),
+            has_unresolved_staleness: row.get("has_unresolved_staleness"),
             created_at: row.get("created_at"),
             refs: row.get("refs"),
         }))
@@ -2705,7 +2909,8 @@ impl ProjectionBuilder {
                 SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                        created_by_kind, created_by_id, created_at, activated_at,
                        closed_at, iteration_count,
-                       consecutive_failures, last_stop_trigger, paused_at, requires_decision
+                       consecutive_failures, last_stop_trigger, paused_at, requires_decision,
+                       last_recommended_portal
                 FROM proj.loops WHERE state = $1
                 ORDER BY created_at DESC
                 LIMIT $2 OFFSET $3
@@ -2722,7 +2927,8 @@ impl ProjectionBuilder {
                 SELECT loop_id, goal, work_unit, work_surface_id, state, budgets, directive_ref,
                        created_by_kind, created_by_id, created_at, activated_at,
                        closed_at, iteration_count,
-                       consecutive_failures, last_stop_trigger, paused_at, requires_decision
+                       consecutive_failures, last_stop_trigger, paused_at, requires_decision,
+                       last_recommended_portal
                 FROM proj.loops
                 ORDER BY created_at DESC
                 LIMIT $1 OFFSET $2
@@ -2754,6 +2960,7 @@ impl ProjectionBuilder {
                 last_stop_trigger: row.get("last_stop_trigger"),
                 paused_at: row.get("paused_at"),
                 requires_decision: row.get("requires_decision"),
+                last_recommended_portal: row.get("last_recommended_portal"),
             })
             .collect())
     }
@@ -2796,6 +3003,10 @@ impl ProjectionBuilder {
             SELECT candidate_id, content_hash, produced_by_iteration_id,
                    verification_status, verification_mode, verification_scope,
                    verification_basis, verification_computed_at,
+                   verification_profile_id, verification_integrity_conditions,
+                   verification_evidence_hashes, verification_waiver_ids,
+                   verification_waived_oracle_ids, verification_oracle_summaries,
+                   has_unresolved_staleness,
                    created_at, refs
             FROM proj.candidates WHERE produced_by_iteration_id = $1
             ORDER BY created_at ASC
@@ -2816,6 +3027,13 @@ impl ProjectionBuilder {
                 verification_scope: row.get("verification_scope"),
                 verification_basis: row.get("verification_basis"),
                 verification_computed_at: row.get("verification_computed_at"),
+                verification_profile_id: row.get("verification_profile_id"),
+                verification_integrity_conditions: row.get("verification_integrity_conditions"),
+                verification_evidence_hashes: row.get("verification_evidence_hashes"),
+                verification_waiver_ids: row.get("verification_waiver_ids"),
+                verification_waived_oracle_ids: row.get("verification_waived_oracle_ids"),
+                verification_oracle_summaries: row.get("verification_oracle_summaries"),
+                has_unresolved_staleness: row.get("has_unresolved_staleness"),
                 created_at: row.get("created_at"),
                 refs: row.get("refs"),
             })
@@ -2835,6 +3053,10 @@ impl ProjectionBuilder {
                 SELECT candidate_id, content_hash, produced_by_iteration_id,
                        verification_status, verification_mode, verification_scope,
                        verification_basis, verification_computed_at,
+                       verification_profile_id, verification_integrity_conditions,
+                       verification_evidence_hashes, verification_waiver_ids,
+                       verification_waived_oracle_ids, verification_oracle_summaries,
+                       has_unresolved_staleness,
                        created_at, refs
                 FROM proj.candidates WHERE verification_status = $1
                 ORDER BY created_at DESC
@@ -2852,6 +3074,10 @@ impl ProjectionBuilder {
                 SELECT candidate_id, content_hash, produced_by_iteration_id,
                        verification_status, verification_mode, verification_scope,
                        verification_basis, verification_computed_at,
+                       verification_profile_id, verification_integrity_conditions,
+                       verification_evidence_hashes, verification_waiver_ids,
+                       verification_waived_oracle_ids, verification_oracle_summaries,
+                       has_unresolved_staleness,
                        created_at, refs
                 FROM proj.candidates
                 ORDER BY created_at DESC
@@ -2875,6 +3101,13 @@ impl ProjectionBuilder {
                 verification_scope: row.get("verification_scope"),
                 verification_basis: row.get("verification_basis"),
                 verification_computed_at: row.get("verification_computed_at"),
+                verification_profile_id: row.get("verification_profile_id"),
+                verification_integrity_conditions: row.get("verification_integrity_conditions"),
+                verification_evidence_hashes: row.get("verification_evidence_hashes"),
+                verification_waiver_ids: row.get("verification_waiver_ids"),
+                verification_waived_oracle_ids: row.get("verification_waived_oracle_ids"),
+                verification_oracle_summaries: row.get("verification_oracle_summaries"),
+                has_unresolved_staleness: row.get("has_unresolved_staleness"),
                 created_at: row.get("created_at"),
                 refs: row.get("refs"),
             })

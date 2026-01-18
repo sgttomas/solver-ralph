@@ -20,9 +20,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sr_domain::integrity::IntegrityCondition;
-use sr_ports::{
-    EvidenceStore, OracleRunResult, OracleRunner, OracleRunnerError, OracleStatus,
-};
+use sr_ports::{EvidenceStore, OracleRunResult, OracleRunner, OracleRunnerError, OracleStatus};
 use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 use std::process::Stdio;

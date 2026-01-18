@@ -9,7 +9,7 @@ use axum::{
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sr_adapters::LoopProjection;
+use sr_adapters::{LoopProjection, LoopStopTriggerProjection};
 use sr_domain::{EventEnvelope, EventId, LoopBudgets, LoopId, StreamKind, TypedRef};
 use sr_ports::EventStore;
 use tracing::{info, instrument};
@@ -88,6 +88,16 @@ pub struct LoopResponse {
     pub activated_at: Option<String>,
     pub closed_at: Option<String>,
     pub iteration_count: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub paused_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_stop_trigger: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_recommended_portal: Option<String>,
+    #[serde(default)]
+    pub requires_decision: bool,
+    #[serde(default)]
+    pub stop_triggers_fired: Vec<StopTriggerResponse>,
 }
 
 #[derive(Debug, Serialize)]
@@ -118,6 +128,17 @@ pub struct ListLoopsResponse {
     pub total: usize,
     pub limit: u32,
     pub offset: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StopTriggerResponse {
+    pub trigger_code: String,
+    pub fired_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decision_id: Option<String>,
+    pub resolved: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recommended_portal: Option<String>,
 }
 
 /// Request to transition loop state
@@ -307,7 +328,12 @@ pub async fn get_loop(
                 id: loop_id.clone(),
             })?;
 
-    Ok(Json(projection_to_response(projection)))
+    let stop_triggers = state
+        .projections
+        .get_stop_triggers_for_loop(&loop_id)
+        .await?;
+
+    Ok(Json(projection_to_response(projection, stop_triggers)))
 }
 
 /// List loops with optional filtering
@@ -326,7 +352,7 @@ pub async fn list_loops(
 
     let responses: Vec<LoopResponse> = loops
         .iter()
-        .map(|p| projection_to_response(p.clone()))
+        .map(|p| projection_to_response(p.clone(), Vec::new()))
         .collect();
 
     Ok(Json(ListLoopsResponse {
@@ -715,7 +741,10 @@ async fn transition_loop(
     }))
 }
 
-fn projection_to_response(p: LoopProjection) -> LoopResponse {
+fn projection_to_response(
+    p: LoopProjection,
+    stop_triggers: Vec<LoopStopTriggerProjection>,
+) -> LoopResponse {
     let budgets: LoopBudgets = serde_json::from_value(p.budgets.clone()).unwrap_or_default();
 
     LoopResponse {
@@ -734,6 +763,24 @@ fn projection_to_response(p: LoopProjection) -> LoopResponse {
         activated_at: p.activated_at.map(|t| t.to_rfc3339()),
         closed_at: p.closed_at.map(|t| t.to_rfc3339()),
         iteration_count: p.iteration_count,
+        paused_at: p.paused_at.map(|t| t.to_rfc3339()),
+        last_stop_trigger: p.last_stop_trigger,
+        last_recommended_portal: p.last_recommended_portal,
+        requires_decision: p.requires_decision,
+        stop_triggers_fired: stop_triggers
+            .into_iter()
+            .map(stop_projection_to_response)
+            .collect(),
+    }
+}
+
+fn stop_projection_to_response(st: LoopStopTriggerProjection) -> StopTriggerResponse {
+    StopTriggerResponse {
+        trigger_code: st.trigger,
+        fired_at: st.occurred_at.to_rfc3339(),
+        decision_id: None,
+        resolved: st.resolved_at.is_some(),
+        recommended_portal: st.recommended_portal,
     }
 }
 

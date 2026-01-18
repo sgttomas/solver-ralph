@@ -576,9 +576,9 @@ fn ensure_no_stale(stale_reasons: &[String]) -> Result<(), ApiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::handlers::verification::VerificationScope;
     use sr_adapters::ApprovalProjection;
     use sr_domain::VerificationStatus;
-    use crate::handlers::verification::VerificationScope;
 
     fn dummy_verification(
         status: VerificationStatus,
@@ -687,8 +687,10 @@ mod tests {
 
     #[test]
     fn verified_with_exceptions_allowed_when_mode_matches() {
-        let verification =
-            dummy_verification(VerificationStatus::VerifiedWithExceptions, Some("WITH_EXCEPTIONS"));
+        let verification = dummy_verification(
+            VerificationStatus::VerifiedWithExceptions,
+            Some("WITH_EXCEPTIONS"),
+        );
         assert!(ensure_verified_for_freeze(&verification, "WITH_EXCEPTIONS").is_ok());
     }
 }

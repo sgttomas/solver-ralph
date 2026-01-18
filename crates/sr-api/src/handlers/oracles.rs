@@ -21,9 +21,7 @@ use sr_adapters::oracle_runner::{
     EnvironmentConstraints, ExpectedOutput, NetworkMode, OracleClassification, OracleDefinition,
     OracleSuiteDefinition,
 };
-use sr_adapters::oracle_suite::{
-    IntegrityCondition, VerificationProfile, WaivableCondition,
-};
+use sr_adapters::oracle_suite::{IntegrityCondition, VerificationProfile, WaivableCondition};
 use std::collections::BTreeMap;
 use tracing::{info, instrument};
 

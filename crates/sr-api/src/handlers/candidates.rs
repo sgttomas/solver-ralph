@@ -61,6 +61,20 @@ pub struct CandidateResponse {
     pub verification_scope: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_basis: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_profile_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verification_integrity_conditions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verification_evidence_hashes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verification_waiver_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verification_waived_oracle_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_oracle_summaries: Option<serde_json::Value>,
+    #[serde(default)]
+    pub has_unresolved_staleness: bool,
     pub created_at: String,
     pub refs: serde_json::Value,
 }
@@ -288,6 +302,16 @@ pub async fn list_candidates(
 // ============================================================================
 
 fn projection_to_response(p: CandidateProjection) -> CandidateResponse {
+    let oracle_summaries = if let Some(arr) = p.verification_oracle_summaries.as_array() {
+        if arr.is_empty() {
+            None
+        } else {
+            Some(p.verification_oracle_summaries)
+        }
+    } else {
+        Some(p.verification_oracle_summaries)
+    };
+
     CandidateResponse {
         candidate_id: p.candidate_id,
         content_hash: p.content_hash,
@@ -296,6 +320,13 @@ fn projection_to_response(p: CandidateProjection) -> CandidateResponse {
         verification_mode: p.verification_mode,
         verification_scope: p.verification_scope,
         verification_basis: p.verification_basis,
+        verification_profile_id: p.verification_profile_id,
+        verification_integrity_conditions: p.verification_integrity_conditions,
+        verification_evidence_hashes: p.verification_evidence_hashes,
+        verification_waiver_ids: p.verification_waiver_ids,
+        verification_waived_oracle_ids: p.verification_waived_oracle_ids,
+        verification_oracle_summaries: oracle_summaries,
+        has_unresolved_staleness: p.has_unresolved_staleness,
         created_at: p.created_at.to_rfc3339(),
         refs: p.refs,
     }

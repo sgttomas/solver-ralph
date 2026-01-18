@@ -387,13 +387,18 @@ mod tests {
 
     #[test]
     fn rejects_invalid_decision() {
-        let result = validate_approval_request(&human_user(), "NOT_A_DECISION", "ReleaseApprovalPortal");
+        let result =
+            validate_approval_request(&human_user(), "NOT_A_DECISION", "ReleaseApprovalPortal");
         assert!(matches!(result, Err(ApiError::BadRequest { .. })));
     }
 
     #[test]
     fn rejects_unseeded_portal() {
-        let result = validate_approval_request(&human_user(), "APPROVED", "portal:STAGE_COMPLETION:stage:FINAL");
+        let result = validate_approval_request(
+            &human_user(),
+            "APPROVED",
+            "portal:STAGE_COMPLETION:stage:FINAL",
+        );
         assert!(matches!(result, Err(ApiError::BadRequest { .. })));
     }
 

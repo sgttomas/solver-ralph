@@ -14,9 +14,7 @@ use std::time::Instant;
 use tracing::{error, info, instrument};
 
 use crate::flake_control::{FlakeControl, RetryPolicy};
-use crate::report::{
-    E2EReport, EnvironmentInfo, InvariantCheck, ScenarioResult, StepResult,
-};
+use crate::report::{E2EReport, EnvironmentInfo, InvariantCheck, ScenarioResult, StepResult};
 
 // ============================================================================
 // E2E Runner Configuration
