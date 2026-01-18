@@ -13,7 +13,7 @@ use chrono::{DateTime, Utc};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use sr_domain::EventEnvelope;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument};
 
 /// Outbox publisher error types
 #[derive(Debug, thiserror::Error)]
@@ -428,7 +428,7 @@ mod tests {
     #[test]
     fn test_message_hash_determinism() {
         use chrono::Utc;
-        use sr_domain::{ActorKind, EventId, StreamKind, TypedRef};
+        use sr_domain::{ActorKind, EventId, StreamKind};
 
         let event = EventEnvelope {
             event_id: EventId::from_string("evt_test123".to_string()),

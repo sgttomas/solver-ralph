@@ -813,14 +813,14 @@ impl<E: EventStore> LoopGovernor<E> {
             meta: serde_json::Value::Null,
         });
 
-        let payload = serde_json::json!({
+        let _payload = serde_json::json!({
             "loop_id": loop_id,
             "iteration_number": iteration_number,
             "started_by": "SYSTEM",
             "preconditions_snapshot": snapshot,
         });
 
-        let event = Self::create_iteration_started_event(
+        let _event = Self::create_iteration_started_event(
             &iteration_id,
             loop_id,
             iteration_number,

@@ -16,10 +16,10 @@ use base64::Engine;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sr_adapters::MinioEvidenceStore;
-use sr_adapters::{EvidenceArtifact, EvidenceManifest};
+use sr_adapters::EvidenceManifest;
 use sr_domain::{EventEnvelope, EventId, StreamKind};
 use sr_ports::{EventStore, EvidenceStore};
-use tracing::{debug, info, instrument, warn};
+use tracing::{info, instrument, warn};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
@@ -228,11 +228,11 @@ pub async fn upload_evidence(
     // Decode blobs from base64
     let mut blobs_decoded: Vec<(String, Vec<u8>)> = Vec::new();
     for (name, content_b64) in &body.blobs {
-        let decoded =
-            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, content_b64)
-                .map_err(|e| ApiError::BadRequest {
-                    message: format!("Invalid base64 in blob '{}': {}", name, e),
-                })?;
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(content_b64)
+            .map_err(|e| ApiError::BadRequest {
+                message: format!("Invalid base64 in blob '{}': {}", name, e),
+            })?;
         blobs_decoded.push((name.clone(), decoded));
     }
 
@@ -447,13 +447,13 @@ pub async fn get_evidence_blob(
         .evidence_store
         .retrieve_blob(&content_hash, &blob_name)
         .await
-        .map_err(|e| ApiError::NotFound {
+        .map_err(|_e| ApiError::NotFound {
             resource: "Blob".to_string(),
             id: format!("{}:{}", content_hash, blob_name),
         })?;
 
     // Encode as base64
-    let content = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &blob_data);
+    let content = base64::engine::general_purpose::STANDARD.encode(&blob_data);
 
     Ok(Json(BlobResponse {
         content_hash,

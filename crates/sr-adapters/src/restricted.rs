@@ -26,7 +26,7 @@ use sr_ports::{
 };
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, info, instrument};
 
 /// Classification levels for evidence per SR-SPEC
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -279,13 +279,6 @@ impl<E: EvidenceStore, S: SecretProvider> RestrictedEvidenceStore<E, S> {
         Self::decrypt_data(&envelope_key.key_material, &nonce, &encrypted_dek[12..])
     }
 
-    /// Compute content hash
-    fn compute_hash(data: &[u8]) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(data);
-        hex::encode(hasher.finalize())
-    }
-
     /// DEK storage path for a given evidence hash
     fn dek_path(&self, evidence_hash: &str) -> String {
         format!("{}/{}", self.config.dek_path_prefix, evidence_hash)
@@ -333,7 +326,7 @@ impl<E: EvidenceStore, S: SecretProvider> RestrictedEvidenceStore<E, S> {
             algorithm: "AES-256-GCM".to_string(),
             kek_id: self.config.kek_id.clone(),
             dek_path: self.dek_path(&original_hash),
-            nonce: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &nonce),
+            nonce: base64::engine::general_purpose::STANDARD.encode(&nonce),
             classification,
             encrypted_at: chrono::Utc::now(),
         };
@@ -434,10 +427,7 @@ impl<E: EvidenceStore, S: SecretProvider> RestrictedEvidenceStore<E, S> {
                     algorithm: "AES-256-GCM".to_string(),
                     kek_id: self.config.kek_id.clone(),
                     dek_path,
-                    nonce: base64::Engine::encode(
-                        &base64::engine::general_purpose::STANDARD,
-                        &nonce,
-                    ),
+                    nonce: base64::engine::general_purpose::STANDARD.encode(&nonce),
                     classification: EvidenceClassification::Restricted,
                     encrypted_at: chrono::Utc::now(),
                 };

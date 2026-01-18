@@ -184,7 +184,7 @@ pub mod subjects {
 
 /// NATS JetStream message bus implementation
 pub struct NatsMessageBus {
-    client: NatsClient,
+    _client: NatsClient,
     jetstream: JetStreamContext,
     config: NatsConfig,
     /// Track processed idempotency keys (in-memory, can be replaced with Redis)
@@ -205,7 +205,7 @@ impl NatsMessageBus {
         let jetstream = jetstream::new(client.clone());
 
         let bus = Self {
-            client,
+            _client: client,
             jetstream,
             config,
             processed_keys: Arc::new(RwLock::new(HashSet::new())),
@@ -250,7 +250,7 @@ impl NatsMessageBus {
         };
 
         match self.jetstream.get_stream(&stream_name).await {
-            Ok(stream) => {
+            Ok(_stream) => {
                 debug!(stream = %stream_name, "Stream exists, updating config");
                 self.jetstream
                     .update_stream(config.clone())
@@ -426,10 +426,7 @@ impl NatsConsumer {
         for msg_result in collected {
             match msg_result {
                 Ok(msg) => {
-                    result.push(NatsMessage {
-                        inner: msg,
-                        processed_keys: self.processed_keys.clone(),
-                    });
+                    result.push(NatsMessage { inner: msg });
                 }
                 Err(e) => {
                     warn!(error = %e, "Failed to receive message");
@@ -527,7 +524,6 @@ impl MessageSubscription for NatsConsumer {
 /// Wrapper around NATS message with ack/nak/term methods
 pub struct NatsMessage {
     inner: jetstream::Message,
-    processed_keys: Arc<RwLock<HashSet<String>>>,
 }
 
 impl NatsMessage {

@@ -14,6 +14,7 @@ use ulid::Ulid;
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 const DEFAULT_MAX_DEPTH: i32 = 5;
@@ -153,20 +154,24 @@ pub async fn mark_staleness(
         let event_id = EventId::new();
         let now = Utc::now();
 
-        let refs = vec![
-            TypedRef {
-                kind: body.root_ref.kind.clone(),
-                id: body.root_ref.id.clone(),
-                rel: "root_cause".to_string(),
-                meta: serde_json::Value::Null,
-            },
-            TypedRef {
-                kind: dependent.kind.clone(),
-                id: dependent.id.clone(),
-                rel: "stale".to_string(),
-                meta: serde_json::json!({"reason_code": body.reason_code}),
-            },
-        ];
+        let refs = normalize_and_validate_refs(
+            &state,
+            vec![
+                TypedRef {
+                    kind: body.root_ref.kind.clone(),
+                    id: body.root_ref.id.clone(),
+                    rel: "root_cause".to_string(),
+                    meta: serde_json::Value::Null,
+                },
+                TypedRef {
+                    kind: dependent.kind.clone(),
+                    id: dependent.id.clone(),
+                    rel: "stale".to_string(),
+                    meta: serde_json::json!({"reason_code": body.reason_code}),
+                },
+            ],
+        )
+        .await?;
 
         let event = EventEnvelope {
             event_id: event_id.clone(),
@@ -307,6 +312,8 @@ pub async fn resolve_staleness(
             meta: r.meta,
         });
     }
+
+    let refs = normalize_and_validate_refs(&state, refs).await?;
 
     let existing = state.event_store.read_stream(&stale_id, 0, 1000).await?;
     let current_version = existing.len() as u64;

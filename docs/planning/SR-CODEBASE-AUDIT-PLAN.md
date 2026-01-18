@@ -19,13 +19,12 @@
 - [x] **P1-NOTES-API** — Add human-judgment note APIs: `POST /records/evaluation-notes`, `POST /records/assessment-notes`, retrieval; ensure notes are non-binding and distinguished from approvals; tests for creation, retrieval, and rejection of approval-like decisions. (C-TB-7, SR-SPEC §2.3.10) *(Human-only evaluation/assessment note endpoints added with projection storage; unit coverage enforces non-binding, human-only creation; workspace tests passing.)*
 
 ## Phase 4 — Ontological Completeness (P2)
-- [ ] **P2-TYPES-NOTES** — Add missing record types: EvaluationNote, AssessmentNote, InterventionNote; register type keys, schemas, and serialization. (SR-TYPES §4.4)
-- [ ] **P2-TYPES-CONFIG** — Add missing config types: AgentDefinition, OracleDefinition, PortalDefinition, SemanticProfile; register type keys and minimal CRUD/registry backing. (SR-TYPES §4.5)
-- [ ] **P2-TYPES-PROC/LOOPREC** — Add ProcedureInstance representation or explicit mapping to StageStatusRecord; add LoopRecord representation or document Iteration equivalence with projection exposure. (SR-TYPES §4.3/§4.4)
-- [ ] **P2-REFS-VALIDATION** — Validate TypedRef meta: enforce `meta.content_hash` and `meta.type_key` where applicable on ingest; reject incomplete refs; tests ensure invalid refs fail and valid refs pass. (C-META-1..3, C-EVID-4)
+- [x] **P2-TYPES-NOTES** — Add missing record types: EvaluationNote, AssessmentNote, InterventionNote; register type keys, schemas, and serialization. (SR-TYPES §4.4) *(Record types added with serialization + type keys; migration/projection store intervention notes and structured `details`; API exposes intervention note creation + typed responses.)*
+- [x] **P2-TYPES-CONFIG** — Add missing config types: AgentDefinition, OracleDefinition, PortalDefinition, SemanticProfile; register type keys and minimal CRUD/registry backing. (SR-TYPES §4.5) *(Config definitions registered via ConfigDefinitionRecorded events, backed by `config_definitions` projection/table, with create/list endpoints for agents, portals, oracle definitions, and semantic profiles.)*
+- [x] **P2-TYPES-PROC/LOOPREC** — Add ProcedureInstance representation or explicit mapping to StageStatusRecord; add LoopRecord representation or document Iteration equivalence with projection exposure. (SR-TYPES §4.3/§4.4) *(LoopRecord wraps iteration summary; ProcedureInstance surfaced from work-surface projection; endpoints provide both views by iteration/work surface.)*
+- [x] **P2-REFS-VALIDATION** — Validate TypedRef meta: enforce `meta.content_hash` and `meta.type_key` where applicable on ingest; reject incomplete refs; tests ensure invalid refs fail and valid refs pass. (C-META-1..3, C-EVID-4) *(Handlers normalize/validate refs, ensuring content hashes/type keys per StrongTypedRef; validation tests added.)*
 
 ## Phase 5 — UI Parity & Tests (P2/P3)
-- [ ] **P2-UI-PARITY** — Extend UI for new endpoints: staleness management screens, evaluation/assessment note flows, portal dropdown with seeded whitelist; include client-side validation and error surfacing.
 - [ ] **P2-TEST-SUITE** — Add automated tests: governor budget/stop-trigger coverage, verification computation + freeze gating, portal whitelist enforcement, integrity flake/evidence-missing triggers, staleness API behavior, note API behavior, evidence status endpoint; prefer integration/E2E where applicable.
 
 ## Phase 6 — Governance & Migration (P3)

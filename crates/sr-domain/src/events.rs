@@ -129,6 +129,9 @@ pub enum EventType {
     // Evidence integrity events
     EvidenceMissingDetected,
 
+    // Config definitions
+    ConfigDefinitionRecorded,
+
     // Record events
     RecordCreated,
     RecordSuperseded,

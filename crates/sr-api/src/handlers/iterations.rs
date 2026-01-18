@@ -11,13 +11,15 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sr_adapters::IterationProjection;
 use sr_domain::{
-    ActorKind, EventEnvelope, EventId, IterationId, IterationSummary, StreamKind, TypedRef,
+    ActorKind, EventEnvelope, EventId, IterationId, IterationSummary, LoopRecord, StreamKind,
+    TypedRef,
 };
 use sr_ports::EventStore;
 use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 // ============================================================================
@@ -351,6 +353,8 @@ pub async fn start_iteration(
         );
     }
 
+    let refs = normalize_and_validate_refs(&state, refs).await?;
+
     // Build payload
     let mut payload = serde_json::json!({
         "loop_id": body.loop_id,
@@ -548,6 +552,35 @@ pub async fn complete_iteration(
         state: new_state.to_string(),
         event_id: event_id.as_str().to_string(),
     }))
+}
+
+/// GET /api/v1/iterations/:iteration_id/loop-record
+#[instrument(skip(state, _user))]
+pub async fn get_loop_record(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+    Path(iteration_id): Path<String>,
+) -> ApiResult<Json<LoopRecord>> {
+    let projection = state
+        .projections
+        .get_iteration(&iteration_id)
+        .await?
+        .ok_or_else(|| ApiError::NotFound {
+            resource: "Iteration".to_string(),
+            id: iteration_id.clone(),
+        })?;
+
+    let summary_value = projection.summary.ok_or_else(|| ApiError::NotFound {
+        resource: "LoopRecord".to_string(),
+        id: iteration_id.clone(),
+    })?;
+
+    let summary: IterationSummary =
+        serde_json::from_value(summary_value).map_err(|e| ApiError::Internal {
+            message: format!("Failed to parse iteration summary: {e}"),
+        })?;
+
+    Ok(Json(LoopRecord::new(summary)))
 }
 
 // ============================================================================

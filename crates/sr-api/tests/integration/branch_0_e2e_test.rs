@@ -151,6 +151,7 @@ struct WorkSurfaceActionResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct WorkSurfaceResponse {
     work_surface_id: String,
     status: String,
@@ -177,6 +178,7 @@ struct LoopActionResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct LoopResponse {
     loop_id: String,
     work_surface_id: Option<String>,
@@ -245,6 +247,7 @@ struct OracleResultRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct StageCompletionResponse {
     work_surface_id: String,
     completed_stage_id: String,
@@ -301,6 +304,7 @@ struct EvidenceBundleInfo {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ApiErrorResponse {
     error: String,
     code: u16,
@@ -1036,7 +1040,7 @@ async fn test_branch_0_evidence_capture() {
     println!("Work Unit ID: {}", work_unit_id);
 
     // Setup
-    let work_surface_id = create_work_surface_generic(&client, &work_unit_id).await;
+    let _work_surface_id = create_work_surface_generic(&client, &work_unit_id).await;
     let loop_id = create_and_activate_loop(&client, &work_unit_id).await;
 
     println!("\n[Test] Starting iteration and polling for evidence...");

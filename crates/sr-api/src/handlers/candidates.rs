@@ -16,6 +16,7 @@ use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 // ============================================================================
@@ -136,7 +137,7 @@ pub async fn register_candidate(
     let event_id = EventId::new();
     let now = Utc::now();
 
-    let refs: Vec<TypedRef> = body
+    let refs_raw: Vec<TypedRef> = body
         .refs
         .into_iter()
         .map(|r| TypedRef {
@@ -146,6 +147,7 @@ pub async fn register_candidate(
             meta: r.meta,
         })
         .collect();
+    let refs = normalize_and_validate_refs(&state, refs_raw).await?;
 
     let payload = serde_json::json!({
         "content_hash": content_hash.as_str(),
@@ -305,8 +307,6 @@ fn compute_envelope_hash(event_id: &EventId) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_content_hash_validation() {
         // Valid 64-char hex

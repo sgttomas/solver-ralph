@@ -15,7 +15,7 @@ use tracing::{error, info, instrument};
 
 use crate::flake_control::{FlakeControl, RetryPolicy};
 use crate::report::{
-    E2EReport, EnvironmentInfo, InvariantCheck, OracleStatus, ScenarioResult, StepResult,
+    E2EReport, EnvironmentInfo, InvariantCheck, ScenarioResult, StepResult,
 };
 
 // ============================================================================
@@ -568,6 +568,7 @@ pub enum E2EError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::report::OracleStatus;
 
     #[test]
     fn test_default_config() {

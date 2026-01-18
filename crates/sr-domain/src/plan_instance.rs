@@ -1137,7 +1137,7 @@ mod tests {
             title: Some("Test Problem".to_string()),
         };
 
-        let mut wu1 = WorkUnitPlan::new(
+        let wu1 = WorkUnitPlan::new(
             WorkUnitId::new("001"),
             "First Work Unit".to_string(),
             WorkKind::ResearchMemo,

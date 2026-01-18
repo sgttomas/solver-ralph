@@ -28,7 +28,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument};
 
-use crate::candidate_store::{CandidateWorkspace, TempWorkspace, WorkspaceError};
+use crate::candidate_store::CandidateWorkspace;
 use crate::event_manager::{EligibleSet, EventManager};
 use crate::evidence::EvidenceManifest;
 use crate::integrity::{IntegrityChecker, IntegrityViolation};
@@ -278,8 +278,6 @@ pub struct SemanticWorkerBridge<E: EvidenceStore, W: CandidateWorkspace, S: Even
     config: SemanticWorkerConfig,
     /// NATS message bus
     message_bus: Option<Arc<NatsMessageBus>>,
-    /// HTTP client
-    http_client: reqwest::Client,
     /// Context compiler
     context_compiler: ContextCompiler,
     /// Content resolver
@@ -321,7 +319,6 @@ impl<E: EvidenceStore + 'static, W: CandidateWorkspace + 'static, S: EventStore 
         Self {
             config,
             message_bus,
-            http_client: reqwest::Client::new(),
             context_compiler: ContextCompiler::with_config(CompilerConfig::default()),
             content_resolver: ContentResolver::new(),
             event_manager,
@@ -916,7 +913,7 @@ impl<E: EvidenceStore + 'static, W: CandidateWorkspace + 'static, S: EventStore 
         let oracle_outcome = self
             .run_semantic_oracles(loop_id, selection, &artifact_id)
             .await?;
-        let oracle_count = oracle_outcome.oracle_results.len();
+        let _oracle_count = oracle_outcome.oracle_results.len();
 
         // Check if all oracles passed (includes integrity stop)
         let all_passed = oracle_outcome
@@ -1372,6 +1369,7 @@ fn compute_envelope_hash(event_id: &EventId) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::candidate_store::{TempWorkspace, WorkspaceError};
     use crate::oracle_runner::PodmanOracleRunnerConfig;
     use crate::oracle_suite::OracleSuiteRegistry;
     use sr_ports::{EventStore, EventStoreError};

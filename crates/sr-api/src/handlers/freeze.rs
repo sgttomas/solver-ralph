@@ -19,9 +19,10 @@ use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{
-    verification::{compute_and_record_verification, VerificationComputation, VerificationScope},
+    verification::{compute_and_record_verification, VerificationComputation},
     ApiError, ApiResult,
 };
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 const RELEASE_APPROVAL_PORTAL: &str = "ReleaseApprovalPortal";
@@ -282,6 +283,17 @@ pub async fn create_freeze_record(
         "active_exceptions": active_exceptions
     });
 
+    let refs = normalize_and_validate_refs(
+        &state,
+        vec![TypedRef {
+            kind: "Candidate".to_string(),
+            id: body.candidate_id.clone(),
+            rel: "freezes".to_string(),
+            meta: serde_json::Value::Null,
+        }],
+    )
+    .await?;
+
     let event = EventEnvelope {
         event_id: event_id.clone(),
         stream_id: freeze_id.as_str().to_string(),
@@ -295,12 +307,7 @@ pub async fn create_freeze_record(
         correlation_id: None,
         causation_id: None,
         supersedes: vec![],
-        refs: vec![TypedRef {
-            kind: "Candidate".to_string(),
-            id: body.candidate_id.clone(),
-            rel: "freezes".to_string(),
-            meta: serde_json::Value::Null,
-        }],
+        refs,
         payload,
         envelope_hash: compute_envelope_hash(&event_id),
     };
@@ -571,6 +578,7 @@ mod tests {
     use super::*;
     use sr_adapters::ApprovalProjection;
     use sr_domain::VerificationStatus;
+    use crate::handlers::verification::VerificationScope;
 
     fn dummy_verification(
         status: VerificationStatus,

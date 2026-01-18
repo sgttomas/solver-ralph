@@ -27,9 +27,11 @@ use sr_domain::entities::ContentHash;
 use sr_domain::events::{GateResult, GateResultStatus, OracleResultSummary};
 use sr_domain::work_surface::{
     validate_work_kind_compatibility, ContentAddressedRef, ManagedWorkSurface, OracleSuiteBinding,
-    ProcedureTemplate, StageId, WorkKind, WorkSurfaceId, WorkUnitId,
+    ProcedureTemplate, StageId, StageStatusRecord, WorkKind, WorkSurfaceId, WorkUnitId,
 };
-use sr_domain::{ActorKind, EventEnvelope, EventId, IterationId, LoopId, StreamKind, TypedRef};
+use sr_domain::{
+    ActorKind, EventEnvelope, EventId, IterationId, LoopId, ProcedureInstance, StreamKind, TypedRef,
+};
 use sr_ports::EventStore;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -498,6 +500,39 @@ pub async fn get_work_surface(
 ) -> ApiResult<Json<WorkSurfaceResponse>> {
     let ws = get_work_surface_projection(&state.app_state, &work_surface_id).await?;
     Ok(Json(ws))
+}
+
+/// Get ProcedureInstance representation for a Work Surface
+///
+/// GET /api/v1/procedure-instances/:work_surface_id
+#[instrument(skip(state, _user))]
+pub async fn get_procedure_instance(
+    State(state): State<WorkSurfaceState>,
+    _user: AuthenticatedUser,
+    Path(work_surface_id): Path<String>,
+) -> ApiResult<Json<ProcedureInstance>> {
+    let ws = get_work_surface_projection(&state.app_state, &work_surface_id).await?;
+
+    let stage_status: HashMap<String, StageStatusRecord> =
+        serde_json::from_value(ws.stage_status.clone()).unwrap_or_default();
+    let oracle_suites = ws
+        .current_oracle_suites
+        .as_array()
+        .map(|arr| arr.to_vec())
+        .unwrap_or_default();
+
+    let proc_instance = ProcedureInstance::new(
+        WorkSurfaceId::from_string(ws.work_surface_id.clone()),
+        ws.work_unit_id.clone(),
+        ws.procedure_template_id.clone(),
+        ws.current_stage_id.clone(),
+        stage_status,
+        oracle_suites,
+        ws.params.clone(),
+        Some(ws.content_hash.clone()),
+    );
+
+    Ok(Json(proc_instance))
 }
 
 /// Get the active Work Surface for a Work Unit

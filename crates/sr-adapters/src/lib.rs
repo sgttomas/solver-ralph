@@ -100,10 +100,10 @@ pub use outbox::{OutboxEntry, OutboxError, OutboxPublisher, OutboxPublisherConfi
 pub use postgres::PostgresEventStore;
 pub use postgres_oracle_registry::PostgresOracleSuiteRegistry;
 pub use projections::{
-    ApprovalProjection, CandidateProjection, DecisionProjection, EvidenceProjection,
-    ExceptionProjection, FreezeRecordProjection, HumanJudgmentRecord, IterationProjection,
-    LoopProjection, ProjectionBuilder, ProjectionConfig, ProjectionError, RunProjection,
-    ShippableStatusProjection,
+    ApprovalProjection, CandidateProjection, ConfigDefinitionProjection, DecisionProjection,
+    EvidenceProjection, ExceptionProjection, FreezeRecordProjection, HumanJudgmentRecord,
+    IterationProjection, LoopProjection, ProjectionBuilder, ProjectionConfig, ProjectionError,
+    RunProjection, ShippableStatusProjection,
 };
 pub use replay::{EligibleSetComparison, ExtendedReplayProof, ReplayDiscrepancy, ReplayProof};
 pub use restricted::{

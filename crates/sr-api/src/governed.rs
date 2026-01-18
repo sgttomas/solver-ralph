@@ -9,9 +9,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sr_domain::TypedRef;
-use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tracing::{debug, info, warn};
 
 /// A reference to a governed artifact (governance document)
@@ -53,12 +52,12 @@ impl GovernedManifest {
         let governed_docs = [
             (
                 "SR-DIRECTIVE",
-                "charter/SR-DIRECTIVE.md",
+                "program/SR-DIRECTIVE.md",
                 "governance.dev_directive",
             ),
             (
                 "SR-CONTRACT",
-                "charter/SR-CONTRACT.md",
+                "platform/SR-CONTRACT.md",
                 "governance.contract",
             ),
             ("SR-SPEC", "platform/SR-SPEC.md", "governance.specification"),

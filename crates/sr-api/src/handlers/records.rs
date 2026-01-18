@@ -14,6 +14,7 @@ use ulid::Ulid;
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 /// Request to create an evaluation note (verification evidence review)
@@ -42,6 +43,20 @@ pub struct CreateAssessmentNoteRequest {
     pub fitness_judgment: Option<String>,
     #[serde(default)]
     pub context: Option<String>,
+}
+
+/// Request to create an intervention note (human intervention)
+#[derive(Debug, Deserialize)]
+pub struct CreateInterventionNoteRequest {
+    #[serde(default)]
+    pub subject_refs: Vec<TypedRefRequest>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    pub content: String,
+    #[serde(default)]
+    pub actions_taken: Option<String>,
+    #[serde(default)]
+    pub impact: Option<String>,
 }
 
 /// Typed reference request payload
@@ -80,6 +95,8 @@ pub struct RecordResponse {
     pub fitness_judgment: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recommendations: Option<String>,
+    #[serde(default)]
+    pub details: serde_json::Value,
     pub recorded_by_kind: String,
     pub recorded_by_id: String,
     pub recorded_at: String,
@@ -93,14 +110,28 @@ pub async fn create_evaluation_note(
 ) -> ApiResult<Json<RecordActionResponse>> {
     ensure_human(&user)?;
 
+    let refs: Vec<TypedRef> = body
+        .subject_refs
+        .into_iter()
+        .map(|r| TypedRef {
+            kind: r.kind,
+            id: r.id,
+            rel: r.rel,
+            meta: r.meta,
+        })
+        .collect();
+    let refs = normalize_and_validate_refs(&state, refs).await?;
+
     let (record_id, event) = build_note_event(
         "record.evaluation_note",
-        body.subject_refs,
+        refs,
         body.evidence_refs,
         body.content,
         body.severity,
         None,
         body.recommendations,
+        None,
+        None,
         &user,
     );
 
@@ -128,14 +159,77 @@ pub async fn create_assessment_note(
 ) -> ApiResult<Json<RecordActionResponse>> {
     ensure_human(&user)?;
 
+    let refs: Vec<TypedRef> = body
+        .subject_refs
+        .into_iter()
+        .map(|r| TypedRef {
+            kind: r.kind,
+            id: r.id,
+            rel: r.rel,
+            meta: r.meta,
+        })
+        .collect();
+    let refs = normalize_and_validate_refs(&state, refs).await?;
+
     let (record_id, event) = build_note_event(
         "record.assessment_note",
-        body.subject_refs,
+        refs,
         body.evidence_refs,
         body.content,
         None,
         body.fitness_judgment,
         body.context,
+        None,
+        None,
+        &user,
+    );
+
+    state
+        .event_store
+        .append(record_id.as_str(), 0, vec![event.clone()])
+        .await?;
+
+    state
+        .projections
+        .process_events(&*state.event_store)
+        .await?;
+
+    Ok(Json(RecordActionResponse {
+        record_id,
+        event_id: event.event_id.as_str().to_string(),
+    }))
+}
+
+/// POST /records/intervention-notes
+pub async fn create_intervention_note(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Json(body): Json<CreateInterventionNoteRequest>,
+) -> ApiResult<Json<RecordActionResponse>> {
+    ensure_human(&user)?;
+
+    let refs: Vec<TypedRef> = body
+        .subject_refs
+        .into_iter()
+        .map(|r| TypedRef {
+            kind: r.kind,
+            id: r.id,
+            rel: r.rel,
+            meta: r.meta,
+        })
+        .collect();
+    let refs = normalize_and_validate_refs(&state, refs).await?;
+
+    let (record_id, event) = build_note_event(
+        "record.intervention_note",
+        refs,
+        body.evidence_refs,
+        body.content,
+        None,
+        None,
+        None,
+        body.actions_taken,
+        body.impact,
         &user,
     );
 
@@ -184,29 +278,29 @@ fn ensure_human(user: &AuthenticatedUser) -> ApiResult<()> {
 
 fn build_note_event(
     record_type: &str,
-    subject_refs: Vec<TypedRefRequest>,
+    refs: Vec<TypedRef>,
     evidence_refs: Vec<String>,
     content: String,
     severity: Option<String>,
     fitness_judgment: Option<String>,
     recommendations: Option<String>,
+    actions_taken: Option<String>,
+    impact: Option<String>,
     user: &AuthenticatedUser,
 ) -> (String, EventEnvelope) {
     let record_id = format!("rec_{}", Ulid::new());
     let event_id = EventId::new();
     let now = Utc::now();
 
-    let refs: Vec<TypedRef> = subject_refs
-        .into_iter()
-        .map(|r| TypedRef {
-            kind: r.kind,
-            id: r.id,
-            rel: r.rel,
-            meta: r.meta,
-        })
-        .collect();
-
     let payload_subject_refs = serde_json::to_value(&refs).unwrap_or_default();
+
+    let mut details = serde_json::Map::new();
+    if let Some(actions) = actions_taken {
+        details.insert("actions_taken".to_string(), serde_json::json!(actions));
+    }
+    if let Some(impact) = impact {
+        details.insert("impact".to_string(), serde_json::json!(impact));
+    }
 
     let payload = serde_json::json!({
         "record_type": record_type,
@@ -215,7 +309,8 @@ fn build_note_event(
         "content": content,
         "severity": severity,
         "fitness_judgment": fitness_judgment,
-        "recommendations": recommendations
+        "recommendations": recommendations,
+        "details": serde_json::Value::Object(details)
     });
 
     let event = EventEnvelope {
@@ -249,6 +344,7 @@ fn to_response(record: HumanJudgmentRecord) -> RecordResponse {
         severity: record.severity,
         fitness_judgment: record.fitness_judgment,
         recommendations: record.recommendations,
+        details: record.details,
         recorded_by_kind: record.recorded_by_kind,
         recorded_by_id: record.recorded_by_id,
         recorded_at: record.recorded_at.to_rfc3339(),
@@ -286,12 +382,34 @@ mod tests {
             Some("HIGH".to_string()),
             None,
             None,
+            None,
+            None,
             &human_user(),
         );
 
         assert_eq!(event.event_type, "RecordCreated");
         assert_eq!(event.payload["record_type"], "record.evaluation_note");
         assert_eq!(event.payload["severity"], "HIGH");
+    }
+
+    #[test]
+    fn build_intervention_note_includes_details() {
+        let (_, event) = build_note_event(
+            "record.intervention_note",
+            vec![],
+            vec![],
+            "content".to_string(),
+            None,
+            None,
+            None,
+            Some("ACTION".to_string()),
+            Some("IMPACT".to_string()),
+            &human_user(),
+        );
+
+        assert_eq!(event.payload["record_type"], "record.intervention_note");
+        assert_eq!(event.payload["details"]["actions_taken"], "ACTION");
+        assert_eq!(event.payload["details"]["impact"], "IMPACT");
     }
 
     #[test]

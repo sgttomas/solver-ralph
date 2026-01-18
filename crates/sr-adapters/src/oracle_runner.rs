@@ -21,18 +21,16 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sr_domain::integrity::IntegrityCondition;
 use sr_ports::{
-    EvidenceStore, EvidenceStoreError, OracleRunResult, OracleRunner, OracleRunnerError,
-    OracleStatus,
+    EvidenceStore, OracleRunResult, OracleRunner, OracleRunnerError, OracleStatus,
 };
 use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 use crate::evidence::{
     EvidenceArtifact, EvidenceManifest, EvidenceManifestBuilder, OracleResult, OracleResultStatus,

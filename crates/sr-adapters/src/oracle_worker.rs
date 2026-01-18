@@ -11,7 +11,7 @@
 //! NOT direct API calls. It subscribes to events and emits events.
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 use sr_domain::{
     entities::ActorKind,
@@ -147,6 +147,7 @@ struct RunStartedPayload {
     #[serde(default)]
     loop_id: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     iteration_id: Option<String>,
 }
 

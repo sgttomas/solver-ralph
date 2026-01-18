@@ -22,7 +22,7 @@ use sr_adapters::oracle_runner::{
     OracleSuiteDefinition,
 };
 use sr_adapters::oracle_suite::{
-    IntegrityCondition, OracleSuiteRegistry, VerificationProfile, WaivableCondition,
+    IntegrityCondition, VerificationProfile, WaivableCondition,
 };
 use std::collections::BTreeMap;
 use tracing::{info, instrument};

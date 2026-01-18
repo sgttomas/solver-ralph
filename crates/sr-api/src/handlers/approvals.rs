@@ -19,6 +19,7 @@ use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 // ============================================================================
@@ -154,7 +155,7 @@ pub async fn record_approval(
     let event_id = EventId::new();
     let now = Utc::now();
 
-    let subject_refs: Vec<TypedRef> = body
+    let subject_refs_raw: Vec<TypedRef> = body
         .subject_refs
         .into_iter()
         .map(|r| TypedRef {
@@ -164,6 +165,7 @@ pub async fn record_approval(
             meta: r.meta,
         })
         .collect();
+    let subject_refs = normalize_and_validate_refs(&state, subject_refs_raw).await?;
 
     let payload = serde_json::json!({
         "portal_id": body.portal_id,

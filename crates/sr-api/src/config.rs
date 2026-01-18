@@ -3,7 +3,6 @@
 //! Centralized configuration for the SOLVER-Ralph API service.
 
 use crate::auth::OidcConfig;
-use serde::Deserialize;
 use std::env;
 
 /// API server configuration

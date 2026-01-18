@@ -1320,7 +1320,7 @@ impl EventManager {
     /// Per SR-CONTRACT C-EVT-7 and C-CTX-2 (no ghost inputs), the replay
     /// must produce identical state since `apply_event()` uses only event data.
     pub fn verify_replay(&self, events: &[EventEnvelope]) -> crate::replay::ReplayProof {
-        use crate::replay::{ReplayDiscrepancy, ReplayProof};
+        use crate::replay::ReplayProof;
 
         // 1. Compute original state hash
         let original_hash = self.compute_state_hash();

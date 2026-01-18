@@ -22,7 +22,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{info, instrument};
 
 use crate::evidence::{EvidenceManifest, OracleResultStatus};
 use crate::oracle_runner::{

@@ -15,7 +15,7 @@ use sr_ports::{EnvelopeKey, SecretMetadata, SecretProvider, SecretProviderError,
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, info, instrument, warn};
 
 /// Infisical configuration
 #[derive(Debug, Clone)]
@@ -75,6 +75,7 @@ struct InfisicalSecretResponse {
 
 /// Infisical secret structure
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 #[serde(rename_all = "camelCase")]
 struct InfisicalSecret {
     id: String,
@@ -222,11 +223,9 @@ impl SecretProvider for InfisicalSecretProvider {
 
         // Decode base64 value if it looks like base64, otherwise use raw
         let value = if secret.secret_value.starts_with("base64:") {
-            base64::Engine::decode(
-                &base64::engine::general_purpose::STANDARD,
-                &secret.secret_value[7..],
-            )
-            .unwrap_or_else(|_| secret.secret_value.into_bytes())
+            base64::engine::general_purpose::STANDARD
+                .decode(&secret.secret_value[7..])
+                .unwrap_or_else(|_| secret.secret_value.into_bytes())
         } else {
             secret.secret_value.into_bytes()
         };
@@ -242,19 +241,19 @@ impl SecretProvider for InfisicalSecretProvider {
         })
     }
 
-    #[instrument(skip(self, value, metadata), fields(path = %path))]
+    #[instrument(skip(self, value, _metadata), fields(path = %path))]
     async fn store_secret(
         &self,
         path: &str,
         value: &[u8],
-        metadata: SecretMetadata,
+        _metadata: SecretMetadata,
     ) -> Result<String, SecretProviderError> {
         let (_folder, key) = Self::parse_path(path);
 
         // Encode value as base64 for safe storage
         let encoded_value = format!(
             "base64:{}",
-            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, value)
+            base64::engine::general_purpose::STANDARD.encode(value)
         );
 
         let request = CreateSecretRequest {
@@ -626,7 +625,7 @@ mod integration_tests {
         ];
         let kek_b64 = format!(
             "base64:{}",
-            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &kek_bytes)
+            base64::engine::general_purpose::STANDARD.encode(&kek_bytes)
         );
 
         Mock::given(method("GET"))
@@ -670,7 +669,7 @@ mod integration_tests {
         let short_key: [u8; 16] = [0u8; 16];
         let short_b64 = format!(
             "base64:{}",
-            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &short_key)
+            base64::engine::general_purpose::STANDARD.encode(&short_key)
         );
 
         Mock::given(method("GET"))
@@ -714,7 +713,7 @@ mod integration_tests {
         let kek_bytes: [u8; 32] = [0x42u8; 32];
         let kek_b64 = format!(
             "base64:{}",
-            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &kek_bytes)
+            base64::engine::general_purpose::STANDARD.encode(&kek_bytes)
         );
 
         // This mock should only be called once due to caching

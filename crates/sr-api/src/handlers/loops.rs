@@ -9,16 +9,14 @@ use axum::{
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sr_adapters::{LoopProjection, ProjectionBuilder};
-use sr_domain::{
-    ActorId, ActorKind, EventEnvelope, EventId, LoopBudgets, LoopId, LoopState, LoopStateMachine,
-    StreamKind, TypedRef,
-};
+use sr_adapters::LoopProjection;
+use sr_domain::{EventEnvelope, EventId, LoopBudgets, LoopId, StreamKind, TypedRef};
 use sr_ports::EventStore;
-use tracing::{debug, info, instrument};
+use tracing::{info, instrument};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::{ApiError, ApiResult};
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 // ============================================================================
@@ -218,12 +216,21 @@ pub async fn create_loop(
         None
     };
 
-    let directive_ref = TypedRef {
-        kind: body.directive_ref.kind,
-        id: body.directive_ref.id,
-        rel: body.directive_ref.rel,
-        meta: body.directive_ref.meta,
-    };
+    let directive_ref = normalize_and_validate_refs(
+        &state,
+        vec![TypedRef {
+            kind: body.directive_ref.kind,
+            id: body.directive_ref.id,
+            rel: body.directive_ref.rel,
+            meta: body.directive_ref.meta,
+        }],
+    )
+    .await?
+    .into_iter()
+    .next()
+    .ok_or(ApiError::Internal {
+        message: "Failed to normalize directive_ref".to_string(),
+    })?;
 
     let payload = serde_json::json!({
         "goal": body.goal,

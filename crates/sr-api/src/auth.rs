@@ -11,7 +11,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{DateTime, Utc};
 use jsonwebtoken::{decode, decode_header, jwk::JwkSet, Algorithm, DecodingKey, Validation};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -19,7 +18,7 @@ use sr_domain::ActorKind;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info};
 
 /// OIDC configuration for Zitadel
 #[derive(Debug, Clone)]

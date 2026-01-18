@@ -10,6 +10,7 @@
 pub mod approvals;
 pub mod attachments;
 pub mod candidates;
+pub mod config;
 pub mod decisions;
 pub mod error;
 pub mod evidence;

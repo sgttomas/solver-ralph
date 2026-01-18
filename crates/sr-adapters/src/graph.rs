@@ -10,8 +10,8 @@
 
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
-use sr_domain::{ActorKind, EventEnvelope, TypedRef};
-use tracing::{debug, error, info, instrument, warn};
+use sr_domain::{ActorKind, EventEnvelope};
+use tracing::{debug, info, instrument, warn};
 use ulid::Ulid;
 
 /// Graph projection error types

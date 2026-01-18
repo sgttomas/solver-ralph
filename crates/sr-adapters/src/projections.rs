@@ -9,8 +9,8 @@
 
 use crate::graph::GraphProjection;
 use chrono::{DateTime, Utc};
-use sqlx::{postgres::PgRow, PgPool, Row};
-use sr_domain::{is_seeded_portal, EventEnvelope, EventId};
+use sqlx::{PgPool, Row};
+use sr_domain::{is_seeded_portal, EventEnvelope};
 use sr_ports::{EventStore, EventStoreError};
 use tracing::{debug, error, info, instrument, warn};
 
@@ -260,6 +260,9 @@ impl ProjectionBuilder {
 
             // Record events (human judgment notes are non-binding)
             "RecordCreated" => self.apply_record_created(&mut tx, event).await,
+            "ConfigDefinitionRecorded" => {
+                self.apply_config_definition_recorded(&mut tx, event).await
+            }
 
             // Staleness events
             "NodeMarkedStale" => self.apply_node_marked_stale(&mut tx, event).await,
@@ -360,6 +363,7 @@ impl ProjectionBuilder {
             "proj.decisions",
             "proj.governed_artifacts",
             "proj.shippable_status",
+            "proj.config_definitions",
             "proj.human_judgment_records",
             "proj.checkpoints",
         ];
@@ -1266,7 +1270,10 @@ impl ProjectionBuilder {
         let record_type = payload["record_type"].as_str().unwrap_or("");
 
         // Only project human judgment records here
-        if record_type != "record.evaluation_note" && record_type != "record.assessment_note" {
+        if record_type != "record.evaluation_note"
+            && record_type != "record.assessment_note"
+            && record_type != "record.intervention_note"
+        {
             return Ok(());
         }
 
@@ -1286,18 +1293,19 @@ impl ProjectionBuilder {
         let severity = payload["severity"].as_str();
         let fitness_judgment = payload["fitness_judgment"].as_str();
         let recommendations = payload["recommendations"].as_str();
+        let details = payload["details"].clone();
 
         sqlx::query(
             r#"
             INSERT INTO proj.human_judgment_records (
                 record_id, record_type, subject_refs, evidence_refs, content, severity,
-                fitness_judgment, recommendations, is_binding, recorded_by_kind, recorded_by_id,
+                fitness_judgment, recommendations, details, is_binding, recorded_by_kind, recorded_by_id,
                 recorded_at, last_event_id, last_global_seq
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, $10, $11, $12, $13, $14)
             ON CONFLICT (record_id) DO UPDATE
             SET subject_refs = $3, evidence_refs = $4, content = $5, severity = $6,
-                fitness_judgment = $7, recommendations = $8, recorded_by_kind = $9,
-                recorded_by_id = $10, recorded_at = $11, last_event_id = $12, last_global_seq = $13
+                fitness_judgment = $7, recommendations = $8, details = $9, recorded_by_kind = $10,
+                recorded_by_id = $11, recorded_at = $12, last_event_id = $13, last_global_seq = $14
             "#,
         )
         .bind(&event.stream_id)
@@ -1308,6 +1316,53 @@ impl ProjectionBuilder {
         .bind(severity)
         .bind(fitness_judgment)
         .bind(recommendations)
+        .bind(details)
+        .bind(actor_kind_str(&event.actor_kind))
+        .bind(&event.actor_id)
+        .bind(event.occurred_at)
+        .bind(event.event_id.as_str())
+        .bind(event.global_seq.unwrap_or(0) as i64)
+        .execute(&mut **tx)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Config definition registry handler
+    async fn apply_config_definition_recorded(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event: &EventEnvelope,
+    ) -> Result<(), ProjectionError> {
+        let payload = &event.payload;
+        let config_id = payload["config_id"].as_str().unwrap_or("");
+        let type_key = payload["type_key"].as_str().unwrap_or("");
+        let name = payload["name"].as_str().unwrap_or("");
+        let definition = payload["definition"].clone();
+
+        if config_id.is_empty() || type_key.is_empty() || name.is_empty() {
+            return Err(ProjectionError::ValidationError {
+                message: "ConfigDefinitionRecorded missing required fields".into(),
+            });
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO proj.config_definitions (
+                config_id, type_key, name, definition,
+                recorded_by_kind, recorded_by_id, recorded_at,
+                last_event_id, last_global_seq
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (config_id) DO UPDATE
+            SET type_key = $2, name = $3, definition = $4,
+                recorded_by_kind = $5, recorded_by_id = $6,
+                recorded_at = $7, last_event_id = $8, last_global_seq = $9
+            "#,
+        )
+        .bind(config_id)
+        .bind(type_key)
+        .bind(name)
+        .bind(definition)
         .bind(actor_kind_str(&event.actor_kind))
         .bind(&event.actor_id)
         .bind(event.occurred_at)
@@ -2349,6 +2404,19 @@ pub struct HumanJudgmentRecord {
     pub severity: Option<String>,
     pub fitness_judgment: Option<String>,
     pub recommendations: Option<String>,
+    pub details: serde_json::Value,
+    pub recorded_by_kind: String,
+    pub recorded_by_id: String,
+    pub recorded_at: DateTime<Utc>,
+}
+
+/// Config definition projection read model
+#[derive(Debug, Clone)]
+pub struct ConfigDefinitionProjection {
+    pub config_id: String,
+    pub type_key: String,
+    pub name: String,
+    pub definition: serde_json::Value,
     pub recorded_by_kind: String,
     pub recorded_by_id: String,
     pub recorded_at: DateTime<Utc>,
@@ -3116,7 +3184,7 @@ impl ProjectionBuilder {
         let row = sqlx::query(
             r#"
             SELECT record_id, record_type, subject_refs, evidence_refs, content,
-                   severity, fitness_judgment, recommendations, recorded_by_kind,
+                   severity, fitness_judgment, recommendations, details, recorded_by_kind,
                    recorded_by_id, recorded_at
             FROM proj.human_judgment_records
             WHERE record_id = $1
@@ -3135,10 +3203,60 @@ impl ProjectionBuilder {
             severity: row.get("severity"),
             fitness_judgment: row.get("fitness_judgment"),
             recommendations: row.get("recommendations"),
+            details: row.get("details"),
             recorded_by_kind: row.get("recorded_by_kind"),
             recorded_by_id: row.get("recorded_by_id"),
             recorded_at: row.get("recorded_at"),
         }))
+    }
+
+    // ========================================================================
+    // Config Definition Query Methods
+    // ========================================================================
+
+    /// List config definitions (optionally filtered by type_key)
+    pub async fn list_config_definitions(
+        &self,
+        type_key: Option<&str>,
+    ) -> Result<Vec<ConfigDefinitionProjection>, ProjectionError> {
+        let rows = if let Some(tk) = type_key {
+            sqlx::query(
+                r#"
+                SELECT config_id, type_key, name, definition, recorded_by_kind,
+                       recorded_by_id, recorded_at
+                FROM proj.config_definitions
+                WHERE type_key = $1
+                ORDER BY recorded_at DESC
+                "#,
+            )
+            .bind(tk)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT config_id, type_key, name, definition, recorded_by_kind,
+                       recorded_by_id, recorded_at
+                FROM proj.config_definitions
+                ORDER BY recorded_at DESC
+                "#,
+            )
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|row| ConfigDefinitionProjection {
+                config_id: row.get("config_id"),
+                type_key: row.get("type_key"),
+                name: row.get("name"),
+                definition: row.get("definition"),
+                recorded_by_kind: row.get("recorded_by_kind"),
+                recorded_by_id: row.get("recorded_by_id"),
+                recorded_at: row.get("recorded_at"),
+            })
+            .collect())
     }
 
     // ========================================================================

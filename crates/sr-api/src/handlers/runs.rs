@@ -17,6 +17,7 @@ use tracing::{info, instrument};
 use crate::auth::AuthenticatedUser;
 use crate::handlers::stop_triggers::emit_stop_triggered;
 use crate::handlers::{ApiError, ApiResult};
+use crate::ref_validation::normalize_and_validate_refs;
 use crate::AppState;
 
 // ============================================================================
@@ -218,6 +219,8 @@ pub async fn start_run(
             meta: serde_json::Value::Null,
         });
     }
+
+    let refs = normalize_and_validate_refs(&state, refs).await?;
 
     let event = EventEnvelope {
         event_id: event_id.clone(),
