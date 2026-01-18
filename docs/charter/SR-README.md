@@ -61,67 +61,94 @@ Canonical index for the SR-* document set.
 | SR-README | `charter/` | This index |
 
 
-## Current Assignment: Audit Remediation — Phase 6 (Governance & Migration)
+## Current Assignment: MVP Simplification — Planning Phase
 
-> **Assignment:** Proceed to Phase 6 of `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` now that Phase 1–5 UI + test reinforcement is complete.
+> **Assignment:** Generate detailed implementation plans for simplifying the MVP to provide a user-friendly workflow where humans review agent work at checkpoints and decide whether to proceed.
 
-1) Use `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` as the guide. Phases 1–5 are complete (trust boundaries, verification/shippable gating, ontology coverage, typed ref validation, staleness/evidence/note APIs, UI parity, and automated tests including portal whitelist + integrity stops).
-2) **Next immediate work (Phase 6):**
-   - **P3-MIGRATIONS:** Adjust projections/tables for new stop triggers, verification status fields, staleness flags, and new record/config types; include backfill scripts if needed.
-   - **P3-GOV-DOCS:** Update governance documentation kits (Gate Registry, portal playbooks) to reflect new stop triggers and portal enforcement hooks; record exceptions in SR-EXCEPTIONS if temporary waivers are needed during rollout.
-3) Re-read SR-DIRECTIVE, SR-SPEC, SR-TEMPLATES, and SR-CONTRACT to ensure migrations and doc updates mirror the binding invariants and routing tables. Treat each deliverable as atomic with tests/migrations documented, and commit per deliverable ID.
+### Core Intent
 
-### Input Documents
+The target user experience:
+1. **Create** — Define what work to do (Work Surface)
+2. **Work** — Agent runs iterations autonomously
+3. **Checkpoint** — When stopped or stage complete, user sees summary and decides
+4. **Done** — Release approval when complete
 
-1. **`docs/planning/SR-CODEBASE-AUDIT-PLAN.md`** — The remediation plan (your execution guide)
-2. **`docs/platform/SR-CONTRACT.md`** — The contract invariants being enforced
-3. **`docs/program/SR-DIRECTIVE.md`** — The execution policies being aligned
+The user should **never** have to manually select evidence bundles from a list of hashes.
 
-Reference `docs/platform/SR-SPEC.md` for API signatures, event schemas, and state machine behavior.
+---
 
+### Task: Generate Implementation Plans
 
-### Execution Protocol
+Create detailed implementation plans in `docs/planning/` for each of the following deliverables. Each plan should specify:
 
-**For each phase:**
+- **Files to modify** (with specific functions/components)
+- **New files to create** (migrations, endpoints, components)
+- **Data flow** (how information moves through the system)
+- **API contracts** (request/response shapes)
+- **UI wireframes** (text-based description of the interface)
+- **Test cases** (what to verify)
+- **Migration/backfill strategy** (for existing data)
 
-1. **Read** the relevant SR-* documents for the invariants/specs being addressed
-2. **Implement** the changes specified in the plan
-3. **Test** — Run the existing test suite plus any new tests required by the plan
-4. **Verify** — Confirm the deliverable satisfies its acceptance criteria
-5. **Commit** — `git add && git commit` with message referencing the deliverable ID
-6. **Proceed** — Move to the next deliverable
+---
 
-**Phase sequencing:**
-- Complete all Phase 1 deliverables before moving to Phase 2
-- Within a phase, deliverables may be done in any order unless dependencies exist
-- Do not skip phases; the plan is designed for incremental risk reduction
+### Deliverables to Plan
 
-### Risk & Rollback
+#### MVP-1: Auto-Link Evidence to Work Surface/Stage
 
-Each deliverable should be:
-- **Atomic** — One logical change per commit
-- **Reversible** — Changes can be rolled back independently
-- **Tested** — Existing tests must pass; new tests required for new invariants
+**Problem:** Evidence bundles are tracked by `run_id`/`candidate_id` but not by `work_surface_id`/`stage_id`, forcing users to manually select from cryptic hashes.
 
-If a deliverable causes test failures:
-1. Fix forward if the fix is obvious
-2. Otherwise, revert and document the blocker
-3. Do not proceed to the next phase with failing tests
+**Plan should cover:**
+- Database migration for new columns
+- Projection handler changes to populate them
+- API endpoint to query evidence by work surface + stage
+- Backfill strategy for existing evidence bundles
+- How evidence gets associated during iteration execution
+
+---
+
+#### MVP-2: Unified Work Surface View
+
+**Problem:** Users bounce between Work Surfaces page (context) and Loops page (state).
+
+**Plan should cover:**
+- What loop data to embed in Work Surface detail view
+- Decision UI component design
+- API changes needed (or existing endpoints to use)
+- Which Loops page features to keep vs. remove
+- Navigation/routing changes
+
+---
+
+#### MVP-3: Simplified Stage Completion
+
+**Problem:** Stage completion form requires manual evidence selection, gate result radio buttons, oracle result entry.
+
+**Plan should cover:**
+- New stage completion component design
+- Auto-fetch evidence logic
+- Oracle result summary display format
+- Button actions and their API calls
+- Waiver flow (when failures exist)
+- What to do when no evidence exists for the stage
+
+---
+
+### Output
+
+Create the following files:
+
+1. `docs/planning/MVP-1-EVIDENCE-LINKING.md` — Plan for auto-linking evidence
+2. `docs/planning/MVP-2-UNIFIED-VIEW.md` — Plan for unified Work Surface view
+3. `docs/planning/MVP-3-SIMPLE-COMPLETION.md` — Plan for simplified stage completion
+
+Each plan should be detailed enough that implementation can proceed without ambiguity.
 
 ### Success Criteria
 
-1. All Phase 1 deliverables implemented and tested (P1-* complete)
-2. All Phase 2-6 deliverables implemented and tested
-3. Full test suite passes (`cargo test --workspace`)
-4. No regressions in existing functionality
-5. Commit history shows one commit per deliverable ID
-6. Any blockers documented in `docs/reviews/SR-CODEBASE-AUDIT-BLOCKERS.md` (create if needed)
-
-### Completion
-
-When all phases are complete:
-1. Update `docs/reviews/SR-CODEBASE-AUDIT-CONSOLIDATED.md` to mark findings as resolved
-2. Update `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` to mark deliverables as complete
-3. Push all commits to the remote branch
+1. Plans are complete and unambiguous
+2. Plans identify all files that need modification
+3. Plans include test cases
+4. Plans address backward compatibility with existing data
+5. Plans are reviewed and approved before implementation begins
 
 ---
