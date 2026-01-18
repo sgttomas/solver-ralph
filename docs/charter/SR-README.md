@@ -61,84 +61,90 @@ Canonical index for the SR-* document set.
 | SR-README | `charter/` | This index |
 
 
----
+## Current Assignment: Implement Audit Remediation Plan
 
+> **Assignment:** Implement the remediation plan for findings from the consolidated codebase audit, following the phased approach in `docs/planning/SR-CODEBASE-AUDIT-PLAN.md`.
 
-## Current Status
+### Context
 
-**V10:** ✅ COMPLETE (2026-01-17)
-**V11:** ✅ COMPLETE (2026-01-17)
-**V12:** ✅ COMPLETE (2026-01-17)
-**Branch:** `solver-ralph-12`
+A multi-agent codebase audit identified gaps between the SR-* specifications and the implementation. The findings have been consolidated and a remediation plan has been prepared. Your task is to implement the remediations.
 
-### V12 Summary (2026-01-17)
+### Input Documents
 
-**V12-1: Evidence Manifest Validation Oracle (D-15)** ✅ COMPLETE
-- Oracle registered in `oracle-suites/core-v1/suite.json` with `classification: required`
-- Implementation: `oracle-suites/core-v1/oracles/manifest-validation.sh`
+1. **`docs/planning/SR-CODEBASE-AUDIT-PLAN.md`** — The remediation plan (your execution guide)
+2. **`docs/platform/SR-CONTRACT.md`** — The contract invariants being enforced
+3. **`docs/program/SR-DIRECTIVE.md`** — The execution policies being aligned
 
-**V12-2: NATS Message Contract Documentation (D-21)** ✅ COMPLETE
-- Documentation: `schemas/messaging/SR-MESSAGE-CONTRACTS.md`
-- JSON Schema: `schemas/messaging/message-envelope.schema.json`
+Reference `docs/platform/SR-SPEC.md` as needed for implementation details.
 
-**V12-3: Standalone Governor Service Binary (D-22)** ✅ COMPLETE
-- Binary: `crates/sr-governor/`
-- Docker: `deploy/docker-compose.yml`
+### Remediation Plan Overview
 
-### V12 Reviews (2026-01-17)
+The plan is organized into 6 phases:
 
-- Coherence Review: `docs/reviews/SR-PLAN-V12-COHERENCE-REVIEW.md`
-- Consistency Review: `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md`
+| Phase | Focus | Priority | Deliverable IDs |
+|-------|-------|----------|-----------------|
+| **Phase 1** | Trust Boundary & Verification | P1 (Critical) | P1-TB-PORTALS, P1-VER-COMPUTE, P1-DIR-BUDGET, P1-DIR-STOP |
+| **Phase 2** | Ontological Alignment | P2 (High) | P2-ONT-STALENESS, P2-ONT-PROJECTION |
+| **Phase 3** | Epistemological Completeness | P2 (High) | P3-EPI-EVIDENCE, P3-EPI-ORACLE |
+| **Phase 4** | Semantic Accuracy | P3 (Medium) | P4-SEM-ERROR, P4-SEM-METRIC |
+| **Phase 5** | UI Parity | P3 (Medium) | P5-UI-ADMIN |
+| **Phase 6** | Documentation & Governance | P3 (Medium) | P6-DOC-SYNC |
 
----
+### Execution Protocol
 
-## Next Instance Prompt
+**For each phase:**
 
-> **Assignment:** Audit SOLVER-Ralph codebase for coherence and consistency against SR-CONTRACT, SR-SPEC, and SR-TYPES.
+1. **Read** the relevant SR-* documents for the invariants/specs being addressed
+2. **Implement** the changes specified in the plan
+3. **Test** — Run the existing test suite plus any new tests required by the plan
+4. **Verify** — Confirm the deliverable satisfies its acceptance criteria
+5. **Commit** — `git add && git commit` with message referencing the deliverable ID
+6. **Proceed** — Move to the next deliverable
 
-### Orientation
+**Phase sequencing:**
+- Complete all Phase 1 deliverables before moving to Phase 2
+- Within a phase, deliverables may be done in any order unless dependencies exist
+- Do not skip phases; the plan is designed for incremental risk reduction
 
-1. Read `docs/reviews/SR-CODEBASE-AUDIT-METHODOLOGY.md` — the audit methodology and checklists
-2. Read `docs/platform/SR-CONTRACT.md` §1.1 — the invariants index (C-* identifiers)
-3. Read `docs/platform/SR-SPEC.md` §1.5-1.12 — schema definitions
-4. Read `docs/platform/SR-TYPES.md` §4 — type registry
+### Key Implementation Targets
 
-### Execution
+**Phase 1 (Critical — Do First):**
 
-**Layer 1 (Contract Compliance):** For each C-* invariant, search codebase for enforcement and test coverage.
-**Layer 2 (Schema Alignment):** Compare SR-SPEC schemas to Rust structs in sr-domain/sr-adapters.
-**Layer 3 (Type Conformance):** Verify SR-TYPES §4.3/§4.4 entries have implementations.
-**Layer 4 (API Coverage):** Verify SR-SPEC §2.3 endpoints exist with correct behavior.
+| ID | Target | What to Implement |
+|----|--------|-------------------|
+| P1-TB-PORTALS | `sr-api/src/handlers/` | Add `portal_id` whitelist validation per C-TB-4 |
+| P1-VER-COMPUTE | `sr-core/src/` | Implement `VerificationComputer` with evidence aggregation per C-VER-* |
+| P1-DIR-BUDGET | `sr-api/src/governor.rs` | Align defaults to SR-DIRECTIVE (5/25/16), not (100/3600) |
+| P1-DIR-STOP | `sr-api/src/governor.rs` | Wire `ORACLE_FLAKE` detection to stop trigger emission |
 
-### Deliverable
+**Phase 2-6:** See `SR-CODEBASE-AUDIT-PLAN.md` for full details.
 
-Produce `docs/reviews/SR-CODEBASE-AUDIT-FINDINGS.md` with:
-- Contract compliance matrix (invariant → enforcement → test → status)
-- Schema alignment report (spec schema → code struct → issues)
-- Type registry coverage (type_key → Rust type → status)
-- Prioritized remediation list (P0/P1/P2 with specific actions)
+### Risk & Rollback
+
+Each deliverable should be:
+- **Atomic** — One logical change per commit
+- **Reversible** — Changes can be rolled back independently
+- **Tested** — Existing tests must pass; new tests required for new invariants
+
+If a deliverable causes test failures:
+1. Fix forward if the fix is obvious
+2. Otherwise, revert and document the blocker
+3. Do not proceed to the next phase with failing tests
 
 ### Success Criteria
 
-- Every C-* invariant has a status: ✅ Enforced | ⚠️ Partial | ❌ Missing
-- Every SR-SPEC schema compared to code
-- Remediation list is actionable (file + function + change)
+1. All Phase 1 deliverables implemented and tested (P1-* complete)
+2. All Phase 2-6 deliverables implemented and tested
+3. Full test suite passes (`cargo test --workspace`)
+4. No regressions in existing functionality
+5. Commit history shows one commit per deliverable ID
+6. Any blockers documented in `docs/reviews/SR-CODEBASE-AUDIT-BLOCKERS.md` (create if needed)
 
----
+### Completion
 
----
-
-## Previous Session Summary (2026-01-17)
-
-### Completed: SR-PLAN-V12 Implementation
-
-- V12-1: Evidence manifest validation oracle (`oracle-suites/core-v1/oracles/manifest-validation.sh`)
-- V12-2: NATS message contract documentation (`schemas/messaging/`)
-- V12-3: Standalone governor service binary (`crates/sr-governor/`)
-
-### Completed: SR-PLAN-V12 Reviews
-
-- Coherence Review: APPROVED — `docs/reviews/SR-PLAN-V12-COHERENCE-REVIEW.md`
-- Consistency Review: APPROVED — `docs/reviews/SR-PLAN-V12-CONSISTENCY-REVIEW.md`
+When all phases are complete:
+1. Update `docs/reviews/SR-CODEBASE-AUDIT-CONSOLIDATED.md` to mark findings as resolved
+2. Update `docs/planning/SR-CODEBASE-AUDIT-PLAN.md` to mark deliverables as complete
+3. Push all commits to the remote branch
 
 ---
