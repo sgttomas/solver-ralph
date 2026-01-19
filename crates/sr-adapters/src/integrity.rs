@@ -1159,7 +1159,7 @@ mod tests {
             }],
             metadata: BTreeMap::new(),
             // Work Surface context (SR-PLAN-V4 Phase 4c) - not used in test
-            procedure_template_id: None,
+            template_id: None,
             stage_id: None,
             work_surface_id: None,
         }

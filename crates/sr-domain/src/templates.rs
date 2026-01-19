@@ -1,6 +1,6 @@
-//! Procedure Template Definitions per SR-PROCEDURE-KIT
+//! Template Definitions per SR-TEMPLATES
 //!
-//! This module provides canonical procedure template instances for semantic work.
+//! This module provides canonical template instances for semantic work.
 //! Templates defined here are governed configuration artifacts that SHOULD be
 //! reusable across work units of the same kind.
 //!
@@ -8,8 +8,8 @@
 
 use crate::entities::ContentHash;
 use crate::work_surface::{
-    GateRule, OracleSuiteBinding, ProcedureTemplate, ProcedureTemplateId, RequiredOutput, Stage,
-    StageId, TransitionTarget, WorkKind,
+    OracleSuiteBinding, RequiredOutput, Stage, StageId, Template, TemplateId, TransitionTarget,
+    WorkKind,
 };
 use sha2::{Digest, Sha256};
 
@@ -17,7 +17,7 @@ use sha2::{Digest, Sha256};
 // Branch 0: Problem Statement Ingestion Template
 // ============================================================================
 
-/// Problem Statement Ingestion Procedure Template
+/// Problem Statement Ingestion Template
 ///
 /// Per SR-PLAN §4.1 Branch 0, this template provides the MVP spine for
 /// semantic work: Problem Statement → Typed Intake Baseline.
@@ -28,15 +28,15 @@ use sha2::{Digest, Sha256};
 /// - ACCEPT: Portal approval for intake baseline (human authority boundary)
 ///
 /// This template is intentionally minimal for Branch 0 demonstration.
-pub fn problem_statement_ingestion_template() -> ProcedureTemplate {
-    ProcedureTemplate {
-        artifact_type: "config.procedure_template".to_string(),
+pub fn problem_statement_ingestion_template() -> Template {
+    Template {
+        artifact_type: "config.template".to_string(),
         artifact_version: "v1".to_string(),
-        procedure_template_id: ProcedureTemplateId::new("PROBLEM-STATEMENT-INGESTION"),
+        template_id: TemplateId::new("PROBLEM-STATEMENT-INGESTION"),
         kind: vec![WorkKind::IntakeProcessing],
         name: Some("Problem Statement Ingestion".to_string()),
         description: Some(
-            "Stage-gated procedure for ingesting a problem statement and producing a \
+            "Stage-gated template for ingesting a problem statement and producing a \
              validated, typed intake baseline. This is the Branch 0 MVP template."
                 .to_string(),
         ),
@@ -61,9 +61,8 @@ pub fn problem_statement_ingestion_template() -> ProcedureTemplate {
                         media_type: Some("application/json".to_string()),
                     },
                 ],
-                steps: vec![],
+                guideposts: vec![],
                 required_oracle_suites: vec!["suite:SR-SUITE-GOV".to_string()],
-                gate_rule: GateRule::AllRequiredOraclesPass,
                 transition_on_pass: TransitionTarget::Stage(StageId::new("VALIDATE")),
                 requires_portal: false,
                 portal_id: None,
@@ -89,12 +88,11 @@ pub fn problem_statement_ingestion_template() -> ProcedureTemplate {
                         media_type: Some("application/json".to_string()),
                     },
                 ],
-                steps: vec![],
+                guideposts: vec![],
                 required_oracle_suites: vec![
                     "suite:SR-SUITE-GOV".to_string(),
                     "oracle.suite.intake_admissibility.v1".to_string(),
                 ],
-                gate_rule: GateRule::AllRequiredOraclesPass,
                 transition_on_pass: TransitionTarget::Stage(StageId::new("ACCEPT")),
                 requires_portal: false,
                 portal_id: None,
@@ -120,9 +118,8 @@ pub fn problem_statement_ingestion_template() -> ProcedureTemplate {
                         media_type: Some("application/json".to_string()),
                     },
                 ],
-                steps: vec![],
+                guideposts: vec![],
                 required_oracle_suites: vec!["suite:SR-SUITE-REFS".to_string()],
-                gate_rule: GateRule::PortalApprovalRequired,
                 transition_on_pass: TransitionTarget::Terminal,
                 requires_portal: true,
                 portal_id: Some("IntakeAcceptancePortal".to_string()),
@@ -136,9 +133,9 @@ pub fn problem_statement_ingestion_template() -> ProcedureTemplate {
     }
 }
 
-/// Generic Knowledge Work Procedure Template
+/// Generic Knowledge Work Template
 ///
-/// Per SR-PROCEDURE-KIT §2, this baseline template provides a consistent stage
+/// Per SR-TEMPLATES §2.2.2, this baseline template provides a consistent stage
 /// structure across many kinds of knowledge work. It allows different semantic
 /// manifolds per stage.
 ///
@@ -148,11 +145,11 @@ pub fn problem_statement_ingestion_template() -> ProcedureTemplate {
 /// - DRAFT: Produce candidate deliverables with traceability
 /// - SEMANTIC_EVAL: Evaluate against stage manifold/meaning-matrix
 /// - FINAL: Package final candidate with evidence bundle
-pub fn generic_knowledge_work_template() -> ProcedureTemplate {
-    ProcedureTemplate {
-        artifact_type: "config.procedure_template".to_string(),
+pub fn generic_knowledge_work_template() -> Template {
+    Template {
+        artifact_type: "config.template".to_string(),
         artifact_version: "v1".to_string(),
-        procedure_template_id: ProcedureTemplateId::new("GENERIC-KNOWLEDGE-WORK"),
+        template_id: TemplateId::new("GENERIC-KNOWLEDGE-WORK"),
         kind: vec![
             WorkKind::ResearchMemo,
             WorkKind::DecisionRecord,
@@ -190,9 +187,8 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
                         media_type: Some("application/json".to_string()),
                     },
                 ],
-                steps: vec![],
+                guideposts: vec![],
                 required_oracle_suites: vec!["suite:SR-SUITE-STRUCTURE".to_string()],
-                gate_rule: GateRule::AllRequiredOraclesPass,
                 transition_on_pass: TransitionTarget::Stage(StageId::new("OPTIONS")),
                 requires_portal: false,
                 portal_id: None,
@@ -221,9 +217,8 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
                         media_type: Some("text/markdown".to_string()),
                     },
                 ],
-                steps: vec![],
+                guideposts: vec![],
                 required_oracle_suites: vec!["suite:SR-SUITE-NONTRIVIALITY".to_string()],
-                gate_rule: GateRule::AllRequiredOraclesPass,
                 transition_on_pass: TransitionTarget::Stage(StageId::new("DRAFT")),
                 requires_portal: false,
                 portal_id: None,
@@ -248,18 +243,17 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
                         media_type: Some("application/json".to_string()),
                     },
                 ],
-                steps: vec![],
+                guideposts: vec![],
                 required_oracle_suites: vec![
                     "suite:SR-SUITE-STRUCTURE".to_string(),
                     "suite:SR-SUITE-TRACEABILITY".to_string(),
                 ],
-                gate_rule: GateRule::AllRequiredOraclesPass,
                 transition_on_pass: TransitionTarget::Stage(StageId::new("SEMANTIC_EVAL")),
                 requires_portal: false,
                 portal_id: None,
                 requires_approval: false,
             },
-            // stage:SEMANTIC_EVAL - Trust boundary per SR-PROCEDURE-KIT §1
+            // stage:SEMANTIC_EVAL - Trust boundary per SR-TEMPLATES §2.2.1
             Stage {
                 stage_id: StageId::new("SEMANTIC_EVAL"),
                 stage_name: "Semantic evaluation".to_string(),
@@ -284,15 +278,14 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
                         media_type: Some("application/json".to_string()),
                     },
                 ],
-                steps: vec![],
+                guideposts: vec![],
                 required_oracle_suites: vec!["suite:SR-SUITE-SEMANTIC".to_string()],
-                gate_rule: GateRule::AllRequiredOraclesPass,
                 transition_on_pass: TransitionTarget::Stage(StageId::new("FINAL")),
                 requires_portal: false,
                 portal_id: None,
                 requires_approval: true, // Trust boundary per SR-CONTRACT C-TB-3
             },
-            // stage:FINAL - Trust boundary per SR-PROCEDURE-KIT §1
+            // stage:FINAL - Trust boundary per SR-TEMPLATES §2.2.1
             Stage {
                 stage_id: StageId::new("FINAL"),
                 stage_name: "Package final output".to_string(),
@@ -312,12 +305,11 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
                         media_type: Some("application/json".to_string()),
                     },
                 ],
-                steps: vec![],
+                guideposts: vec![],
                 required_oracle_suites: vec![
                     "suite:SR-SUITE-REFS".to_string(),
                     "suite:SR-SUITE-SEMANTIC".to_string(),
                 ],
-                gate_rule: GateRule::AllRequiredOraclesPass,
                 transition_on_pass: TransitionTarget::Terminal,
                 requires_portal: false,
                 portal_id: None,
@@ -335,13 +327,13 @@ pub fn generic_knowledge_work_template() -> ProcedureTemplate {
 // Template Registry
 // ============================================================================
 
-/// Procedure template registry entry
+/// Template registry entry
 pub struct TemplateRegistryEntry {
-    pub template: ProcedureTemplate,
+    pub template: Template,
     pub content_hash: ContentHash,
 }
 
-/// Get all registered procedure templates
+/// Get all registered templates
 pub fn get_registered_templates() -> Vec<TemplateRegistryEntry> {
     vec![
         create_entry(problem_statement_ingestion_template()),
@@ -350,14 +342,14 @@ pub fn get_registered_templates() -> Vec<TemplateRegistryEntry> {
 }
 
 /// Get a template by ID
-pub fn get_template_by_id(id: &ProcedureTemplateId) -> Option<TemplateRegistryEntry> {
+pub fn get_template_by_id(id: &TemplateId) -> Option<TemplateRegistryEntry> {
     get_registered_templates()
         .into_iter()
-        .find(|e| &e.template.procedure_template_id == id)
+        .find(|e| &e.template.template_id == id)
 }
 
 /// Create a registry entry with computed content hash
-fn create_entry(mut template: ProcedureTemplate) -> TemplateRegistryEntry {
+fn create_entry(mut template: Template) -> TemplateRegistryEntry {
     let hash = compute_template_hash(&template);
     template.content_hash = Some(hash.clone());
     TemplateRegistryEntry {
@@ -366,12 +358,12 @@ fn create_entry(mut template: ProcedureTemplate) -> TemplateRegistryEntry {
     }
 }
 
-/// Compute deterministic content hash for a procedure template
-pub fn compute_template_hash(template: &ProcedureTemplate) -> ContentHash {
+/// Compute deterministic content hash for a template
+pub fn compute_template_hash(template: &Template) -> ContentHash {
     let mut hasher = Sha256::new();
 
     // Include template identity
-    hasher.update(template.procedure_template_id.as_str().as_bytes());
+    hasher.update(template.template_id.as_str().as_bytes());
     hasher.update(b"\n");
 
     // Include version if present
@@ -396,16 +388,10 @@ pub fn compute_template_hash(template: &ProcedureTemplate) -> ContentHash {
             hasher.update(b"\n");
         }
 
-        // Include gate rule
-        let gate_str = match &stage.gate_rule {
-            GateRule::AllRequiredOraclesPass => "all_required_oracles_pass",
-            GateRule::AllOraclesPass => "all_oracles_pass",
-            GateRule::PortalApprovalRequired => "portal_approval_required",
-            GateRule::Custom(s) => s.as_str(),
-        };
-        hasher.update(b"gate:");
-        hasher.update(gate_str.as_bytes());
-        hasher.update(b"\n");
+        // Include requires_approval flag
+        if stage.requires_approval {
+            hasher.update(b"requires_approval:true\n");
+        }
 
         // Include portal info
         if stage.requires_portal {
@@ -461,7 +447,7 @@ mod tests {
         let template = problem_statement_ingestion_template();
         assert!(template.validate().is_ok());
         assert_eq!(
-            template.procedure_template_id.as_str(),
+            template.template_id.as_str(),
             "proc:PROBLEM-STATEMENT-INGESTION"
         );
         assert_eq!(template.stages.len(), 3);
@@ -496,10 +482,7 @@ mod tests {
             template.stages[2].portal_id,
             Some("IntakeAcceptancePortal".to_string())
         );
-        assert_eq!(
-            template.stages[2].gate_rule,
-            GateRule::PortalApprovalRequired
-        );
+        assert!(template.stages[2].requires_approval);
     }
 
     #[test]
@@ -514,7 +497,7 @@ mod tests {
         let template = generic_knowledge_work_template();
         assert!(template.validate().is_ok());
         assert_eq!(
-            template.procedure_template_id.as_str(),
+            template.template_id.as_str(),
             "proc:GENERIC-KNOWLEDGE-WORK"
         );
         assert_eq!(template.stages.len(), 5);
@@ -580,17 +563,17 @@ mod tests {
 
     #[test]
     fn test_get_template_by_id() {
-        let id = ProcedureTemplateId::new("PROBLEM-STATEMENT-INGESTION");
+        let id = TemplateId::new("PROBLEM-STATEMENT-INGESTION");
         let entry = get_template_by_id(&id);
         assert!(entry.is_some());
 
         let template = entry.unwrap().template;
-        assert_eq!(template.procedure_template_id, id);
+        assert_eq!(template.template_id, id);
     }
 
     #[test]
     fn test_get_template_by_id_not_found() {
-        let id = ProcedureTemplateId::new("NONEXISTENT");
+        let id = TemplateId::new("NONEXISTENT");
         let entry = get_template_by_id(&id);
         assert!(entry.is_none());
     }

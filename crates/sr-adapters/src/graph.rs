@@ -907,7 +907,7 @@ fn infer_node_type(event_type: &str, stream_id: &str) -> String {
         | "OracleSuitePinned"
         | "OracleSuiteRebased" => "OracleSuite".to_string(),
         "WorkSurfaceRecorded" => "WorkSurface".to_string(),
-        "ProcedureTemplateSelected" => "ProcedureTemplate".to_string(),
+        "TemplateSelected" => "Template".to_string(),
         _ => {
             // Infer from stream_id prefix
             if stream_id.starts_with("loop_") {

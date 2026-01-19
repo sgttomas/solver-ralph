@@ -40,8 +40,8 @@ interface WorkSurfaceDetail {
   work_unit_id: string;
   intake_id: string;
   intake_content_hash: string;
-  procedure_template_id: string;
-  procedure_template_hash: string;
+  template_id: string;
+  template_hash: string;
   current_stage_id: string;
   status: 'active' | 'completed' | 'archived';
   stage_status: Record<string, StageStatusRecord>;
@@ -615,11 +615,11 @@ export function WorkSurfaceDetail(): JSX.Element {
         </div>
         <div className={styles.infoRow}>
           <span className={styles.infoLabel}>Procedure Template</span>
-          <code className={styles.mono}>{workSurface.procedure_template_id}</code>
+          <code className={styles.mono}>{workSurface.template_id}</code>
         </div>
         <div className={styles.infoRow}>
           <span className={styles.infoLabel}>Template Hash</span>
-          <code className={styles.mono}>{truncateHash(workSurface.procedure_template_hash, 20)}</code>
+          <code className={styles.mono}>{truncateHash(workSurface.template_hash, 20)}</code>
         </div>
       </Card>
 

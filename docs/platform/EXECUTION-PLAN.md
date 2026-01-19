@@ -13,10 +13,10 @@ Understanding the document precedence is critical before implementation:
 1. **SR-CONTRACT** — Binding invariants (what MUST always be true)
 2. **SR-SPEC** — Binding mechanics (how invariants are enforced)
 3. **SR-TYPES** — Binding vocabulary and type registry
-4. **SR-WORK-SURFACE** — Work surface schemas (Intake, Procedure Template, Work Surface Instance)
+4. **SR-WORK-SURFACE** — Work surface schemas (Intake, Template, Work Surface Instance)
 5. **SR-SEMANTIC-ORACLE-SPEC** — Semantic oracle interfaces
 6. **SR-EVENT-MANAGER** — State/eligibility projection mechanics
-7. **SR-PROCEDURE-KIT** — Reusable procedure templates
+7. **SR-TEMPLATES** — User configuration registry and templates
 8. **SR-AGENT-WORKER-CONTRACT** — Agent-platform interface
 9. **SR-INTENT** — Design rationale (non-binding)
 

@@ -37,6 +37,58 @@ This plan implements two interconnected changes:
 
 ---
 
+## Progress Log
+
+| Date | Task | Status | Notes |
+|------|------|--------|-------|
+| 2026-01-18 | A1 | ✅ COMPLETE | SR-PROCEDURE-KIT.md deleted; SR-TEMPLATES.md updated with new terminology; 15+ doc refs updated across platform/, charter/, build-governance/, program/, skeletons/ |
+| 2026-01-18 | A2 | ✅ COMPLETE | work_surface.rs fully updated: `ProcedureTemplate`→`Template`, `ProcedureTemplateId`→`TemplateId`, `ProcedureStep`→`Guidepost`, `GateRule` removed entirely, all field renames done, tests updated |
+| 2026-01-18 | A3 | ✅ COMPLETE | procedure_templates.rs renamed to templates.rs via `git mv`; lib.rs updated; all types/functions updated to new nomenclature |
+| 2026-01-18 | A4 | ✅ COMPLETE | sr-api handlers updated: imports changed to `TemplateId`, module paths to `templates::`, struct fields renamed `procedure_template_*` → `template_*`, SQL row.get() updated |
+| 2026-01-18 | A5 | ✅ COMPLETE | sr-adapters updated: EvidenceManifest struct, builder methods, semantic_worker.rs, semantic_suite.rs, integrity.rs |
+| 2026-01-18 | A5.5 | ✅ COMPLETE | Backward compat added in projections.rs: dual-read pattern for `template_ref`/`procedure_template_ref` |
+| 2026-01-18 | A6 | ✅ COMPLETE | migrations/013_template_renames.sql created |
+| 2026-01-18 | A7 | ✅ COMPLETE | UI JSON field names updated in 11 files (`procedure_template_id` → `template_id`, etc.); TypeScript interface names renamed `ProcedureTemplate` → `Template` in 4 files |
+| 2026-01-18 | A8 | ✅ COMPLETE | API route renamed: `/api/v1/references/procedure-templates` → `/api/v1/references/templates` |
+| 2026-01-19 | A-Tests | ✅ COMPLETE | Test files updated: `ProcedureTemplateId` → `TemplateId` in event_manager.rs, replay_determinism_test.rs; struct fields `procedure_template_id` → `template_id` in 3 integration tests |
+| 2026-01-19 | A6-Apply | ✅ COMPLETE | Migration 013 applied to database; columns renamed `procedure_template_id` → `template_id`, `procedure_template_hash` → `template_hash` |
+| 2026-01-19 | A-SQL | ✅ COMPLETE | SQL queries updated in work_surfaces.rs, iterations.rs, projections.rs to use new column names |
+| 2026-01-19 | B1 | ✅ COMPLETE | migrations/014_evidence_work_surface_linking.sql created and applied; added `work_surface_id`, `template_id`, `stage_id` columns to `proj.evidence_bundles` |
+| 2026-01-19 | B2 | ✅ COMPLETE | Evidence projection handler updated to store work_surface_id, template_id, stage_id from event payload |
+| 2026-01-19 | B3 | ✅ COMPLETE | Added `GET /api/v1/work-surfaces/{id}/evidence` endpoint for auto-loaded evidence |
+| 2026-01-19 | B4 | ✅ COMPLETE | Created WorkScreen.tsx with unified work view: context, auto-loaded evidence, loop state, judgment actions |
+| 2026-01-19 | B5 | ✅ COMPLETE | Supporting components integrated into WorkScreen (inline sections rather than separate files) |
+| 2026-01-19 | B6 | ✅ COMPLETE | Route `/work/:workSurfaceId` added to routes.tsx; WorkScreen exported from pages/index.ts |
+| 2026-01-18 | A7-UI | ✅ COMPLETE | TypeScript interfaces renamed: `ProcedureTemplate` → `Template` in Protocols.tsx, ProtocolDetail.tsx, LoopCreateModal.tsx, LoopDetail.tsx; variable names `procedureTemplateId` → `templateId` |
+| 2026-01-18 | A-RefKind | ✅ COMPLETE | `RefKind::ProcedureTemplate` → `RefKind::Template` in refs.rs; UI string literals updated in References.tsx, InputsEditor.tsx |
+| 2026-01-18 | B7 | ✅ COMPLETE | Deleted unused PromptLoopScreen.tsx and PromptLoopScreen.module.css; EvidenceBundleSelector and StageCompletionForm retained (still in use) |
+
+**Current State (2026-01-18):**
+- **Part A:** COMPLETE - All nomenclature refactoring done, including UI interfaces and RefKind
+- **Part B:** COMPLETE - WorkScreen functional at `/work/:workSurfaceId`
+- **Cleanup:** COMPLETE - Tasks A7 and B7 finished
+- **Migration 013:** Applied (column renames)
+- **Migration 014:** Applied (evidence work surface linking)
+- **Verification:** `cargo test --workspace` ✅, `npm run type-check` ✅, `grep ProcedureTemplate ui/src/` = 0 results ✅
+
+**Remaining Work:** None. All `ProcedureTemplate` references removed.
+
+**Completed Cleanup:**
+- ✅ UI TypeScript interfaces renamed (`ProcedureTemplate` → `Template`)
+- ✅ UI variable names renamed (`procedureTemplateId` → `templateId`)
+- ✅ UI string literals updated (`'ProcedureTemplate'` → `'Template'`)
+- ✅ `RefKind::ProcedureTemplate` → `RefKind::Template` in refs.rs
+- ✅ `ProcedureTemplateSelected` → `TemplateSelected` in events.rs
+- ✅ `ProcedureTemplateWithRef` → `TemplateWithRef` in plan_instance.rs
+- ✅ `procedure_template_ref` → `template_ref` in events.rs
+- ✅ Dual-read fallback patterns removed from projections.rs and work_surfaces.rs
+- ✅ PromptLoopScreen.tsx deleted (unused)
+- ✅ EvidenceBundleSelector.tsx, StageCompletionForm.tsx retained (still actively used by WorkSurfaceDetail)
+
+**Resume Point:** MVP1 nomenclature cleanup complete. Zero `ProcedureTemplate` occurrences remain.
+
+---
+
 ## Part A: Nomenclature Refactor
 
 ### Context

@@ -120,7 +120,7 @@ struct TypedRefRequest {
 #[derive(Debug, Serialize)]
 struct CreateWorkSurfaceRequest {
     intake_id: String,
-    procedure_template_id: String,
+    template_id: String,
     work_unit_id: String,
     #[serde(default)]
     params: serde_json::Value,
@@ -275,7 +275,7 @@ async fn create_active_work_surface(client: &TestClient, work_unit_id: &str) -> 
     // Create work surface
     let create_ws = CreateWorkSurfaceRequest {
         intake_id,
-        procedure_template_id: "proc:RESEARCH-MEMO".to_string(),
+        template_id: "proc:RESEARCH-MEMO".to_string(),
         work_unit_id: work_unit_id.to_string(),
         params: serde_json::json!({}),
     };

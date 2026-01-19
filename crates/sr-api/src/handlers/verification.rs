@@ -61,15 +61,15 @@ pub struct VerificationComputation {
 
 #[derive(Debug, Default, Clone)]
 pub struct VerificationScope {
-    pub procedure_template_id: Option<String>,
+    pub template_id: Option<String>,
     pub stage_id: Option<String>,
     pub work_surface_id: Option<String>,
 }
 
 impl VerificationScope {
     fn capture_from_manifest(&mut self, manifest: &EvidenceManifest) {
-        if self.procedure_template_id.is_none() {
-            self.procedure_template_id = manifest.procedure_template_id.clone();
+        if self.template_id.is_none() {
+            self.template_id = manifest.template_id.clone();
         }
         if self.stage_id.is_none() {
             self.stage_id = manifest.stage_id.clone();
@@ -81,7 +81,7 @@ impl VerificationScope {
 
     fn as_json(&self) -> serde_json::Value {
         serde_json::json!({
-            "procedure_template_id": self.procedure_template_id,
+            "template_id": self.template_id,
             "stage_id": self.stage_id,
             "work_surface_id": self.work_surface_id,
         })

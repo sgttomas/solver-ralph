@@ -27,8 +27,8 @@ export interface TypedRef {
 export interface WorkSurface {
   intake_id: string | null;
   intake_title: string | null;
-  procedure_template_id: string | null;
-  procedure_template_name: string | null;
+  template_id: string | null;
+  template_name: string | null;
   current_stage_id: string | null;
   oracle_suite_id: string | null;
   oracle_suite_hash: string | null;

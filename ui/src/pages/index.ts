@@ -33,6 +33,7 @@ export { GovernedArtifactDetail } from './GovernedArtifactDetail';
 export { WorkSurfaces } from './WorkSurfaces';
 export { WorkSurfaceCompose } from './WorkSurfaceCompose';
 export { WorkSurfaceDetail } from './WorkSurfaceDetail';
+export { WorkScreen } from './WorkScreen';
 export { Audit } from './Audit';
 export { Settings } from './Settings';
 export { Staleness } from './Staleness';

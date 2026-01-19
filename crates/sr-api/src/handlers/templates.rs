@@ -2,7 +2,7 @@
 //!
 //! Per SR-TEMPLATES: Endpoints for browsing, viewing, and instantiating
 //! user-configurable templates across 11 categories. Templates define
-//! schemas for governed artifacts like Intakes, Procedure Templates,
+//! schemas for governed artifacts like Intakes, Templates,
 //! Oracle Suites, Verification Profiles, and Exceptions.
 //!
 //! Endpoints:
@@ -85,7 +85,7 @@ impl TemplateCategory {
             TemplateCategory::WorkSurface => {
                 vec![
                     "record.intake",
-                    "config.procedure_template",
+                    "config.template",
                     "domain.work_surface",
                 ]
             }
@@ -234,19 +234,19 @@ impl TemplateRegistry {
                 portal_approval_id: None,
                 refs: vec![],
             },
-            // 2. Procedure Template - Research Memo Procedure
+            // 2. Template - Research Memo Procedure
             // Note: This uses the same structure as sr-domain's generic_knowledge_work_template()
-            // to ensure proper deserialization into ProcedureTemplate struct
+            // to ensure proper deserialization into Template struct
             TemplateInstance {
                 id: "tmpl_starter_procedure".to_string(),
-                type_key: "config.procedure_template".to_string(),
+                type_key: "config.template".to_string(),
                 name: "Research Memo Procedure".to_string(),
                 category: TemplateCategory::WorkSurface,
                 status: "reference".to_string(),
                 content_hash: compute_content_hash(&serde_json::json!({
-                    "artifact_type": "config.procedure_template",
+                    "artifact_type": "config.template",
                     "artifact_version": "v1",
-                    "procedure_template_id": "proc:RESEARCH-MEMO",
+                    "template_id": "proc:RESEARCH-MEMO",
                     "kind": ["research_memo"],
                     "name": "Research Memo Procedure",
                     "description": "Stage-gated workflow for research memos",
@@ -304,9 +304,9 @@ impl TemplateRegistry {
                     ]
                 })),
                 content: serde_json::json!({
-                    "artifact_type": "config.procedure_template",
+                    "artifact_type": "config.template",
                     "artifact_version": "v1",
-                    "procedure_template_id": "proc:RESEARCH-MEMO",
+                    "template_id": "proc:RESEARCH-MEMO",
                     "kind": ["research_memo"],
                     "name": "Research Memo Procedure",
                     "description": "Stage-gated workflow for research memos",
@@ -383,7 +383,7 @@ impl TemplateRegistry {
                         "id": "intake:WU-TEMPLATE-001",
                         "content_hash": "sha256:placeholder"
                     },
-                    "procedure_template_ref": {
+                    "template_ref": {
                         "id": "proc:RESEARCH-MEMO",
                         "content_hash": "sha256:placeholder"
                     },
@@ -402,7 +402,7 @@ impl TemplateRegistry {
                         "id": "intake:WU-TEMPLATE-001",
                         "content_hash": "sha256:placeholder"
                     },
-                    "procedure_template_ref": {
+                    "template_ref": {
                         "id": "proc:RESEARCH-MEMO",
                         "content_hash": "sha256:placeholder"
                     },
@@ -794,13 +794,13 @@ impl TemplateRegistry {
                 requires_portal: false,
             },
             TemplateSchema {
-                type_key: "config.procedure_template".to_string(),
+                type_key: "config.template".to_string(),
                 category: TemplateCategory::WorkSurface,
-                name: "Procedure Template".to_string(),
+                name: "Template".to_string(),
                 description: "Stage-gated workflow definition for candidate generation and oracle verification.".to_string(),
                 source_ref: "SR-WORK-SURFACE §4".to_string(),
                 required_fields: vec![
-                    FieldSchema { name: "procedure_template_id".to_string(), field_type: "string".to_string(), description: "Stable id (format: proc:<NAME>)".to_string(), example: Some("proc:RESEARCH-MEMO".to_string()) },
+                    FieldSchema { name: "template_id".to_string(), field_type: "string".to_string(), description: "Stable id (format: proc:<NAME>)".to_string(), example: Some("proc:RESEARCH-MEMO".to_string()) },
                     FieldSchema { name: "kind".to_string(), field_type: "array".to_string(), description: "Applicable work kinds".to_string(), example: None },
                     FieldSchema { name: "stages".to_string(), field_type: "array".to_string(), description: "Stage definitions".to_string(), example: None },
                     FieldSchema { name: "terminal_stage_id".to_string(), field_type: "string".to_string(), description: "Final stage identifier".to_string(), example: Some("stage:FINAL".to_string()) },
@@ -819,7 +819,7 @@ impl TemplateRegistry {
                 required_fields: vec![
                     FieldSchema { name: "work_unit_id".to_string(), field_type: "string".to_string(), description: "Work unit identifier".to_string(), example: None },
                     FieldSchema { name: "intake_ref".to_string(), field_type: "object".to_string(), description: "Content-addressed reference to Intake".to_string(), example: None },
-                    FieldSchema { name: "procedure_template_ref".to_string(), field_type: "object".to_string(), description: "Content-addressed reference to Procedure Template".to_string(), example: None },
+                    FieldSchema { name: "template_ref".to_string(), field_type: "object".to_string(), description: "Content-addressed reference to Template".to_string(), example: None },
                     FieldSchema { name: "stage_id".to_string(), field_type: "string".to_string(), description: "Current stage being targeted".to_string(), example: None },
                     FieldSchema { name: "oracle_suites".to_string(), field_type: "array".to_string(), description: "Suite IDs + hashes".to_string(), example: None },
                 ],
@@ -989,7 +989,7 @@ impl TemplateRegistry {
                     FieldSchema { name: "produced_at".to_string(), field_type: "string".to_string(), description: "ISO 8601 timestamp".to_string(), example: None },
                 ],
                 optional_fields: vec![
-                    FieldSchema { name: "procedure_template_id".to_string(), field_type: "string".to_string(), description: "Procedure (semantic work)".to_string(), example: None },
+                    FieldSchema { name: "template_id".to_string(), field_type: "string".to_string(), description: "Procedure (semantic work)".to_string(), example: None },
                     FieldSchema { name: "stage_id".to_string(), field_type: "string".to_string(), description: "Stage (semantic work)".to_string(), example: None },
                 ],
                 requires_portal: false,
@@ -1664,7 +1664,7 @@ mod tests {
     fn test_template_category_type_keys() {
         let work_surface_keys = TemplateCategory::WorkSurface.type_keys();
         assert!(work_surface_keys.contains(&"record.intake"));
-        assert!(work_surface_keys.contains(&"config.procedure_template"));
+        assert!(work_surface_keys.contains(&"config.template"));
     }
 
     #[test]
@@ -1690,7 +1690,7 @@ mod tests {
         assert!(schemas.iter().any(|s| s.type_key == "record.intake"));
         assert!(schemas
             .iter()
-            .any(|s| s.type_key == "config.procedure_template"));
+            .any(|s| s.type_key == "config.template"));
         assert!(schemas.iter().any(|s| s.type_key == "record.waiver"));
     }
 

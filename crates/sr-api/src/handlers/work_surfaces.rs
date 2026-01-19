@@ -27,7 +27,7 @@ use sr_domain::entities::ContentHash;
 use sr_domain::events::{GateResult, GateResultStatus, OracleResultSummary};
 use sr_domain::work_surface::{
     validate_work_kind_compatibility, ContentAddressedRef, ManagedWorkSurface, OracleSuiteBinding,
-    ProcedureTemplate, StageId, StageStatusRecord, WorkKind, WorkSurfaceId, WorkUnitId,
+    StageId, StageStatusRecord, Template, WorkKind, WorkSurfaceId, WorkUnitId,
 };
 use sr_domain::{
     ActorKind, EventEnvelope, EventId, IterationId, LoopId, ProcedureInstance, StreamKind, TypedRef,
@@ -67,8 +67,8 @@ pub struct CreateWorkSurfaceRequest {
     pub work_unit_id: String,
     /// Active intake ID (must be status = active)
     pub intake_id: String,
-    /// Procedure template ID
-    pub procedure_template_id: String,
+    /// Template ID
+    pub template_id: String,
     /// Optional stage parameters
     #[serde(default)]
     pub params: HashMap<String, serde_json::Value>,
@@ -81,8 +81,8 @@ pub struct WorkSurfaceResponse {
     pub work_unit_id: String,
     pub intake_id: String,
     pub intake_content_hash: String,
-    pub procedure_template_id: String,
-    pub procedure_template_hash: String,
+    pub template_id: String,
+    pub template_hash: String,
     pub current_stage_id: String,
     pub status: String,
     pub stage_status: serde_json::Value,
@@ -112,8 +112,8 @@ pub struct WorkSurfaceSummary {
     pub work_unit_id: String,
     pub intake_id: String,
     pub intake_title: Option<String>,
-    pub procedure_template_id: String,
-    pub procedure_template_name: Option<String>,
+    pub template_id: String,
+    pub template_name: Option<String>,
     pub current_stage_id: String,
     pub status: String,
     pub bound_at: String,
@@ -127,7 +127,7 @@ pub struct ListWorkSurfacesQuery {
     #[serde(default)]
     pub intake_id: Option<String>,
     #[serde(default)]
-    pub procedure_template_id: Option<String>,
+    pub template_id: Option<String>,
     #[serde(default)]
     pub work_unit_id: Option<String>,
     #[serde(default = "default_page")]
@@ -200,7 +200,7 @@ pub struct ArchiveWorkSurfaceRequest {
 #[derive(Debug, Deserialize)]
 pub struct CompatibilityCheckParams {
     pub intake_id: String,
-    pub procedure_template_id: String,
+    pub template_id: String,
 }
 
 /// Response for compatibility check
@@ -223,12 +223,12 @@ pub struct CompatibleTemplatesParams {
 pub struct CompatibleTemplatesResponse {
     pub intake_id: String,
     pub intake_kind: String,
-    pub templates: Vec<ProcedureTemplateSummary>,
+    pub templates: Vec<TemplateSummary>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct ProcedureTemplateSummary {
-    pub procedure_template_id: String,
+pub struct TemplateSummary {
+    pub template_id: String,
     pub name: Option<String>,
     pub description: Option<String>,
     pub stages_count: u32,
@@ -309,13 +309,13 @@ pub async fn create_work_surface(
         });
     }
 
-    // 2. Validate procedure template exists
+    // 2. Validate template exists
     let template =
-        get_procedure_template_from_registry(&state.template_registry, &body.procedure_template_id)
+        get_template_from_registry(&state.template_registry, &body.template_id)
             .await
             .ok_or_else(|| ApiError::NotFound {
-                resource: "ProcedureTemplate".to_string(),
-                id: body.procedure_template_id.clone(),
+                resource: "Template".to_string(),
+                id: body.template_id.clone(),
             })?;
 
     // 3. Validate work kind compatibility
@@ -371,7 +371,7 @@ pub async fn create_work_surface(
             content_hash: ContentHash::new(&intake_content_hash),
         },
         ContentAddressedRef {
-            id: body.procedure_template_id.clone(),
+            id: body.template_id.clone(),
             content_hash: ContentHash::new(&template_content_hash),
         },
         initial_stage.clone(),
@@ -397,8 +397,8 @@ pub async fn create_work_surface(
             "id": body.intake_id,
             "content_hash": intake_content_hash,
         },
-        "procedure_template_ref": {
-            "id": body.procedure_template_id,
+        "template_ref": {
+            "id": body.template_id,
             "content_hash": template_content_hash,
         },
         "initial_stage_id": initial_stage.as_str(),
@@ -427,8 +427,8 @@ pub async fn create_work_surface(
                 meta: serde_json::json!({ "content_hash": intake_content_hash }),
             },
             TypedRef {
-                kind: "ProcedureTemplate".to_string(),
-                id: body.procedure_template_id.clone(),
+                kind: "Template".to_string(),
+                id: body.template_id.clone(),
                 rel: "depends_on".to_string(),
                 meta: serde_json::json!({ "content_hash": template_content_hash }),
             },
@@ -524,7 +524,7 @@ pub async fn get_procedure_instance(
     let proc_instance = ProcedureInstance::new(
         WorkSurfaceId::from_string(ws.work_surface_id.clone()),
         ws.work_unit_id.clone(),
-        ws.procedure_template_id.clone(),
+        ws.template_id.clone(),
         ws.current_stage_id.clone(),
         stage_status,
         oracle_suites,
@@ -547,7 +547,7 @@ pub async fn get_work_surface_by_work_unit(
     let row = sqlx::query(
         r#"
         SELECT work_surface_id, work_unit_id, intake_id, intake_content_hash,
-               procedure_template_id, procedure_template_hash, current_stage_id,
+               template_id, template_hash, current_stage_id,
                status, stage_status, current_oracle_suites, params, content_hash,
                bound_at, bound_by_kind, bound_by_id, completed_at, archived_at,
                archived_by_kind, archived_by_id
@@ -582,7 +582,7 @@ pub async fn list_work_surfaces(
     // Build dynamic query
     let mut sql = String::from(
         r#"
-        SELECT ws.work_surface_id, ws.work_unit_id, ws.intake_id, ws.procedure_template_id,
+        SELECT ws.work_surface_id, ws.work_unit_id, ws.intake_id, ws.template_id,
                ws.current_stage_id, ws.status::text, ws.bound_at,
                i.title as intake_title
         FROM proj.work_surfaces ws
@@ -608,10 +608,10 @@ pub async fn list_work_surfaces(
         bindings.push(intake_id.clone());
         param_idx += 1;
     }
-    if let Some(ref template_id) = query.procedure_template_id {
-        sql.push_str(&format!(" AND ws.procedure_template_id = ${}", param_idx));
-        count_sql.push_str(&format!(" AND ws.procedure_template_id = ${}", param_idx));
-        bindings.push(template_id.clone());
+    if let Some(ref tid) = query.template_id {
+        sql.push_str(&format!(" AND ws.template_id = ${}", param_idx));
+        count_sql.push_str(&format!(" AND ws.template_id = ${}", param_idx));
+        bindings.push(tid.clone());
         param_idx += 1;
     }
     if let Some(ref work_unit_id) = query.work_unit_id {
@@ -692,16 +692,16 @@ pub async fn complete_stage(
         });
     }
 
-    // 3. Get procedure template to determine next stage
-    let template = get_procedure_template_from_registry(
+    // 3. Get template to determine next stage
+    let template = get_template_from_registry(
         &state.template_registry,
-        &current.procedure_template_id,
+        &current.template_id,
     )
     .await
     .ok_or_else(|| ApiError::Internal {
         message: format!(
-            "Procedure template not found: {}",
-            current.procedure_template_id
+            "Template not found: {}",
+            current.template_id
         ),
     })?;
 
@@ -911,16 +911,16 @@ pub async fn get_stage_approval_status(
     // 1. Get current Work Surface to verify it exists
     let current = get_work_surface_projection(&state.app_state, &work_surface_id).await?;
 
-    // 2. Get procedure template to find stage definition
-    let template = get_procedure_template_from_registry(
+    // 2. Get template to find stage definition
+    let template = get_template_from_registry(
         &state.template_registry,
-        &current.procedure_template_id,
+        &current.template_id,
     )
     .await
     .ok_or_else(|| ApiError::Internal {
         message: format!(
-            "Procedure template not found: {}",
-            current.procedure_template_id
+            "Template not found: {}",
+            current.template_id
         ),
     })?;
 
@@ -987,13 +987,13 @@ pub async fn get_iteration_context(
         }),
     });
 
-    // 2. Procedure Template ref
+    // 2. Template ref
     refs.push(TypedRef {
-        kind: "ProcedureTemplate".to_string(),
-        id: ws.procedure_template_id.clone(),
+        kind: "Template".to_string(),
+        id: ws.template_id.clone(),
         rel: "depends_on".to_string(),
         meta: serde_json::json!({
-            "content_hash": ws.procedure_template_hash,
+            "content_hash": ws.template_hash,
             "current_stage_id": ws.current_stage_id,
         }),
     });
@@ -1108,14 +1108,14 @@ pub async fn check_compatibility(
     let intake = get_intake_projection(&state.app_state, &params.intake_id).await?;
 
     // Get template
-    let template = get_procedure_template_from_registry(
+    let template = get_template_from_registry(
         &state.template_registry,
-        &params.procedure_template_id,
+        &params.template_id,
     )
     .await
     .ok_or_else(|| ApiError::NotFound {
-        resource: "ProcedureTemplate".to_string(),
-        id: params.procedure_template_id.clone(),
+        resource: "Template".to_string(),
+        id: params.template_id.clone(),
     })?;
 
     let intake_kind = intake.kind.clone();
@@ -1172,17 +1172,17 @@ pub async fn get_compatible_templates(
     let intake = get_intake_projection(&state.app_state, &params.intake_id).await?;
     let intake_kind = parse_work_kind_option(&intake.kind);
 
-    // Get all procedure templates and filter
-    let all_templates = list_procedure_templates_from_registry(&state.template_registry).await;
+    // Get all templates and filter
+    let all_templates = list_templates_from_registry(&state.template_registry).await;
 
-    let compatible_templates: Vec<ProcedureTemplateSummary> = all_templates
+    let compatible_templates: Vec<TemplateSummary> = all_templates
         .into_iter()
-        .filter(|t: &ProcedureTemplate| match &intake_kind {
+        .filter(|t: &Template| match &intake_kind {
             Some(k) => t.kind.contains(k),
             None => false,
         })
-        .map(|t: ProcedureTemplate| ProcedureTemplateSummary {
-            procedure_template_id: t.procedure_template_id.as_str().to_string(),
+        .map(|t: Template| TemplateSummary {
+            template_id: t.template_id.as_str().to_string(),
             name: t.name.clone(),
             description: t.description.clone(),
             stages_count: t.stages.len() as u32,
@@ -1209,7 +1209,7 @@ fn compute_envelope_hash(event_id: &EventId) -> String {
     format!("sha256:{}", event_id.as_str().replace("evt_", ""))
 }
 
-fn compute_template_hash(template: &sr_domain::work_surface::ProcedureTemplate) -> String {
+fn compute_template_hash(template: &Template) -> String {
     use sha2::{Digest, Sha256};
     let canonical = serde_json::to_string(template).unwrap_or_default();
     let mut hasher = Sha256::new();
@@ -1247,30 +1247,30 @@ fn parse_gate_result_status(status: &str) -> Result<GateResultStatus, ApiError> 
     }
 }
 
-/// Get a ProcedureTemplate from the TemplateRegistry by ID
-async fn get_procedure_template_from_registry(
+/// Get a Template from the TemplateRegistry by ID
+async fn get_template_from_registry(
     registry: &TemplateRegistry,
     template_id: &str,
-) -> Option<ProcedureTemplate> {
-    // Get all templates that are procedure templates
+) -> Option<Template> {
+    // Get all templates
     let templates = registry
         .list_templates(Some(TemplateCategory::WorkSurface))
         .await;
 
-    // Find the template with matching ID or content that references this procedure_template_id
+    // Find the template with matching ID or content that references this template_id
     for template in templates {
-        if template.type_key != "config.procedure_template" {
+        if template.type_key != "config.template" {
             continue;
         }
 
-        // Check if the content has this procedure_template_id
-        if let Some(proc_id) = template.content.get("procedure_template_id") {
-            if proc_id.as_str() == Some(template_id) {
-                // Deserialize the content to ProcedureTemplate
-                match serde_json::from_value::<ProcedureTemplate>(template.content.clone()) {
-                    Ok(pt) => return Some(pt),
+        // Check if the content has this template_id
+        if let Some(id) = template.content.get("template_id") {
+            if id.as_str() == Some(template_id) {
+                // Deserialize the content to Template
+                match serde_json::from_value::<Template>(template.content.clone()) {
+                    Ok(t) => return Some(t),
                     Err(e) => {
-                        tracing::error!("Failed to deserialize ProcedureTemplate: {}", e);
+                        tracing::error!("Failed to deserialize Template: {}", e);
                         return None;
                     }
                 }
@@ -1286,24 +1286,24 @@ async fn get_procedure_template_from_registry(
     None
 }
 
-/// List all ProcedureTemplates from the TemplateRegistry
-async fn list_procedure_templates_from_registry(
+/// List all Templates from the TemplateRegistry
+async fn list_templates_from_registry(
     registry: &TemplateRegistry,
-) -> Vec<ProcedureTemplate> {
+) -> Vec<Template> {
     let templates = registry
         .list_templates(Some(TemplateCategory::WorkSurface))
         .await;
 
     templates
         .into_iter()
-        .filter(|t| t.type_key == "config.procedure_template")
+        .filter(|t| t.type_key == "config.template")
         .filter_map(|t| serde_json::from_value(t.content).ok())
         .collect()
 }
 
 fn resolve_oracle_suites_for_stage(
     _registry: &OracleSuiteRegistry,
-    template: &sr_domain::work_surface::ProcedureTemplate,
+    template: &Template,
     stage_id: &StageId,
 ) -> Vec<OracleSuiteBinding> {
     // Get the stage from the template
@@ -1369,7 +1369,7 @@ async fn get_work_surface_projection(
     let row = sqlx::query(
         r#"
         SELECT work_surface_id, work_unit_id, intake_id, intake_content_hash,
-               procedure_template_id, procedure_template_hash, current_stage_id,
+               template_id, template_hash, current_stage_id,
                status::text, stage_status, current_oracle_suites, params, content_hash,
                bound_at, bound_by_kind, bound_by_id, completed_at, archived_at,
                archived_by_kind, archived_by_id
@@ -1399,8 +1399,8 @@ fn row_to_work_surface_response(row: &sqlx::postgres::PgRow) -> WorkSurfaceRespo
         work_unit_id: row.get("work_unit_id"),
         intake_id: row.get("intake_id"),
         intake_content_hash: row.get("intake_content_hash"),
-        procedure_template_id: row.get("procedure_template_id"),
-        procedure_template_hash: row.get("procedure_template_hash"),
+        template_id: row.get("template_id"),
+        template_hash: row.get("template_hash"),
         current_stage_id: row.get("current_stage_id"),
         status: row.get::<String, _>("status"),
         stage_status: row.get("stage_status"),
@@ -1435,8 +1435,8 @@ fn row_to_work_surface_summary(row: &sqlx::postgres::PgRow) -> WorkSurfaceSummar
         work_unit_id: row.get("work_unit_id"),
         intake_id: row.get("intake_id"),
         intake_title: row.get("intake_title"),
-        procedure_template_id: row.get("procedure_template_id"),
-        procedure_template_name: None, // Would need to join with template registry
+        template_id: row.get("template_id"),
+        template_name: None, // Would need to join with template registry
         current_stage_id: row.get("current_stage_id"),
         status: row.get::<String, _>("status"),
         bound_at: row.get::<DateTime<Utc>, _>("bound_at").to_rfc3339(),
@@ -1605,10 +1605,11 @@ pub async fn get_work_surface_iterations(
         .map(|iter| {
             // Extract stage_id from refs if present
             let stage_id = iter.refs.as_object().and_then(|refs| {
-                // Look for ProcedureTemplate ref with current_stage_id
+                // Look for Template ref with current_stage_id
                 if let Some(arr) = refs.get("refs").and_then(|v| v.as_array()) {
                     for r in arr {
-                        if r.get("kind").and_then(|k| k.as_str()) == Some("ProcedureTemplate") {
+                        let kind = r.get("kind").and_then(|k| k.as_str());
+                        if kind == Some("Template") {
                             return r
                                 .get("meta")
                                 .and_then(|m| m.get("current_stage_id"))
@@ -2049,13 +2050,13 @@ fn fetch_work_surface_refs(ws: &WorkSurfaceResponse, loop_id: &str) -> Vec<Typed
         }),
     });
 
-    // 2. Procedure Template ref
+    // 2. Template ref
     refs.push(TypedRef {
-        kind: "ProcedureTemplate".to_string(),
-        id: ws.procedure_template_id.clone(),
+        kind: "Template".to_string(),
+        id: ws.template_id.clone(),
         rel: "depends_on".to_string(),
         meta: serde_json::json!({
-            "content_hash": ws.procedure_template_hash,
+            "content_hash": ws.template_hash,
             "current_stage_id": ws.current_stage_id,
         }),
     });

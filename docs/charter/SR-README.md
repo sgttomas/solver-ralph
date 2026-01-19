@@ -60,53 +60,25 @@ Canonical index for the SR-* document set.
 | SR-README | `charter/` | This index |
 
 
-## Current Assignment: Execute SR-PLAN-MVP1
+## Current Assignment: MVP1 Complete
 
-**Assignment:** Execute the implementation plan at `docs/planning/SR-PLAN-MVP1.md`.
+**Status:** MVP1 implementation and cleanup complete. See `docs/planning/SR-PLAN-MVP1.md` for full progress log.
 
-### Quick Start
+### Completed Tasks
 
-1. **Read the plan:** `docs/planning/SR-PLAN-MVP1.md`
-2. **Start at:** Task A1 (Documentation)
-3. **Follow:** The execution order diagram in the plan
-4. **Verify:** Each task has verification commands — run them before moving on
-5. **Gate:** Complete the Part A Completion Gate before starting Part B
+| Task | Description | Status |
+|------|-------------|--------|
+| **A1-A8** | Nomenclature refactor (`ProcedureTemplate` → `Template`) | ✅ Complete |
+| **B1-B6** | Fresh UI build (WorkScreen) | ✅ Complete |
+| **A7** | TypeScript interface renames | ✅ Complete |
+| **B7** | Legacy component removal | ✅ Complete |
 
-### What You're Implementing
+### Verification (All Pass)
 
-| Part | Description | Key Outcome |
-|------|-------------|-------------|
-| **Part A** | Nomenclature Refactor | `ProcedureTemplate` → `Template`, remove `GateRule` |
-| **Part B** | Fresh UI Build | New WorkScreen with auto-linked evidence |
-
-### Critical Path
-
+```bash
+cargo test --workspace           # ✅ All tests pass
+cd ui && npm run type-check      # ✅ No type errors
+grep -rn "ProcedureTemplate" .   # ✅ 0 results
 ```
-A1 → A2 → A3 → A4/A5 → A5.5 → A6 → A7 → A8 → [Part A Gate] → B1 → B2 → B3 → B4 → B5 → B6 → B7
-```
-
-### Key Documents to Reference
-
-| Document | When to Reference |
-|----------|-------------------|
-| `docs/planning/SR-PLAN-MVP1.md` | Primary task list and verification steps |
-| `docs/platform/SR-TEMPLATES.md` | Template schema (update in A1) |
-| `docs/platform/SR-WORK-SURFACE.md` | Work surface definitions |
-| `docs/platform/SR-CONTRACT.md` | Binding invariants |
-
-### Success Criteria
-
-**Part A Complete When:**
-- All `grep` searches for old terminology return 0 results
-- `SR-PROCEDURE-KIT.md` deleted
-- All tests pass (`cargo test --workspace`)
-- UI compiles and typechecks
-- API responds with new field names
-
-**Part B Complete When:**
-- WorkScreen renders at `/work/{id}`
-- Evidence loads automatically (no hash selection)
-- Approve/Reject/Waive actions functional
-- End-to-end test passes
 
 ---

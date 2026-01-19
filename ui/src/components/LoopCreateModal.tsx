@@ -2,7 +2,7 @@
  * LoopCreateModal Component
  *
  * Modal form for creating new loops with full Work Surface binding.
- * Includes Goal, Work Unit, Procedure Template, Stage, Oracle Suite, and Budgets.
+ * Includes Goal, Work Unit, Template, Stage, Oracle Suite, and Budgets.
  */
 
 import { useState, useEffect } from 'react';
@@ -11,7 +11,7 @@ import config from '../config';
 import { Button } from '../ui';
 import styles from './LoopModal.module.css';
 
-interface ProcedureTemplate {
+interface Template {
   id: string;
   name: string;
   stages: { stage_id: string; stage_name: string }[];
@@ -25,7 +25,7 @@ interface OracleSuite {
 interface CreateLoopData {
   goal: string;
   work_unit: string;
-  procedure_template_id: string;
+  template_id: string;
   stage_id: string;
   oracle_suite_id: string;
   budgets: {
@@ -51,7 +51,7 @@ export function LoopCreateModal({
   // Form state
   const [goal, setGoal] = useState('');
   const [workUnit, setWorkUnit] = useState('');
-  const [procedureTemplateId, setProcedureTemplateId] = useState('');
+  const [templateId, setTemplateId] = useState('');
   const [stageId, setStageId] = useState('');
   const [oracleSuiteId, setOracleSuiteId] = useState('');
   const [maxIterations, setMaxIterations] = useState(5);
@@ -59,7 +59,7 @@ export function LoopCreateModal({
   const [maxWallclockHours, setMaxWallclockHours] = useState(16);
 
   // Data loading state
-  const [templates, setTemplates] = useState<ProcedureTemplate[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [suites, setSuites] = useState<OracleSuite[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [loadingSuites, setLoadingSuites] = useState(false);
@@ -69,12 +69,12 @@ export function LoopCreateModal({
   const [error, setError] = useState<string | null>(null);
   const [activateAfterCreate, setActivateAfterCreate] = useState(false);
 
-  // Load procedure templates
+  // Load templates
   useEffect(() => {
     if (!isOpen || !auth.user?.access_token) return;
 
     setLoadingTemplates(true);
-    fetch(`${config.apiUrl}/api/v1/procedure-templates`, {
+    fetch(`${config.apiUrl}/api/v1/templates`, {
       headers: { Authorization: `Bearer ${auth.user.access_token}` },
     })
       .then(res => {
@@ -115,7 +115,7 @@ export function LoopCreateModal({
   }, [isOpen, auth.user?.access_token]);
 
   // Get stages for selected template
-  const selectedTemplate = templates.find(t => t.id === procedureTemplateId);
+  const selectedTemplate = templates.find(t => t.id === templateId);
   const availableStages = selectedTemplate?.stages || [];
 
   // Reset stage when template changes
@@ -123,7 +123,7 @@ export function LoopCreateModal({
     if (availableStages.length > 0 && !availableStages.find(s => s.stage_id === stageId)) {
       setStageId(availableStages[0].stage_id);
     }
-  }, [procedureTemplateId, availableStages, stageId]);
+  }, [templateId, availableStages, stageId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,7 +145,7 @@ export function LoopCreateModal({
       const payload: CreateLoopData = {
         goal: goal.trim(),
         work_unit: workUnit.trim() || 'general',
-        procedure_template_id: procedureTemplateId || 'GENERIC-KNOWLEDGE-WORK',
+        template_id: templateId || 'GENERIC-KNOWLEDGE-WORK',
         stage_id: stageId || 'stage:FRAME',
         oracle_suite_id: oracleSuiteId || 'SR-SUITE-GOV',
         budgets: {
@@ -196,7 +196,7 @@ export function LoopCreateModal({
   const resetForm = () => {
     setGoal('');
     setWorkUnit('');
-    setProcedureTemplateId('');
+    setTemplateId('');
     setStageId('');
     setOracleSuiteId('');
     setMaxIterations(5);
@@ -258,8 +258,8 @@ export function LoopCreateModal({
             <label className={styles.label}>Procedure Template</label>
             <select
               className={styles.select}
-              value={procedureTemplateId}
-              onChange={e => setProcedureTemplateId(e.target.value)}
+              value={templateId}
+              onChange={e => setTemplateId(e.target.value)}
               disabled={loadingTemplates}
             >
               <option value="">
@@ -275,14 +275,14 @@ export function LoopCreateModal({
               <button
                 type="button"
                 className={styles.quickButton}
-                onClick={() => setProcedureTemplateId('PROBLEM-STATEMENT-INGESTION')}
+                onClick={() => setTemplateId('PROBLEM-STATEMENT-INGESTION')}
               >
                 Problem Ingestion
               </button>
               <button
                 type="button"
                 className={styles.quickButton}
-                onClick={() => setProcedureTemplateId('GENERIC-KNOWLEDGE-WORK')}
+                onClick={() => setTemplateId('GENERIC-KNOWLEDGE-WORK')}
               >
                 Knowledge Work
               </button>

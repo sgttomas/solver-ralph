@@ -467,6 +467,11 @@ fn create_router(
             get(work_surfaces::get_work_surface_iterations)
                 .post(work_surfaces::start_work_surface_iteration),
         )
+        // B3: Evidence by work surface (auto-linked evidence for WorkScreen)
+        .route(
+            "/api/v1/work-surfaces/:work_surface_id/evidence",
+            get(evidence::list_evidence_for_work_surface),
+        )
         .with_state(work_surface_state);
 
     // Attachment routes - Per SR-PLAN-V7 Phase V7-3
@@ -502,8 +507,8 @@ fn create_router(
             get(references::list_oracle_suites),
         )
         .route(
-            "/api/v1/references/procedure-templates",
-            get(references::list_procedure_templates),
+            "/api/v1/references/templates",
+            get(references::list_templates),
         )
         .route(
             "/api/v1/references/exceptions",

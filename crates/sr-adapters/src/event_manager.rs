@@ -1475,7 +1475,7 @@ mod tests {
     use super::*;
     use sr_domain::entities::ContentHash;
     use sr_domain::plan_instance::{PlanInstance, SourceRef, SourceRefId, WorkUnitPlan};
-    use sr_domain::work_surface::{ContentAddressedRef, ProcedureTemplateId, WorkKind};
+    use sr_domain::work_surface::{ContentAddressedRef, TemplateId, WorkKind};
     use sr_domain::{ActorKind, EventId, StreamKind, TypedRef};
 
     fn create_test_plan() -> PlanInstance {
@@ -1494,7 +1494,7 @@ mod tests {
                 id: "intake:001".to_string(),
                 content_hash: ContentHash::new("def456"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),
@@ -1510,7 +1510,7 @@ mod tests {
                 id: "intake:002".to_string(),
                 content_hash: ContentHash::new("jkl012"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),

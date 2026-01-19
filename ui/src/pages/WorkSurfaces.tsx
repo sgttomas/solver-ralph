@@ -18,8 +18,8 @@ interface WorkSurfaceSummary {
   work_unit_id: string;
   intake_id: string;
   intake_title: string | null;
-  procedure_template_id: string;
-  procedure_template_name: string | null;
+  template_id: string;
+  template_name: string | null;
   current_stage_id: string;
   status: 'active' | 'completed' | 'archived';
   bound_at: string;
@@ -260,7 +260,7 @@ export function WorkSurfaces(): JSX.Element {
                     </td>
                     <td className={styles.td}>
                       <div style={{ fontSize: '0.875rem' }}>
-                        {ws.procedure_template_name || ws.procedure_template_id}
+                        {ws.template_name || ws.template_id}
                       </div>
                     </td>
                     <td className={styles.td}>

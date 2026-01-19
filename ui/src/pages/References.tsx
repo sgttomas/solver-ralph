@@ -58,7 +58,7 @@ interface Pagination {
 
 const CATEGORIES: Category[] = [
   { id: 'governed-artifacts', label: 'Governing Artifacts', endpoint: '/references/governed-artifacts' },
-  { id: 'procedure-templates', label: 'Procedure Templates', endpoint: '/references/procedure-templates' },
+  { id: 'templates', label: 'Templates', endpoint: '/references/templates' },
   { id: 'oracle-suites', label: 'Oracle Suites', endpoint: '/references/oracle-suites' },
   { id: 'evidence-bundles', label: 'Evidence Bundles', endpoint: '/references/evidence-bundles' },
   { id: 'iteration-summaries', label: 'Iterations', endpoint: '/references/iteration-summaries' },
@@ -97,7 +97,7 @@ function getDetailPath(ref: TypedRef): string | null {
       return `/candidates/${ref.id}`;
     case 'Iteration':
       return `/iterations/${ref.id}`;
-    case 'ProcedureTemplate':
+    case 'Template':
       return `/protocols/${ref.id}`;
     case 'OracleSuite':
       return `/oracles/suites/${ref.id}`;

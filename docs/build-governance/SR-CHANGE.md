@@ -326,7 +326,7 @@ The canonical governed set for SOLVER-Ralph is:
 | SR-CONTRACT | Binding invariants | Platform |
 | SR-SPEC | Technical mechanics | Platform |
 | SR-WORK-SURFACE | Work surface schemas (intake + procedure + context bundle) | Platform |
-| SR-PROCEDURE-KIT | Procedure template registry | Platform |
+| SR-TEMPLATES | User configuration registry and templates | Platform |
 | SR-SEMANTIC-ORACLE-SPEC | Semantic oracle interface and required evidence outputs | Platform |
 | SR-EVENT-MANAGER | Deterministic state / eligibility / dependency-graph computation spec | Platform |
 | SR-REPLAY-PROOF | Determinism proof per C-EVT-7 (verified_by SR-EVENT-MANAGER) | Platform |

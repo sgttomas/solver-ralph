@@ -33,7 +33,7 @@ const REF_KINDS = [
   'OracleSuite',
   'EvidenceBundle',
   'Intake',
-  'ProcedureTemplate',
+  'Template',
   'Iteration',
   'Loop',
   'Record',

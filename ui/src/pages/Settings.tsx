@@ -612,7 +612,7 @@ export function Settings(): JSX.Element {
               <td className={styles.td}>Human judgment hook configurations</td>
             </tr>
             <tr>
-              <td className={styles.tdMono}>config.procedure_template</td>
+              <td className={styles.tdMono}>config.template</td>
               <td className={styles.td}>config</td>
               <td className={styles.td}>Stage-gated procedure definitions</td>
             </tr>

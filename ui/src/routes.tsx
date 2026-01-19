@@ -36,6 +36,7 @@ import { GovernedArtifactDetail } from "./pages/GovernedArtifactDetail";
 import { WorkSurfaces } from "./pages/WorkSurfaces";
 import { WorkSurfaceCompose } from "./pages/WorkSurfaceCompose";
 import { WorkSurfaceDetail } from "./pages/WorkSurfaceDetail";
+import { WorkScreen } from "./pages/WorkScreen";
 import { Audit } from "./pages/Audit";
 import { Settings } from "./pages/Settings";
 import { Staleness } from "./pages/Staleness";
@@ -95,6 +96,9 @@ export const router = createBrowserRouter([
       { path: "/work-surfaces", element: <WorkSurfaces /> },
       { path: "/work-surfaces/new", element: <WorkSurfaceCompose /> },
       { path: "/work-surfaces/:workSurfaceId", element: <WorkSurfaceDetail /> },
+
+      // WorkScreen - Unified work view (SR-PLAN-MVP1 B4)
+      { path: "/work/:workSurfaceId", element: <WorkScreen /> },
 
       // References (renamed from Context)
       { path: "/references", element: <References /> },

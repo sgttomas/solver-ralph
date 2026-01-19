@@ -41,8 +41,8 @@ interface WorkSurface {
   intake_id: string | null;
   intake_title: string | null;
   intake_objective: string | null;
-  procedure_template_id: string | null;
-  procedure_template_name: string | null;
+  template_id: string | null;
+  template_name: string | null;
   current_stage_id: string | null;
   current_stage_name: string | null;
   oracle_suite_id: string | null;
@@ -103,7 +103,7 @@ interface Iteration {
   evidence_count: number;
 }
 
-interface ProcedureTemplate {
+interface Template {
   stages: Stage[];
   terminal_stage_id: string;
 }
@@ -113,7 +113,7 @@ export function LoopDetail(): JSX.Element {
   const auth = useAuth();
   const [loop, setLoop] = useState<Loop | null>(null);
   const [iterations, setIterations] = useState<Iteration[]>([]);
-  const [template, setTemplate] = useState<ProcedureTemplate | null>(null);
+  const [template, setTemplate] = useState<Template | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -166,10 +166,10 @@ export function LoopDetail(): JSX.Element {
       setIterations(iterationsData.iterations || []);
 
       // Fetch procedure template if work surface has one
-      if (normalizedLoop.work_surface?.procedure_template_id) {
+      if (normalizedLoop.work_surface?.template_id) {
         try {
           const templateRes = await fetch(
-            `${config.apiUrl}/api/v1/procedure-templates/${normalizedLoop.work_surface.procedure_template_id}`,
+            `${config.apiUrl}/api/v1/templates/${normalizedLoop.work_surface.template_id}`,
             { headers }
           );
           if (templateRes.ok) {
@@ -338,11 +338,11 @@ export function LoopDetail(): JSX.Element {
               </div>
             </div>
           )}
-          {loop.work_surface?.procedure_template_id && (
+          {loop.work_surface?.template_id && (
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Procedure</span>
-              <Link to={`/protocols/${loop.work_surface?.procedure_template_id}`} className={styles.link}>
-                {loop.work_surface?.procedure_template_name || loop.work_surface?.procedure_template_id}
+              <Link to={`/protocols/${loop.work_surface?.template_id}`} className={styles.link}>
+                {loop.work_surface?.template_name || loop.work_surface?.template_id}
               </Link>
             </div>
           )}

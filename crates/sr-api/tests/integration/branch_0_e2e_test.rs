@@ -136,7 +136,7 @@ struct TypedRefRequest {
 #[derive(Debug, Serialize)]
 struct CreateWorkSurfaceRequest {
     intake_id: String,
-    procedure_template_id: String,
+    template_id: String,
     work_unit_id: String,
     #[serde(default)]
     params: serde_json::Value,
@@ -157,7 +157,7 @@ struct WorkSurfaceResponse {
     status: String,
     current_stage_id: String,
     #[allow(dead_code)]
-    procedure_template_id: String,
+    template_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -387,7 +387,7 @@ async fn create_work_surface_generic(client: &TestClient, work_unit_id: &str) ->
     // Create work surface with GENERIC-KNOWLEDGE-WORK template (5 stages)
     let create_ws = CreateWorkSurfaceRequest {
         intake_id,
-        procedure_template_id: "proc:GENERIC-KNOWLEDGE-WORK".to_string(),
+        template_id: "proc:GENERIC-KNOWLEDGE-WORK".to_string(),
         work_unit_id: work_unit_id.to_string(),
         params: serde_json::json!({}),
     };

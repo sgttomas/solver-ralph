@@ -13,8 +13,6 @@ refs:
   - rel: depends_on
     to: SR-SEMANTIC-ORACLE-SPEC
   - rel: depends_on
-    to: SR-PROCEDURE-KIT
-  - rel: depends_on
     to: SR-DIRECTIVE
   - rel: depends_on
     to: SR-SPEC
@@ -36,7 +34,7 @@ SOLVER-Ralph requires configuration across **11 categories** to enable governed 
 
 | # | Category | Key Templates | Primary Source |
 |---|----------|---------------|----------------|
-| 1 | Work Surface | Intake, Procedure Template, Work Surface Instance | SR-WORK-SURFACE |
+| 1 | Work Surface | Intake, Template, Work Surface Instance | SR-WORK-SURFACE |
 | 2 | Oracle Configuration | Oracle Suite, Oracle Definition, Semantic Oracle | SR-DIRECTIVE, SR-SEMANTIC-ORACLE-SPEC |
 | 3 | Verification Profiles | Verification Profile, Profile Selection Matrix | SR-DIRECTIVE §5 |
 | 4 | Semantic Sets | Semantic Set, Semantic Axis, Decision Rule | SR-SEMANTIC-ORACLE-SPEC §4 |
@@ -109,17 +107,25 @@ completion_criteria:
 
 ---
 
-### 2.2 Procedure Template
+### 2.2 Template
 
-**Type Key:** `config.procedure_template`
-**Purpose:** Stage-gated workflow definition for candidate generation and oracle verification.
-**Source:** SR-WORK-SURFACE §4, SR-PROCEDURE-KIT
+**Type Key:** `config.template`
+**Purpose:** Defines what a good candidate looks like for a work kind—stage structure, required outputs, and oracle verification requirements. The human is the gate; oracles inform, they don't decide.
+**Source:** SR-WORK-SURFACE §4
+
+#### 2.2.1 Human as Gate
+
+Templates no longer include a `gate_rule` field. Instead, stages use `requires_approval: boolean` to indicate trust boundaries where human judgment is required before proceeding. This clarifies that:
+
+- Oracles **inform** the human's decision by producing evidence
+- The human **decides** whether work passes a stage
+- `requires_approval: true` stages require explicit human approval via portal
 
 #### Required Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `procedure_template_id` | string | Stable id (format: `proc:<NAME>`) |
+| `template_id` | string | Stable id (format: `proc:<NAME>`) |
 | `kind` | array | Applicable work kinds |
 | `stages[]` | array | Stage definitions (see below) |
 | `terminal_stage_id` | string | Final stage identifier |
@@ -132,18 +138,18 @@ completion_criteria:
 | `stage_name` | string | Human-readable name |
 | `purpose` | string | What this stage accomplishes |
 | `required_outputs[]` | array | Artifacts worker must produce |
-| `steps[]` | array | Proceduralized instructions |
-| `required_oracle_suites[]` | array | Oracle suite IDs for gating |
-| `gate_rule` | string | Decision logic (e.g., `all_required_oracles_pass`) |
+| `guideposts[]` | array | Advisory landmarks for the work (not prescriptive steps) |
+| `required_oracle_suites[]` | array | Oracle suite IDs for verification |
+| `requires_approval` | boolean | Whether human approval is required before transition (default: `false`) |
 | `transition_on_pass` | string | Next stage_id or `terminal` |
 
 #### Example
 
 ```yaml
 ---
-artifact_type: config.procedure_template
+artifact_type: config.template
 artifact_version: v1
-procedure_template_id: proc:RESEARCH-MEMO
+template_id: proc:RESEARCH-MEMO
 kind: [research_memo, decision_record]
 terminal_stage_id: stage:FINAL
 stages:
@@ -154,7 +160,7 @@ stages:
       - path: artifacts/context/frame.md
         role: context
     required_oracle_suites: ["suite:SR-SUITE-STRUCTURE"]
-    gate_rule: all_required_oracles_pass
+    requires_approval: false
     transition_on_pass: stage:OPTIONS
 
   - stage_id: stage:OPTIONS
@@ -166,7 +172,7 @@ stages:
       - path: artifacts/candidates/selection.md
         role: decision
     required_oracle_suites: ["suite:SR-SUITE-NONTRIVIALITY"]
-    gate_rule: all_required_oracles_pass
+    requires_approval: false
     transition_on_pass: stage:DRAFT
 
   - stage_id: stage:DRAFT
@@ -178,7 +184,7 @@ stages:
       - path: evidence/traceability.json
         role: evidence
     required_oracle_suites: ["suite:SR-SUITE-STRUCTURE", "suite:SR-SUITE-TRACEABILITY"]
-    gate_rule: all_required_oracles_pass
+    requires_approval: false
     transition_on_pass: stage:FINAL
 
   - stage_id: stage:FINAL
@@ -188,17 +194,33 @@ stages:
       - path: candidate/final.md
         role: deliverable
     required_oracle_suites: ["suite:SR-SUITE-REFS"]
-    gate_rule: all_required_oracles_pass
+    requires_approval: true
     transition_on_pass: terminal
 ---
 ```
+
+#### 2.2.2 Registered Template: GENERIC-KNOWLEDGE-WORK (v1)
+
+This baseline template is intentionally abstract. It provides a consistent stage structure across many kinds of knowledge work, while allowing different semantic manifolds per stage.
+
+**Template ID:** `proc:GENERIC-KNOWLEDGE-WORK`
+
+| Stage | Purpose | Requires Approval | Transition |
+|-------|---------|-------------------|------------|
+| `stage:FRAME` | Restate objective, audience, non-goals; extract constraints and definitions | `false` | → OPTIONS |
+| `stage:OPTIONS` | Generate multiple candidate approaches/outlines before drafting | `false` | → DRAFT |
+| `stage:DRAFT` | Produce candidate deliverable(s) with traceability artifacts | `false` | → SEMANTIC_EVAL |
+| `stage:SEMANTIC_EVAL` | Evaluate candidate against semantic manifold; capture measurements | `true` | → FINAL |
+| `stage:FINAL` | Package final candidate + evidence bundle | `true` | → terminal |
+
+**Note:** `stage:SEMANTIC_EVAL` and `stage:FINAL` require approval because they represent trust boundaries where human judgment validates oracle results.
 
 ---
 
 ### 2.3 Work Surface Instance
 
 **Type Key:** `domain.work_surface`
-**Purpose:** Runtime binding of a work unit to its intake, procedure, and oracle configuration.
+**Purpose:** Runtime binding of a work unit to its intake, template, and oracle configuration.
 **Source:** SR-WORK-SURFACE §5
 
 #### Required Fields
@@ -208,7 +230,7 @@ stages:
 | `artifact_type` | string | Must be `domain.work_surface` |
 | `work_unit_id` | string | Work unit identifier |
 | `intake_ref` | object | Content-addressed reference to Intake |
-| `procedure_template_ref` | object | Content-addressed reference to Procedure Template |
+| `template_ref` | object | Content-addressed reference to Template |
 | `stage_id` | string | Current stage being targeted |
 | `oracle_suites[]` | array | Suite IDs + hashes |
 | `params{}` | object | Optional stage parameters and thresholds |
@@ -223,7 +245,7 @@ work_unit_id: WU-2026-001
 intake_ref:
   id: intake:WU-2026-001
   content_hash: sha256:abc123...
-procedure_template_ref:
+template_ref:
   id: proc:RESEARCH-MEMO
   content_hash: sha256:def456...
 stage_id: stage:DRAFT
@@ -660,7 +682,7 @@ decision_rule:
 | 8 | Agent definition | `GovernedArtifact` | `supported_by` | Yes |
 | 9 | Gating policy | `GovernedArtifact` | `supported_by` | Yes |
 | 10 | Intake | `Intake` | `depends_on` | Yes (semantic) |
-| 11 | Procedure Template | `ProcedureTemplate` | `depends_on` | Yes (semantic) |
+| 11 | Template | `Template` | `depends_on` | Yes (semantic) |
 
 ---
 
@@ -725,7 +747,7 @@ decision_rule:
 | `run_id` | string | Run identifier |
 | `oracle_suite_id` | string | Suite used |
 | `oracle_suite_hash` | string | Suite hash |
-| `procedure_template_id` | string | Procedure (semantic work) |
+| `template_id` | string | Template (semantic work) |
 | `stage_id` | string | Stage (semantic work) |
 | `results[]` | array | Per-oracle results |
 | `context` | object | Environment and governed refs |
@@ -745,7 +767,7 @@ decision_rule:
 |-------|------|-------------|
 | `schema` | string | `sr.semantic_eval.v1` |
 | `candidate_id` | string | Candidate evaluated |
-| `procedure_template_id` | string | Procedure template |
+| `template_id` | string | Template |
 | `stage_id` | string | Stage evaluated |
 | `oracle_suite_id` | string | Suite used |
 | `oracle_suite_hash` | string | Suite hash |
@@ -853,7 +875,7 @@ decision_rule:
 | Category | Template | Type Key | Authoritative Source |
 |----------|----------|----------|----------------------|
 | Work Surface | Intake | `record.intake` | SR-WORK-SURFACE §3 |
-| Work Surface | Procedure Template | `config.procedure_template` | SR-WORK-SURFACE §4 |
+| Work Surface | Template | `config.template` | SR-WORK-SURFACE §4 |
 | Work Surface | Work Surface Instance | `domain.work_surface` | SR-WORK-SURFACE §5 |
 | Oracle | Oracle Suite Definition | — | SR-DIRECTIVE.KIT-ORACLES |
 | Oracle | Oracle Definition | — | SR-DIRECTIVE.KIT-ORACLES |
