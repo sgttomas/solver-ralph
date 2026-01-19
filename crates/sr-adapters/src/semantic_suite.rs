@@ -520,7 +520,7 @@ impl IntakeAdmissibilityRunner {
         SemanticEvalResult {
             schema: "sr.semantic_eval.v1".to_string(),
             candidate_id: candidate_id.to_string(),
-            procedure_template_id: "proc:PROBLEM-STATEMENT-INGESTION".to_string(),
+            template_id: "proc:PROBLEM-STATEMENT-INGESTION".to_string(),
             stage_id: "stage:VALIDATE".to_string(),
             oracle_suite_id: self.suite.suite_id.clone(),
             oracle_suite_hash: self.suite.suite_hash.clone(),

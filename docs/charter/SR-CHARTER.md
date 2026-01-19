@@ -16,7 +16,7 @@ refs:
   - rel: informs
     to: SR-WORK-SURFACE
   - rel: informs
-    to: SR-PROCEDURE-KIT
+    to: SR-TEMPLATES
   - rel: informs
     to: SR-SEMANTIC-ORACLE-SPEC
   - rel: informs
@@ -56,7 +56,7 @@ This charter stays intentionally concise. The canonical document index and folde
 Quick map for documents referenced in this charter (per the README folder meanings):
 
 - `charter/`: SR-CHARTER
-- `platform/` (**binding**): SR-CONTRACT, SR-SPEC, SR-TYPES, SR-EVENT-MANAGER, SR-WORK-SURFACE, SR-PROCEDURE-KIT, SR-SEMANTIC-ORACLE-SPEC
+- `platform/` (**binding**): SR-CONTRACT, SR-SPEC, SR-TYPES, SR-EVENT-MANAGER, SR-WORK-SURFACE, SR-TEMPLATES, SR-SEMANTIC-ORACLE-SPEC
 - `build-governance/` (**binding for development**): SR-CHANGE, SR-AGENTS, SR-EXCEPTIONS
 - `program/` (**binding for a specific build/run**): SR-PLAN, SR-DIRECTIVE
 - `orientation/` (**non-binding**): SR-MODEL

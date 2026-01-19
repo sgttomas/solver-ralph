@@ -19,7 +19,7 @@ use sr_adapters::{EligibleSetComparison, EventManager};
 use sr_domain::entities::ContentHash;
 use sr_domain::plan_instance::{PlanInstance, SourceRef, SourceRefId, WorkUnitPlan};
 use sr_domain::work_surface::{
-    ContentAddressedRef, ProcedureTemplateId, StageId, WorkKind, WorkUnitId,
+    ContentAddressedRef, TemplateId, StageId, WorkKind, WorkUnitId,
 };
 use sr_domain::{ActorKind, EventEnvelope, EventId, StreamKind, TypedRef};
 
@@ -45,7 +45,7 @@ fn create_comprehensive_test_plan() -> PlanInstance {
             id: "intake:replay-001".to_string(),
             content_hash: ContentHash::new("hash_intake_001"),
         },
-        ProcedureTemplateId::new("GENERIC-KNOWLEDGE-WORK"),
+        TemplateId::new("GENERIC-KNOWLEDGE-WORK"),
         ContentAddressedRef {
             id: "proc:GENERIC-KNOWLEDGE-WORK".to_string(),
             content_hash: ContentHash::new("hash_proc"),
@@ -62,7 +62,7 @@ fn create_comprehensive_test_plan() -> PlanInstance {
             id: "intake:replay-002".to_string(),
             content_hash: ContentHash::new("hash_intake_002"),
         },
-        ProcedureTemplateId::new("GENERIC-KNOWLEDGE-WORK"),
+        TemplateId::new("GENERIC-KNOWLEDGE-WORK"),
         ContentAddressedRef {
             id: "proc:GENERIC-KNOWLEDGE-WORK".to_string(),
             content_hash: ContentHash::new("hash_proc"),
@@ -80,7 +80,7 @@ fn create_comprehensive_test_plan() -> PlanInstance {
             id: "intake:replay-003".to_string(),
             content_hash: ContentHash::new("hash_intake_003"),
         },
-        ProcedureTemplateId::new("GENERIC-KNOWLEDGE-WORK"),
+        TemplateId::new("GENERIC-KNOWLEDGE-WORK"),
         ContentAddressedRef {
             id: "proc:GENERIC-KNOWLEDGE-WORK".to_string(),
             content_hash: ContentHash::new("hash_proc"),

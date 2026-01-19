@@ -27,7 +27,7 @@ refs:
 - rel: depends_on
   to: SR-EVENT-MANAGER
 - rel: depends_on
-  to: SR-PROCEDURE-KIT
+  to: SR-TEMPLATES
 - rel: informs
   to: SR-MODEL
 - rel: implemented_by

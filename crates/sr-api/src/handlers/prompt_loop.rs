@@ -27,8 +27,8 @@ use sr_adapters::{
 };
 use sr_domain::work_surface::OracleSuiteBinding;
 use sr_domain::{
-    CandidateId, ContentHash, EventEnvelope, EventId, Intake, ProcedureTemplateId, StageId,
-    StreamKind, TypedRef, WorkKind, WorkSurfaceInstance, WorkUnitId,
+    CandidateId, ContentHash, EventEnvelope, EventId, Intake, StageId,
+    StreamKind, TemplateId, TypedRef, WorkKind, WorkSurfaceInstance, WorkUnitId,
 };
 use sr_ports::{EventStore, EvidenceStore};
 use std::convert::Infallible;
@@ -46,9 +46,9 @@ pub struct PromptLoopRequest {
     /// Optional work unit identifier override
     #[serde(default)]
     pub work_unit: Option<String>,
-    /// Procedure template ID (defaults to PROBLEM-STATEMENT-INGESTION)
+    /// Template ID (defaults to PROBLEM-STATEMENT-INGESTION)
     #[serde(default)]
-    pub procedure_template_id: Option<String>,
+    pub template_id: Option<String>,
     /// Stage ID (defaults to template initial stage)
     #[serde(default)]
     pub stage_id: Option<String>,
@@ -93,15 +93,15 @@ pub async fn prompt_loop(
         std::env::var("SR_SYSTEM_ACTOR_ID").unwrap_or_else(|_| "system:prompt-loop".to_string());
     let system_actor_kind = sr_domain::ActorKind::System;
 
-    // Resolve procedure template
-    let proc_id_str = body
-        .procedure_template_id
+    // Resolve template
+    let template_id_str = body
+        .template_id
         .unwrap_or_else(|| "PROBLEM-STATEMENT-INGESTION".to_string());
-    let proc_id = ProcedureTemplateId::new(&proc_id_str);
+    let template_id = TemplateId::new(&template_id_str);
     let template_entry =
-        sr_domain::procedure_templates::get_template_by_id(&proc_id).ok_or_else(|| {
+        sr_domain::templates::get_template_by_id(&template_id).ok_or_else(|| {
             ApiError::BadRequest {
-                message: format!("Unknown procedure template id: {}", proc_id.as_str()),
+                message: format!("Unknown template id: {}", template_id.as_str()),
             }
         })?;
     let stage_id = body
@@ -152,11 +152,11 @@ pub async fn prompt_loop(
         content_hash: ContentHash::new(&intake_hash),
     };
 
-    // Procedure template binding
-    let procedure_template_ref = sr_domain::work_surface::ContentAddressedRef {
+    // Template binding
+    let template_ref = sr_domain::work_surface::ContentAddressedRef {
         id: template_entry
             .template
-            .procedure_template_id
+            .template_id
             .as_str()
             .to_string(),
         content_hash: template_entry.content_hash.clone(),
@@ -166,7 +166,7 @@ pub async fn prompt_loop(
     let ws_instance = WorkSurfaceInstance::new(
         work_unit_id.clone(),
         intake_ref,
-        procedure_template_ref,
+        template_ref,
         stage_id.clone(),
         vec![OracleSuiteBinding {
             suite_id: oracle_suite_id.clone(),
@@ -590,18 +590,18 @@ pub async fn prompt_loop_stream(
             std::env::var("SR_SYSTEM_ACTOR_ID").unwrap_or_else(|_| "system:prompt-loop".to_string());
         let system_actor_kind = sr_domain::ActorKind::System;
 
-        // Resolve procedure template
-        let proc_id_str = body
-            .procedure_template_id
+        // Resolve template
+        let template_id_str = body
+            .template_id
             .clone()
             .unwrap_or_else(|| "PROBLEM-STATEMENT-INGESTION".to_string());
-        let proc_id = ProcedureTemplateId::new(&proc_id_str);
-        let template_entry = match sr_domain::procedure_templates::get_template_by_id(&proc_id) {
+        let template_id = TemplateId::new(&template_id_str);
+        let template_entry = match sr_domain::templates::get_template_by_id(&template_id) {
             Some(t) => t,
             None => {
                 yield Ok(Event::default().data(
                     serde_json::to_string(&StreamEvent::Error {
-                        message: format!("Unknown procedure template id: {}", proc_id.as_str()),
+                        message: format!("Unknown template id: {}", template_id.as_str()),
                     }).unwrap()
                 ));
                 return;
@@ -676,11 +676,11 @@ pub async fn prompt_loop_stream(
             content_hash: ContentHash::new(&intake_hash),
         };
 
-        // Procedure template binding
-        let procedure_template_ref = sr_domain::work_surface::ContentAddressedRef {
+        // Template binding
+        let template_ref = sr_domain::work_surface::ContentAddressedRef {
             id: template_entry
                 .template
-                .procedure_template_id
+                .template_id
                 .as_str()
                 .to_string(),
             content_hash: template_entry.content_hash.clone(),
@@ -690,7 +690,7 @@ pub async fn prompt_loop_stream(
         let ws_instance = WorkSurfaceInstance::new(
             work_unit_id.clone(),
             intake_ref,
-            procedure_template_ref,
+            template_ref,
             stage_id.clone(),
             vec![OracleSuiteBinding {
                 suite_id: oracle_suite_id.clone(),
@@ -1314,7 +1314,7 @@ fn build_evidence_manifest(
         }],
         metadata: Default::default(),
         // Work Surface context (SR-PLAN-V4 Phase 4c) - not applicable to prompt loop
-        procedure_template_id: None,
+        template_id: None,
         stage_id: None,
         work_surface_id: None,
     })

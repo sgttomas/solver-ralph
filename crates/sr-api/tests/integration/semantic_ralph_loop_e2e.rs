@@ -141,7 +141,7 @@ struct IntakeResponse {
 #[derive(Debug, Serialize)]
 struct CreateWorkSurfaceRequest {
     intake_id: String,
-    procedure_template_id: String,
+    template_id: String,
     work_unit_id: String,
     #[serde(default)]
     params: serde_json::Value,
@@ -163,7 +163,7 @@ struct WorkSurfaceResponse {
     status: String,
     current_stage_id: String,
     #[allow(dead_code)]
-    procedure_template_id: String,
+    template_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -377,7 +377,7 @@ async fn test_semantic_ralph_loop_end_to_end() {
 
     let create_ws = CreateWorkSurfaceRequest {
         intake_id: intake_id.clone(),
-        procedure_template_id: "proc:RESEARCH-MEMO".to_string(),
+        template_id: "proc:RESEARCH-MEMO".to_string(),
         work_unit_id: work_unit_id.clone(),
         params: serde_json::json!({}),
     };
@@ -541,10 +541,10 @@ async fn test_semantic_ralph_loop_end_to_end() {
         .any(|r| r.get("kind").and_then(|k| k.as_str()) == Some("Intake"));
     let has_template_ref = refs_array
         .iter()
-        .any(|r| r.get("kind").and_then(|k| k.as_str()) == Some("ProcedureTemplate"));
+        .any(|r| r.get("kind").and_then(|k| k.as_str()) == Some("Template"));
 
     println!(
-        "  Iteration refs: {} total, has Intake={}, has ProcedureTemplate={}",
+        "  Iteration refs: {} total, has Intake={}, has Template={}",
         refs_array.len(),
         has_intake_ref,
         has_template_ref

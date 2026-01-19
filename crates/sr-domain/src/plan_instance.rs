@@ -18,7 +18,7 @@ use ulid::Ulid;
 use crate::entities::ContentHash;
 use crate::errors::DomainError;
 use crate::work_surface::{
-    ContentAddressedRef, Intake, ProcedureTemplateId, StageId, WorkKind, WorkUnitId,
+    ContentAddressedRef, Intake, StageId, TemplateId, WorkKind, WorkUnitId,
 };
 
 // ============================================================================
@@ -311,10 +311,10 @@ pub struct WorkUnitPlan {
     pub intake_ref: ContentAddressedRef,
 
     /// Procedure template identifier
-    pub procedure_template_id: ProcedureTemplateId,
+    pub template_id: TemplateId,
 
     /// Content-addressed reference to the Procedure Template
-    pub procedure_template_ref: ContentAddressedRef,
+    pub template_ref: ContentAddressedRef,
 
     /// Initial stage identifier
     pub initial_stage_id: StageId,
@@ -351,8 +351,8 @@ impl WorkUnitPlan {
         title: String,
         kind: WorkKind,
         intake_ref: ContentAddressedRef,
-        procedure_template_id: ProcedureTemplateId,
-        procedure_template_ref: ContentAddressedRef,
+        template_id: TemplateId,
+        template_ref: ContentAddressedRef,
         initial_stage_id: StageId,
     ) -> Self {
         Self {
@@ -360,8 +360,8 @@ impl WorkUnitPlan {
             title,
             kind,
             intake_ref,
-            procedure_template_id,
-            procedure_template_ref,
+            template_id,
+            template_ref,
             initial_stage_id,
             depends_on: Vec::new(),
             status: WorkUnitPlanStatus::Pending,
@@ -586,7 +586,7 @@ impl PlanDecomposer {
     pub fn decompose(
         source_ref: SourceRef,
         intake_refs: Vec<IntakeWithRef>,
-        procedure_template_refs: HashMap<WorkKind, ProcedureTemplateWithRef>,
+        template_refs: HashMap<WorkKind, TemplateWithRef>,
         dependency_spec: DependencySpec,
     ) -> Result<DecompositionResult, DomainError> {
         // Validate inputs
@@ -601,16 +601,16 @@ impl PlanDecomposer {
             .into_iter()
             .enumerate()
             .map(|(i, intake_ref)| {
-                let proc_ref = procedure_template_refs
+                let proc_ref = template_refs
                     .get(&intake_ref.intake.kind)
                     .cloned()
                     .unwrap_or_else(|| {
                         // Fall back to a default procedure template reference
-                        ProcedureTemplateWithRef {
-                            procedure_template_id: ProcedureTemplateId::new(
+                        TemplateWithRef {
+                            template_id: TemplateId::new(
                                 "GENERIC-KNOWLEDGE-WORK",
                             ),
-                            procedure_template_ref: ContentAddressedRef {
+                            template_ref: ContentAddressedRef {
                                 id: "proc:GENERIC-KNOWLEDGE-WORK".to_string(),
                                 content_hash: ContentHash::new("placeholder"),
                             },
@@ -623,8 +623,8 @@ impl PlanDecomposer {
                     title: intake_ref.intake.title.clone(),
                     kind: intake_ref.intake.kind.clone(),
                     intake_ref: intake_ref.content_ref.clone(),
-                    procedure_template_id: proc_ref.procedure_template_id,
-                    procedure_template_ref: proc_ref.procedure_template_ref,
+                    template_id: proc_ref.template_id,
+                    template_ref: proc_ref.template_ref,
                     initial_stage_id: proc_ref.initial_stage_id,
                     depends_on: dependency_spec
                         .get_dependencies(&intake_ref.intake.work_unit_id)
@@ -669,7 +669,7 @@ impl PlanDecomposer {
                 contribution: wu.description.clone().unwrap_or_default(),
                 procedure_choice_rationale: Some(format!(
                     "Using procedure template {} for work kind {:?}",
-                    wu.procedure_template_id.as_str(),
+                    wu.template_id.as_str(),
                     wu.kind
                 )),
             });
@@ -700,8 +700,8 @@ impl PlanDecomposer {
     pub fn decompose_single(
         intake: Intake,
         intake_hash: ContentHash,
-        procedure_template_id: ProcedureTemplateId,
-        procedure_template_hash: ContentHash,
+        template_id: TemplateId,
+        template_hash: ContentHash,
         initial_stage_id: StageId,
     ) -> Result<DecompositionResult, DomainError> {
         let source_ref = SourceRef {
@@ -722,11 +722,11 @@ impl PlanDecomposer {
         let mut procedure_refs = HashMap::new();
         procedure_refs.insert(
             intake.kind.clone(),
-            ProcedureTemplateWithRef {
-                procedure_template_id,
-                procedure_template_ref: ContentAddressedRef {
+            TemplateWithRef {
+                template_id,
+                template_ref: ContentAddressedRef {
                     id: "proc".to_string(),
-                    content_hash: procedure_template_hash,
+                    content_hash: template_hash,
                 },
                 initial_stage_id,
             },
@@ -748,11 +748,11 @@ pub struct IntakeWithRef {
     pub content_ref: ContentAddressedRef,
 }
 
-/// Procedure template with content-addressed reference
+/// Template with content-addressed reference
 #[derive(Debug, Clone)]
-pub struct ProcedureTemplateWithRef {
-    pub procedure_template_id: ProcedureTemplateId,
-    pub procedure_template_ref: ContentAddressedRef,
+pub struct TemplateWithRef {
+    pub template_id: TemplateId,
+    pub template_ref: ContentAddressedRef,
     pub initial_stage_id: StageId,
 }
 
@@ -851,9 +851,9 @@ impl PlanInstanceValidator {
             });
         }
 
-        if wu.procedure_template_id.as_str().is_empty() {
+        if wu.template_id.as_str().is_empty() {
             return Err(DomainError::InvariantViolation {
-                invariant: format!("work_units[{index}].procedure_template_id is required"),
+                invariant: format!("work_units[{index}].template_id is required"),
             });
         }
 
@@ -958,7 +958,7 @@ pub fn compute_plan_instance_hash(plan: &PlanInstance) -> ContentHash {
         hasher.update(b":");
         hasher.update(wu.intake_ref.content_hash.as_str().as_bytes());
         hasher.update(b":");
-        hasher.update(wu.procedure_template_id.as_str().as_bytes());
+        hasher.update(wu.template_id.as_str().as_bytes());
         hasher.update(b":");
         hasher.update(wu.initial_stage_id.as_str().as_bytes());
         hasher.update(b"\n");
@@ -1112,7 +1112,7 @@ mod tests {
                 id: "intake:001".to_string(),
                 content_hash: ContentHash::new("def456"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),
@@ -1145,7 +1145,7 @@ mod tests {
                 id: "intake:001".to_string(),
                 content_hash: ContentHash::new("def456"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),
@@ -1161,7 +1161,7 @@ mod tests {
                 id: "intake:002".to_string(),
                 content_hash: ContentHash::new("jkl012"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),
@@ -1200,7 +1200,7 @@ mod tests {
                 id: "intake:001".to_string(),
                 content_hash: ContentHash::new("def456"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),
@@ -1217,7 +1217,7 @@ mod tests {
                 id: "intake:002".to_string(),
                 content_hash: ContentHash::new("jkl012"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),
@@ -1253,7 +1253,7 @@ mod tests {
                 id: "intake:001".to_string(),
                 content_hash: ContentHash::new("def456"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),
@@ -1269,7 +1269,7 @@ mod tests {
                 id: "intake:002".to_string(),
                 content_hash: ContentHash::new("jkl012"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),
@@ -1291,15 +1291,15 @@ mod tests {
     fn test_decomposer_single() {
         let intake = create_test_intake("test", "Test Intake");
         let intake_hash = ContentHash::new("abc123");
-        let procedure_template_id = ProcedureTemplateId::new("GENERIC");
-        let procedure_template_hash = ContentHash::new("def456");
+        let template_id = TemplateId::new("GENERIC");
+        let template_hash = ContentHash::new("def456");
         let initial_stage_id = StageId::new("FRAME");
 
         let result = PlanDecomposer::decompose_single(
             intake,
             intake_hash,
-            procedure_template_id,
-            procedure_template_hash,
+            template_id,
+            template_hash,
             initial_stage_id,
         );
 
@@ -1326,9 +1326,9 @@ mod tests {
         let mut procedure_refs = HashMap::new();
         procedure_refs.insert(
             WorkKind::ResearchMemo,
-            ProcedureTemplateWithRef {
-                procedure_template_id: ProcedureTemplateId::new("GENERIC"),
-                procedure_template_ref: ContentAddressedRef {
+            TemplateWithRef {
+                template_id: TemplateId::new("GENERIC"),
+                template_ref: ContentAddressedRef {
                     id: "proc:GENERIC".to_string(),
                     content_hash: ContentHash::new("proc_hash"),
                 },
@@ -1368,7 +1368,7 @@ mod tests {
                 id: "intake:001".to_string(),
                 content_hash: ContentHash::new("def456"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),
@@ -1406,7 +1406,7 @@ mod tests {
                 id: "intake:001".to_string(),
                 content_hash: ContentHash::new("def456"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),
@@ -1452,7 +1452,7 @@ mod tests {
                 id: "intake:001".to_string(),
                 content_hash: ContentHash::new("def456"),
             },
-            ProcedureTemplateId::new("GENERIC"),
+            TemplateId::new("GENERIC"),
             ContentAddressedRef {
                 id: "proc:GENERIC".to_string(),
                 content_hash: ContentHash::new("ghi789"),

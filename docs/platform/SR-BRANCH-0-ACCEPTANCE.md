@@ -37,7 +37,7 @@ Per SR-PLAN §4.1, Branch 0 demonstrates a complete Semantic Ralph Loop from wor
 | Work Surface creation with GENERIC-KNOWLEDGE-WORK template | PASS | `branch_0_e2e_test.rs:create_work_surface_generic()` | C-LOOP-4 |
 | Loop creation bound to work surface | PASS | `branch_0_e2e_test.rs:create_and_activate_loop()` | C-LOOP-1 |
 | Iteration cycling with semantic worker processing | PASS | V9-1 `SemanticWorkerBridge`, `start_iteration()` | C-LOOP-2, C-CTX-1 |
-| Stage progression (FRAME -> OPTIONS -> DRAFT -> SEMANTIC_EVAL -> FINAL) | PASS | `test_branch_0_complete_flow()` | SR-PROCEDURE-KIT |
+| Stage progression (FRAME -> OPTIONS -> DRAFT -> SEMANTIC_EVAL -> FINAL) | PASS | `test_branch_0_complete_flow()` | SR-TEMPLATES |
 | Portal approvals at trust boundaries (SEMANTIC_EVAL, FINAL) | PASS | `test_branch_0_portal_approvals_required()` | C-TB-3 |
 | Evidence bundle verification | PASS | `test_branch_0_evidence_capture()` | C-VER-1, C-EVID-1 |
 | Freeze baseline creation | PASS | `test_branch_0_freeze_baseline()` | C-SHIP-1 |

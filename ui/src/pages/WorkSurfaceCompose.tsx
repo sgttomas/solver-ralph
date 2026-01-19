@@ -29,7 +29,7 @@ interface IntakeSummary {
 }
 
 interface TemplateSummary {
-  procedure_template_id: string;
+  template_id: string;
   name: string | null;
   description: string | null;
   stages_count: number;
@@ -183,7 +183,7 @@ export function WorkSurfaceCompose(): JSX.Element {
       const payload = {
         work_unit_id: selectedIntake.work_unit_id,
         intake_id: selectedIntake.intake_id,
-        procedure_template_id: selectedTemplate.procedure_template_id,
+        template_id: selectedTemplate.template_id,
         params: {},
       };
 
@@ -483,7 +483,7 @@ export function WorkSurfaceCompose(): JSX.Element {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space2)' }}>
               {templates.map((template) => (
                 <div
-                  key={template.procedure_template_id}
+                  key={template.template_id}
                   onClick={() => handleTemplateSelect(template)}
                   style={{
                     padding: 'var(--space3)',
@@ -491,7 +491,7 @@ export function WorkSurfaceCompose(): JSX.Element {
                     borderRadius: 'var(--radius)',
                     cursor: 'pointer',
                     backgroundColor:
-                      selectedTemplate?.procedure_template_id === template.procedure_template_id
+                      selectedTemplate?.template_id === template.template_id
                         ? 'var(--bg)'
                         : 'transparent',
                   }}
@@ -500,7 +500,7 @@ export function WorkSurfaceCompose(): JSX.Element {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ fontWeight: 500, marginBottom: 'var(--space1)' }}>
-                        {template.name || template.procedure_template_id}
+                        {template.name || template.template_id}
                       </div>
                       {template.description && (
                         <div style={{ fontSize: '0.875rem', color: 'var(--muted)', marginBottom: 'var(--space1)' }}>
@@ -508,7 +508,7 @@ export function WorkSurfaceCompose(): JSX.Element {
                         </div>
                       )}
                       <div style={{ fontSize: '0.75rem', fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
-                        {template.procedure_template_id}
+                        {template.template_id}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -578,10 +578,10 @@ export function WorkSurfaceCompose(): JSX.Element {
                 Procedure Template
               </div>
               <div style={{ fontWeight: 500, marginBottom: 'var(--space1)' }}>
-                {selectedTemplate.name || selectedTemplate.procedure_template_id}
+                {selectedTemplate.name || selectedTemplate.template_id}
               </div>
               <div style={{ fontSize: '0.75rem', fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
-                {selectedTemplate.procedure_template_id}
+                {selectedTemplate.template_id}
               </div>
               <div style={{ marginTop: 'var(--space2)', fontSize: '0.75rem', color: 'var(--muted)' }}>
                 {selectedTemplate.stages_count} stages

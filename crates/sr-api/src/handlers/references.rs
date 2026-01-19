@@ -480,23 +480,23 @@ pub async fn list_oracle_suites(
     }))
 }
 
-/// List procedure templates
+/// List templates
 ///
-/// GET /api/v1/references/procedure-templates
+/// GET /api/v1/references/templates
 #[instrument(skip(state, _user))]
-pub async fn list_procedure_templates(
+pub async fn list_templates(
     State(state): State<ReferencesState>,
     _user: AuthenticatedUser,
     Query(params): Query<ListRefsParams>,
 ) -> ApiResult<Json<ReferencesListResponse>> {
     let templates = state.template_registry.list_templates(None).await;
 
-    // Filter to procedure templates only
+    // Filter to templates only
     let refs: Vec<TypedRefResponse> = templates
         .iter()
-        .filter(|t| t.type_key == "config.procedure_template")
+        .filter(|t| t.type_key == "config.template")
         .map(|t| TypedRefResponse {
-            kind: "ProcedureTemplate".to_string(),
+            kind: "Template".to_string(),
             id: t.id.clone(),
             rel: "depends_on".to_string(),
             meta: RefMetaResponse {

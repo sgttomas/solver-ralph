@@ -200,7 +200,7 @@ export function Templates(): JSX.Element {
       );
     }
     const categoryMapping: Record<TemplateCategory, string[]> = {
-      'work-surface': ['record.intake', 'config.procedure_template', 'domain.work_surface'],
+      'work-surface': ['record.intake', 'config.template', 'domain.work_surface'],
       'oracle': ['oracle_suite', 'oracle_definition', 'semantic_oracle'],
       'verification': ['verification_profile', 'profile_selection_matrix'],
       'semantic-sets': ['config.semantic_set', 'semantic_axis', 'decision_rule'],
@@ -346,7 +346,7 @@ export function Templates(): JSX.Element {
             {tab.label} ({tab.id === 'gates' ? getCategorySchemas().length :
               schemas.filter(s => {
                 const categoryMapping: Record<string, string[]> = {
-                  'work-surface': ['record.intake', 'config.procedure_template', 'domain.work_surface'],
+                  'work-surface': ['record.intake', 'config.template', 'domain.work_surface'],
                   'oracle': ['oracle_suite', 'oracle_definition', 'semantic_oracle'],
                   'verification': ['verification_profile', 'profile_selection_matrix'],
                   'semantic-sets': ['config.semantic_set', 'semantic_axis', 'decision_rule'],

@@ -19,7 +19,7 @@ refs:
 - rel: depends_on
   to: SR-WORK-SURFACE
 - rel: depends_on
-  to: SR-PROCEDURE-KIT
+  to: SR-TEMPLATES
 - rel: depends_on
   to: SR-SEMANTIC-ORACLE-SPEC
 - rel: verified_by

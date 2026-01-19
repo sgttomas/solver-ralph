@@ -51,7 +51,7 @@ pub struct UploadEvidenceResponse {
     pub stored_at: String,
     // Work Surface context (SR-PLAN-V4 Phase 4c)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub procedure_template_id: Option<String>,
+    pub template_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stage_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -268,8 +268,8 @@ pub async fn upload_evidence(
     });
 
     // Add Work Surface context fields if present (SR-PLAN-V4 Phase 4c)
-    if let Some(ref proc_id) = body.manifest.procedure_template_id {
-        payload["procedure_template_id"] = serde_json::json!(proc_id);
+    if let Some(ref template_id) = body.manifest.template_id {
+        payload["template_id"] = serde_json::json!(template_id);
     }
     if let Some(ref stage_id) = body.manifest.stage_id {
         payload["stage_id"] = serde_json::json!(stage_id);
@@ -343,9 +343,9 @@ pub async fn upload_evidence(
         verdict: format!("{:?}", body.manifest.verdict),
         stored_at: now.to_rfc3339(),
         // Work Surface context (SR-PLAN-V4 Phase 4c)
-        procedure_template_id: body.manifest.procedure_template_id,
-        stage_id: body.manifest.stage_id,
-        work_surface_id: body.manifest.work_surface_id,
+        template_id: body.manifest.template_id.clone(),
+        stage_id: body.manifest.stage_id.clone(),
+        work_surface_id: body.manifest.work_surface_id.clone(),
     }))
 }
 
@@ -955,6 +955,109 @@ fn enforce_evidence_lineage(
     }
 
     Ok(())
+}
+
+// ============================================================================
+// Evidence by Work Surface (SR-PLAN-MVP1 Task B3)
+// ============================================================================
+
+/// Response for listing evidence by work surface
+#[derive(Debug, Serialize)]
+pub struct WorkSurfaceEvidenceResponse {
+    pub work_surface_id: String,
+    pub evidence: Vec<WorkSurfaceEvidenceSummary>,
+    pub total: usize,
+}
+
+/// Summary of an evidence bundle for work surface context
+#[derive(Debug, Clone, Serialize)]
+pub struct WorkSurfaceEvidenceSummary {
+    pub content_hash: String,
+    pub bundle_id: String,
+    pub run_id: String,
+    pub candidate_id: String,
+    pub iteration_id: Option<String>,
+    pub oracle_suite_id: String,
+    pub verdict: String,
+    pub run_completed_at: String,
+    pub template_id: Option<String>,
+    pub stage_id: Option<String>,
+}
+
+/// List evidence for a work surface
+///
+/// GET /api/v1/work-surfaces/{work_surface_id}/evidence
+///
+/// Returns all evidence bundles associated with the specified work surface.
+/// Evidence is auto-linked when recorded with work_surface_id in the payload.
+#[instrument(skip(state, _user))]
+pub async fn list_evidence_for_work_surface(
+    State(state): State<crate::handlers::work_surfaces::WorkSurfaceState>,
+    _user: AuthenticatedUser,
+    Path(work_surface_id): Path<String>,
+    Query(query): Query<ListEvidenceQuery>,
+) -> ApiResult<Json<WorkSurfaceEvidenceResponse>> {
+    use sqlx::Row;
+
+    // Build query with optional filters
+    let mut sql = String::from(
+        r#"
+        SELECT content_hash, bundle_id, run_id, candidate_id, iteration_id,
+               oracle_suite_id, verdict, run_completed_at, template_id, stage_id
+        FROM proj.evidence_bundles
+        WHERE work_surface_id = $1
+        "#,
+    );
+
+    if let Some(ref verdict) = query.verdict {
+        sql.push_str(" AND verdict = $2");
+    }
+
+    sql.push_str(" ORDER BY run_completed_at DESC");
+    sql.push_str(&format!(" LIMIT {} OFFSET {}", query.limit, query.offset));
+
+    let rows = if let Some(ref verdict) = query.verdict {
+        sqlx::query(&sql)
+            .bind(&work_surface_id)
+            .bind(verdict.to_uppercase())
+            .fetch_all(state.app_state.projections.pool())
+            .await
+            .map_err(|e| ApiError::Internal {
+                message: e.to_string(),
+            })?
+    } else {
+        sqlx::query(&sql)
+            .bind(&work_surface_id)
+            .fetch_all(state.app_state.projections.pool())
+            .await
+            .map_err(|e| ApiError::Internal {
+                message: e.to_string(),
+            })?
+    };
+
+    let evidence: Vec<WorkSurfaceEvidenceSummary> = rows
+        .iter()
+        .map(|row| WorkSurfaceEvidenceSummary {
+            content_hash: row.get("content_hash"),
+            bundle_id: row.get("bundle_id"),
+            run_id: row.get("run_id"),
+            candidate_id: row.get("candidate_id"),
+            iteration_id: row.get("iteration_id"),
+            oracle_suite_id: row.get("oracle_suite_id"),
+            verdict: row.get("verdict"),
+            run_completed_at: row
+                .get::<chrono::DateTime<Utc>, _>("run_completed_at")
+                .to_rfc3339(),
+            template_id: row.get("template_id"),
+            stage_id: row.get("stage_id"),
+        })
+        .collect();
+
+    Ok(Json(WorkSurfaceEvidenceResponse {
+        work_surface_id,
+        evidence: evidence.clone(),
+        total: evidence.len(),
+    }))
 }
 
 #[cfg(test)]

@@ -13,7 +13,7 @@ refs:
 - rel: depends_on
   to: SR-TYPES
 - rel: depends_on
-  to: SR-PROCEDURE-KIT
+  to: SR-TEMPLATES
 - rel: depends_on
   to: SR-SEMANTIC-ORACLE-SPEC
 ---

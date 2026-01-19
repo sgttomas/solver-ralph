@@ -152,7 +152,7 @@ pub struct IterationActionResponse {
 ///
 /// When work_unit_id is provided (SR-PLAN-V4 Phase 4c):
 /// - Validates that an active Work Surface exists for the work unit
-/// - Fetches and includes Work Surface refs (Intake, ProcedureTemplate, OracleSuites)
+/// - Fetches and includes Work Surface refs (Intake, Template, OracleSuites)
 /// - Per C-CTX-1: All refs are content-addressed for immutability
 /// - Per C-CTX-2: All context is derivable from IterationStarted.refs[]
 #[instrument(skip(state, user, body), fields(user_id = %user.actor_id))]
@@ -226,7 +226,7 @@ pub async fn start_iteration(
         let ws_row = sqlx::query(
             r#"
             SELECT work_surface_id, intake_id, intake_content_hash,
-                   procedure_template_id, procedure_template_hash,
+                   template_id, template_hash,
                    current_stage_id, current_oracle_suites
             FROM proj.work_surfaces
             WHERE work_unit_id = $1 AND status = 'active'
@@ -246,8 +246,8 @@ pub async fn start_iteration(
         let ws_id: String = ws_row.get("work_surface_id");
         let intake_id: String = ws_row.get("intake_id");
         let intake_hash: String = ws_row.get("intake_content_hash");
-        let proc_id: String = ws_row.get("procedure_template_id");
-        let proc_hash: String = ws_row.get("procedure_template_hash");
+        let proc_id: String = ws_row.get("template_id");
+        let proc_hash: String = ws_row.get("template_hash");
         let stage_id: String = ws_row.get("current_stage_id");
         let oracle_suites: serde_json::Value = ws_row.get("current_oracle_suites");
 
@@ -261,9 +261,9 @@ pub async fn start_iteration(
             }),
         });
 
-        // Add ProcedureTemplate ref per SR-SPEC §3.2.1.1
+        // Add Template ref per SR-SPEC §3.2.1.1
         refs.push(TypedRef {
-            kind: "ProcedureTemplate".to_string(),
+            kind: "Template".to_string(),
             id: proc_id,
             rel: "depends_on".to_string(),
             meta: serde_json::json!({

@@ -42,7 +42,7 @@ pub enum RefKind {
 
     // Work surface entities
     Intake,
-    ProcedureTemplate,
+    Template,
     ProcedureStage,
     SemanticSet,
     WorkSurface,
@@ -166,7 +166,7 @@ pub struct RefMeta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub selector: Option<String>,
 
-    /// Current stage (for ProcedureTemplate refs)
+    /// Current stage (for Template refs)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_stage_id: Option<String>,
 
@@ -213,8 +213,8 @@ impl RefMeta {
         }
     }
 
-    /// Create RefMeta for a procedure template with stage
-    pub fn for_procedure_template(
+    /// Create RefMeta for a template with stage
+    pub fn for_template(
         content_hash: impl Into<String>,
         current_stage_id: impl Into<String>,
     ) -> Self {
@@ -352,18 +352,18 @@ impl StrongTypedRef {
         Self::with_meta(RefKind::Intake, id, rel, RefMeta::with_hash(content_hash))
     }
 
-    /// Create a reference to a procedure template
-    pub fn procedure_template(
+    /// Create a reference to a template
+    pub fn template(
         id: impl Into<String>,
         rel: RefRelation,
         content_hash: impl Into<String>,
         current_stage_id: impl Into<String>,
     ) -> Self {
         Self::with_meta(
-            RefKind::ProcedureTemplate,
+            RefKind::Template,
             id,
             rel,
-            RefMeta::for_procedure_template(content_hash, current_stage_id),
+            RefMeta::for_template(content_hash, current_stage_id),
         )
     }
 
@@ -594,15 +594,15 @@ mod tests {
     }
 
     #[test]
-    fn test_procedure_template_ref() {
-        let r = StrongTypedRef::procedure_template(
+    fn test_template_ref() {
+        let r = StrongTypedRef::template(
             "proc:RESEARCH-MEMO",
             RefRelation::DependsOn,
             "sha256:def456",
             "stage:FRAME",
         );
 
-        assert_eq!(r.kind, RefKind::ProcedureTemplate);
+        assert_eq!(r.kind, RefKind::Template);
         assert_eq!(r.meta.current_stage_id, Some("stage:FRAME".to_string()));
         assert!(r.validate().is_ok());
     }
@@ -638,7 +638,7 @@ mod tests {
         assert!(RefKind::OracleSuite.requires_content_hash());
 
         assert!(!RefKind::Intake.requires_content_hash());
-        assert!(!RefKind::ProcedureTemplate.requires_content_hash());
+        assert!(!RefKind::Template.requires_content_hash());
         assert!(!RefKind::Intake.requires_version());
         assert!(!RefKind::Intake.requires_type_key());
 

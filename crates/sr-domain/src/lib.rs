@@ -6,7 +6,7 @@
 //! - Invariants and validation rules
 //! - Event definitions
 //! - Context compilation for deterministic context bundles
-//! - Work surface schemas (Intake, ProcedureTemplate, WorkSurfaceInstance)
+//! - Work surface schemas (Intake, Template, WorkSurfaceInstance)
 //! - Plan instance decomposition (PlanInstance, WorkUnitPlan, DecompositionRationale)
 //! - Semantic oracle schemas (SemanticSet, SemanticEvalResult) per SR-SEMANTIC-ORACLE-SPEC
 //! - Strongly-typed references (StrongTypedRef) per SR-SPEC §1.5.3
@@ -25,7 +25,7 @@ pub mod intake;
 pub mod integrity;
 pub mod plan_instance;
 pub mod portal;
-pub mod procedure_templates;
+pub mod templates;
 pub mod records;
 pub mod refs;
 pub mod semantic_oracle;
@@ -42,7 +42,7 @@ pub use intake::*;
 pub use integrity::*;
 pub use plan_instance::*;
 pub use portal::*;
-pub use procedure_templates::*;
+pub use templates::*;
 pub use records::*;
 pub use refs::*;
 pub use semantic_oracle::*;

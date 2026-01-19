@@ -149,7 +149,7 @@ pub enum EventType {
 
     // Work Surface events (legacy)
     WorkSurfaceRecorded,
-    ProcedureTemplateSelected,
+    TemplateSelected,
     SemanticOracleEvaluated,
 
     // Work Surface lifecycle events per SR-PLAN-V4 §1.2
@@ -185,8 +185,8 @@ pub struct WorkSurfaceBound {
     pub work_unit_id: String,
     /// Content-addressed reference to the Intake
     pub intake_ref: ContentAddressedRef,
-    /// Content-addressed reference to the Procedure Template
-    pub procedure_template_ref: ContentAddressedRef,
+    /// Content-addressed reference to the Template
+    pub template_ref: ContentAddressedRef,
     /// Initial stage ID (the stage entered upon binding)
     pub initial_stage_id: String,
     /// Content hash of the binding

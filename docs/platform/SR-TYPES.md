@@ -179,7 +179,7 @@ Use this scope when the question is about **platform meaning**, **binding invari
 4. **SR-WORK-SURFACE** (work surface schemas and procedure templates)
 5. **SR-SEMANTIC-ORACLE-SPEC** (semantic oracle interfaces and evidence schemas)
 6. **SR-EVENT-MANAGER** (event store and projection mechanics)
-7. **SR-PROCEDURE-KIT** (procedure template definitions and stage mechanics)
+7. **SR-TEMPLATES** (template definitions, stage mechanics, and configuration registry)
 8. **SR-AGENT-WORKER-CONTRACT** (agent-platform interface contract)
 9. **SR-GUIDE** / **SR-INTENT** / **SR-MODEL** (non-binding: usage guidance, rationale, conceptual models)
 
@@ -243,8 +243,8 @@ These types define the platform. They are used during Layer 1 (building) and bec
 | `governance.arch_contract` | content | normative | Binding invariants (SR-CONTRACT) |
 | `governance.technical_spec` | content | normative | Binding mechanics (SR-SPEC) |
 | `governance.agents` | process | normative | Agent constraints (SR-AGENTS) |
-| `governance.work_surface_spec` | content | normative | Work Surface schemas: Intake, Procedure Template, Work Surface Instance (SR-WORK-SURFACE) |
-| `governance.procedure_kit` | content | normative | Registry of reusable procedure templates for semantic work (SR-PROCEDURE-KIT) |
+| `governance.work_surface_spec` | content | normative | Work Surface schemas: Intake, Template, Work Surface Instance (SR-WORK-SURFACE) |
+| `governance.templates_registry` | content | normative | User configuration registry; templates, schemas, config artifacts (SR-TEMPLATES) |
 | `governance.design_intent` | content | directional | Design rationale (SR-INTENT) |
 | `governance.usage_guide` | content | directional | Platform usage guide (SR-GUIDE) |
 | `governance.readme` | index | index | Navigation and orientation |

@@ -193,8 +193,8 @@ pub struct EvidenceBundlePayload {
     pub work_unit_id: String,
     /// Candidate being evaluated
     pub candidate_id: String,
-    /// Procedure template used
-    pub procedure_template_id: String,
+    /// Template used
+    pub template_id: String,
     /// Stage this evidence is for
     pub stage_id: String,
     /// Oracle suite results
@@ -904,7 +904,7 @@ impl<E: EvidenceStore + 'static, W: CandidateWorkspace + 'static, S: EventStore 
         };
 
         // In a real implementation, this would:
-        // 1. Load the ProcedureTemplate for the work unit
+        // 1. Load the Template for the work unit
         // 2. Execute the stage steps
         // 3. Run semantic oracle suites
         // 4. Collect artifacts
@@ -1227,7 +1227,7 @@ impl<E: EvidenceStore + 'static, W: CandidateWorkspace + 'static, S: EventStore 
                 .first()
                 .map(|a| a.artifact_id.clone())
                 .unwrap_or_default(),
-            procedure_template_id: "proc:GENERIC-KNOWLEDGE-WORK".to_string(),
+            template_id: "proc:GENERIC-KNOWLEDGE-WORK".to_string(),
             stage_id: selection.target_stage_id.clone(),
             oracle_results: result.oracle_results.clone(),
             gate_verdict: gate_verdict.clone(),
@@ -1429,7 +1429,7 @@ mod tests {
             bundle_id: "bundle_123".to_string(),
             work_unit_id: "WU-001".to_string(),
             candidate_id: "cand_123".to_string(),
-            procedure_template_id: "GENERIC".to_string(),
+            template_id: "GENERIC".to_string(),
             stage_id: "stage:FRAME".to_string(),
             oracle_results: vec![],
             gate_verdict: GateVerdict::Pass,

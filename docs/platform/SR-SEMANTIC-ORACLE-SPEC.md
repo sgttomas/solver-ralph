@@ -15,7 +15,7 @@ refs:
 - rel: depends_on
   to: SR-WORK-SURFACE
 - rel: depends_on
-  to: SR-PROCEDURE-KIT
+  to: SR-TEMPLATES
 ---
 
 # SR-SEMANTIC-ORACLE-SPEC — Semantic Oracles (Meaning Matrices / Semantic Sets)

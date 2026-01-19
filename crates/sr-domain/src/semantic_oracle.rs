@@ -386,8 +386,8 @@ pub struct SemanticEvalResult {
     /// Candidate ID being evaluated
     pub candidate_id: String,
 
-    /// Procedure template ID
-    pub procedure_template_id: String,
+    /// Template ID
+    pub template_id: String,
 
     /// Stage ID where evaluation occurred
     pub stage_id: String,
@@ -824,7 +824,7 @@ mod tests {
         let result = SemanticEvalResult {
             schema: "sr.semantic_eval.v1".to_string(),
             candidate_id: "candidate:test".to_string(),
-            procedure_template_id: "proc:TEST".to_string(),
+            template_id: "proc:TEST".to_string(),
             stage_id: "stage:VALIDATE".to_string(),
             oracle_suite_id: "oracle.suite.intake_admissibility.v1".to_string(),
             oracle_suite_hash: "sha256:abc".to_string(),
@@ -871,7 +871,7 @@ mod tests {
         let result = SemanticEvalResult {
             schema: "sr.semantic_eval.v1".to_string(),
             candidate_id: "candidate:test".to_string(),
-            procedure_template_id: "proc:TEST".to_string(),
+            template_id: "proc:TEST".to_string(),
             stage_id: "stage:VALIDATE".to_string(),
             oracle_suite_id: "oracle.suite.intake_admissibility.v1".to_string(),
             oracle_suite_hash: "sha256:abc".to_string(),

@@ -30,9 +30,9 @@ interface ActiveWorkUnit {
   status: string;
 }
 
-interface ProcedureTemplateDetail {
+interface TemplateDetail {
   id: string;
-  procedure_template_id: string;
+  template_id: string;
   name: string;
   description: string;
   kind: string[];
@@ -50,7 +50,7 @@ interface ProcedureTemplateDetail {
 export function ProtocolDetail(): JSX.Element {
   const { templateId } = useParams<{ templateId: string }>();
   const auth = useAuth();
-  const [template, setTemplate] = useState<ProcedureTemplateDetail | null>(null);
+  const [template, setTemplate] = useState<TemplateDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedStage, setExpandedStage] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export function ProtocolDetail(): JSX.Element {
   useEffect(() => {
     if (!auth.user?.access_token || !templateId) return;
 
-    fetch(`${config.apiUrl}/api/v1/procedure-templates/${templateId}`, {
+    fetch(`${config.apiUrl}/api/v1/templates/${templateId}`, {
       headers: { Authorization: `Bearer ${auth.user.access_token}` },
     })
       .then(res => {
@@ -125,7 +125,7 @@ export function ProtocolDetail(): JSX.Element {
       <div className={styles.header}>
         <div className={styles.headerStart}>
           <h1 className={styles.title}>{template.name}</h1>
-          <p className={styles.subtitle}>{template.procedure_template_id}</p>
+          <p className={styles.subtitle}>{template.template_id}</p>
         </div>
         <Pill tone={getStatusTone(template.status)}>{template.status}</Pill>
       </div>
@@ -134,7 +134,7 @@ export function ProtocolDetail(): JSX.Element {
       <Card title="Overview" className={styles.cardSpacing}>
         <div className={styles.infoRow}>
           <span className={styles.infoLabel}>Template ID</span>
-          <code className={styles.mono}>{template.procedure_template_id}</code>
+          <code className={styles.mono}>{template.template_id}</code>
         </div>
         <div className={styles.infoRow}>
           <span className={styles.infoLabel}>Version</span>

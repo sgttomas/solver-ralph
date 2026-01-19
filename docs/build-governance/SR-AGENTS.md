@@ -38,7 +38,7 @@ This document is intentionally **not** a workflow manual. Execution policies (bu
 4. **SR-WORK-SURFACE**
 5. **SR-SEMANTIC-ORACLE-SPEC**
 6. **SR-EVENT-MANAGER**
-7. **SR-PROCEDURE-KIT**
+7. **SR-TEMPLATES**
 8. **SR-INTENT**
 
 #### B) Build-execution precedence (agent behavior / process / gating)

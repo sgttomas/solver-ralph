@@ -70,12 +70,12 @@ pub struct EvidenceManifest {
     pub metadata: BTreeMap<String, serde_json::Value>,
 
     // ---- Work Surface Context (SR-PLAN-V4 Phase 4c) ----
-    /// Procedure template ID this evidence is associated with
+    /// Template ID this evidence is associated with
     /// Per SR-SPEC §1.9.1: Evidence bundles should include stage context
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub procedure_template_id: Option<String>,
+    pub template_id: Option<String>,
 
-    /// Stage ID within the procedure template
+    /// Stage ID within the template
     /// Per SR-SPEC §1.9.1: Evidence bundles should include stage context
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stage_id: Option<String>,
@@ -349,7 +349,7 @@ pub struct EvidenceManifestBuilder {
     artifacts: Vec<EvidenceArtifact>,
     metadata: BTreeMap<String, serde_json::Value>,
     // Work Surface context (SR-PLAN-V4 Phase 4c)
-    procedure_template_id: Option<String>,
+    template_id: Option<String>,
     stage_id: Option<String>,
     work_surface_id: Option<String>,
 }
@@ -368,7 +368,7 @@ impl EvidenceManifestBuilder {
             results: Vec::new(),
             artifacts: Vec::new(),
             metadata: BTreeMap::new(),
-            procedure_template_id: None,
+            template_id: None,
             stage_id: None,
             work_surface_id: None,
         }
@@ -423,26 +423,26 @@ impl EvidenceManifestBuilder {
 
     /// Set Work Surface context per SR-PLAN-V4 Phase 4c
     ///
-    /// This binds the evidence to a specific (procedure_template_id, stage_id, work_surface_id) triple.
+    /// This binds the evidence to a specific (template_id, stage_id, work_surface_id) triple.
     pub fn work_surface_context(
         mut self,
-        procedure_template_id: impl Into<String>,
+        template_id: impl Into<String>,
         stage_id: impl Into<String>,
         work_surface_id: impl Into<String>,
     ) -> Self {
-        self.procedure_template_id = Some(procedure_template_id.into());
+        self.template_id = Some(template_id.into());
         self.stage_id = Some(stage_id.into());
         self.work_surface_id = Some(work_surface_id.into());
         self
     }
 
-    /// Set just procedure template and stage (without full work surface binding)
-    pub fn procedure_context(
+    /// Set just template and stage (without full work surface binding)
+    pub fn template_context(
         mut self,
-        procedure_template_id: impl Into<String>,
+        template_id: impl Into<String>,
         stage_id: impl Into<String>,
     ) -> Self {
-        self.procedure_template_id = Some(procedure_template_id.into());
+        self.template_id = Some(template_id.into());
         self.stage_id = Some(stage_id.into());
         self
     }
@@ -525,7 +525,7 @@ impl EvidenceManifestBuilder {
             artifacts: self.artifacts,
             metadata: self.metadata,
             // Work Surface context (SR-PLAN-V4 Phase 4c)
-            procedure_template_id: self.procedure_template_id,
+            template_id: self.template_id,
             stage_id: self.stage_id,
             work_surface_id: self.work_surface_id,
         };
@@ -852,7 +852,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            manifest.procedure_template_id,
+            manifest.template_id,
             Some("proc:template-001".to_string())
         );
         assert_eq!(manifest.stage_id, Some("stage:draft".to_string()));
@@ -861,13 +861,13 @@ mod tests {
         // Verify it serializes correctly
         let json = manifest.to_deterministic_json().unwrap();
         let json_str = String::from_utf8_lossy(&json);
-        assert!(json_str.contains("procedure_template_id"));
+        assert!(json_str.contains("template_id"));
         assert!(json_str.contains("stage_id"));
         assert!(json_str.contains("work_surface_id"));
 
         // Verify roundtrip
         let parsed = EvidenceManifest::from_json(&json).unwrap();
-        assert_eq!(parsed.procedure_template_id, manifest.procedure_template_id);
+        assert_eq!(parsed.template_id, manifest.template_id);
         assert_eq!(parsed.stage_id, manifest.stage_id);
         assert_eq!(parsed.work_surface_id, manifest.work_surface_id);
     }
@@ -876,14 +876,14 @@ mod tests {
     fn test_work_surface_context_optional() {
         // Verify that manifests without Work Surface context still work
         let manifest = sample_manifest();
-        assert!(manifest.procedure_template_id.is_none());
+        assert!(manifest.template_id.is_none());
         assert!(manifest.stage_id.is_none());
         assert!(manifest.work_surface_id.is_none());
 
         // Verify serialization doesn't include empty optional fields
         let json = manifest.to_deterministic_json().unwrap();
         let json_str = String::from_utf8_lossy(&json);
-        assert!(!json_str.contains("procedure_template_id"));
+        assert!(!json_str.contains("template_id"));
         assert!(!json_str.contains("stage_id"));
         assert!(!json_str.contains("work_surface_id"));
     }

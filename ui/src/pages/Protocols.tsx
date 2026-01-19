@@ -6,7 +6,7 @@
  * with required outputs and oracle suites at each stage.
  *
  * A Procedure Template includes:
- * - procedure_template_id (proc:<NAME>)
+ * - template_id (proc:<NAME>)
  * - supported work kinds
  * - stages[] with required outputs, oracle suites, gate rules
  * - terminal_stage_id
@@ -29,9 +29,9 @@ interface Stage {
   transition_on_pass: string | null;
 }
 
-interface ProcedureTemplate {
+interface Template {
   id: string;
-  procedure_template_id: string;
+  template_id: string;
   name: string;
   description: string;
   kind: string[];
@@ -46,20 +46,20 @@ interface ProcedureTemplate {
 }
 
 interface ProtocolsResponse {
-  templates: ProcedureTemplate[];
+  templates: Template[];
 }
 
 export function Protocols(): JSX.Element {
   const auth = useAuth();
-  const [templates, setTemplates] = useState<ProcedureTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<ProcedureTemplate | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!auth.user?.access_token) return;
 
-    fetch(`${config.apiUrl}/api/v1/procedure-templates`, {
+    fetch(`${config.apiUrl}/api/v1/templates`, {
       headers: {
         Authorization: `Bearer ${auth.user.access_token}`,
       },
@@ -109,7 +109,7 @@ export function Protocols(): JSX.Element {
         <div className={styles.statsGrid}>
           <div className={styles.stat}>
             <div className={styles.statLabel}>Type</div>
-            <div className={styles.statValue}>config.procedure_template</div>
+            <div className={styles.statValue}>config.template</div>
           </div>
           <div className={styles.stat}>
             <div className={styles.statLabel}>Registered</div>
@@ -169,7 +169,7 @@ export function Protocols(): JSX.Element {
             <tbody>
               {templates.map(template => (
                 <tr key={template.id}>
-                  <td className={styles.tdMono}>{template.procedure_template_id}</td>
+                  <td className={styles.tdMono}>{template.template_id}</td>
                   <td className={styles.td}>
                     <Link to={`/protocols/${template.id}`} className={styles.link}>
                       {template.name}

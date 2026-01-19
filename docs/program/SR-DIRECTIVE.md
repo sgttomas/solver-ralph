@@ -15,7 +15,7 @@ refs:
 - rel: depends_on
   to: SR-WORK-SURFACE
 - rel: depends_on
-  to: SR-PROCEDURE-KIT
+  to: SR-TEMPLATES
 - rel: depends_on
   to: SR-EVENT-MANAGER
 - rel: depends_on
@@ -134,7 +134,7 @@ Normative requirements:
   - an Evidence Bundle (`evidence.gate_packet`) that binds results to (`candidate_id`, `procedure_template_id`, `stage_id`).
 - A stage gate is considered passed only when the required oracle suites for that stage have recorded results and the gate decision rules evaluate to PASS (or are explicitly waived by a binding portal decision where permitted).
 
-See SR-WORK-SURFACE and SR-PROCEDURE-KIT for the governed “work surface” schemas and procedure template format.
+See SR-WORK-SURFACE and SR-TEMPLATES for the governed "work surface" schemas and template format.
 
 ## 3. Inputs and refs discipline
 

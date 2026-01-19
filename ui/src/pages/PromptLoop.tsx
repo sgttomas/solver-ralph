@@ -51,7 +51,7 @@ type ArtifactInfo = {
 
 type FormState = {
   prompt: string;
-  procedure_template_id: string;
+  template_id: string;
   stage_id: string;
   oracle_suite_id: string;
   model: string;
@@ -60,7 +60,7 @@ type FormState = {
 
 const defaultForm: FormState = {
   prompt: '',
-  procedure_template_id: '',
+  template_id: '',
   stage_id: '',
   oracle_suite_id: '',
   model: '',
@@ -115,7 +115,7 @@ export function PromptLoop(): JSX.Element {
     }
 
     const payload: Record<string, string> = { prompt: form.prompt };
-    if (form.procedure_template_id) payload.procedure_template_id = form.procedure_template_id;
+    if (form.template_id) payload.template_id = form.template_id;
     if (form.stage_id) payload.stage_id = form.stage_id;
     if (form.oracle_suite_id) payload.oracle_suite_id = form.oracle_suite_id;
     if (form.model) payload.model = form.model;
@@ -268,8 +268,8 @@ export function PromptLoop(): JSX.Element {
               <input
                 className={styles.input}
                 placeholder="e.g., PROBLEM-STATEMENT-INGESTION"
-                value={form.procedure_template_id}
-                onChange={handleChange('procedure_template_id')}
+                value={form.template_id}
+                onChange={handleChange('template_id')}
                 disabled={loading}
               />
               <div style={{ display: 'flex', gap: 'var(--space2)', marginTop: 'var(--space2)', flexWrap: 'wrap' }}>
@@ -284,7 +284,7 @@ export function PromptLoop(): JSX.Element {
                     cursor: 'pointer',
                     color: 'var(--muted)',
                   }}
-                  onClick={() => setForm(f => ({ ...f, procedure_template_id: 'PROBLEM-STATEMENT-INGESTION' }))}
+                  onClick={() => setForm(f => ({ ...f, template_id: 'PROBLEM-STATEMENT-INGESTION' }))}
                   disabled={loading}
                 >
                   PROBLEM-STATEMENT-INGESTION
@@ -300,7 +300,7 @@ export function PromptLoop(): JSX.Element {
                     cursor: 'pointer',
                     color: 'var(--muted)',
                   }}
-                  onClick={() => setForm(f => ({ ...f, procedure_template_id: 'GENERIC-KNOWLEDGE-WORK' }))}
+                  onClick={() => setForm(f => ({ ...f, template_id: 'GENERIC-KNOWLEDGE-WORK' }))}
                   disabled={loading}
                 >
                   GENERIC-KNOWLEDGE-WORK

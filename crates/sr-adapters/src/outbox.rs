@@ -98,7 +98,7 @@ pub fn topic_for_event(event_type: &str) -> String {
 
         // Work surface events
         "WorkSurfaceRecorded"
-        | "ProcedureTemplateSelected"
+        | "TemplateSelected"
         | "StageEntered"
         | "StageCompleted"
         | "SemanticOracleEvaluated" => "sr.events.worksurface".to_string(),

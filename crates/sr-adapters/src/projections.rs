@@ -300,7 +300,7 @@ impl ProjectionBuilder {
             | "EvidenceMissingDetected"
             | "RecordSuperseded"
             | "WorkSurfaceRecorded"
-            | "ProcedureTemplateSelected"
+            | "TemplateSelected"
             | "SemanticOracleEvaluated" => {
                 debug!(event_type = %event.event_type, "Event acknowledged, no projection update needed");
                 Ok(())
@@ -1763,13 +1763,33 @@ impl ProjectionBuilder {
             .and_then(|v| v.as_i64())
             .unwrap_or(0) as i32;
 
+        // Extract work surface context (optional - for auto-linking evidence to work surfaces)
+        let work_surface_id: Option<String> = event
+            .payload
+            .get("work_surface_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let template_id: Option<String> = event
+            .payload
+            .get("template_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let stage_id: Option<String> = event
+            .payload
+            .get("stage_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
         sqlx::query(
             r#"
             INSERT INTO proj.evidence_bundles (
                 content_hash, bundle_id, run_id, candidate_id, oracle_suite_id,
                 oracle_suite_hash, verdict, artifact_count, run_completed_at,
-                recorded_by_kind, recorded_by_id, recorded_at, last_event_id, last_global_seq
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                recorded_by_kind, recorded_by_id, recorded_at, last_event_id, last_global_seq,
+                work_surface_id, template_id, stage_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
             ON CONFLICT (content_hash) DO NOTHING
             "#,
         )
@@ -1787,6 +1807,9 @@ impl ProjectionBuilder {
         .bind(event.occurred_at)
         .bind(event.event_id.as_str())
         .bind(event.global_seq.unwrap_or(0) as i64)
+        .bind(&work_surface_id)
+        .bind(&template_id)
+        .bind(&stage_id)
         .execute(&mut **tx)
         .await?;
 
@@ -2175,7 +2198,7 @@ impl ProjectionBuilder {
             .unwrap_or(&event.stream_id);
         let work_unit_id = payload["work_unit_id"].as_str().unwrap_or("");
         let intake_ref = &payload["intake_ref"];
-        let template_ref = &payload["procedure_template_ref"];
+        let template_ref = &payload["template_ref"];
         let initial_stage_id = payload["initial_stage_id"]
             .as_str()
             .unwrap_or("stage:UNKNOWN");
@@ -2200,7 +2223,7 @@ impl ProjectionBuilder {
             r#"
             INSERT INTO proj.work_surfaces (
                 work_surface_id, work_unit_id, intake_id, intake_content_hash,
-                procedure_template_id, procedure_template_hash, current_stage_id,
+                template_id, template_hash, current_stage_id,
                 status, stage_status, current_oracle_suites, params, content_hash,
                 bound_at, bound_by_kind, bound_by_id, last_event_id, last_global_seq
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8, '[]'::jsonb, $9, $10, $11, $12, $13, $14, $15)

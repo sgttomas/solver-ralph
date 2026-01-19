@@ -2,7 +2,7 @@
 //!
 //! This module defines the governed artifacts that a Semantic Ralph Loop operates on:
 //! - Intake: structured objective/scope/constraints for a work unit
-//! - ProcedureTemplate: stage-gated procedure definition
+//! - Template: defines what good work looks like (stage structure, outputs, oracle verification)
 //! - WorkSurfaceInstance: binding context for an iteration
 //! - ManagedWorkSurface: runtime representation with lifecycle tracking (SR-PLAN-V4)
 //!
@@ -40,12 +40,12 @@ impl IntakeId {
     }
 }
 
-/// Procedure template identifier per SR-WORK-SURFACE §4
+/// Template identifier per SR-WORK-SURFACE §4
 /// Format: `proc:<NAME>`
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct ProcedureTemplateId(String);
+pub struct TemplateId(String);
 
-impl ProcedureTemplateId {
+impl TemplateId {
     pub fn new(name: &str) -> Self {
         Self(format!("proc:{name}"))
     }
@@ -348,41 +348,18 @@ pub struct RequiredOutput {
     pub media_type: Option<String>,
 }
 
-/// Procedural step within a stage
+/// Advisory landmark within a stage (not prescriptive steps)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProcedureStep {
-    /// Step number/order
-    pub step_number: u32,
+pub struct Guidepost {
+    /// Guidepost number/order
+    pub order: u32,
 
-    /// Step instruction
-    pub instruction: String,
+    /// Guidepost description
+    pub description: String,
 
-    /// Expected outputs from this step
+    /// Expected outputs from this guidepost
     #[serde(default)]
     pub outputs: Vec<String>,
-}
-
-/// Gate rule for stage completion
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum GateRule {
-    /// All required oracles must pass
-    AllRequiredOraclesPass,
-
-    /// All oracles must pass (including advisory)
-    AllOraclesPass,
-
-    /// Custom rule with expression
-    Custom(String),
-
-    /// Portal approval required
-    PortalApprovalRequired,
-}
-
-impl Default for GateRule {
-    fn default() -> Self {
-        Self::AllRequiredOraclesPass
-    }
 }
 
 /// Transition target when stage passes
@@ -411,16 +388,12 @@ pub struct Stage {
     /// Required outputs at this stage
     pub required_outputs: Vec<RequiredOutput>,
 
-    /// Procedural steps (may be empty if implementation-specific)
+    /// Advisory landmarks for the work (not prescriptive steps)
     #[serde(default)]
-    pub steps: Vec<ProcedureStep>,
+    pub guideposts: Vec<Guidepost>,
 
-    /// Required oracle suites
+    /// Required oracle suites for verification
     pub required_oracle_suites: Vec<String>,
-
-    /// Gate rule for completion
-    #[serde(default)]
-    pub gate_rule: GateRule,
 
     /// Next stage on pass (or terminal)
     pub transition_on_pass: TransitionTarget,
@@ -434,28 +407,28 @@ pub struct Stage {
     pub portal_id: Option<String>,
 
     /// Whether this stage requires human approval before completion
-    /// Per SR-PROCEDURE-KIT §1: Trust boundary flag for stage-gated approval
+    /// Per SR-TEMPLATES: Trust boundary flag; human is the gate
     #[serde(default)]
     pub requires_approval: bool,
 }
 
-/// Procedure Template schema (v1) per SR-WORK-SURFACE §4
+/// Template schema (v1) per SR-WORK-SURFACE §4, SR-TEMPLATES
 ///
-/// Procedure Templates are governed configuration artifacts that define
-/// stage-gated procedures for semantic work. They SHOULD be reusable
-/// across work units of the same kind.
+/// Templates are governed configuration artifacts that define what good work
+/// looks like for a work kind: stage structure, required outputs, and oracle
+/// verification requirements. The human is the gate; oracles inform, they don't decide.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProcedureTemplate {
+pub struct Template {
     /// Artifact type identifier
-    #[serde(default = "ProcedureTemplate::default_artifact_type")]
+    #[serde(default = "Template::default_artifact_type")]
     pub artifact_type: String,
 
     /// Schema version
-    #[serde(default = "ProcedureTemplate::default_artifact_version")]
+    #[serde(default = "Template::default_artifact_version")]
     pub artifact_version: String,
 
     /// Template identifier
-    pub procedure_template_id: ProcedureTemplateId,
+    pub template_id: TemplateId,
 
     /// Work kinds this template applies to
     pub kind: Vec<WorkKind>,
@@ -487,9 +460,9 @@ pub struct ProcedureTemplate {
     pub version: Option<String>,
 }
 
-impl ProcedureTemplate {
+impl Template {
     fn default_artifact_type() -> String {
-        "config.procedure_template".to_string()
+        "config.template".to_string()
     }
 
     fn default_artifact_version() -> String {
@@ -528,7 +501,7 @@ impl ProcedureTemplate {
 
     /// Validate the template per SR-WORK-SURFACE §4.1
     pub fn validate(&self) -> Result<(), DomainError> {
-        ProcedureTemplateValidator::validate(self)
+        TemplateValidator::validate(self)
     }
 }
 
@@ -560,7 +533,7 @@ pub struct OracleSuiteBinding {
 ///
 /// A Work Surface Instance is the binding of a specific work unit to:
 /// - an Intake
-/// - a Procedure Template
+/// - a Template
 /// - the current stage
 /// - the oracle profile/suites for that stage
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -579,8 +552,8 @@ pub struct WorkSurfaceInstance {
     /// Content-addressed reference to the Intake
     pub intake_ref: ContentAddressedRef,
 
-    /// Content-addressed reference to the Procedure Template
-    pub procedure_template_ref: ContentAddressedRef,
+    /// Content-addressed reference to the Template
+    pub template_ref: ContentAddressedRef,
 
     /// Current stage identifier
     pub stage_id: StageId,
@@ -614,7 +587,7 @@ impl WorkSurfaceInstance {
     pub fn new(
         work_unit_id: WorkUnitId,
         intake_ref: ContentAddressedRef,
-        procedure_template_ref: ContentAddressedRef,
+        template_ref: ContentAddressedRef,
         stage_id: StageId,
         oracle_suites: Vec<OracleSuiteBinding>,
     ) -> Self {
@@ -623,7 +596,7 @@ impl WorkSurfaceInstance {
             artifact_version: Self::default_artifact_version(),
             work_unit_id,
             intake_ref,
-            procedure_template_ref,
+            template_ref,
             stage_id,
             oracle_suites,
             params: HashMap::new(),
@@ -646,13 +619,13 @@ impl WorkSurfaceInstance {
             }),
         });
 
-        // Procedure template ref
+        // Template ref
         refs.push(TypedRef {
-            kind: "ProcedureTemplate".to_string(),
-            id: self.procedure_template_ref.id.clone(),
+            kind: "Template".to_string(),
+            id: self.template_ref.id.clone(),
             rel: "depends_on".to_string(),
             meta: serde_json::json!({
-                "content_hash": self.procedure_template_ref.content_hash.as_str(),
+                "content_hash": self.template_ref.content_hash.as_str(),
                 "current_stage_id": self.stage_id.as_str()
             }),
         });
@@ -850,8 +823,8 @@ pub struct ManagedWorkSurface {
     /// Content-addressed reference to the Intake
     pub intake_ref: ContentAddressedRef,
 
-    /// Content-addressed reference to the Procedure Template
-    pub procedure_template_ref: ContentAddressedRef,
+    /// Content-addressed reference to the Template
+    pub template_ref: ContentAddressedRef,
 
     // === Current state (mutable via events) ===
     /// Current stage identifier
@@ -894,7 +867,7 @@ impl ManagedWorkSurface {
     pub fn new_bound(
         work_unit_id: WorkUnitId,
         intake_ref: ContentAddressedRef,
-        procedure_template_ref: ContentAddressedRef,
+        template_ref: ContentAddressedRef,
         initial_stage_id: StageId,
         oracle_suites: Vec<OracleSuiteBinding>,
         params: HashMap<String, serde_json::Value>,
@@ -913,7 +886,7 @@ impl ManagedWorkSurface {
             work_surface_id,
             work_unit_id,
             intake_ref,
-            procedure_template_ref,
+            template_ref,
             current_stage_id: initial_stage_id,
             status: WorkSurfaceStatus::Active,
             stage_status,
@@ -943,9 +916,9 @@ impl ManagedWorkSurface {
                 "id": self.intake_ref.id,
                 "content_hash": self.intake_ref.content_hash.as_str()
             },
-            "procedure_template_ref": {
-                "id": self.procedure_template_ref.id,
-                "content_hash": self.procedure_template_ref.content_hash.as_str()
+            "template_ref": {
+                "id": self.template_ref.id,
+                "content_hash": self.template_ref.content_hash.as_str()
             },
             "params": self.params,
         });
@@ -1052,7 +1025,7 @@ impl ManagedWorkSurface {
             artifact_version: "v1".to_string(),
             work_unit_id: self.work_unit_id.clone(),
             intake_ref: self.intake_ref.clone(),
-            procedure_template_ref: self.procedure_template_ref.clone(),
+            template_ref: self.template_ref.clone(),
             stage_id: self.current_stage_id.clone(),
             oracle_suites: self.current_oracle_suites.clone(),
             params: self.params.clone(),
@@ -1176,28 +1149,28 @@ impl IntakeValidator {
     }
 }
 
-/// Procedure template validator per SR-WORK-SURFACE §4.1
-pub struct ProcedureTemplateValidator;
+/// Template validator per SR-WORK-SURFACE §4.1
+pub struct TemplateValidator;
 
-impl ProcedureTemplateValidator {
-    /// Validate a procedure template
-    pub fn validate(template: &ProcedureTemplate) -> Result<(), DomainError> {
+impl TemplateValidator {
+    /// Validate a template
+    pub fn validate(template: &Template) -> Result<(), DomainError> {
         // Check required fields
-        if template.procedure_template_id.as_str().is_empty() {
+        if template.template_id.as_str().is_empty() {
             return Err(DomainError::InvariantViolation {
-                invariant: "ProcedureTemplate.procedure_template_id is required".to_string(),
+                invariant: "Template.template_id is required".to_string(),
             });
         }
 
         if template.kind.is_empty() {
             return Err(DomainError::InvariantViolation {
-                invariant: "ProcedureTemplate.kind[] must have at least one entry".to_string(),
+                invariant: "Template.kind[] must have at least one entry".to_string(),
             });
         }
 
         if template.stages.is_empty() {
             return Err(DomainError::InvariantViolation {
-                invariant: "ProcedureTemplate.stages[] must have at least one entry".to_string(),
+                invariant: "Template.stages[] must have at least one entry".to_string(),
             });
         }
 
@@ -1313,20 +1286,20 @@ impl WorkSurfaceInstanceValidator {
             });
         }
 
-        if instance.procedure_template_ref.id.is_empty() {
+        if instance.template_ref.id.is_empty() {
             return Err(DomainError::InvariantViolation {
-                invariant: "WorkSurfaceInstance.procedure_template_ref.id is required".to_string(),
+                invariant: "WorkSurfaceInstance.template_ref.id is required".to_string(),
             });
         }
 
         if instance
-            .procedure_template_ref
+            .template_ref
             .content_hash
             .as_str()
             .is_empty()
         {
             return Err(DomainError::InvariantViolation {
-                invariant: "WorkSurfaceInstance.procedure_template_ref.content_hash is required"
+                invariant: "WorkSurfaceInstance.template_ref.content_hash is required"
                     .to_string(),
             });
         }
@@ -1370,8 +1343,8 @@ mod tests {
     }
 
     #[test]
-    fn test_procedure_template_id_format() {
-        let id = ProcedureTemplateId::new("GENERIC-KNOWLEDGE-WORK");
+    fn test_template_id_format() {
+        let id = TemplateId::new("GENERIC-KNOWLEDGE-WORK");
         assert_eq!(id.as_str(), "proc:GENERIC-KNOWLEDGE-WORK");
     }
 
@@ -1464,11 +1437,11 @@ mod tests {
     }
 
     #[test]
-    fn test_procedure_template_creation() {
-        let template = ProcedureTemplate {
-            artifact_type: "config.procedure_template".to_string(),
+    fn test_template_creation() {
+        let template = Template {
+            artifact_type: "config.template".to_string(),
             artifact_version: "v1".to_string(),
-            procedure_template_id: ProcedureTemplateId::new("TEST"),
+            template_id: TemplateId::new("TEST"),
             kind: vec![WorkKind::ResearchMemo],
             name: Some("Test Template".to_string()),
             description: None,
@@ -1478,9 +1451,8 @@ mod tests {
                     stage_name: "Frame the problem".to_string(),
                     purpose: "Restate objective".to_string(),
                     required_outputs: vec![],
-                    steps: vec![],
+                    guideposts: vec![],
                     required_oracle_suites: vec!["suite:SR-SUITE-STRUCTURE".to_string()],
-                    gate_rule: GateRule::AllRequiredOraclesPass,
                     transition_on_pass: TransitionTarget::Stage(StageId::new("FINAL")),
                     requires_portal: false,
                     portal_id: None,
@@ -1491,9 +1463,8 @@ mod tests {
                     stage_name: "Final".to_string(),
                     purpose: "Package final output".to_string(),
                     required_outputs: vec![],
-                    steps: vec![],
+                    guideposts: vec![],
                     required_oracle_suites: vec![],
-                    gate_rule: GateRule::AllRequiredOraclesPass,
                     transition_on_pass: TransitionTarget::Terminal,
                     requires_portal: false,
                     portal_id: None,
@@ -1512,11 +1483,11 @@ mod tests {
     }
 
     #[test]
-    fn test_procedure_template_invalid_terminal() {
-        let template = ProcedureTemplate {
-            artifact_type: "config.procedure_template".to_string(),
+    fn test_template_invalid_terminal() {
+        let template = Template {
+            artifact_type: "config.template".to_string(),
             artifact_version: "v1".to_string(),
-            procedure_template_id: ProcedureTemplateId::new("TEST"),
+            template_id: TemplateId::new("TEST"),
             kind: vec![WorkKind::ResearchMemo],
             name: None,
             description: None,
@@ -1525,9 +1496,8 @@ mod tests {
                 stage_name: "Frame".to_string(),
                 purpose: "Frame".to_string(),
                 required_outputs: vec![],
-                steps: vec![],
+                guideposts: vec![],
                 required_oracle_suites: vec![],
-                gate_rule: GateRule::AllRequiredOraclesPass,
                 transition_on_pass: TransitionTarget::Terminal,
                 requires_portal: false,
                 portal_id: None,
@@ -1570,9 +1540,9 @@ mod tests {
         assert!(instance.validate().is_ok());
 
         let refs = instance.to_typed_refs();
-        assert_eq!(refs.len(), 3); // Intake, ProcedureTemplate, OracleSuite
+        assert_eq!(refs.len(), 3); // Intake, Template, OracleSuite
         assert!(refs.iter().any(|r| r.kind == "Intake"));
-        assert!(refs.iter().any(|r| r.kind == "ProcedureTemplate"));
+        assert!(refs.iter().any(|r| r.kind == "Template"));
         assert!(refs.iter().any(|r| r.kind == "OracleSuite"));
     }
 
@@ -1586,7 +1556,7 @@ mod tests {
                 id: "".to_string(),
                 content_hash: ContentHash::new("abc"),
             },
-            procedure_template_ref: ContentAddressedRef {
+            template_ref: ContentAddressedRef {
                 id: "proc:TEST".to_string(),
                 content_hash: ContentHash::new("def"),
             },
@@ -1615,18 +1585,6 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&WorkKind::IntakeProcessing).unwrap(),
             "\"intake_processing\""
-        );
-    }
-
-    #[test]
-    fn test_gate_rule_serialization() {
-        assert_eq!(
-            serde_json::to_string(&GateRule::AllRequiredOraclesPass).unwrap(),
-            "\"all_required_oracles_pass\""
-        );
-        assert_eq!(
-            serde_json::to_string(&GateRule::PortalApprovalRequired).unwrap(),
-            "\"portal_approval_required\""
         );
     }
 
