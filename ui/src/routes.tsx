@@ -1,8 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "./layout/AppLayout";
 
-// New wireframe screens
-import { OverviewScreen } from "./screens/OverviewScreen";
+// Screens
 import { NotFoundScreen } from "./screens/NotFoundScreen";
 
 // Existing functional pages
@@ -49,10 +48,13 @@ export const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
-      { path: "/", element: <Navigate to="/overview" replace /> },
+      { path: "/", element: <Navigate to="/work" replace /> },
 
-      // New wireframe
-      { path: "/overview", element: <OverviewScreen /> },
+      // Primary work interface
+      { path: "/work", element: <WorkSurfaces /> },
+
+      // Backward compatibility redirects
+      { path: "/overview", element: <Navigate to="/work" replace /> },
 
       // Functional pages
       { path: "/loops", element: <Loops /> },
@@ -92,8 +94,8 @@ export const router = createBrowserRouter([
       { path: "/intakes/:intakeId", element: <IntakeDetail /> },
       { path: "/intakes/:intakeId/edit", element: <IntakeEdit /> },
 
-      // Work Surfaces
-      { path: "/work-surfaces", element: <WorkSurfaces /> },
+      // Work Surfaces (backward compatibility)
+      { path: "/work-surfaces", element: <Navigate to="/work" replace /> },
       { path: "/work-surfaces/new", element: <WorkSurfaceCompose /> },
       { path: "/work-surfaces/:workSurfaceId", element: <WorkSurfaceDetail /> },
 

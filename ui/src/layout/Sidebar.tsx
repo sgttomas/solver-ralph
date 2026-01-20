@@ -2,23 +2,10 @@ import { NavLink } from "react-router-dom";
 import styles from "./Sidebar.module.css";
 
 const items = [
-  { to: "/overview", label: "Overview" },
-  { to: "/agents", label: "Agents" },
-  { to: "/protocols", label: "Protocols" },
-  { to: "/oracles", label: "Oracles" },
-  { to: "/templates", label: "Templates" },
-  { to: "/workflows", label: "Workflows" },
-  { to: "/loops", label: "Loops" },
-  { to: "/intakes", label: "Intakes" },
-  { to: "/work-surfaces", label: "Work Surfaces" },
-  { to: "/references", label: "References" },
-  { to: "/prompts", label: "Prompts" },
-  { to: "/artifacts", label: "Artifacts" },
-  { to: "/approvals", label: "Approvals" },
-  { to: "/notes", label: "Notes" },
-  { to: "/staleness", label: "Staleness" },
-  { to: "/audit", label: "Audit Log" },
+  { to: "/work", label: "Work" },
+  { to: "/work-surfaces/new", label: "New Work" },
   { to: "/settings", label: "Settings" },
+  { to: "/audit", label: "Audit" },
 ];
 
 export function Sidebar() {

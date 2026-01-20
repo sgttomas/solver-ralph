@@ -237,7 +237,7 @@ export function WorkSurfaces(): JSX.Element {
                 {filteredWorkSurfaces.map((ws) => (
                   <tr
                     key={ws.work_surface_id}
-                    onClick={() => navigate(`/work-surfaces/${ws.work_surface_id}`)}
+                    onClick={() => navigate(`/work/${ws.work_surface_id}`)}
                     style={{ cursor: 'pointer' }}
                     className={styles.tableRowHover}
                   >
